@@ -25,13 +25,10 @@ def main():
     cache_path = os.path.join('dest', 'cache')
     resolve_dependencies(source_path, cache_path)
 
-    build_it(source_path, cache_path)
-
 
 def download_remote(remote, dest_dir='dest'):
-    # TODO: This, of course, only works for github right now.
     if remote['server'] == 'github.com':
-        url = 'https://api.github.com/repos/{repo}/tarball/{ref}'.format(**remote)
+        url = 'https://github.com/{repo}/archive/{ref}.tar.gz'.format(**remote)
     else:
         raise NotImplemented('{server} is not supported'.format(**remote))
     logging.debug('url is %s', url)
@@ -59,6 +56,7 @@ def expand_archive(archive_path, dest_dir):
 
     # Gihub's archive contains a subdir with repo name and commit ID, let's
     # grab that folder.
+    # TODO: This, of course, only works for github right now.
     for subdir in os.listdir(dest_dir):
         final_dest_dir = os.path.join(dest_dir, subdir)
         if os.path.isdir(final_dest_dir):
