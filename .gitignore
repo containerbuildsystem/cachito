@@ -103,5 +103,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Flask
+settings.cfg
+
 # Local application cache
 /dest

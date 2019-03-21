@@ -1,0 +1,2 @@
+recursive-include cachito/templates *
+recursive-include cachito/static *
