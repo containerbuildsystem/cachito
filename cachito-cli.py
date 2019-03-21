@@ -1,9 +1,9 @@
 #!/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 import logging
 import os
 import os.path
-import sys
 import tarfile
 
 import docker
@@ -30,7 +30,7 @@ def download_remote(remote, dest_dir='dest'):
     if remote['server'] == 'github.com':
         url = 'https://github.com/{repo}/archive/{ref}.tar.gz'.format(**remote)
     else:
-        raise NotImplemented('{server} is not supported'.format(**remote))
+        raise NotImplementedError('{server} is not supported'.format(**remote))
     logging.debug('url is %s', url)
 
     try:
