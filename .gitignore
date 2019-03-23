@@ -97,11 +97,17 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
+# VS Code settings
+.vscode
+
 # mkdocs documentation
 /site
 
 # mypy
 .mypy_cache/
+
+# Flask
+settings.py
 
 # Local application cache
 /dest
