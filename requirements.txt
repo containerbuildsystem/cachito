@@ -1,1 +1,4 @@
-flask
+Flask
+Flask-Migrate
+Flask-SQLAlchemy
+psycopg2-binary

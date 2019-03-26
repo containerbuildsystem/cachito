@@ -2,9 +2,11 @@
 import os
 
 from flask import Flask
+from flask_migrate import Migrate
 
 from cachito.web.splash import splash
 from cachito.web.api_v1 import api_v1
+from cachito.web import db
 
 
 def load_config(app):
@@ -41,6 +43,12 @@ def create_app(config_obj=None):
         app.config.from_object(config_obj)
     else:
         load_config(app)
+
+    # Initialize the database
+    db.init_app(app)
+    # Initialize the database migrations
+    migrations_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'migrations')
+    Migrate(app, db, directory=migrations_dir)
 
     app.register_blueprint(splash)
     app.register_blueprint(api_v1, url_prefix='/api/v1')
