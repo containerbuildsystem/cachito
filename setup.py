@@ -33,4 +33,12 @@ setup(
         'web': get_requirements('requirements.txt'),
         'workers': get_requirements('requirements-workers.txt'),
     },
+    classifiers=[
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+    ],
+    license="GPLv3+",
+    python_requires='>=3.5',
 )
