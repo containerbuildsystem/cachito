@@ -2,7 +2,7 @@
 import pytest
 
 
-from cachito.wsgi import create_app
+from cachito.web.wsgi import create_app
 
 
 @pytest.fixture(scope='session')

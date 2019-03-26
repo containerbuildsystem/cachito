@@ -1,2 +1,3 @@
-recursive-include cachito/templates *
-recursive-include cachito/static *
+recursive-include cachito/web/templates *
+recursive-include cachito/web/static *
+include requirements.txt requirements-workers.txt

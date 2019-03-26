@@ -31,4 +31,4 @@ For example, on Fedora:
 
 - to remove virtualenv and built distributions: `make clean`
 
-- to add more python dependencies: add to `install_requires` in `setup.py` and `requirements.txt`
+- to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`

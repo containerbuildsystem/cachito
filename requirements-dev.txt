@@ -1,3 +1,4 @@
 -rrequirements.txt
+-rrequirements-workers.txt
 
 pytest
