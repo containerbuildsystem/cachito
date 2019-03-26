@@ -13,7 +13,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     """The development Cachito Flask configuration."""
-    pass
+    SQLALCHEMY_TRACK_MODIFICATIONS = True
 
 
 class TestingConfig(DevelopmentConfig):
