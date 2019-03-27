@@ -2,7 +2,7 @@
 from flask import render_template, Blueprint
 
 
-splash = Blueprint('splash', __name__, static_folder='static', template_folder='template')
+splash = Blueprint('splash', __name__)
 
 
 @splash.route('/', methods=['GET'])

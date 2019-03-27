@@ -1,0 +1,5 @@
+-rrequirements.txt
+-rrequirements-workers.txt
+
+flake8
+pytest

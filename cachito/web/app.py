@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from flask import Flask
-from cachito.splash import splash
-from cachito.api_v1 import api_v1
+from cachito.web.splash import splash
+from cachito.web.api_v1 import api_v1
 
 
 # See app factory pattern:
