@@ -33,6 +33,9 @@ setup(
         'web': get_requirements('requirements.txt'),
         'workers': get_requirements('requirements-workers.txt'),
     },
+    entry_points={
+        'console_scripts': ['cachito=cachito.web.manage:cli'],
+    },
     classifiers=[
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
         'Programming Language :: Python :: 3.5',
