@@ -1,3 +1,4 @@
 recursive-include cachito/web/templates *
 recursive-include cachito/web/static *
+recursive-include cachito/web/migrations *
 include requirements.txt requirements-workers.txt LICENSE
