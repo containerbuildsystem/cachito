@@ -13,6 +13,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     """The development Cachito Flask configuration."""
+    SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://cachito:cachito@db:5432/cachito'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
 
 
