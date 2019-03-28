@@ -7,6 +7,7 @@ from flask_migrate import Migrate
 from cachito.web.splash import splash
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
+from cachito.workers.tasks import app as celery_app
 
 
 def load_config(app):
@@ -49,6 +50,10 @@ def create_app(config_obj=None):
     # Initialize the database migrations
     migrations_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'migrations')
     Migrate(app, db, directory=migrations_dir)
+
+    # Configure Celery with the broker URL defined in Flask
+    if app.config.get('CELERY_BROKER_URL'):
+        celery_app.conf.broker_url = app.config['CELERY_BROKER_URL']
 
     app.register_blueprint(splash)
     app.register_blueprint(api_v1, url_prefix='/api/v1')
