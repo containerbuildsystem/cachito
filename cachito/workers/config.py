@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+import os
+
+
+class Config(object):
+    """The base Cachito Celery configuration."""
+    # Don't use the default 'celery' queue
+    task_default_queue = 'cachito'
+
+
+class ProductionConfig(Config):
+    """The production Cachito Celery configuration."""
+
+
+class DevelopmentConfig(Config):
+    """The development Cachito Celery configuration."""
+
+
+class TestingConfig(DevelopmentConfig):
+    """The testing Cachito Celery configuration."""
+
+
+def configure_celery(celery_app):
+    """
+    Configure the Celery application instance.
+
+    :param celery.Celery celery: the Celery application instance to configure
+    """
+    config = ProductionConfig
+    prod_config_file_path = '/etc/cachito/celery.py'
+    if os.getenv('CACHITO_DEV', '').lower() == 'true':
+        config = DevelopmentConfig
+    elif os.getenv('CACHITO_TESTING', 'false').lower() == 'true':
+        config = TestingConfig
+    elif os.path.isfile(prod_config_file_path):
+        # Celery doesn't support importing config files that aren't part of a Python path. This is
+        # a hack taken from flask.config.from_pyfile.
+        _user_config = {}
+        with open(prod_config_file_path, mode='rb') as config_file:
+            exec(compile(config_file.read(), prod_config_file_path, 'exec'), _user_config)
+
+        # Celery doesn't support configuring from multiple objects, so this is a way for
+        # the configuration in prod_config_file_path to override the defaults in ProductionConfig
+        config = ProductionConfig()
+        for key, value in _user_config.items():
+            # The _user_config dictionary will contain the __builtins__ key, which we need to skip
+            if not key.startswith('__'):
+                setattr(config, key, value)
+
+    celery_app.config_from_object(config)
