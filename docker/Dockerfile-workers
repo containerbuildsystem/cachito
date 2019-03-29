@@ -1,0 +1,14 @@
+FROM fedora:29
+LABEL maintainer="Factory 2.0"
+
+WORKDIR /src
+RUN dnf -y install \
+    --setopt=deltarpm=0 \
+    --setopt=install_weak_deps=false \
+    --setopt=tsflags=nodocs \
+    python3-celery \
+    && dnf clean all
+COPY . .
+RUN pip3 install . --no-deps
+EXPOSE 8080
+CMD ["/bin/celery-3", "-A", "cachito.workers.tasks", "worker", "--loglevel=info"]
