@@ -16,7 +16,7 @@ def load_config(app):
     :param flask.Flask app: a Flask application object
     """
     config_file = None
-    if os.getenv('FLASK_ENV') == 'development':
+    if os.getenv('CACHITO_DEV', '').lower() == 'true':
         default_config_obj = 'cachito.web.config.DevelopmentConfig'
     else:
         default_config_obj = 'cachito.web.config.ProductionConfig'
