@@ -1,1 +1,1 @@
-# TODO: Add workers requirements here
+celery

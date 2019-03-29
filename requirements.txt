@@ -1,3 +1,4 @@
+celery
 Flask
 Flask-Migrate
 Flask-SQLAlchemy
