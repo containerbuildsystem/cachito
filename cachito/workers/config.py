@@ -14,6 +14,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     """The development Cachito Celery configuration."""
+    broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
 
 
 class TestingConfig(DevelopmentConfig):
