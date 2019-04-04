@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+TEST_DB_FILE = '/tmp/cachito.db'
+
 
 class Config(object):
     """The base Cachito Flask configuration."""
@@ -19,4 +21,10 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(DevelopmentConfig):
     """The testing Cachito Flask configuration."""
-    pass
+    # IMPORTANT: don't use in-memory sqlite. Alembic migrations will create a new
+    # connection producing a new instance of the database which is deleted immediately
+    # after the migration completes...
+    #   https://github.com/miguelgrinberg/Flask-Migrate/issues/153
+    SQLALCHEMY_DATABASE_URI = f'sqlite:///{TEST_DB_FILE}'
+    DEBUG = True
+    TESTING = True
