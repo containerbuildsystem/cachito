@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
+import logging
 
 
 class Config(object):
@@ -7,6 +8,7 @@ class Config(object):
 
     # Don't use the default 'celery' queue
     task_default_queue = 'cachito'
+    cachito_log_level = 'INFO'
 
 
 class ProductionConfig(Config):
@@ -17,6 +19,7 @@ class DevelopmentConfig(Config):
     """The development Cachito Celery configuration."""
 
     broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
+    cachito_log_level = 'DEBUG'
 
 
 class TestingConfig(DevelopmentConfig):
@@ -51,3 +54,4 @@ def configure_celery(celery_app):
                 setattr(config, key, value)
 
     celery_app.config_from_object(config)
+    logging.getLogger('cachito.workers').setLevel(celery_app.conf.cachito_log_level)
