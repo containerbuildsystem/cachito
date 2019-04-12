@@ -58,6 +58,7 @@ services:
       CACHITO_DEV: 'true'
     volumes:
       - ./:/src:z
+      - /tmp/cachito-archives:/tmp/cachito-archives:z
     depends_on:
       - cachito-api
       - rabbitmq
