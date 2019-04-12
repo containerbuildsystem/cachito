@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
+import tempfile
 import logging
+
+from cachito.errors import ConfigError
 
 
 class Config(object):
@@ -19,6 +22,7 @@ class DevelopmentConfig(Config):
     """The development Cachito Celery configuration."""
 
     broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
+    cachito_archives_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     cachito_log_level = 'DEBUG'
 
 
@@ -36,6 +40,9 @@ def configure_celery(celery_app):
     prod_config_file_path = '/etc/cachito/celery.py'
     if os.getenv('CACHITO_DEV', '').lower() == 'true':
         config = DevelopmentConfig
+        # When in development mode, create the archives directory for the user
+        if not os.path.isdir(config.cachito_archives_dir):
+            os.mkdir(config.cachito_archives_dir)
     elif os.getenv('CACHITO_TESTING', 'false').lower() == 'true':
         config = TestingConfig
     elif os.path.isfile(prod_config_file_path):
@@ -53,5 +60,19 @@ def configure_celery(celery_app):
             if not key.startswith('__'):
                 setattr(config, key, value)
 
-    celery_app.config_from_object(config)
+    celery_app.config_from_object(config, force=True)
     logging.getLogger('cachito.workers').setLevel(celery_app.conf.cachito_log_level)
+
+
+def validate_celery_config(conf, **kwargs):
+    """
+    Perform basic validatation on the Celery configuration when the worker is initialized.
+
+    :param celery.app.utils.Settings conf: the Celery application configuration to validate
+    :raises ConfigError: if the configuration is invalid
+    """
+    archives_dir = conf.get('cachito_archives_dir')
+    if archives_dir is None or not os.path.isdir(archives_dir):
+        raise ConfigError(
+            'The configuration "cachito_archives_dir" must be set to an existing directory'
+        )

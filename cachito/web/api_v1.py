@@ -59,8 +59,8 @@ def create_request():
     db.session.add(request)
     db.session.commit()
 
-    # TODO: Create celery task.
-
+    # TODO: Validate the git ref
+    tasks.fetch_app_source.delay(request.git_repo, request.git_ref)
     return flask.jsonify(request.to_json()), 201
 
 

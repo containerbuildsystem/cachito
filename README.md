@@ -32,3 +32,14 @@ For example, on Fedora:
 - to remove virtualenv and built distributions: `make clean`
 
 - to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`
+
+## Configuring Workers
+
+To configure a Cachito Celery worker, create a Python file at `/etc/cachito/celery.py`. Any
+variables set in this file will be applied to the Celery worker when running in production mode
+(default).
+
+Custom configuration for the Celery workers are listed below:
+
+* `cachito_archives_dir` - the directory for long-term storage of app source archives. This
+    configuration is required, and the directory must already exist and be writeable.
