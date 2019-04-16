@@ -36,6 +36,19 @@ def test_create_and_fetch_request(mock_fetch, client, db):
     assert created_request == fetched_request
 
 
+def test_create_and_fetch_request_invalid_ref(client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'not-a-ref',
+        'pkg_managers': ['gomod']
+    }
+
+    rv = client.post('/api/v1/requests', json=data)
+    assert rv.status_code == 400
+    error = json.loads(rv.data.decode('utf-8'))
+    assert error['error'] == 'The "ref" parameter must be a 40 character hex string'
+
+
 def test_missing_request(client, db):
     rv = client.get('/api/v1/requests/1')
     assert rv.status_code == 404
