@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import re
+
 import flask
 
 from cachito.errors import ValidationError
@@ -59,7 +61,9 @@ def create_request():
     db.session.add(request)
     db.session.commit()
 
-    # TODO: Validate the git ref
+    if not re.match(r'^[a-f0-9]{40}', request.ref):
+        raise ValidationError('The "ref" parameter must be a 40 character hex string')
+
     tasks.fetch_app_source.delay(request.repo, request.ref)
     return flask.jsonify(request.to_json()), 201
 
