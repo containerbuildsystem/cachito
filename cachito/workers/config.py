@@ -4,6 +4,7 @@ import os
 
 class Config(object):
     """The base Cachito Celery configuration."""
+
     # Don't use the default 'celery' queue
     task_default_queue = 'cachito'
 
@@ -14,6 +15,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     """The development Cachito Celery configuration."""
+
     broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
 
 
