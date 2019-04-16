@@ -15,8 +15,8 @@ request_pkg_manager_table = db.Table(
 class Request(db.Model):
     """A Cachito user request."""
     id = db.Column(db.Integer, primary_key=True)
-    git_repo = db.Column(db.String, nullable=False)
-    git_ref = db.Column(db.String, nullable=False)
+    repo = db.Column(db.String, nullable=False)
+    ref = db.Column(db.String, nullable=False)
     pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
                                    backref='requests')
 
@@ -27,15 +27,15 @@ class Request(db.Model):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]
         return {
             'id': self.id,
-            'git_repo': self.git_repo,
-            'git_ref': self.git_ref,
+            'repo': self.repo,
+            'ref': self.ref,
             'pkg_managers': pkg_managers,
         }
 
     @classmethod
     def from_json(cls, kwargs):
         # Validate all required parameters are present
-        required_params = {'git_repo', 'git_ref', 'pkg_managers'}
+        required_params = {'repo', 'ref', 'pkg_managers'}
         missing_params = required_params - set(kwargs.keys())
         if missing_params:
             raise ValidationError('Missing required parameter(s): {}'

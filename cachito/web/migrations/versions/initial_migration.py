@@ -26,8 +26,8 @@ def upgrade():
     op.create_table(
         'request',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('git_repo', sa.String(), nullable=False),
-        sa.Column('git_ref', sa.String(), nullable=False),
+        sa.Column('repo', sa.String(), nullable=False),
+        sa.Column('ref', sa.String(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )
 

@@ -13,8 +13,8 @@ def test_ping(client):
 @mock.patch('cachito.web.api_v1.tasks.fetch_app_source.delay')
 def test_create_and_fetch_request(mock_fetch, client, db):
     data = {
-        'git_repo': 'https://github.com/release-engineering/retrodep.git',
-        'git_ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': ['gomod']
     }
 
@@ -49,15 +49,15 @@ def test_malformed_request_id(client, db):
 
 
 @pytest.mark.parametrize('removed_params', (
-    ('git_repo', 'git_ref', 'pkg_managers'),
-    ('git_repo',),
-    ('git_ref',),
+    ('repo', 'ref', 'pkg_managers'),
+    ('repo',),
+    ('ref',),
     ('pkg_managers',),
 ))
 def test_validate_required_params(client, db, removed_params):
     data = {
-        'git_repo': 'https://github.com/release-engineering/retrodep.git',
-        'git_ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': ['gomod']
     }
     for removed_param in removed_params:
@@ -73,8 +73,8 @@ def test_validate_required_params(client, db, removed_params):
 
 def test_validate_extraneous_params(client, db):
     data = {
-        'git_repo': 'https://github.com/release-engineering/retrodep.git',
-        'git_ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': ['gomod'],
         'spam': 'maps',
     }

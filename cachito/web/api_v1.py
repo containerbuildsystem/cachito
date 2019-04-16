@@ -45,8 +45,8 @@ def create_request():
     """
     Submit a request to resolve and cache the given source code and its dependencies.
 
-    :param str git_repo: the URL for the git repository
-    :param str git_ref: the git reference to fetch
+    :param str repo: the URL to the SCM repository
+    :param str ref: the SCM reference to fetch
     :param list<str> pkg_managers: list of package managers to be used for resolving dependencies
     :rtype: flask.Response
     :raise ValidationError: if required parameters are not supplied
@@ -60,7 +60,7 @@ def create_request():
     db.session.commit()
 
     # TODO: Validate the git ref
-    tasks.fetch_app_source.delay(request.git_repo, request.git_ref)
+    tasks.fetch_app_source.delay(request.repo, request.ref)
     return flask.jsonify(request.to_json()), 201
 
 
