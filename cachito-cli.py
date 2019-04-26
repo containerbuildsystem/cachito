@@ -70,7 +70,7 @@ def resolve_dependencies(source_path, cache_path):
     client = docker.from_env()
     output = client.containers.run(
         img,
-        command='go list',
+        command='go list -m all',
         tty=True,
         remove=True,
         volumes={
