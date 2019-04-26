@@ -76,3 +76,9 @@ def validate_celery_config(conf, **kwargs):
         raise ConfigError(
             'The configuration "cachito_archives_dir" must be set to an existing directory'
         )
+
+
+def get_worker_config():
+    # Import this here to avoid a circular import
+    import cachito.workers.tasks
+    return cachito.workers.tasks.app.conf

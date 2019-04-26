@@ -11,6 +11,7 @@ import subprocess
 import requests
 
 from cachito.errors import CachitoError
+from cachito.workers.config import get_worker_config
 
 
 log = logging.getLogger(__name__)
@@ -58,11 +59,8 @@ class SCM(ABC):
         :rtype: str
         """
         if not self._archives_dir:
-            # Import this here to avoid a circular import
-            import cachito.workers.tasks
-
             self._archives_dir = os.path.abspath(
-                cachito.workers.tasks.app.conf.cachito_archives_dir
+                get_worker_config().cachito_archives_dir
             )
             log.debug('Using "%s" as the archives directory', self._archives_dir)
 
