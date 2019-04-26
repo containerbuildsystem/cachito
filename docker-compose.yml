@@ -18,6 +18,16 @@ services:
       # The RabbitMQ management console
       - 8081:15672
 
+  athens:
+    image: gomods/athens:v0.3.1
+    environment:
+      ATHENS_DISK_STORAGE_ROOT: /var/lib/athens
+      ATHENS_STORAGE_TYPE: disk
+    volumes:
+      - /tmp/athens-storage:/var/lib/athens:z
+    ports:
+      - 3000:3000
+
   cachito-api:
     build:
       context: .

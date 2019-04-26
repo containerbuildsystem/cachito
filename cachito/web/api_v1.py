@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import re
 
+from celery import chain
 import flask
 
 from cachito.errors import ValidationError
@@ -64,7 +65,12 @@ def create_request():
     if not re.match(r'^[a-f0-9]{40}', request.ref):
         raise ValidationError('The "ref" parameter must be a 40 character hex string')
 
-    tasks.fetch_app_source.delay(request.repo, request.ref)
+    # Chain tasks
+    chain(
+        tasks.fetch_app_source.s(request.repo, request.ref),
+        tasks.fetch_gomod_source.s()
+    ).delay()
+
     return flask.jsonify(request.to_json()), 201
 
 

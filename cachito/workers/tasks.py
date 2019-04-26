@@ -6,6 +6,7 @@ from celery.signals import celeryd_init
 from requests import Timeout
 
 from cachito.workers.config import configure_celery, validate_celery_config
+from cachito.workers.pkg_manager import resolve_gomod_deps
 from cachito.workers.scm import Git
 from cachito.errors import CachitoError
 
@@ -42,3 +43,22 @@ def fetch_app_source(url, ref):
         # TODO: Post a failure status back to the API. This could also be converted to a decorator.
         log.exception('Failed to fetch the source from the URL "%s" and reference "%s"', url, ref)
         raise
+    return scm.archive_path
+
+
+@app.task
+def fetch_gomod_source(archive_path):
+    """
+    Resolve and fetch gomod dependencies for given app source archive.
+
+    :param str archive_path: the full path to the application source code
+    """
+    log.info('Fetching gomod dependencies for "%s"', archive_path)
+    try:
+        deps = resolve_gomod_deps(archive_path)
+    except CachitoError:
+        # TODO: Post a failure status back to the API. This could also be converted to a decorator.
+        log.exception('Failed to fetch gomod dependencies for "%s"', archive_path)
+        raise
+    # TODO: Store list of dependencies in DB via the API.
+    return deps
