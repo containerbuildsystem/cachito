@@ -104,7 +104,7 @@ class SCM(ABC):
                 'Recreating the archive with the correct directory structure at "%s"',
                 self.archive_path,
             )
-            with tarfile.open(self.archive_path, 'w') as archive:
+            with tarfile.open(self.archive_path, 'w:gz') as archive:
                 archive.add(extracted_src, 'app')
 
     @abstractmethod
