@@ -6,6 +6,7 @@ RUN dnf -y install \
     --setopt=deltarpm=0 \
     --setopt=install_weak_deps=false \
     --setopt=tsflags=nodocs \
+    golang \
     git-core \
     python3-celery \
     python3-requests \

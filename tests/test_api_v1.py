@@ -4,14 +4,16 @@ from unittest import mock
 
 import pytest
 
+from cachito.workers.tasks import fetch_app_source, fetch_gomod_source
+
 
 def test_ping(client):
     rv = client.get('/api/v1/ping')
     assert json.loads(rv.data.decode('utf-8')) is True
 
 
-@mock.patch('cachito.web.api_v1.tasks.fetch_app_source.delay')
-def test_create_and_fetch_request(mock_fetch, client, db):
+@mock.patch('cachito.web.api_v1.chain')
+def test_create_and_fetch_request(mock_chain, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -24,9 +26,12 @@ def test_create_and_fetch_request(mock_fetch, client, db):
     for key, expected_value in data.items():
         assert expected_value == created_request[key]
 
-    mock_fetch.assert_called_once_with(
-        'https://github.com/release-engineering/retrodep.git',
-        'c50b93a32df1c9d700e3e80996845bc2e13be848')
+    mock_chain.assert_called_once_with(
+        fetch_app_source.s(
+            'https://github.com/release-engineering/retrodep.git',
+            'c50b93a32df1c9d700e3e80996845bc2e13be848'),
+        fetch_gomod_source.s()
+    )
 
     request_id = created_request['id']
     rv = client.get('/api/v1/requests/{}'.format(request_id))

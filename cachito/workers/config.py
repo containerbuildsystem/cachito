@@ -22,6 +22,7 @@ class DevelopmentConfig(Config):
     """The development Cachito Celery configuration."""
 
     broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
+    athens_url = 'http://athens:3000'
     cachito_archives_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     cachito_log_level = 'DEBUG'
 
