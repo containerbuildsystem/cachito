@@ -119,6 +119,8 @@ def test_clone_and_archive(mock_archive_path, mock_popen, mock_temp_dir):
                     '/tmp/cachito-temp/repo',
                 ],
                 stderr=subprocess.PIPE,
+                universal_newlines=True,
+                encoding='utf-8'
             ),
             mock.call().communicate(),
             mock.call(
@@ -133,6 +135,8 @@ def test_clone_and_archive(mock_archive_path, mock_popen, mock_temp_dir):
                     'c50b93a32df1c9d700e3e80996845bc2e13be848',
                 ],
                 stderr=subprocess.PIPE,
+                universal_newlines=True,
+                encoding='utf-8'
             ),
             mock.call().communicate(),
         ]
@@ -156,8 +160,8 @@ def test_clone_and_archive_clone_failed(mock_popen, mock_temp_dir):
 @pytest.mark.parametrize(
     'archive_error, expected_error',
     (
-        (b'some error', 'An unexpected error was encountered when downloading the source'),
-        (b'Not a valid object name', 'An invalid reference was provided'),
+        ('some error', 'An unexpected error was encountered when downloading the source'),
+        ('Not a valid object name', 'An invalid reference was provided'),
     ),
 )
 @mock.patch('tempfile.TemporaryDirectory')
