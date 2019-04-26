@@ -134,10 +134,10 @@ class Git(SCM):
 
             cmd = ['git', 'clone', '-q', '--no-checkout', self.url, clone_path]
             log.debug('Cloning the repo with "%s"', ' '.join(cmd))
-            git_clone = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+            git_clone = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True,
+                                         encoding='utf-8')
             _, error_output = git_clone.communicate()
             if git_clone.returncode != 0:
-                error_output = error_output.decode('utf-8')
                 log.error(
                     'Cloning the git repository with "%s" failed with: %s',
                     ' '.join(cmd),
@@ -156,10 +156,10 @@ class Git(SCM):
                 self.ref,
             ]
             log.debug('Creating the archive with "%s"', ' '.join(cmd))
-            git_archive = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+            git_archive = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True,
+                                           encoding='utf-8')
             _, error_output = git_archive.communicate()
             if git_archive.returncode != 0:
-                error_output = error_output.decode('utf-8')
                 log.error(
                     'Archiving the git repository with "%s" failed with: %s',
                     ' '.join(cmd),
