@@ -134,14 +134,13 @@ class Git(SCM):
 
             cmd = ['git', 'clone', '-q', '--no-checkout', self.url, clone_path]
             log.debug('Cloning the repo with "%s"', ' '.join(cmd))
-            git_clone = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True,
-                                         encoding='utf-8')
-            _, error_output = git_clone.communicate()
+            git_clone = subprocess.run(
+                cmd, capture_output=True, universal_newlines=True, encoding='utf-8')
             if git_clone.returncode != 0:
                 log.error(
                     'Cloning the git repository with "%s" failed with: %s',
                     ' '.join(cmd),
-                    error_output,
+                    git_clone.stderr,
                 )
                 raise CachitoError('Cloning the git repository failed')
 
@@ -156,16 +155,15 @@ class Git(SCM):
                 self.ref,
             ]
             log.debug('Creating the archive with "%s"', ' '.join(cmd))
-            git_archive = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True,
-                                           encoding='utf-8')
-            _, error_output = git_archive.communicate()
+            git_archive = subprocess.run(
+                cmd, capture_output=True, universal_newlines=True, encoding='utf-8')
             if git_archive.returncode != 0:
                 log.error(
                     'Archiving the git repository with "%s" failed with: %s',
                     ' '.join(cmd),
-                    error_output,
+                    git_archive.stderr,
                 )
-                if 'Not a valid object name' in error_output:
+                if 'Not a valid object name' in git_archive.stderr:
                     error = 'An invalid reference was provided'
                 # If git archive failed but still created the archive, then clean it up
                 if os.path.exists(self.archive_path):
