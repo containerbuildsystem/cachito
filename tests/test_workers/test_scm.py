@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from unittest import mock
-import subprocess
 
 import pytest
 
@@ -90,14 +89,13 @@ def test_download_source_download_failed(mock_requests, mock_temp_dir):
 
 
 @mock.patch('tempfile.TemporaryDirectory')
-@mock.patch('subprocess.Popen')
+@mock.patch('subprocess.run')
 @mock.patch('cachito.workers.scm.Git.archive_path', new_callable=mock.PropertyMock)
-def test_clone_and_archive(mock_archive_path, mock_popen, mock_temp_dir):
+def test_clone_and_archive(mock_archive_path, mock_run, mock_temp_dir):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'
     # Mock the git calls
-    mock_popen.return_value.communicate.return_value = (None, None)
-    mock_popen.return_value.returncode = 0
+    mock_run.return_value.returncode = 0
     # Mock the Git.archives_dir property
     mock_archive_path.return_value = archive_path
 
@@ -107,7 +105,7 @@ def test_clone_and_archive(mock_archive_path, mock_popen, mock_temp_dir):
     # Verify the tempfile.TemporaryDirectory context manager was used
     mock_temp_dir.return_value.__enter__.assert_called_once()
     # Verify the git calls were correct
-    mock_popen.assert_has_calls(
+    mock_run.assert_has_calls(
         [
             mock.call(
                 [
@@ -118,11 +116,10 @@ def test_clone_and_archive(mock_archive_path, mock_popen, mock_temp_dir):
                     'https://github.com/release-engineering/retrodep.git',
                     '/tmp/cachito-temp/repo',
                 ],
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 universal_newlines=True,
                 encoding='utf-8'
             ),
-            mock.call().communicate(),
             mock.call(
                 [
                     'git',
@@ -134,23 +131,22 @@ def test_clone_and_archive(mock_archive_path, mock_popen, mock_temp_dir):
                     '--prefix=app/',
                     'c50b93a32df1c9d700e3e80996845bc2e13be848',
                 ],
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 universal_newlines=True,
                 encoding='utf-8'
             ),
-            mock.call().communicate(),
         ]
     )
 
 
 @mock.patch('tempfile.TemporaryDirectory')
-@mock.patch('subprocess.Popen')
-def test_clone_and_archive_clone_failed(mock_popen, mock_temp_dir):
+@mock.patch('subprocess.run')
+def test_clone_and_archive_clone_failed(mock_run, mock_temp_dir):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'
     # Mock the git clone call
-    mock_popen.return_value.communicate.return_value = (None, b'failure')
-    mock_popen.return_value.returncode = 1
+    mock_run.return_value.returncode = 1
+    mock_run.return_value.stderr = 'failure'
 
     git = scm.Git(url, ref)
     with pytest.raises(CachitoError, match='Cloning the git repository failed'):
@@ -165,21 +161,20 @@ def test_clone_and_archive_clone_failed(mock_popen, mock_temp_dir):
     ),
 )
 @mock.patch('tempfile.TemporaryDirectory')
-@mock.patch('subprocess.Popen')
+@mock.patch('subprocess.run')
 @mock.patch('cachito.workers.scm.Git.archive_path', new_callable=mock.PropertyMock)
 def test_clone_and_archive_git_archive_failed(
-    mock_archive_path, mock_popen, mock_temp_dir, archive_error, expected_error
+    mock_archive_path, mock_run, mock_temp_dir, archive_error, expected_error
 ):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'
     # Mock the git calls
     mock_clone = mock.Mock()
-    mock_clone.communicate.return_value = (None, None)
     mock_clone.returncode = 0
     mock_archive = mock.Mock()
-    mock_archive.communicate.return_value = (None, archive_error)
     mock_archive.returncode = 1
-    mock_popen.side_effect = [mock_clone, mock_archive]
+    mock_archive.stderr = archive_error
+    mock_run.side_effect = [mock_clone, mock_archive]
     # Mock the Git.archives_dir property
     mock_archive_path.return_value = archive_path
 

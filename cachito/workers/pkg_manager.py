@@ -30,10 +30,9 @@ def resolve_gomod_deps(archive_path):
         }
         cmd = ('go', 'list', '-m', 'all')
 
-        go_list = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   universal_newlines=True, encoding='utf-8', env=env,
-                                   cwd=source_dir)
-        output, error_output = go_list.communicate()
+        go_list = subprocess.run(
+            cmd, capture_output=True, universal_newlines=True, encoding='utf-8', env=env,
+            cwd=source_dir)
         if go_list.returncode != 0:
             log.error(
                 'Fetching gomod dependencies with "%s" failed with: %s',
@@ -43,7 +42,7 @@ def resolve_gomod_deps(archive_path):
             raise CachitoError('Fetching gomod dependencies failed')
 
         deps = []
-        for line in output.splitlines():
+        for line in go_list.stdout.splitlines():
             parts = line.split(' ')
             if len(parts) == 1:
                 # This is the application itself, not a dependency

@@ -55,10 +55,10 @@ def make_expected_output():
 
 
 @mock.patch('tempfile.TemporaryDirectory')
-@mock.patch('subprocess.Popen')
+@mock.patch('subprocess.run')
 @mock.patch('tarfile.open')
 def test_resolve_gomod_deps(
-    mock_tarfile_open, mock_popen, mock_temp_dir, tmpdir
+    mock_tarfile_open, mock_run, mock_temp_dir, tmpdir
 ):
     archive_path = '/this/is/path/to/archive.tar.gz'
     # Mock the tempfile.TemporaryDirectory context manager
@@ -67,8 +67,8 @@ def test_resolve_gomod_deps(
     # Mock the "go list" call
     output = mock_cmd_output
 
-    mock_popen.return_value.communicate.return_value = (output, '')
-    mock_popen.return_value.returncode = 0
+    mock_run.return_value.returncode = 0
+    mock_run.return_value.stdout = output
 
     # Mock the opening of the tar file containing application source code
     mock_final_tarfile = mock.Mock()
@@ -83,17 +83,16 @@ def test_resolve_gomod_deps(
 
 
 @mock.patch('tempfile.TemporaryDirectory')
-@mock.patch('subprocess.Popen')
+@mock.patch('subprocess.run')
 @mock.patch('tarfile.open')
 def test_go_list_cmd_failure(
-    mock_tarfile_open, mock_popen, mock_temp_dir, tmpdir
+    mock_tarfile_open, mock_run, mock_temp_dir, tmpdir
 ):
     archive_path = '/this/is/path/to/archive.tar.gz'
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
 
-    mock_popen.return_value.communicate.return_value = ('', '')
-    mock_popen.return_value.returncode = 1
+    mock_run.return_value.returncode = 1
 
     # Mock the opening of the tar file containing application source code
     mock_final_tarfile = mock.Mock()
