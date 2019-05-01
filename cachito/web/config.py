@@ -7,7 +7,7 @@ TEST_DB_FILE = os.path.join(tempfile.gettempdir(), 'cachito.db')
 
 class Config(object):
     """The base Cachito Flask configuration."""
-    pass
+    CACHITO_WAIT_TIMEOUT = 120  # Seconds
 
 
 class ProductionConfig(Config):

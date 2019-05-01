@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import io
 import json
+import os
+import tarfile
 from unittest import mock
 
 import pytest
@@ -58,6 +61,9 @@ def test_missing_request(client, db):
     rv = client.get('/api/v1/requests/1')
     assert rv.status_code == 404
 
+    rv = client.get('/api/v1/requests/1/download')
+    assert rv.status_code == 404
+
 
 def test_malformed_request_id(client, db):
     rv = client.get('/api/v1/requests/spam')
@@ -102,3 +108,66 @@ def test_validate_extraneous_params(client, db):
     error_msg = json.loads(rv.data.decode('utf-8'))['error']
     assert 'invalid keyword argument' in error_msg
     assert 'spam' in error_msg
+
+
+@mock.patch('tempfile.TemporaryDirectory')
+@mock.patch('cachito.web.api_v1.Request')
+@mock.patch('cachito.web.api_v1.chain')
+def test_download_archive(
+    mock_chain, mock_request, mock_temp_dir, client, db, app, tmpdir
+):
+    shared_volume = tmpdir.mkdir('shared')
+    shared_workdir = shared_volume.mkdir('ephemeral')
+
+    mock_temp_dir.return_value.__enter__.return_value = str(shared_workdir)
+
+    app_archive_contents = {
+        'app/spam.go': b'Spam mapS',
+        'app/ham.go': b'Ham maH',
+    }
+
+    deps_archive_contents = {
+        'gomod/pkg/mod/cache/download/server.com/dep1/@v/dep1.zip': b'dep1 archive',
+        'gomod/pkg/mod/cache/download/server.com/dep2/@v/dep2.zip': b'dep2 archive',
+    }
+
+    def chain_side_effect(*args, **kwargs):
+        # Create mocked application source archive
+        app_archive_path = shared_workdir.join('app.tar.gz')
+        with tarfile.open(app_archive_path, mode='w:gz') as app_archive:
+            for name, data in app_archive_contents.items():
+                fileobj = io.BytesIO(data)
+                tarinfo = tarfile.TarInfo(name)
+                tarinfo.size = len(fileobj.getvalue())
+                app_archive.addfile(tarinfo, fileobj=fileobj)
+
+        # Create mocked dependencies cache
+        deps_dir = shared_workdir.mkdir('deps')
+        for name, data in deps_archive_contents.items():
+            path = deps_dir.join(name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, 'wb').write(data)
+
+        return mock.Mock()
+
+    mock_chain.side_effect = chain_side_effect
+
+    with mock.patch.dict(app.config, {'CACHITO_SHARED_DIR': str(shared_volume)}):
+        rv = client.get('/api/v1/requests/1/download')
+
+    # Verify chain was called correctly.
+    mock_chain.assert_called_once_with(
+        fetch_app_source.s(
+            mock_request.query.get_or_404().repo,
+            mock_request.query.get_or_404().ref,
+            copy_cache_to='ephemeral/app.tar.gz',
+        ),
+        fetch_gomod_source.s(copy_cache_to='ephemeral/deps')
+    )
+
+    # Verify contents of downloaded archive
+    with tarfile.open(fileobj=io.BytesIO(rv.data), mode='r:*') as response_archive:
+        for expected_member in list(app_archive_contents.keys()):
+            response_archive.getmember(expected_member)
+        for expected_member in list(deps_archive_contents.keys()):
+            response_archive.getmember(os.path.join('deps', expected_member))
