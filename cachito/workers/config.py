@@ -26,6 +26,9 @@ class DevelopmentConfig(Config):
     cachito_archives_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     cachito_log_level = 'DEBUG'
 
+    result_backend = 'rpc'
+    result_persistent = True
+
 
 class TestingConfig(DevelopmentConfig):
     """The testing Cachito Celery configuration."""
