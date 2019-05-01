@@ -43,3 +43,15 @@ Custom configuration for the Celery workers are listed below:
 
 * `cachito_archives_dir` - the directory for long-term storage of app source archives. This
     configuration is required, and the directory must already exist and be writeable.
+* `cachito_shared_dir` - the directory for short-term storage of bundled source archives. This
+    configuration is required, and the directory must already exist and be writeable. The
+    underlying volume must also be available in the API.
+
+## Configuring the API
+
+Custom configuration for the API:
+
+* `CACHITO_WAIT_TIMEOUT` - the timeout used for waiting for a synchronous task to complete.
+* `CACHITO_SHARED_DIR` - the directory for short-term storage of bundled source archives. This
+    configuration is required, and the directory must already exist and be writeable. The
+    underlying volume must also be available in the workers.
