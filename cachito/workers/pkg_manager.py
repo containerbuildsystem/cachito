@@ -65,6 +65,6 @@ def _extract_app_src(archive_path, parent_dir):
     :returns: the absolute path of the extracted application source code
     :rtype: str
     """
-    with tarfile.open(archive_path, 'r:gz') as archive:
+    with tarfile.open(archive_path, 'r:*') as archive:
         archive.extractall(parent_dir)
     return os.path.join(parent_dir, 'app')
