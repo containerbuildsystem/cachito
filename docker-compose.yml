@@ -47,6 +47,11 @@ services:
       CACHITO_DEV: 'true'
     volumes:
       - ./:/src:z
+      - /tmp/cachito-shared:/tmp/cachito-shared:z
+    # This is needed in order to allow cleaning up a temporary tarball
+    # which is populated by the worker container. In an OpenShift environment
+    # this is not needed.
+    privileged: true
     depends_on:
       - db
     ports:
@@ -69,6 +74,7 @@ services:
     volumes:
       - ./:/src:z
       - /tmp/cachito-archives:/tmp/cachito-archives:z
+      - /tmp/cachito-shared:/tmp/cachito-shared:z
     depends_on:
       - cachito-api
       - rabbitmq

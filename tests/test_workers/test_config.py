@@ -36,8 +36,11 @@ def test_configure_celery_with_classes_and_files(mock_open, mock_isfile, mock_ge
 def test_validate_celery_config(mock_isdir):
     celery_app = celery.Celery()
     celery_app.conf.cachito_archives_dir = '/tmp/some-path'
+    celery_app.conf.cachito_shared_dir = '/tmp/some-other-path'
     validate_celery_config(celery_app.conf)
-    mock_isdir.assert_called_once_with(celery_app.conf.cachito_archives_dir)
+    assert mock_isdir.call_count == 2
+    mock_isdir.assert_any_call(celery_app.conf.cachito_shared_dir)
+    mock_isdir.assert_any_call(celery_app.conf.cachito_archives_dir)
 
 
 def test_validate_celery_config_failure():

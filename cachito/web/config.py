@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
+import tempfile
 
-TEST_DB_FILE = '/tmp/cachito.db'
+TEST_DB_FILE = os.path.join(tempfile.gettempdir(), 'cachito.db')
 
 
 class Config(object):
@@ -17,6 +19,7 @@ class DevelopmentConfig(Config):
     """The development Cachito Flask configuration."""
     SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://cachito:cachito@db:5432/cachito'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
+    CACHITO_SHARED_DIR = os.path.join(tempfile.gettempdir(), 'cachito-shared')
 
 
 class TestingConfig(DevelopmentConfig):
