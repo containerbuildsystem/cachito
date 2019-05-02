@@ -67,9 +67,7 @@ def test_missing_request(client, db):
 
 def test_malformed_request_id(client, db):
     rv = client.get('/api/v1/requests/spam')
-    assert rv.status_code == 400
-    error_msg = json.loads(rv.data.decode('utf-8'))['error']
-    assert 'not a valid request ID' in error_msg
+    assert rv.status_code == 404
 
 
 @pytest.mark.parametrize('removed_params', (
