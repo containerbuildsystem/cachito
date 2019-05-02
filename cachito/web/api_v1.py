@@ -27,7 +27,7 @@ def ping_celery():
     return flask.jsonify(True)
 
 
-@api_v1.route('/requests/<request_id>', methods=['GET'])
+@api_v1.route('/requests/<int:request_id>', methods=['GET'])
 def get_request(request_id):
     """
     Retrieve details for the given request.
@@ -36,12 +36,11 @@ def get_request(request_id):
     :return: a Flask JSON response
     :rtype: flask.Response
     :raise NotFound: if the request is not found
-    :raise ValidationError: if the request ID is of invalid format
     """
-    return flask.jsonify(_get_request_obj(request_id).to_json())
+    return flask.jsonify(Request.query.get_or_404(request_id).to_json())
 
 
-@api_v1.route('/requests/<request_id>/download', methods=['GET'])
+@api_v1.route('/requests/<int:request_id>/download', methods=['GET'])
 def download_archive(request_id):
     """
     Download archive of source code.
@@ -50,9 +49,8 @@ def download_archive(request_id):
     :return: a Flask send_file response
     :rtype: flask.Response
     :raise NotFound: if the request is not found
-    :raise ValidationError: if the request ID is of invalid format
     """
-    request = _get_request_obj(request_id)
+    request = Request.query.get_or_404(request_id)
     # TODO: Verify request has already been processed.
 
     cachito_shared_dir = flask.current_app.config['CACHITO_SHARED_DIR']
@@ -122,20 +120,3 @@ def create_request():
 @api_v1.errorhandler(ValidationError)
 def handle_validation_error(e):
     return flask.jsonify(error=str(e)), 400
-
-
-def _get_request_obj(request_id):
-    """
-    Retrieve request object for given ID
-
-    :param int request_id: the value of the request ID
-    :return: a Request
-    :rtype: cachito.models.Request
-    :raise NotFound: if the request is not found
-    :raise ValidationError: if the request ID is of invalid format
-    """
-    try:
-        request_id = int(request_id)
-    except ValueError:
-        raise ValidationError(f'{request_id} is not a valid request ID')
-    return Request.query.get_or_404(request_id)
