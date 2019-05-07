@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import tarfile
 import tempfile
 import os
 import re
@@ -62,28 +61,20 @@ def download_archive(request_id):
         # paths to agree on data location within the shared volume.
         relative_temp_dir = os.path.basename(temp_dir)
         relative_deps_path = os.path.join(relative_temp_dir, 'deps')
-        relative_app_archive_path = os.path.join(relative_temp_dir, 'app.tar.gz')
-        absolute_deps_path = os.path.join(cachito_shared_dir, relative_deps_path)
-        absolute_app_archive_path = os.path.join(cachito_shared_dir, relative_app_archive_path)
+        relative_bundle_archive_path = os.path.join(relative_temp_dir, 'bundle.tar.gz')
+        absolute_bundle_archive_path = os.path.join(
+            cachito_shared_dir, relative_bundle_archive_path)
 
         # Chain tasks
         chain_result = chain(
-            tasks.fetch_app_source.s(request.repo, request.ref,
-                                     copy_cache_to=relative_app_archive_path),
-            tasks.fetch_gomod_source.s(copy_cache_to=relative_deps_path)
+            tasks.fetch_app_source.s(request.repo, request.ref),
+            tasks.fetch_gomod_source.s(copy_cache_to=relative_deps_path),
+            tasks.assemble_source_code_archive.s(
+                deps_path=relative_deps_path, bundle_archive_path=relative_bundle_archive_path)
         ).delay()
         chain_result.wait(timeout=wait_timeout)
 
-        # Generate a tarball containing the application and dependencies source code
-        response_archive_path = os.path.join(temp_dir, 'temp.tar.gz')
-        with tarfile.open(response_archive_path, mode='w:gz') as response_archive:
-            with tarfile.open(absolute_app_archive_path, mode='r:*') as app_archive:
-                for member in app_archive.getmembers():
-                    response_archive.addfile(member, app_archive.extractfile(member.name))
-
-            response_archive.add(absolute_deps_path, 'deps')
-
-        return flask.send_file(response_archive_path, mimetype='application/gzip')
+        return flask.send_file(absolute_bundle_archive_path, mimetype='application/gzip')
 
 
 @api_v1.route('/requests', methods=['POST'])

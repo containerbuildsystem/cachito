@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.workers.tasks import fetch_app_source, fetch_gomod_source
+from cachito.workers.tasks import fetch_app_source, fetch_gomod_source, assemble_source_code_archive
 
 
 def test_ping(client):
@@ -114,58 +114,46 @@ def test_validate_extraneous_params(client, db):
 def test_download_archive(
     mock_chain, mock_request, mock_temp_dir, client, db, app, tmpdir
 ):
-    shared_volume = tmpdir.mkdir('shared')
-    shared_workdir = shared_volume.mkdir('ephemeral')
+    ephemeral_dir_name = 'ephemeral123'
+    shared_cachito_dir = tmpdir
+    shared_temp_dir = shared_cachito_dir.mkdir(ephemeral_dir_name)
+    mock_temp_dir.return_value.__enter__.return_value = str(shared_temp_dir)
 
-    mock_temp_dir.return_value.__enter__.return_value = str(shared_workdir)
-
-    app_archive_contents = {
+    bundle_archive_contents = {
         'app/spam.go': b'Spam mapS',
         'app/ham.go': b'Ham maH',
-    }
-
-    deps_archive_contents = {
         'gomod/pkg/mod/cache/download/server.com/dep1/@v/dep1.zip': b'dep1 archive',
         'gomod/pkg/mod/cache/download/server.com/dep2/@v/dep2.zip': b'dep2 archive',
     }
+    bundle_archive_path = shared_temp_dir.join('bundle.tar.gz')
 
     def chain_side_effect(*args, **kwargs):
-        # Create mocked application source archive
-        app_archive_path = shared_workdir.join('app.tar.gz')
-        with tarfile.open(app_archive_path, mode='w:gz') as app_archive:
-            for name, data in app_archive_contents.items():
+        # Create mocked bundle source code archive
+        with tarfile.open(bundle_archive_path, mode='w:gz') as bundle_archive:
+            for name, data in bundle_archive_contents.items():
                 fileobj = io.BytesIO(data)
                 tarinfo = tarfile.TarInfo(name)
                 tarinfo.size = len(fileobj.getvalue())
-                app_archive.addfile(tarinfo, fileobj=fileobj)
-
-        # Create mocked dependencies cache
-        deps_dir = shared_workdir.mkdir('deps')
-        for name, data in deps_archive_contents.items():
-            path = deps_dir.join(name)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            open(path, 'wb').write(data)
-
+                bundle_archive.addfile(tarinfo, fileobj=fileobj)
         return mock.Mock()
 
     mock_chain.side_effect = chain_side_effect
 
-    with mock.patch.dict(app.config, {'CACHITO_SHARED_DIR': str(shared_volume)}):
+    with mock.patch.dict(app.config, {'CACHITO_SHARED_DIR': str(shared_cachito_dir)}):
         rv = client.get('/api/v1/requests/1/download')
 
     # Verify chain was called correctly.
     mock_chain.assert_called_once_with(
         fetch_app_source.s(
-            mock_request.query.get_or_404().repo,
-            mock_request.query.get_or_404().ref,
-            copy_cache_to='ephemeral/app.tar.gz',
+            mock_request.query.get_or_404().repo, mock_request.query.get_or_404().ref,
         ),
-        fetch_gomod_source.s(copy_cache_to='ephemeral/deps')
+        fetch_gomod_source.s(copy_cache_to=os.path.join(ephemeral_dir_name, 'deps')),
+        assemble_source_code_archive.s(
+            deps_path=os.path.join(ephemeral_dir_name, 'deps'),
+            bundle_archive_path=os.path.join(ephemeral_dir_name, 'bundle.tar.gz')),
     )
 
     # Verify contents of downloaded archive
-    with tarfile.open(fileobj=io.BytesIO(rv.data), mode='r:*') as response_archive:
-        for expected_member in list(app_archive_contents.keys()):
-            response_archive.getmember(expected_member)
-        for expected_member in list(deps_archive_contents.keys()):
-            response_archive.getmember(os.path.join('deps', expected_member))
+    with tarfile.open(fileobj=io.BytesIO(rv.data), mode='r:*') as bundle_archive:
+        for expected_member in list(bundle_archive_contents.keys()):
+            bundle_archive.getmember(expected_member)
