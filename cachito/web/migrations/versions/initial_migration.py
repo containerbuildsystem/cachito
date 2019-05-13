@@ -33,8 +33,8 @@ def upgrade():
 
     op.create_table(
         'request_pkg_manager',
-        sa.Column('request_id', sa.Integer(), nullable=True),
-        sa.Column('pkg_manager_id', sa.Integer(), nullable=True),
+        sa.Column('request_id', sa.Integer(), nullable=False),
+        sa.Column('pkg_manager_id', sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(['pkg_manager_id'], ['package_manager.id'], ),
         sa.ForeignKeyConstraint(['request_id'], ['request.id'], )
     )
