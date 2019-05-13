@@ -55,3 +55,4 @@ Custom configuration for the API:
 * `CACHITO_SHARED_DIR` - the directory for short-term storage of bundled source archives. This
     configuration is required, and the directory must already exist and be writeable. The
     underlying volume must also be available in the workers.
+* `MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.

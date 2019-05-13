@@ -44,6 +44,40 @@ def test_create_and_fetch_request(mock_chain, client, db):
     assert created_request == fetched_request
 
 
+@mock.patch('cachito.web.api_v1.chain')
+def test_fetch_paginated_requests(mock_chain, client, db):
+
+    repo_template = 'https://github.com/release-engineering/retrodep{}.git'
+    for i in range(50):
+        data = {
+            'repo': repo_template.format(i),
+            'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+            'pkg_managers': ['gomod']
+        }
+
+        rv = client.post('/api/v1/requests', json=data)
+        assert rv.status_code == 201
+
+    # Sane defaults are provided
+    rv = client.get('/api/v1/requests')
+    assert rv.status_code == 200
+    response = json.loads(rv.data.decode('utf-8'))
+    fetched_requests = response['items']
+    assert len(fetched_requests) == 20
+    for repo_number, request in enumerate(fetched_requests):
+        assert request['repo'] == repo_template.format(repo_number)
+
+    # per_page and page parameters are honored
+    rv = client.get('/api/v1/requests?page=2&per_page=10')
+    assert rv.status_code == 200
+    response = json.loads(rv.data.decode('utf-8'))
+    fetched_requests = response['items']
+    assert len(fetched_requests) == 10
+    # Start at 10 because each page contains 10 items and we're processing the second page
+    for repo_number, request in enumerate(fetched_requests, 10):
+        assert request['repo'] == repo_template.format(repo_number)
+
+
 def test_create_and_fetch_request_invalid_ref(client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
