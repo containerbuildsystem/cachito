@@ -42,6 +42,8 @@ def test_create_and_fetch_request(mock_chain, client, db):
     fetched_request = json.loads(rv.data.decode('utf-8'))
 
     assert created_request == fetched_request
+    assert fetched_request['state'] == 'in_progress'
+    assert fetched_request['state_reason'] == 'The request was initiated'
 
 
 @mock.patch('cachito.web.api_v1.chain')
