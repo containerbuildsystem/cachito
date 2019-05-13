@@ -3,10 +3,13 @@ import os
 
 from flask import Flask
 from flask_migrate import Migrate
+from werkzeug.exceptions import default_exceptions
 
 from cachito.web.splash import splash
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
+from cachito.web.errors import json_error
+from cachito.errors import ValidationError
 
 
 def load_config(app):
@@ -52,4 +55,9 @@ def create_app(config_obj=None):
 
     app.register_blueprint(splash)
     app.register_blueprint(api_v1, url_prefix='/api/v1')
+
+    for code in default_exceptions.keys():
+        app.register_error_handler(code, json_error)
+    app.register_error_handler(ValidationError, json_error)
+
     return app

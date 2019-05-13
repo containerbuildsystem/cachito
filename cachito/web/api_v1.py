@@ -126,8 +126,3 @@ def create_request():
     ).delay()
 
     return flask.jsonify(request.to_json()), 201
-
-
-@api_v1.errorhandler(ValidationError)
-def handle_validation_error(e):
-    return flask.jsonify(error=str(e)), 400

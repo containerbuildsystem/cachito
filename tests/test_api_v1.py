@@ -104,6 +104,8 @@ def test_missing_request(client, db):
 def test_malformed_request_id(client, db):
     rv = client.get('/api/v1/requests/spam')
     assert rv.status_code == 404
+    data = json.loads(rv.data.decode('utf-8'))
+    assert data == {'error': 'The requested resource was not found'}
 
 
 @pytest.mark.parametrize('removed_params', (
