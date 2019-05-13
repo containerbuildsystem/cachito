@@ -26,6 +26,26 @@ def ping_celery():
     return flask.jsonify(True)
 
 
+@api_v1.route('/requests', methods=['GET'])
+def get_requests():
+    """
+    Retrieve paginated details for requests.
+
+    :param int page: the page number to retrieve. Defaults to 1
+    :param int per_page: the amount of items on each page. Defaults to 20. Ignored if
+        value exceeds configuration's MAX_PER_PAGE.
+    :rtype: flask.Response
+    """
+    max_per_page = flask.current_app.config['MAX_PER_PAGE']
+    # The call to `paginate` will inspect the current HTTP request for the
+    # pagination parameters `page` and `per_page`.
+    requests = Request.query.paginate(max_per_page=max_per_page).items
+    response = {
+        'items': [request.to_json() for request in requests],
+    }
+    return flask.jsonify(response)
+
+
 @api_v1.route('/requests/<int:request_id>', methods=['GET'])
 def get_request(request_id):
     """
