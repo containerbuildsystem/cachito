@@ -44,8 +44,20 @@ def upgrade():
         {'name': 'gomod'},
     ])
 
+    op.create_table(
+        'request_state',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('state', sa.Integer(), nullable=False),
+        sa.Column('state_reason', sa.String(), nullable=False),
+        sa.Column('updated', sa.DateTime(), nullable=False),
+        sa.Column('request_id', sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(['request_id'], ['request.id']),
+        sa.PrimaryKeyConstraint('id'),
+    )
+
 
 def downgrade():
     op.drop_table('request_pkg_manager')
     op.drop_table('request')
     op.drop_table('package_manager')
+    op.drop_table('request_state')
