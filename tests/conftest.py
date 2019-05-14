@@ -10,9 +10,19 @@ from cachito.web.wsgi import create_app
 
 
 @pytest.fixture(scope='session')
-def app():
+def app(request):
     """Return Flask application for the pytest session."""
-    return create_app('cachito.web.config.TestingConfig')
+    app = create_app('cachito.web.config.TestingConfig')
+    # Establish an application context before running the tests. This allows the use of
+    # Flask-SQLAlchemy in the test setup.
+    ctx = app.app_context()
+    ctx.push()
+
+    def teardown():
+        ctx.pop()
+
+    request.addfinalizer(teardown)
+    return app
 
 
 @pytest.fixture(scope='session')
