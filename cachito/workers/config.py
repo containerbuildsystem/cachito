@@ -23,6 +23,7 @@ class DevelopmentConfig(Config):
 
     broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
     athens_url = 'http://athens:3000'
+    cachito_api_url = 'http://cachito-api:8080/api/v1/'
     cachito_archives_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     cachito_shared_dir = os.path.join(tempfile.gettempdir(), 'cachito-shared')
     cachito_log_level = 'DEBUG'
@@ -33,6 +34,7 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(DevelopmentConfig):
     """The testing Cachito Celery configuration."""
+    cachito_api_url = 'http://cachito.domain.local/api/v1/'
 
 
 def configure_celery(celery_app):
@@ -83,6 +85,9 @@ def validate_celery_config(conf, **kwargs):
             raise ConfigError(
                 f'The configuration "{required_dir_conf}" must be set to an existing directory'
             )
+
+    if not conf.get('cachito_api_url'):
+        raise ConfigError('The configuration "cachito_api_url" must be set')
 
 
 def get_worker_config():

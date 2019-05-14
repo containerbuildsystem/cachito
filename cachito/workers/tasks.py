@@ -5,7 +5,7 @@ import tarfile
 
 from celery import Celery
 from celery.signals import celeryd_init
-from requests import Timeout
+import requests
 
 from cachito.workers.config import configure_celery, validate_celery_config, get_worker_config
 from cachito.workers.pkg_manager import resolve_gomod_deps
@@ -27,22 +27,25 @@ def add(x, y):
 
 
 @app.task
-def fetch_app_source(url, ref):
+def fetch_app_source(url, ref, request_id_to_update=None):
     """
     Fetch the application source code that was requested and put it in long-term storage.
 
     :param str url: the source control URL to pull the source from
     :param str ref: the source control reference
+    :param int request_id_to_update: the Cachito request ID this is for; if specified, this will
+        update the request's state
     """
     log.info('Fetching the source from "%s" at reference "%s"', url, ref)
+    if request_id_to_update:
+        set_request_state(request_id_to_update, 'in_progress', 'Fetching the application source')
     try:
         # Default to Git for now
         scm = Git(url, ref)
         scm.fetch_source()
-    except Timeout:
+    except requests.Timeout:
         raise CachitoError('The connection timed out while downloading the source')
     except CachitoError:
-        # TODO: Post a failure status back to the API. This could also be converted to a decorator.
         log.exception('Failed to fetch the source from the URL "%s" and reference "%s"', url, ref)
         raise
 
@@ -50,18 +53,21 @@ def fetch_app_source(url, ref):
 
 
 @app.task
-def fetch_gomod_source(app_archive_path, copy_cache_to=None):
+def fetch_gomod_source(app_archive_path, copy_cache_to=None, request_id_to_update=None):
     """
     Resolve and fetch gomod dependencies for given app source archive.
 
     :param str app_archive_path: the full path to the application source code
     :param str copy_cache_to: path to copy artifacts from gomod cache
+    :param int request_id_to_update: the Cachito request ID this is for; if specified, this will
+        update the request's state
     """
     log.info('Fetching gomod dependencies for "%s"', app_archive_path)
+    if request_id_to_update:
+        set_request_state(request_id_to_update, 'in_progress', 'Fetching the golang dependencies')
     try:
         resolve_gomod_deps(app_archive_path, copy_cache_to)
     except CachitoError:
-        # TODO: Post a failure status back to the API. This could also be converted to a decorator.
         log.exception('Failed to fetch gomod dependencies for "%s"', app_archive_path)
         raise
     # TODO: Store list of dependencies in DB via the API.
@@ -90,3 +96,54 @@ def assemble_source_code_archive(app_archive_path, deps_path, bundle_archive_pat
                 bundle_archive.addfile(member, app_archive.extractfile(member.name))
 
         bundle_archive.add(absolute_deps_path, 'deps')
+
+
+@app.task
+def set_request_state(request_id, state, state_reason):
+    """
+    Set the state of the request using the Cachito API.
+
+    :param int request_id: the ID of the Cachito request
+    :param str state: the state to set the Cachito request to
+    :param str state_reason: the state reason to set the Cachito request to
+    :raise CachitoError: if the request to the Cachito API fails
+    """
+    config = get_worker_config()
+    request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+
+    log.info(
+        'Setting the state of request %d to "%s" with the reason "%s"',
+        request_id, state, state_reason
+    )
+    payload = {'state': state, 'state_reason': state_reason}
+    try:
+        rv = requests.patch(request_url, json=payload, timeout=30)
+    except requests.RequestException:
+        msg = f'The connection failed when setting the state to "{state}" on request {request_id}'
+        log.exception(msg)
+        raise CachitoError(msg)
+
+    if not rv.ok:
+        log.error(
+            'The worker failed to set request %d to the "%s" state. The status was %d. '
+            'The text was:\n%s',
+            request_id, state, rv.status_code, rv.text,
+        )
+        raise CachitoError(f'Setting the state to "{state}" on request {request_id} failed')
+
+
+@app.task
+def failed_request_callback(context, exc, traceback, request_id):
+    """
+    Wrap set_request_state for task error callbacks.
+
+    :param celery.app.task.Context context: the context of the task failure
+    :param Exception exc: the exception that caused the task failure
+    :param int request_id: the ID of the Cachito request
+    """
+    if isinstance(exc, CachitoError):
+        msg = str(exc)
+    else:
+        msg = 'An unknown error occurred'
+
+    set_request_state(request_id, 'failed', msg)

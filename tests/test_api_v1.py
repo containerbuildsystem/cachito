@@ -8,7 +8,10 @@ from unittest import mock
 import pytest
 
 from cachito.web.models import Request
-from cachito.workers.tasks import fetch_app_source, fetch_gomod_source, assemble_source_code_archive
+from cachito.workers.tasks import (
+    fetch_app_source, fetch_gomod_source, assemble_source_code_archive, set_request_state,
+    failed_request_callback
+)
 
 
 def test_ping(client):
@@ -30,11 +33,15 @@ def test_create_and_fetch_request(mock_chain, client, db):
     for key, expected_value in data.items():
         assert expected_value == created_request[key]
 
+    error_callback = failed_request_callback.s(1)
     mock_chain.assert_called_once_with(
         fetch_app_source.s(
             'https://github.com/release-engineering/retrodep.git',
-            'c50b93a32df1c9d700e3e80996845bc2e13be848'),
-        fetch_gomod_source.s()
+            'c50b93a32df1c9d700e3e80996845bc2e13be848',
+            request_id_to_update=1,
+        ).on_error(error_callback),
+        fetch_gomod_source.s(request_id_to_update=1).on_error(error_callback),
+        set_request_state.si(1, 'complete', 'Completed successfully'),
     )
 
     request_id = created_request['id']
