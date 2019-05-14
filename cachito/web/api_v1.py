@@ -120,9 +120,12 @@ def create_request():
         raise ValidationError('The "ref" parameter must be a 40 character hex string')
 
     # Chain tasks
+    error_callback = tasks.failed_request_callback.s(request.id)
     chain(
-        tasks.fetch_app_source.s(request.repo, request.ref),
-        tasks.fetch_gomod_source.s()
+        tasks.fetch_app_source.s(
+            request.repo, request.ref, request_id_to_update=request.id).on_error(error_callback),
+        tasks.fetch_gomod_source.s(request_id_to_update=request.id).on_error(error_callback),
+        tasks.set_request_state.si(request.id, 'complete', 'Completed successfully'),
     ).delay()
 
     return flask.jsonify(request.to_json()), 201
