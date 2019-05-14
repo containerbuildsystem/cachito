@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from cachito.web.models import Request
 from cachito.workers.tasks import fetch_app_source, fetch_gomod_source, assemble_source_code_archive
 
 
@@ -195,3 +196,102 @@ def test_download_archive(
     with tarfile.open(fileobj=io.BytesIO(rv.data), mode='r:*') as bundle_archive:
         for expected_member in list(bundle_archive_contents.keys()):
             bundle_archive.getmember(expected_member)
+
+
+def test_set_state(client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+    request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    state = 'complete'
+    state_reason = 'Completed successfully'
+    payload = {'state': state, 'state_reason': state_reason}
+    patch_rv = client.patch('/api/v1/requests/1', json=payload)
+    assert patch_rv.status_code == 200
+
+    get_rv = client.get('/api/v1/requests/1')
+    assert get_rv.status_code == 200
+
+    fetched_request = json.loads(get_rv.data.decode('utf-8'))
+    assert fetched_request['state'] == state
+    assert fetched_request['state_reason'] == state_reason
+    # Since the date is always changing, the actual value can't be confirmed
+    assert fetched_request['updated']
+    assert len(fetched_request['state_history']) == 2
+    # Make sure the order is from newest to oldest
+    assert fetched_request['state_history'][0]['state'] == state
+    assert fetched_request['state_history'][0]['state_reason'] == state_reason
+    assert fetched_request['state_history'][0]['updated']
+    assert fetched_request['state_history'][1]['state'] == 'in_progress'
+
+
+@pytest.mark.parametrize('request_id, payload, status_code, message', (
+    (
+        1,
+        {'state': 'call_for_support', 'state_reason': 'It broke'},
+        400,
+        'The state "call_for_support" is invalid. It must be one of: complete, failed, '
+        'in_progress.',
+    ),
+    (
+        1337,
+        {'state': 'complete', 'state_reason': 'Success'},
+        404,
+        'The requested resource was not found',
+    ),
+    (
+        1,
+        {},
+        400,
+        'At least one key must be specified to update the request',
+    ),
+    (
+        1,
+        {'state': 'complete', 'state_reason': 'Success', 'pkg_managers': ['javascript']},
+        400,
+        'The following keys are not allowed: pkg_managers',
+    ),
+    (
+        1,
+        {'state': 1, 'state_reason': 'Success'},
+        400,
+        'The value for "state" must be a string. It was the type int.',
+    ),
+    (
+        1,
+        {'state': 'complete'},
+        400,
+        'The "state_reason" key is required when "state" is supplied',
+    ),
+    (
+        1,
+        {'state_reason': 'Success'},
+        400,
+        'The "state" key is required when "state_reason" is supplied',
+    ),
+    (
+        1,
+        'some string',
+        400,
+        'The input data must be a JSON object',
+    ),
+))
+def test_state_change_invalid(client, db, request_id, payload, status_code, message):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+    request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    rv = client.patch('/api/v1/requests/{}'.format(request_id), json=payload)
+    assert rv.status_code == status_code
+    data = json.loads(rv.data.decode('utf-8'))
+    assert data == {'error': message}

@@ -126,3 +126,47 @@ def create_request():
     ).delay()
 
     return flask.jsonify(request.to_json()), 201
+
+
+@api_v1.route('/requests/<int:request_id>', methods=['PATCH'])
+def patch_request(request_id):
+    """
+    Modify the given request.
+
+    :param int request_id: the request ID from the URL
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    :raise ValidationError: if the JSON is invalid
+    """
+    # TODO: Setup admin authentication
+    payload = flask.request.get_json()
+    if not isinstance(payload, dict):
+        raise ValidationError('The input data must be a JSON object')
+
+    if not payload:
+        raise ValidationError('At least one key must be specified to update the request')
+
+    valid_keys = {'state', 'state_reason'}
+    invalid_keys = set(payload.keys()) - valid_keys
+    if invalid_keys:
+        raise ValidationError(
+            'The following keys are not allowed: {}'.format(', '.join(invalid_keys)))
+
+    for key, value in payload.items():
+        if not isinstance(value, str):
+            raise ValidationError(
+                'The value for "{}" must be a string. It was the type {}.'
+                .format(key, type(value).__name__)
+            )
+
+    if 'state' in payload and 'state_reason' not in payload:
+        raise ValidationError('The "state_reason" key is required when "state" is supplied')
+    elif 'state_reason' in payload and 'state' not in payload:
+        raise ValidationError('The "state" key is required when "state_reason" is supplied')
+
+    request = Request.query.get_or_404(request_id)
+    request.add_state(payload['state'], payload['state_reason'])
+    db.session.commit()
+
+    return flask.jsonify(request.to_json()), 200
