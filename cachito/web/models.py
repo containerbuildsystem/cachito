@@ -81,6 +81,13 @@ class Request(db.Model):
         if missing_params:
             raise ValidationError('Missing required parameter(s): {}'
                                   .format(', '.join(missing_params)))
+
+        # Don't allow the user to set arbitrary columns or relationships
+        invalid_params = set(kwargs.keys() - required_params)
+        if invalid_params:
+            raise ValidationError(
+                'The following parameters are invalid: {}'.format(', '.join(invalid_params)))
+
         kwargs = deepcopy(kwargs)
 
         # Validate package managers are correctly provided
@@ -100,11 +107,7 @@ class Request(db.Model):
 
         kwargs['pkg_managers'] = found_pkg_managers
 
-        try:
-            request = cls(**kwargs)
-        except TypeError as e:
-            # Handle extraneous parameters.
-            raise ValidationError(str(e))
+        request = cls(**kwargs)
         request.add_state('in_progress', 'The request was initiated')
         return request
 
