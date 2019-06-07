@@ -88,7 +88,7 @@ def test_fetch_paginated_requests(mock_chain, client, db):
         assert request['repo'] == repo_template.format(repo_number)
 
 
-def test_create_and_fetch_request_invalid_ref(client, db):
+def test_create_request_invalid_ref(client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'not-a-ref',
