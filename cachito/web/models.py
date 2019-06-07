@@ -2,6 +2,7 @@
 from copy import deepcopy
 from enum import Enum
 
+from flask_login import UserMixin, current_user
 import sqlalchemy
 
 from cachito.errors import ValidationError
@@ -39,10 +40,12 @@ class Request(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     repo = db.Column(db.String, nullable=False)
     ref = db.Column(db.String, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
                                    backref='requests')
     states = db.relationship(
         'RequestState', back_populates='request', order_by='RequestState.updated')
+    user = db.relationship('User', back_populates='requests')
 
     def __repr__(self):
         return '<Request {0!r}>'.format(self.id)
@@ -62,12 +65,18 @@ class Request(db.Model):
         # Reverse the list since the latest states should be first
         states = list(reversed(states))
         latest_state = states[0]
+        user = None
+        # If auth is disabled, there will not be a user associated with this request
+        if self.user:
+            user = self.user.username
+
         rv = {
             'id': self.id,
             'repo': self.repo,
             'ref': self.ref,
             'pkg_managers': pkg_managers,
             'state_history': states,
+            'user': user,
         }
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
@@ -88,10 +97,10 @@ class Request(db.Model):
             raise ValidationError(
                 'The following parameters are invalid: {}'.format(', '.join(invalid_params)))
 
-        kwargs = deepcopy(kwargs)
+        request_kwargs = deepcopy(kwargs)
 
         # Validate package managers are correctly provided
-        pkg_managers_names = kwargs.pop('pkg_managers', None)
+        pkg_managers_names = request_kwargs.pop('pkg_managers', None)
         if not pkg_managers_names:
             raise ValidationError('At least one package manager is required')
 
@@ -105,9 +114,12 @@ class Request(db.Model):
             raise ValidationError('Invalid package manager(s): {}'
                                   .format(', '.join(invalid_pkg_managers)))
 
-        kwargs['pkg_managers'] = found_pkg_managers
+        request_kwargs['pkg_managers'] = found_pkg_managers
+        # current_user.is_authenticated is only ever False when auth is disabled
+        if current_user.is_authenticated:
+            request_kwargs['user_id'] = current_user.id
 
-        request = cls(**kwargs)
+        request = cls(**request_kwargs)
         request.add_state('in_progress', 'The request was initiated')
         return request
 
@@ -154,3 +166,9 @@ class RequestState(db.Model):
     def __repr__(self):
         return '<RequestState id={} state="{}" request_id={}>'.format(
             self.id, RequestStateMapping(self.state).name, self.request_id)
+
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String, unique=True, nullable=False)
+    requests = db.relationship('Request', back_populates='user')

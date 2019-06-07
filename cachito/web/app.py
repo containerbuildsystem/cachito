@@ -2,9 +2,11 @@
 import os
 
 from flask import Flask
+from flask_login import LoginManager
 from flask_migrate import Migrate
 from werkzeug.exceptions import default_exceptions
 
+from cachito.web.auth import user_loader, load_user_from_request
 from cachito.web.splash import splash
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
@@ -52,6 +54,11 @@ def create_app(config_obj=None):
     # Initialize the database migrations
     migrations_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'migrations')
     Migrate(app, db, directory=migrations_dir)
+    # Initialize Flask Login
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.user_loader(user_loader)
+    login_manager.request_loader(load_user_from_request)
 
     app.register_blueprint(splash)
     app.register_blueprint(api_v1, url_prefix='/api/v1')

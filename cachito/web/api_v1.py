@@ -5,6 +5,8 @@ import re
 
 from celery import chain
 import flask
+from flask_login import current_user, login_required
+from werkzeug.exceptions import Unauthorized
 
 from cachito.errors import ValidationError
 from cachito.web import db
@@ -98,6 +100,7 @@ def download_archive(request_id):
 
 
 @api_v1.route('/requests', methods=['POST'])
+@login_required
 def create_request():
     """
     Submit a request to resolve and cache the given source code and its dependencies.
@@ -109,8 +112,6 @@ def create_request():
     :raise ValidationError: if required parameters are not supplied
     """
     payload = flask.request.get_json()
-
-    # TODO: Setup authentication
 
     request = Request.from_json(payload)
     db.session.add(request)
@@ -132,6 +133,7 @@ def create_request():
 
 
 @api_v1.route('/requests/<int:request_id>', methods=['PATCH'])
+@login_required
 def patch_request(request_id):
     """
     Modify the given request.
@@ -142,7 +144,13 @@ def patch_request(request_id):
     :raise NotFound: if the request is not found
     :raise ValidationError: if the JSON is invalid
     """
-    # TODO: Setup admin authentication
+    # Convert the allowed users to lower-case since they are stored in the database as lower-case
+    # for consistency
+    allowed_users = [user.lower() for user in flask.current_app.config['CACHITO_WORKER_USERNAMES']]
+    # current_user.is_authenticated is only ever False when auth is disabled
+    if current_user.is_authenticated and current_user.username not in allowed_users:
+        raise Unauthorized('This API endpoint is restricted to Cachito workers')
+
     payload = flask.request.get_json()
     if not isinstance(payload, dict):
         raise ValidationError('The input data must be a JSON object')
