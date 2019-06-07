@@ -101,6 +101,20 @@ def test_create_and_fetch_request_invalid_ref(client, db):
     assert error['error'] == 'The "ref" parameter must be a 40 character hex string'
 
 
+def test_create_request_invalid_parameter(client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+        'user': 'uncle_sam',
+    }
+
+    rv = client.post('/api/v1/requests', json=data)
+    assert rv.status_code == 400
+    error = json.loads(rv.data.decode('utf-8'))
+    assert error['error'] == 'The following parameters are invalid: user'
+
+
 def test_missing_request(client, db):
     rv = client.get('/api/v1/requests/1')
     assert rv.status_code == 404
@@ -150,8 +164,7 @@ def test_validate_extraneous_params(client, db):
     rv = client.post('/api/v1/requests', json=data)
     assert rv.status_code == 400
     error_msg = json.loads(rv.data.decode('utf-8'))['error']
-    assert 'invalid keyword argument' in error_msg
-    assert 'spam' in error_msg
+    assert error_msg == 'The following parameters are invalid: spam'
 
 
 @mock.patch('tempfile.TemporaryDirectory')
