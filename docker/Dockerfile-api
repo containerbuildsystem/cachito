@@ -7,9 +7,11 @@ RUN dnf -y install \
     --setopt=install_weak_deps=false \
     --setopt=tsflags=nodocs \
     httpd \
+    mod_auth_gssapi \
     mod_ssl \
     python3-celery \
     python3-flask \
+    python3-flask-login \
     python3-flask-migrate \
     python3-flask-sqlalchemy \
     python3-mod_wsgi \

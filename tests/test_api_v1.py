@@ -20,18 +20,21 @@ def test_ping(client):
 
 
 @mock.patch('cachito.web.api_v1.chain')
-def test_create_and_fetch_request(mock_chain, client, db):
+def test_create_and_fetch_request(mock_chain, app, auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': ['gomod']
     }
 
-    rv = client.post('/api/v1/requests', json=data)
+    with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
+        rv = client.post(
+            '/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 201
     created_request = json.loads(rv.data.decode('utf-8'))
     for key, expected_value in data.items():
         assert expected_value == created_request[key]
+    assert created_request['user'] == 'tbrady@domain.local'
 
     error_callback = failed_request_callback.s(1)
     mock_chain.assert_called_once_with(
@@ -55,18 +58,20 @@ def test_create_and_fetch_request(mock_chain, client, db):
 
 
 @mock.patch('cachito.web.api_v1.chain')
-def test_fetch_paginated_requests(mock_chain, client, db):
+def test_fetch_paginated_requests(mock_chain, app, auth_env, client, db):
 
     repo_template = 'https://github.com/release-engineering/retrodep{}.git'
-    for i in range(50):
-        data = {
-            'repo': repo_template.format(i),
-            'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-            'pkg_managers': ['gomod']
-        }
-
-        rv = client.post('/api/v1/requests', json=data)
-        assert rv.status_code == 201
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=auth_env):
+        for i in range(50):
+            data = {
+                'repo': repo_template.format(i),
+                'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+                'pkg_managers': ['gomod'],
+            }
+            request = Request.from_json(data)
+            db.session.add(request)
+    db.session.commit()
 
     # Sane defaults are provided
     rv = client.get('/api/v1/requests')
@@ -88,20 +93,20 @@ def test_fetch_paginated_requests(mock_chain, client, db):
         assert request['repo'] == repo_template.format(repo_number)
 
 
-def test_create_request_invalid_ref(client, db):
+def test_create_request_invalid_ref(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'not-a-ref',
         'pkg_managers': ['gomod']
     }
 
-    rv = client.post('/api/v1/requests', json=data)
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
     error = json.loads(rv.data.decode('utf-8'))
     assert error['error'] == 'The "ref" parameter must be a 40 character hex string'
 
 
-def test_create_request_invalid_parameter(client, db):
+def test_create_request_invalid_parameter(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -109,10 +114,27 @@ def test_create_request_invalid_parameter(client, db):
         'user': 'uncle_sam',
     }
 
-    rv = client.post('/api/v1/requests', json=data)
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
     error = json.loads(rv.data.decode('utf-8'))
     assert error['error'] == 'The following parameters are invalid: user'
+
+
+def test_create_request_not_logged_in(client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+
+    rv = client.post('/api/v1/requests', json=data)
+    assert rv.status_code == 401
+    error = json.loads(rv.data.decode('utf-8'))
+    assert error['error'] == (
+        'The server could not verify that you are authorized to access the URL requested. You '
+        'either supplied the wrong credentials (e.g. a bad password), or your browser doesn\'t '
+        'understand how to supply the credentials required.'
+    )
 
 
 def test_missing_request(client, db):
@@ -136,7 +158,7 @@ def test_malformed_request_id(client, db):
     ('ref',),
     ('pkg_managers',),
 ))
-def test_validate_required_params(client, db, removed_params):
+def test_validate_required_params(auth_env, client, db, removed_params):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -145,7 +167,7 @@ def test_validate_required_params(client, db, removed_params):
     for removed_param in removed_params:
         data.pop(removed_param)
 
-    rv = client.post('/api/v1/requests', json=data)
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
     error_msg = json.loads(rv.data.decode('utf-8'))['error']
     assert 'Missing required' in error_msg
@@ -153,7 +175,7 @@ def test_validate_required_params(client, db, removed_params):
         assert removed_param in error_msg
 
 
-def test_validate_extraneous_params(client, db):
+def test_validate_extraneous_params(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -161,7 +183,7 @@ def test_validate_extraneous_params(client, db):
         'spam': 'maps',
     }
 
-    rv = client.post('/api/v1/requests', json=data)
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
     error_msg = json.loads(rv.data.decode('utf-8'))['error']
     assert error_msg == 'The following parameters are invalid: spam'
@@ -218,20 +240,22 @@ def test_download_archive(
             bundle_archive.getmember(expected_member)
 
 
-def test_set_state(client, db):
+def test_set_state(app, client, db, worker_auth_env):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': ['gomod'],
     }
-    request = Request.from_json(data)
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
     db.session.add(request)
     db.session.commit()
 
     state = 'complete'
     state_reason = 'Completed successfully'
     payload = {'state': state, 'state_reason': state_reason}
-    patch_rv = client.patch('/api/v1/requests/1', json=payload)
+    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
 
     get_rv = client.get('/api/v1/requests/1')
@@ -248,6 +272,18 @@ def test_set_state(client, db):
     assert fetched_request['state_history'][0]['state_reason'] == state_reason
     assert fetched_request['state_history'][0]['updated']
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
+
+
+def test_set_state_not_logged_in(client, db):
+    payload = {'state': 'complete', 'state_reason': 'Completed successfully'}
+    rv = client.patch('/api/v1/requests/1', json=payload)
+    assert rv.status_code == 401
+    error = json.loads(rv.data.decode('utf-8'))
+    assert error['error'] == (
+        'The server could not verify that you are authorized to access the URL requested. You '
+        'either supplied the wrong credentials (e.g. a bad password), or your browser doesn\'t '
+        'understand how to supply the credentials required.'
+    )
 
 
 @pytest.mark.parametrize('request_id, payload, status_code, message', (
@@ -301,17 +337,21 @@ def test_set_state(client, db):
         'The input data must be a JSON object',
     ),
 ))
-def test_state_change_invalid(client, db, request_id, payload, status_code, message):
+def test_state_change_invalid(
+    app, client, db, worker_auth_env, request_id, payload, status_code, message
+):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': ['gomod'],
     }
-    request = Request.from_json(data)
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
     db.session.add(request)
     db.session.commit()
 
-    rv = client.patch('/api/v1/requests/{}'.format(request_id), json=payload)
+    rv = client.patch(f'/api/v1/requests/{request_id}', json=payload, environ_base=worker_auth_env)
     assert rv.status_code == status_code
     data = json.loads(rv.data.decode('utf-8'))
     assert data == {'error': message}

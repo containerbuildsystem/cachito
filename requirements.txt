@@ -1,5 +1,6 @@
 celery
 Flask
+flask-login
 Flask-Migrate
 Flask-SQLAlchemy
 psycopg2-binary

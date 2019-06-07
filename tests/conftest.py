@@ -26,6 +26,11 @@ def app(request):
 
 
 @pytest.fixture(scope='session')
+def auth_env():
+    return {'REMOTE_USER': 'tbrady@DOMAIN.LOCAL'}
+
+
+@pytest.fixture(scope='session')
 def client(app):
     """Return Flask application client for the pytest session."""
     return app.test_client()
@@ -44,3 +49,8 @@ def db(app, tmpdir):
         flask_migrate.upgrade()
 
     return _db
+
+
+@pytest.fixture(scope='session')
+def worker_auth_env():
+    return {'REMOTE_USER': 'worker@DOMAIN.LOCAL'}

@@ -24,11 +24,21 @@ def upgrade():
     )
 
     op.create_table(
+        'user',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('username', sa.String(), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('username'),
+    )
+
+    op.create_table(
         'request',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('repo', sa.String(), nullable=False),
         sa.Column('ref', sa.String(), nullable=False),
-        sa.PrimaryKeyConstraint('id')
+        sa.Column('user_id', sa.Integer(), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['user_id'], ['user.id']),
     )
 
     op.create_table(
