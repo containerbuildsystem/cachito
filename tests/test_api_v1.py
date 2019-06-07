@@ -14,11 +14,6 @@ from cachito.workers.tasks import (
 )
 
 
-def test_ping(client):
-    rv = client.get('/api/v1/ping')
-    assert json.loads(rv.data.decode('utf-8')) is True
-
-
 @mock.patch('cachito.web.api_v1.chain')
 def test_create_and_fetch_request(mock_chain, app, auth_env, client, db):
     data = {
