@@ -30,7 +30,7 @@ def test_repo_name():
 
 
 @mock.patch('tempfile.TemporaryDirectory')
-@mock.patch('requests.get')
+@mock.patch('cachito.workers.requests.requests_session.get')
 @mock.patch('cachito.workers.scm.Git.archive_path', new_callable=mock.PropertyMock)
 @mock.patch('shutil.copyfileobj')
 @mock.patch('tarfile.open')
@@ -74,7 +74,7 @@ def test_download_source_archive(
 
 
 @mock.patch('tempfile.TemporaryDirectory')
-@mock.patch('requests.get')
+@mock.patch('cachito.workers.requests.requests_session.get')
 def test_download_source_download_failed(mock_requests, mock_temp_dir):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'

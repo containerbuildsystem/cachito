@@ -10,6 +10,7 @@ RUN dnf -y install \
     git-core \
     python3-celery \
     python3-requests \
+    python3-requests-kerberos \
     && dnf clean all
 COPY . .
 RUN pip3 install . --no-deps
