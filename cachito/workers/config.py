@@ -11,11 +11,13 @@ class Config(object):
 
     # Don't use the default 'celery' queue
     task_default_queue = 'cachito'
+    cachito_auth_type = None
     cachito_log_level = 'INFO'
 
 
 class ProductionConfig(Config):
     """The production Cachito Celery configuration."""
+    cachito_auth_type = 'kerberos'
 
 
 class DevelopmentConfig(Config):

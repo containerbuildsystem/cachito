@@ -108,6 +108,9 @@ def set_request_state(request_id, state, state_reason):
     :param str state_reason: the state reason to set the Cachito request to
     :raise CachitoError: if the request to the Cachito API fails
     """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_auth_session
+
     config = get_worker_config()
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
 
@@ -117,7 +120,7 @@ def set_request_state(request_id, state, state_reason):
     )
     payload = {'state': state, 'state_reason': state_reason}
     try:
-        rv = requests.patch(request_url, json=payload, timeout=30)
+        rv = requests_auth_session.patch(request_url, json=payload, timeout=30)
     except requests.RequestException:
         msg = f'The connection failed when setting the state to "{state}" on request {request_id}'
         log.exception(msg)

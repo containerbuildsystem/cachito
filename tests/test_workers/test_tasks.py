@@ -97,7 +97,7 @@ def test_assemble_archive_bundle(mock_get_worker_config, tmpdir):
             bundle_archive.getmember(os.path.join('deps', expected_member))
 
 
-@mock.patch('cachito.workers.tasks.requests')
+@mock.patch('cachito.workers.requests.requests_auth_session')
 def test_set_request_state(mock_requests):
     mock_requests.patch.return_value.ok = True
     tasks.set_request_state(1, 'complete', 'Completed successfully')
@@ -106,7 +106,7 @@ def test_set_request_state(mock_requests):
         'http://cachito.domain.local/api/v1/requests/1', json=expected_payload, timeout=30)
 
 
-@mock.patch('cachito.workers.tasks.requests.patch')
+@mock.patch('cachito.workers.requests.requests_auth_session.patch')
 def test_set_request_state_connection_failed(mock_requests_patch):
     mock_requests_patch.side_effect = Timeout('The request timed out')
     expected = 'The connection failed when setting the state to "complete" on request 1'
@@ -114,7 +114,7 @@ def test_set_request_state_connection_failed(mock_requests_patch):
         tasks.set_request_state(1, 'complete', 'Completed successfully')
 
 
-@mock.patch('cachito.workers.tasks.requests')
+@mock.patch('cachito.workers.requests.requests_auth_session')
 def test_set_request_state_bad_status_code(mock_requests):
     mock_requests.patch.return_value.ok = False
     expected = 'Setting the state to "complete" on request 1 failed'

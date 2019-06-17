@@ -8,8 +8,6 @@ import tarfile
 import tempfile
 import subprocess
 
-import requests
-
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 
@@ -76,9 +74,12 @@ class SCM(ABC):
         :param str url: the URL to download the compressed source archive from
         :raises CachitoError: if the download fails
         """
+        # Import this here to avoid a circular import
+        from cachito.workers.requests import requests_session
+
         with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
             log.debug('Downloading the archive "%s"', url)
-            with requests.get(url, stream=True, timeout=120) as response:
+            with requests_session.get(url, stream=True, timeout=120) as response:
                 if not response.ok:
                     log.error('The request to download "%s" failed with: %s', url, response.text)
                     if response.status_code == 404:
