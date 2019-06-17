@@ -21,12 +21,6 @@ celeryd_init.connect(validate_celery_config)
 
 
 @app.task
-def add(x, y):
-    """Add two numbers together to prove Celery works"""
-    return x + y
-
-
-@app.task
 def fetch_app_source(url, ref, request_id_to_update=None):
     """
     Fetch the application source code that was requested and put it in long-term storage.
