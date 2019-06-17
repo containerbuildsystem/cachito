@@ -19,6 +19,8 @@ def resolve_gomod_deps(archive_path, copy_cache_to=None):
 
     :param str archive_path: the full path to the application source code
     :param str copy_cache_to: path to copy artifacts from gomod cache
+    :return: a list of dictionaries representing the gomod dependencies
+    :rtype: list
     :raises CachitoError: if fetching dependencies fails
     """
     worker_config = get_worker_config()
