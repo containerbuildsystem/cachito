@@ -43,6 +43,9 @@ Custom configuration for the Celery workers are listed below:
 
 * `cachito_archives_dir` - the directory for long-term storage of app source archives. This
     configuration is required, and the directory must already exist and be writeable.
+* `cachito_auth_type` - the authentication type to use when accessing protected Cachito API
+  endpoints. If this value is `None`, authentication will not be used. This defaults to `kerberos`
+  in production.
 * `cachito_shared_dir` - the directory for short-term storage of bundled source archives. This
     configuration is required, and the directory must already exist and be writeable. The
     underlying volume must also be available in the API.
