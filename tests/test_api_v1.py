@@ -269,6 +269,28 @@ def test_set_state(app, client, db, worker_auth_env):
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
 
 
+def test_set_deps(app, client, db, worker_auth_env, sample_deps):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    payload = {'dependencies': sample_deps}
+    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 200
+
+    get_rv = client.get('/api/v1/requests/1')
+    assert get_rv.status_code == 200
+    fetched_request = json.loads(get_rv.data.decode('utf-8'))
+    assert fetched_request['dependencies'] == sample_deps
+
+
 def test_set_state_not_logged_in(client, db):
     payload = {'state': 'complete', 'state_reason': 'Completed successfully'}
     rv = client.patch('/api/v1/requests/1', json=payload)
@@ -330,6 +352,38 @@ def test_set_state_not_logged_in(client, db):
         'some string',
         400,
         'The input data must be a JSON object',
+    ),
+    (
+        1,
+        {'dependencies': 'test'},
+        400,
+        'The value for "dependencies" must be an array',
+    ),
+    (
+        1,
+        {'dependencies': ['test']},
+        400,
+        'A dependency must be a JSON object with the keys name, type, and version',
+    ),
+    (
+        1,
+        {'dependencies': [{'type': 'gomod', 'version': 'v1.4.2'}]},
+        400,
+        'A dependency must be a JSON object with the keys name, type, and version',
+    ),
+    (
+        1,
+        {
+            'dependencies': [
+                {
+                    'name': 'github.com/Masterminds/semver',
+                    'type': 'gomod',
+                    'version': 3.0,
+                },
+            ],
+        },
+        400,
+        'The "version" key of the dependency must be a string',
     ),
 ))
 def test_state_change_invalid(

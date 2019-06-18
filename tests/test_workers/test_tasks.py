@@ -37,14 +37,20 @@ def test_fetch_app_source_request_timed_out(mock_git):
 
 
 @pytest.mark.parametrize('request_id_to_update', (None, 1))
+@mock.patch('cachito.workers.tasks.update_request_with_deps')
 @mock.patch('cachito.workers.tasks.set_request_state')
 @mock.patch('cachito.workers.tasks.resolve_gomod_deps')
-def test_fetch_gomod_source(mock_resolve_gomod_deps, mock_set_request_state, request_id_to_update):
+def test_fetch_gomod_source(
+    mock_resolve_gomod_deps, mock_set_request_state, mock_update_request_with_deps,
+    request_id_to_update, sample_deps,
+):
     app_archive_path = 'path/to/archive.tar.gz'
+    mock_resolve_gomod_deps.return_value = sample_deps
     tasks.fetch_gomod_source(app_archive_path, request_id_to_update=request_id_to_update)
     if request_id_to_update:
         mock_set_request_state.assert_called_once_with(
             1, 'in_progress', 'Fetching the golang dependencies')
+        mock_update_request_with_deps.assert_called_once_with(1, sample_deps)
     else:
         mock_set_request_state.assert_not_called()
 

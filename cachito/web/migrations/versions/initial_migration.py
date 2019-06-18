@@ -66,9 +66,30 @@ def upgrade():
         sa.PrimaryKeyConstraint('id'),
     )
 
+    op.create_table(
+        'dependency',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(), nullable=False),
+        sa.Column('type', sa.String(), nullable=False),
+        sa.Column('version', sa.String(), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('name', 'type', 'version'),
+    )
+
+    op.create_table(
+        'request_dependency',
+        sa.Column('request_id', sa.Integer(), nullable=False),
+        sa.Column('dependency_id', sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(['dependency_id'], ['dependency.id']),
+        sa.ForeignKeyConstraint(['request_id'], ['request.id']),
+        sa.UniqueConstraint('request_id', 'dependency_id'),
+    )
+
 
 def downgrade():
     op.drop_table('request_pkg_manager')
-    op.drop_table('request')
     op.drop_table('package_manager')
     op.drop_table('request_state')
+    op.drop_table('request_dependency')
+    op.drop_table('dependency')
+    op.drop_table('request')

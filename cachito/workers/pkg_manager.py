@@ -6,6 +6,8 @@ import subprocess
 import tarfile
 import tempfile
 
+import requests
+
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 
@@ -61,6 +63,37 @@ def resolve_gomod_deps(archive_path, copy_cache_to=None):
             shutil.copytree(src_cache_path, dest_cache_path)
 
         return deps
+
+
+def update_request_with_deps(request_id, deps):
+    """
+    Update the Cachito request with the resolved dependencies.
+
+    :param int request_id: the ID of the Cachito request
+    :param list deps: the list of dependency dictionaries to record
+    :raise CachitoError: if the request to the Cachito API fails
+    """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_auth_session
+    config = get_worker_config()
+    request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+
+    log.info('Adding %d dependencies to request %d', len(deps), request_id)
+    payload = {'dependencies': deps}
+    try:
+        rv = requests_auth_session.patch(request_url, json=payload, timeout=30)
+    except requests.RequestException:
+        msg = f'The connection failed when setting the dependencies on request {request_id}'
+        log.exception(msg)
+        raise CachitoError(msg)
+
+    if not rv.ok:
+        log.error(
+            'The worker failed to set the dependencies on request %d. The status was %d. '
+            'The text was:\n%s',
+            request_id, rv.status_code, rv.text,
+        )
+        raise CachitoError(f'Setting the dependencies on request {request_id} failed')
 
 
 def _extract_app_src(archive_path, parent_dir):

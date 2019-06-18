@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.workers.pkg_manager import resolve_gomod_deps
+from cachito.workers.pkg_manager import resolve_gomod_deps, update_request_with_deps
 from cachito.errors import CachitoError
 
 
@@ -128,3 +128,12 @@ def test_go_list_cmd_failure(
     with pytest.raises(CachitoError) as exc_info:
         resolve_gomod_deps(archive_path)
     assert str(exc_info.value) == 'Processing gomod dependencies failed'
+
+
+@mock.patch('cachito.workers.requests.requests_auth_session')
+def test_update_request_with_deps(mock_requests, sample_deps):
+    mock_requests.patch.return_value.ok = True
+    update_request_with_deps(1, sample_deps)
+    url = 'http://cachito.domain.local/api/v1/requests/1'
+    expected_payload = {'dependencies': sample_deps}
+    mock_requests.patch.assert_called_once_with(url, json=expected_payload, timeout=30)

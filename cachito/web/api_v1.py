@@ -10,7 +10,7 @@ from werkzeug.exceptions import Unauthorized
 
 from cachito.errors import ValidationError
 from cachito.web import db
-from cachito.web.models import Request
+from cachito.web.models import Request, Dependency
 from cachito.workers import tasks
 
 
@@ -147,14 +147,19 @@ def patch_request(request_id):
     if not payload:
         raise ValidationError('At least one key must be specified to update the request')
 
-    valid_keys = {'state', 'state_reason'}
+    valid_keys = {'dependencies', 'state', 'state_reason'}
     invalid_keys = set(payload.keys()) - valid_keys
     if invalid_keys:
         raise ValidationError(
             'The following keys are not allowed: {}'.format(', '.join(invalid_keys)))
 
     for key, value in payload.items():
-        if not isinstance(value, str):
+        if key == 'dependencies':
+            if not isinstance(value, list):
+                raise ValidationError('The value for "dependencies" must be an array')
+            for dep in value:
+                Dependency.validate_json(dep)
+        elif not isinstance(value, str):
             raise ValidationError(
                 'The value for "{}" must be a string. It was the type {}.'
                 .format(key, type(value).__name__)
@@ -166,7 +171,19 @@ def patch_request(request_id):
         raise ValidationError('The "state" key is required when "state_reason" is supplied')
 
     request = Request.query.get_or_404(request_id)
-    request.add_state(payload['state'], payload['state_reason'])
+    if 'state' in payload and 'state_reason' in payload:
+        request.add_state(payload['state'], payload['state_reason'])
+
+    if 'dependencies' in payload:
+        for dep in payload['dependencies']:
+            dep_obj = Dependency.query.filter_by(**dep).first()
+            if not dep_obj:
+                dep_obj = Dependency.from_json(dep)
+                db.session.add(dep_obj)
+
+            if dep_obj not in request.dependencies:
+                request.dependencies.append(dep_obj)
+
     db.session.commit()
 
     return flask.jsonify(request.to_json()), 200

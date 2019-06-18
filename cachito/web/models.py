@@ -16,6 +16,13 @@ request_pkg_manager_table = db.Table(
     db.UniqueConstraint('request_id', 'pkg_manager_id'),
 )
 
+request_dependency_table = db.Table(
+    'request_dependency',
+    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
+    db.Column('dependency_id', db.Integer, db.ForeignKey('dependency.id'), nullable=False),
+    db.UniqueConstraint('request_id', 'dependency_id'),
+)
+
 
 class RequestStateMapping(Enum):
     """
@@ -36,12 +43,59 @@ class RequestStateMapping(Enum):
         return sorted([state.name for state in cls])
 
 
+class Dependency(db.Model):
+    """A dependency (e.g. gomod dependency) associated with the request."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    type = db.Column(db.String, nullable=False)
+    version = db.Column(db.String, nullable=False)
+    __table_args__ = (
+        db.UniqueConstraint('name', 'type', 'version'),
+    )
+
+    def __repr__(self):
+        return (
+            '<Dependency id={0!r}, name={1!r} type={2!r} version={3!r}>'
+            .format(self.id, self.name, self.type, self.version)
+        )
+
+    @staticmethod
+    def validate_json(dependency):
+        """
+        Validate the JSON representation of a dependency.
+
+        :param any dependency: the JSON representation of a dependency
+        :raise ValidationError: if the JSON does not match the required schema
+        """
+        if not isinstance(dependency, dict) or dependency.keys() != {'name', 'type', 'version'}:
+            raise ValidationError(
+                'A dependency must be a JSON object with the keys name, type, and version')
+
+        for key in ('name', 'type', 'version'):
+            if not isinstance(dependency[key], str):
+                raise ValidationError('The "{}" key of the dependency must be a string'.format(key))
+
+    @classmethod
+    def from_json(cls, dependency):
+        cls.validate_json(dependency)
+        return cls(**dependency)
+
+    def to_json(self):
+        return {
+            'name': self.name,
+            'type': self.type,
+            'version': self.version,
+        }
+
+
 class Request(db.Model):
     """A Cachito user request."""
     id = db.Column(db.Integer, primary_key=True)
     repo = db.Column(db.String, nullable=False)
     ref = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    dependencies = db.relationship(
+        'Dependency', secondary=request_dependency_table, backref='requests')
     pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
                                    backref='requests')
     states = db.relationship(
@@ -72,6 +126,7 @@ class Request(db.Model):
             user = self.user.username
 
         rv = {
+            'dependencies': [dep.to_json() for dep in self.dependencies],
             'id': self.id,
             'repo': self.repo,
             'ref': self.ref,
