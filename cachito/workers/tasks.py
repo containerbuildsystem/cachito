@@ -8,7 +8,7 @@ from celery.signals import celeryd_init
 import requests
 
 from cachito.workers.config import configure_celery, validate_celery_config, get_worker_config
-from cachito.workers.pkg_manager import resolve_gomod_deps
+from cachito.workers.pkg_manager import resolve_gomod_deps, update_request_with_deps
 from cachito.workers.scm import Git
 from cachito.errors import CachitoError
 
@@ -59,12 +59,16 @@ def fetch_gomod_source(app_archive_path, copy_cache_to=None, request_id_to_updat
     log.info('Fetching gomod dependencies for "%s"', app_archive_path)
     if request_id_to_update:
         set_request_state(request_id_to_update, 'in_progress', 'Fetching the golang dependencies')
+
     try:
-        resolve_gomod_deps(app_archive_path, copy_cache_to)
+        deps = resolve_gomod_deps(app_archive_path, copy_cache_to)
     except CachitoError:
         log.exception('Failed to fetch gomod dependencies for "%s"', app_archive_path)
         raise
-    # TODO: Store list of dependencies in DB via the API.
+
+    if request_id_to_update:
+        update_request_with_deps(request_id_to_update, deps)
+
     return app_archive_path
 
 
