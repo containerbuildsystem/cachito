@@ -51,6 +51,31 @@ def db(app, tmpdir):
     return _db
 
 
+@pytest.fixture()
+def sample_deps():
+    return [
+        {'type': 'gomod', 'name': 'github.com/Masterminds/semver', 'version': 'v1.4.2'},
+        {'type': 'gomod', 'name': 'github.com/kr/pretty', 'version': 'v0.1.0'},
+        {'type': 'gomod', 'name': 'github.com/kr/pty', 'version': 'v1.1.1'},
+        {'type': 'gomod', 'name': 'github.com/kr/text', 'version': 'v0.1.0'},
+        {'type': 'gomod', 'name': 'github.com/op/go-logging',
+         'version': 'v0.0.0-20160315200505-970db520ece7'},
+        {'type': 'gomod', 'name': 'github.com/pkg/errors', 'version': 'v0.8.1'},
+        {'type': 'gomod', 'name': 'golang.org/x/crypto',
+         'version': 'v0.0.0-20190308221718-c2843e01d9a2'},
+        {'type': 'gomod', 'name': 'golang.org/x/net',
+         'version': 'v0.0.0-20190311183353-d8887717615a'},
+        {'type': 'gomod', 'name': 'golang.org/x/sys',
+         'version': 'v0.0.0-20190215142949-d0b11bdaac8a'},
+        {'type': 'gomod', 'name': 'golang.org/x/text', 'version': 'v0.3.0'},
+        {'type': 'gomod', 'name': 'golang.org/x/tools',
+         'version': 'v0.0.0-20190325161752-5a8dccf5b48a'},
+        {'type': 'gomod', 'name': 'gopkg.in/check.v1',
+         'version': 'v1.0.0-20180628173108-788fd7840127'},
+        {'type': 'gomod', 'name': 'gopkg.in/yaml.v2', 'version': 'v2.2.2'},
+    ]
+
+
 @pytest.fixture(scope='session')
 def worker_auth_env():
     return {'REMOTE_USER': 'worker@DOMAIN.LOCAL'}
