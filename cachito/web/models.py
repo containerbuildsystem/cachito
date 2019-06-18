@@ -93,7 +93,7 @@ class Request(db.Model):
                                   .format(', '.join(missing_params)))
 
         # Don't allow the user to set arbitrary columns or relationships
-        invalid_params = set(kwargs.keys() - required_params)
+        invalid_params = kwargs.keys() - required_params
         if invalid_params:
             raise ValidationError(
                 'The following parameters are invalid: {}'.format(', '.join(invalid_params)))
