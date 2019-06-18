@@ -333,7 +333,7 @@ def test_set_state_not_logged_in(client, db):
         1,
         {'state': 1, 'state_reason': 'Success'},
         400,
-        'The value for "state" must be a string. It was the type int.',
+        'The value for "state" must be a string',
     ),
     (
         1,

@@ -160,10 +160,7 @@ def patch_request(request_id):
             for dep in value:
                 Dependency.validate_json(dep)
         elif not isinstance(value, str):
-            raise ValidationError(
-                'The value for "{}" must be a string. It was the type {}.'
-                .format(key, type(value).__name__)
-            )
+            raise ValidationError('The value for "{}" must be a string'.format(key))
 
     if 'state' in payload and 'state_reason' not in payload:
         raise ValidationError('The "state_reason" key is required when "state" is supplied')
