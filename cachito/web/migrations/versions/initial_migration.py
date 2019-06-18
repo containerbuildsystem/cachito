@@ -46,7 +46,8 @@ def upgrade():
         sa.Column('request_id', sa.Integer(), nullable=False),
         sa.Column('pkg_manager_id', sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(['pkg_manager_id'], ['package_manager.id'], ),
-        sa.ForeignKeyConstraint(['request_id'], ['request.id'], )
+        sa.ForeignKeyConstraint(['request_id'], ['request.id'], ),
+        sa.UniqueConstraint('request_id', 'pkg_manager_id'),
     )
 
     # Insert supported pkg managers

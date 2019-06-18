@@ -12,7 +12,8 @@ from cachito.web import db
 request_pkg_manager_table = db.Table(
     'request_pkg_manager',
     db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
-    db.Column('pkg_manager_id', db.Integer, db.ForeignKey('package_manager.id'), nullable=False)
+    db.Column('pkg_manager_id', db.Integer, db.ForeignKey('package_manager.id'), nullable=False),
+    db.UniqueConstraint('request_id', 'pkg_manager_id'),
 )
 
 
