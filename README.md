@@ -10,6 +10,17 @@ Run the application:
 
 And open it in the browser at [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
 
+## Pre-built Container Images
+
+Cachito container images are automatically built when changes are merged. There are two images,
+an httpd based image with the Cachito API, and a Celery worker image with the Cachito worker code.
+
+[![cachito-api](https://quay.io/repository/factory2/cachito-api/status)](https://quay.io/repository/factory2/cachito-api)
+  `quay.io/factory2/cachito-api:latest`
+
+[![cachito-worker](https://quay.io/repository/factory2/cachito-worker/status)](https://quay.io/repository/factory2/cachito-worker)
+  `quay.io/factory2/cachito-worker:latest`
+
 ## Prerequisites
 
 This is built to be used with Python 3.
