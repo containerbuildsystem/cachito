@@ -16,10 +16,10 @@ Cachito container images are automatically built when changes are merged. There 
 an httpd based image with the Cachito API, and a Celery worker image with the Cachito worker code.
 
 [![cachito-api](https://quay.io/repository/factory2/cachito-api/status)](https://quay.io/repository/factory2/cachito-api)
-  `quay.io/factory2/cachito-api:latest`
+  `quay.io/factory2/cachito-api:master`
 
 [![cachito-worker](https://quay.io/repository/factory2/cachito-worker/status)](https://quay.io/repository/factory2/cachito-worker)
-  `quay.io/factory2/cachito-worker:latest`
+  `quay.io/factory2/cachito-worker:master`
 
 ## Prerequisites
 
