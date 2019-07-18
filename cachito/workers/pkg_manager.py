@@ -40,7 +40,8 @@ def resolve_gomod_deps(archive_path, copy_cache_to=None):
         run_params = {'env': env, 'cwd': source_dir}
 
         _run_cmd(('go', 'mod', 'download'), run_params)
-        go_list_output = _run_cmd(('go', 'list', '-m', 'all'), run_params)
+        go_list_output = _run_cmd(
+            ('go', 'list', '-m', '-f', '{{.Path}} {{.Version}}', 'all'), run_params)
 
         deps = []
         for line in go_list_output.splitlines():
