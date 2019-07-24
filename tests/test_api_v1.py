@@ -269,6 +269,33 @@ def test_set_state(app, client, db, worker_auth_env):
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
 
 
+def test_set_state_no_duplicate(app, client, db, worker_auth_env):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    state = 'complete'
+    state_reason = 'Completed successfully'
+    payload = {'state': state, 'state_reason': state_reason}
+    for i in range(3):
+        patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+        assert patch_rv.status_code == 200
+
+    get_rv = client.get('/api/v1/requests/1')
+    assert get_rv.status_code == 200
+
+    fetched_request = json.loads(get_rv.data.decode('utf-8'))
+    # Make sure no duplicate states were added
+    assert len(fetched_request['state_history']) == 2
+
+
 def test_set_deps(app, client, db, worker_auth_env, sample_deps):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
