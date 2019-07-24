@@ -198,6 +198,21 @@ class Request(db.Model):
         request_state = RequestState(state=state_int, state_reason=state_reason)
         self.states.append(request_state)
 
+    @property
+    def last_state(self):
+        """
+        Get the last RequestState associated with the current request.
+
+        :return: the last RequestState
+        :rtype: RequestState
+        """
+        return (
+            RequestState.query
+            .filter_by(request_id=self.id)
+            .order_by(RequestState.updated.desc(), RequestState.id.desc())
+            .first()
+        )
+
 
 class PackageManager(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -219,9 +234,15 @@ class RequestState(db.Model):
     request_id = db.Column(db.Integer, db.ForeignKey('request.id'), nullable=False)
     request = db.relationship('Request', back_populates='states')
 
+    @property
+    def state_name(self):
+        """Get the state's display name."""
+        if self.state:
+            return RequestStateMapping(self.state).name
+
     def __repr__(self):
         return '<RequestState id={} state="{}" request_id={}>'.format(
-            self.id, RequestStateMapping(self.state).name, self.request_id)
+            self.id, self.state_name, self.request_id)
 
 
 class User(db.Model, UserMixin):
