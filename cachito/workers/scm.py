@@ -175,8 +175,8 @@ class Git(SCM):
         """
         Fetch the repo, create a compressed tar file, and put it in long-term storage.
         """
-        # If it already exists, don't download it again
-        if os.path.exists(self.archive_path):
+        # If it already exists and isn't corrupt, don't download it again
+        if os.path.exists(self.archive_path) and tarfile.is_tarfile(self.archive_path):
             log.debug('The archive already exists at "%s"', self.archive_path)
             return
 
