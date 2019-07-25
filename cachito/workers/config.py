@@ -94,5 +94,5 @@ def validate_celery_config(conf, **kwargs):
 
 def get_worker_config():
     # Import this here to avoid a circular import
-    import cachito.workers.tasks
-    return cachito.workers.tasks.app.conf
+    import cachito.workers.tasks.celery
+    return cachito.workers.tasks.celery.app.conf

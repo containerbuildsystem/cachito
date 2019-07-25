@@ -12,8 +12,8 @@ from cachito.workers import tasks
 
 
 @pytest.mark.parametrize('request_id_to_update', (None, 1))
-@mock.patch('cachito.workers.tasks.set_request_state')
-@mock.patch('cachito.workers.tasks.Git')
+@mock.patch('cachito.workers.tasks.general.set_request_state')
+@mock.patch('cachito.workers.tasks.general.Git')
 def test_fetch_app_source(mock_git, mock_set_request_state, request_id_to_update):
     url = 'https://github.com/release-engineering/retrodep.git'
     ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
@@ -27,7 +27,7 @@ def test_fetch_app_source(mock_git, mock_set_request_state, request_id_to_update
         mock_set_request_state.assert_not_called()
 
 
-@mock.patch('cachito.workers.tasks.Git')
+@mock.patch('cachito.workers.tasks.general.Git')
 def test_fetch_app_source_request_timed_out(mock_git):
     url = 'https://github.com/release-engineering/retrodep.git'
     ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
@@ -37,9 +37,9 @@ def test_fetch_app_source_request_timed_out(mock_git):
 
 
 @pytest.mark.parametrize('request_id_to_update', (None, 1))
-@mock.patch('cachito.workers.tasks.update_request_with_deps')
-@mock.patch('cachito.workers.tasks.set_request_state')
-@mock.patch('cachito.workers.tasks.resolve_gomod_deps')
+@mock.patch('cachito.workers.tasks.golang.update_request_with_deps')
+@mock.patch('cachito.workers.tasks.golang.set_request_state')
+@mock.patch('cachito.workers.tasks.golang.resolve_gomod_deps')
 def test_fetch_gomod_source(
     mock_resolve_gomod_deps, mock_set_request_state, mock_update_request_with_deps,
     request_id_to_update, sample_deps,
@@ -55,7 +55,7 @@ def test_fetch_gomod_source(
         mock_set_request_state.assert_not_called()
 
 
-@mock.patch('cachito.workers.tasks.get_worker_config')
+@mock.patch('cachito.workers.tasks.general.get_worker_config')
 def test_assemble_archive_bundle(mock_get_worker_config, tmpdir):
     mocked_config = mock.Mock(cachito_shared_dir=str(tmpdir))
     mock_get_worker_config.return_value = mocked_config
@@ -128,14 +128,14 @@ def test_set_request_state_bad_status_code(mock_requests):
         tasks.set_request_state(1, 'complete', 'Completed successfully')
 
 
-@mock.patch('cachito.workers.tasks.set_request_state')
+@mock.patch('cachito.workers.tasks.general.set_request_state')
 def test_failed_request_callback(mock_set_request_state):
     exc = CachitoError('some error')
     tasks.failed_request_callback(None, exc, None, 1)
     mock_set_request_state.assert_called_once_with(1, 'failed', 'some error')
 
 
-@mock.patch('cachito.workers.tasks.set_request_state')
+@mock.patch('cachito.workers.tasks.general.set_request_state')
 def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
     exc = ValueError('some error')
     tasks.failed_request_callback(None, exc, None, 1)
