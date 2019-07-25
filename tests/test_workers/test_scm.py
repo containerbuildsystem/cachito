@@ -11,7 +11,7 @@ ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
 archive_path = f'/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz'
 
 
-@mock.patch('cachito.workers.tasks.app')
+@mock.patch('cachito.workers.tasks.celery.app')
 @mock.patch('os.makedirs')
 def test_archive_path(mock_makedirs, mock_celery_app):
     path = '/tmp/cachito-archives'
