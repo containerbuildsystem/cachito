@@ -63,7 +63,9 @@ def download_archive(request_id):
     :raise NotFound: if the request is not found
     """
     request = Request.query.get_or_404(request_id)
-    # TODO: Verify request has already been processed.
+    if request.last_state.state_name != 'complete':
+        raise ValidationError(
+            'The request must be in the "complete" state before downloading the archive')
 
     cachito_shared_dir = flask.current_app.config['CACHITO_SHARED_DIR']
     wait_timeout = flask.current_app.config['CACHITO_WAIT_TIMEOUT']

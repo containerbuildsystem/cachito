@@ -214,6 +214,7 @@ def test_download_archive(
         return mock.Mock()
 
     mock_chain.side_effect = chain_side_effect
+    mock_request.query.get_or_404().last_state.state_name = 'complete'
 
     with mock.patch.dict(app.config, {'CACHITO_SHARED_DIR': str(shared_cachito_dir)}):
         rv = client.get('/api/v1/requests/1/download')
@@ -233,6 +234,16 @@ def test_download_archive(
     with tarfile.open(fileobj=io.BytesIO(rv.data), mode='r:*') as bundle_archive:
         for expected_member in list(bundle_archive_contents.keys()):
             bundle_archive.getmember(expected_member)
+
+
+@mock.patch('cachito.web.api_v1.Request')
+def test_download_archive_not_complete(mock_request, client, db, app):
+    mock_request.query.get_or_404().last_state.state_name = 'in_progress'
+    rv = client.get('/api/v1/requests/1/download')
+    assert rv.status_code == 400
+    assert rv.json == {
+        'error': 'The request must be in the "complete" state before downloading the archive',
+    }
 
 
 def test_set_state(app, client, db, worker_auth_env):
