@@ -13,6 +13,8 @@ class Config(object):
     task_default_queue = 'cachito'
     cachito_auth_type = None
     cachito_log_level = 'INFO'
+    result_backend = 'rpc'
+    result_persistent = True
 
 
 class ProductionConfig(Config):
@@ -29,9 +31,6 @@ class DevelopmentConfig(Config):
     cachito_archives_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     cachito_shared_dir = os.path.join(tempfile.gettempdir(), 'cachito-shared')
     cachito_log_level = 'DEBUG'
-
-    result_backend = 'rpc'
-    result_persistent = True
 
 
 class TestingConfig(DevelopmentConfig):
