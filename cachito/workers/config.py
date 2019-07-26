@@ -3,18 +3,43 @@ import os
 import tempfile
 import logging
 
+import kombu
+
 from cachito.errors import ConfigError
 
 
 class Config(object):
     """The base Cachito Celery configuration."""
 
-    # Don't use the default 'celery' queue
-    task_default_queue = 'cachito'
     cachito_auth_type = None
     cachito_log_level = 'INFO'
     result_backend = 'rpc'
     result_persistent = True
+    # The task messages will be acknowledged after the task has been executed,
+    # instead of just before
+    task_acks_late = True
+    # Don't use the default 'celery' queue and routing key
+    task_default_queue = 'cachito'
+    task_default_routing_key = 'cachito'
+    # By default, have the worker process general and golang tasks
+    task_queues = (
+        kombu.Queue('cachito'),
+        kombu.Queue('cachito_golang', routing_key='cachito.golang'),
+    )
+    # Route golang tasks to a separate queue. This will be more useful when there's more than one
+    # type of worker.
+    task_routes = {
+        'cachito.workers.tasks.golang.*': {
+            'queue': 'cachito_golang',
+            'routing_key': 'cachito.golang',
+        },
+    }
+    # Only allow a single process so the concurrency is only based on the number of instances of the
+    # worker container
+    worker_concurrency = 1
+    # Don't allow the worker to fetch more messages than it can handle at a time. This is so that
+    # other tasks aren't starved when processing a large archive.
+    worker_prefetch_multiplier = 1
 
 
 class ProductionConfig(Config):
