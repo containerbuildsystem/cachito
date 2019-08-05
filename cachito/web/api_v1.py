@@ -26,10 +26,10 @@ def get_requests():
 
     :param int page: the page number to retrieve. Defaults to 1
     :param int per_page: the amount of items on each page. Defaults to 20. Ignored if
-        value exceeds configuration's MAX_PER_PAGE.
+        value exceeds configuration's CACHITO_MAX_PER_PAGE.
     :rtype: flask.Response
     """
-    max_per_page = flask.current_app.config['MAX_PER_PAGE']
+    max_per_page = flask.current_app.config['CACHITO_MAX_PER_PAGE']
     # The call to `paginate` will inspect the current HTTP request for the
     # pagination parameters `page` and `per_page`.
     requests = Request.query.paginate(max_per_page=max_per_page).items
