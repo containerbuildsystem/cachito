@@ -65,6 +65,7 @@ Custom configuration for the Celery workers are listed below:
 
 Custom configuration for the API:
 
+* `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
 * `CACHITO_WAIT_TIMEOUT` - the timeout used for waiting for a synchronous task to complete.
 * `CACHITO_SHARED_DIR` - the directory for short-term storage of bundled source archives. This
     configuration is required, and the directory must already exist and be writeable. The
@@ -73,7 +74,6 @@ Custom configuration for the API:
     use the `/requests/<id>` patch endpoint. The workers use this to update the request
     state.
 * `LOGIN_DISABLED` - disables authentication requirements.
-* `MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
 
 
 If you are planning to deploy Cachito with authentication enabled, you'll need to use
