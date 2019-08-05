@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import logging
 import os
 
 from flask import Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
-from werkzeug.exceptions import default_exceptions
+from sqlalchemy.exc import SQLAlchemyError
+from werkzeug.exceptions import default_exceptions, InternalServerError
 
 from cachito.web.auth import user_loader, load_user_from_request
 from cachito.web.splash import splash
@@ -12,6 +14,26 @@ from cachito.web.api_v1 import api_v1
 from cachito.web import db
 from cachito.web.errors import json_error
 from cachito.errors import ValidationError
+
+
+log = logging.getLogger(__name__)
+
+
+def healthcheck():
+    """
+    Perform an application-level health check.
+
+    This is not part of the published API because it is intended to be used by monitoring tools.
+    This returns a 200 response if the application is alive and able to serve requests. It returns
+    a 500 response otherwise.
+    """
+    try:
+        db.session.execute('SELECT 1 FROM request LIMIT 0').fetchall()
+    except SQLAlchemyError:
+        log.exception('The healthcheck failed when querying the database')
+        raise InternalServerError()
+
+    return ('OK', 200, [('Content-Type', 'text/plain')])
 
 
 def load_config(app):
@@ -62,6 +84,7 @@ def create_app(config_obj=None):
 
     app.register_blueprint(splash)
     app.register_blueprint(api_v1, url_prefix='/api/v1')
+    app.add_url_rule('/healthcheck', view_func=healthcheck)
 
     for code in default_exceptions.keys():
         app.register_error_handler(code, json_error)
