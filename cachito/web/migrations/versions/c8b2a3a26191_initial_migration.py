@@ -1,4 +1,4 @@
-"""An initial migration that can be deleted when there is a real migration
+"""The initial migration
 
 Revision ID: c8b2a3a26191
 Create Date: 2019-04-08 17:30:01.062645
