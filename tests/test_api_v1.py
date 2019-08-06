@@ -101,6 +101,13 @@ def test_create_request_invalid_ref(auth_env, client, db):
     assert error['error'] == 'The "ref" parameter must be a 40 character hex string'
 
 
+def test_create_request_not_an_object(auth_env, client, db):
+    rv = client.post('/api/v1/requests', json=None, environ_base=auth_env)
+    assert rv.status_code == 400
+    error = json.loads(rv.data.decode('utf-8'))
+    assert error['error'] == 'The input data must be a JSON object'
+
+
 def test_create_request_invalid_parameter(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',

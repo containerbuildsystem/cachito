@@ -105,6 +105,8 @@ def create_request():
     :raise ValidationError: if required parameters are not supplied
     """
     payload = flask.request.get_json()
+    if not isinstance(payload, dict):
+        raise ValidationError('The input data must be a JSON object')
 
     request = Request.from_json(payload)
     db.session.add(request)
