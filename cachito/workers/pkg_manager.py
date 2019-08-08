@@ -33,7 +33,7 @@ def resolve_gomod_deps(archive_path, copy_cache_to=None):
             'GOPATH': temp_dir,
             'GO111MODULE': 'on',
             'GOCACHE': temp_dir,
-            'GOPROXY': worker_config.athens_url,
+            'GOPROXY': worker_config.cachito_athens_url,
             'PATH': os.environ.get('PATH', ''),
         }
 
