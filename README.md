@@ -52,11 +52,18 @@ variables set in this file will be applied to the Celery worker when running in 
 
 Custom configuration for the Celery workers are listed below:
 
+* `broker_url` - the URL RabbitMQ instance to connect to. See the
+  [broker_url](https://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url)
+  configuration documentation.
+* `cachito_api_url` - the URL to the Cachito API (e.g. `https://cachito-api.domain.local/api/v1/`).
 * `cachito_archives_dir` - the directory for long-term storage of app source archives. This
     configuration is required, and the directory must already exist and be writeable.
+* `cachito_athens_url` - the URL to the Athens instance to use for caching golang dependencies. This
+  is only necessary for workers that process golang requests.
 * `cachito_auth_type` - the authentication type to use when accessing protected Cachito API
   endpoints. If this value is `None`, authentication will not be used. This defaults to `kerberos`
   in production.
+* `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
 * `cachito_shared_dir` - the directory for short-term storage of bundled source archives. This
     configuration is required, and the directory must already exist and be writeable. The
     underlying volume must also be available in the API.
@@ -75,6 +82,10 @@ Custom configuration for the API:
     state.
 * `LOGIN_DISABLED` - disables authentication requirements.
 
+Additionally, to configure the communication with the Cachito Celery workers, create a Python file
+at `/etc/cachito/celery.py`, and set the
+[broker_url](https://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url)
+configuration to point to your RabbitMQ instance.
 
 If you are planning to deploy Cachito with authentication enabled, you'll need to use
 a web server that supplies the `REMOTE_USER` environment variable when the user is
