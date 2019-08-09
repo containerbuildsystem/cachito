@@ -109,6 +109,14 @@ def create_request():
     request = Request.from_json(payload)
     if not re.match(r'^[a-f0-9]{40}', request.ref):
         raise ValidationError('The "ref" parameter must be a 40 character hex string')
+    db.session.add(request)
+    db.session.commit()
+
+    if current_user.is_authenticated:
+        flask.current_app.logger.info(
+            'The user %s submitted request %d', current_user.username, request.id)
+    else:
+        flask.current_app.logger.info('An anonymous user submitted request %d', request.id)
 
     db.session.add(request)
     db.session.commit()
@@ -122,6 +130,7 @@ def create_request():
         tasks.set_request_state.si(request.id, 'complete', 'Completed successfully'),
     ).delay()
 
+    flask.current_app.logger.debug('Successfully scheduled request %d', request.id)
     return flask.jsonify(request.to_json()), 201
 
 
@@ -194,5 +203,10 @@ def patch_request(request_id):
                 request.dependencies.append(dep_obj)
 
     db.session.commit()
+    if current_user.is_authenticated:
+        flask.current_app.logger.info(
+            'The user %s patched request %d', current_user.username, request.id)
+    else:
+        flask.current_app.logger.info('An anonymous user patched request %d', request.id)
 
     return flask.jsonify(request.to_json()), 200
