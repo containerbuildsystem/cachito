@@ -10,7 +10,10 @@ from cachito.errors import ConfigError
 
 class Config(object):
     """The base Cachito Celery configuration."""
-
+    # When publishing a message, don't continuously retry or else the HTTP connection times out
+    broker_transport_options = {
+        'max_retries': 10,
+    }
     cachito_auth_type = None
     cachito_log_level = 'INFO'
     result_backend = 'rpc'
