@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import logging
 import tempfile
 import os
 import re
@@ -15,7 +14,6 @@ from cachito.web.models import Request, Dependency
 from cachito.workers import tasks
 
 
-log = logging.getLogger(__name__)
 api_v1 = flask.Blueprint('api_v1', __name__)
 
 
@@ -181,7 +179,7 @@ def patch_request(request_id):
         # This is to protect against a Celery task getting executed twice and setting the
         # state each time
         if last_state.state_name == new_state and last_state.state_reason == new_state_reason:
-            log.info('Not adding a new state since it matches the last state')
+            flask.current_app.logger.info('Not adding a new state since it matches the last state')
         else:
             request.add_state(new_state, new_state_reason)
 

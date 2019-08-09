@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import logging
 import os
 
-from flask import Flask
+from flask import current_app, Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
 import kombu.exceptions
@@ -17,9 +16,6 @@ from cachito.web.errors import json_error
 from cachito.errors import ValidationError
 
 
-log = logging.getLogger(__name__)
-
-
 def healthcheck():
     """
     Perform an application-level health check.
@@ -31,7 +27,7 @@ def healthcheck():
     try:
         db.session.execute('SELECT 1 FROM request LIMIT 0').fetchall()
     except SQLAlchemyError:
-        log.exception('The healthcheck failed when querying the database')
+        current_app.logger.exception('The healthcheck failed when querying the database')
         raise InternalServerError()
 
     return ('OK', 200, [('Content-Type', 'text/plain')])
