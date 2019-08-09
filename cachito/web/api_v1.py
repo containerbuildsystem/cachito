@@ -109,11 +109,11 @@ def create_request():
         raise ValidationError('The input data must be a JSON object')
 
     request = Request.from_json(payload)
-    db.session.add(request)
-    db.session.commit()
-
     if not re.match(r'^[a-f0-9]{40}', request.ref):
         raise ValidationError('The "ref" parameter must be a 40 character hex string')
+
+    db.session.add(request)
+    db.session.commit()
 
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)
