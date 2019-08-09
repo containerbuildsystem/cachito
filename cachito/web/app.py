@@ -5,6 +5,7 @@ import os
 from flask import Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
+import kombu.exceptions
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import default_exceptions, InternalServerError
 
@@ -89,5 +90,6 @@ def create_app(config_obj=None):
     for code in default_exceptions.keys():
         app.register_error_handler(code, json_error)
     app.register_error_handler(ValidationError, json_error)
+    app.register_error_handler(kombu.exceptions.KombuError, json_error)
 
     return app
