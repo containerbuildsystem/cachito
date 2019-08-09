@@ -1,13 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import logging
-
 from flask import current_app
 
 from cachito.web import db
 from cachito.web.models import User
-
-
-log = logging.getLogger(__name__)
 
 
 def user_loader(username):
@@ -45,7 +40,7 @@ def load_user_from_request(request):
     remote_user = request.environ.get('REMOTE_USER')
     if not remote_user:
         if current_app.config.get('LOGIN_DISABLED', False) is True:
-            log.info(
+            current_app.logger.info(
                 'The REMOTE_USER environment variable wasn\'t set on the request, but the '
                 'LOGIN_DISABLED configuration is set to True.'
             )
@@ -53,7 +48,7 @@ def load_user_from_request(request):
 
     # Convert the username to lower-case for consistency
     username = remote_user.lower()
-    log.info(f'The user "{username}" was authenticated successfully by httpd')
+    current_app.logger.info(f'The user "{username}" was authenticated successfully by httpd')
 
     user = User.query.filter_by(username=username).first()
     if not user:
