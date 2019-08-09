@@ -5,6 +5,7 @@ import os
 import tarfile
 from unittest import mock
 
+import kombu.exceptions
 import pytest
 
 from cachito.web.models import Request
@@ -189,6 +190,22 @@ def test_validate_extraneous_params(auth_env, client, db):
     assert rv.status_code == 400
     error_msg = json.loads(rv.data.decode('utf-8'))['error']
     assert error_msg == 'The following parameters are invalid: spam'
+
+
+@mock.patch('cachito.web.api_v1.chain')
+def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod']
+    }
+
+    mock_chain.side_effect = kombu.exceptions.OperationalError('Failed to connect')
+    with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
+        rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
+
+    assert rv.status_code == 500
+    assert rv.json == {'error': 'Failed to connect to the broker to schedule a task'}
 
 
 @mock.patch('tempfile.TemporaryDirectory')
