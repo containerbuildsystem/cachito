@@ -60,7 +60,7 @@ For example, on Fedora:
 
 - run tests: `make test` (see also: [Testing Flask Applications](http://flask.pocoo.org/docs/0.12/testing/))
 
-- to remove virtualenv and built distributions: `make clean`
+- to remove virtualenv, built distributions, and clean up local deployment: `make clean`
 
 - to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`
 
