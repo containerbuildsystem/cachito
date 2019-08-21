@@ -111,3 +111,6 @@ settings.py
 
 # Local application cache
 /dest
+
+# Local deployment storage
+/tmp
