@@ -24,7 +24,7 @@ services:
       ATHENS_DISK_STORAGE_ROOT: /var/lib/athens
       ATHENS_STORAGE_TYPE: disk
     volumes:
-      - /tmp/athens-storage:/var/lib/athens:z
+      - ./tmp/athens-storage:/var/lib/athens:z
     ports:
       - 3000:3000
 
@@ -47,7 +47,7 @@ services:
       CACHITO_DEV: 'true'
     volumes:
       - ./:/src:z
-      - /tmp/cachito-shared:/tmp/cachito-shared:z
+      - ./tmp/cachito-shared:/tmp/cachito-shared:z
     # This is needed in order to allow cleaning up a temporary tarball
     # which is populated by the worker container. In an OpenShift environment
     # this is not needed.
@@ -73,8 +73,8 @@ services:
       CACHITO_DEV: 'true'
     volumes:
       - ./:/src:z
-      - /tmp/cachito-archives:/tmp/cachito-archives:z
-      - /tmp/cachito-shared:/tmp/cachito-shared:z
+      - ./tmp/cachito-archives:/tmp/cachito-archives:z
+      - ./tmp/cachito-shared:/tmp/cachito-shared:z
     depends_on:
       - cachito-api
       - rabbitmq
