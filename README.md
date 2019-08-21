@@ -1,6 +1,6 @@
 # cachito
 
-(Experimental) Caching service for source code
+Caching service for source code
 
 ## Quick Start
 
