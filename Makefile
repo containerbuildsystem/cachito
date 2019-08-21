@@ -6,8 +6,8 @@ clean:
 venv:
 	virtualenv --python=python3 venv && venv/bin/python setup.py develop && venv/bin/pip install -r requirements-dev.txt
 
-run: venv
-	FLASK_ENV=development CACHITO_DEV=true FLASK_APP=cachito/web/wsgi:app venv/bin/flask run
+run:
+	docker-compose up
 
 test:
 	tox

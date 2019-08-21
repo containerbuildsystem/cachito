@@ -4,11 +4,31 @@ Caching service for source code
 
 ## Quick Start
 
-Run the application:
+Run the application locally (requires [docker-compose](https://docs.docker.com/compose/)):
 
     make run
 
-And open it in the browser at [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
+Verify in the browser at [http://localhost:8080/](http://localhost:8080/)
+
+Use curl to make requests:
+
+    # List all requests
+    curl http://localhost:8080/api/v1/requests
+
+    # Create a new request
+    curl -X POST -H "Content-Type: application/json" http://localhost:8080/api/v1/requests -d \
+        '{
+           "repo": "https://github.com/release-engineering/retrodep.git",
+           "ref": "e1be527f39ec31323f0454f7d1422c6260b00580",
+           "pkg_managers": ["gomod"]
+         }'
+
+    # Check the status of a request
+    curl http://localhost:8080/api/v1/requests/1
+
+    # Download the source archive for a completed request
+    curl http://localhost:8080/api/v1/requests/1/download -o source.tar.gz
+
 
 ## Pre-built Container Images
 
