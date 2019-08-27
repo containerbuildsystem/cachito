@@ -15,6 +15,7 @@ class Config(object):
         'max_retries': 10,
     }
     cachito_auth_type = None
+    cachito_kerberos_keytab = None
     cachito_log_level = 'INFO'
     result_backend = 'rpc'
     result_persistent = True

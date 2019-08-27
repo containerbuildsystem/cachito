@@ -83,6 +83,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_auth_type` - the authentication type to use when accessing protected Cachito API
   endpoints. If this value is `None`, authentication will not be used. This defaults to `kerberos`
   in production.
+* `cachito_kerberos_keytab` - the path to the Kerberos keytab file to use for authentication. If
+  it's not set, the path in the environment variable `KRB5_CLIENT_KTNAME` is used.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
 * `cachito_shared_dir` - the directory for short-term storage of bundled source archives. This
     configuration is required, and the directory must already exist and be writeable. The
