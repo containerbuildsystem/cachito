@@ -15,6 +15,25 @@ from cachito.workers.config import get_worker_config
 log = logging.getLogger(__name__)
 
 
+class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
+    """
+    A wrapper around the TemporaryDirectory context manager to also run `go clean -modcache`.
+
+    The files in the Go cache are read-only by default and cause the default clean up behavior of
+    tempfile.TemporaryDirectory to fail with a permission error. A way around this is to run
+    `go clean -modcache` before the default clean up behavior is run.
+    """
+    def __exit__(self, exc, value, tb):
+        """
+        Clean up temporary directory by first cleaning up the Go cache.
+        """
+        try:
+            env = {'GOPATH': self.name, 'GOCACHE': self.name}
+            _run_cmd(('go', 'clean', '-modcache'), {'env': env})
+        finally:
+            super().__exit__(exc, value, tb)
+
+
 def resolve_gomod_deps(archive_path, copy_cache_to=None):
     """
     Resolve and fetch gomod dependencies for given app source archive.
@@ -26,7 +45,7 @@ def resolve_gomod_deps(archive_path, copy_cache_to=None):
     :raises CachitoError: if fetching dependencies fails
     """
     worker_config = get_worker_config()
-    with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
+    with GoCacheTemporaryDirectory(prefix='cachito-') as temp_dir:
         source_dir = _extract_app_src(archive_path, temp_dir)
 
         env = {

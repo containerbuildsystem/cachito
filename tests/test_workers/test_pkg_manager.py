@@ -31,7 +31,7 @@ mock_cmd_output = dedent("""\
     """)
 
 
-@mock.patch('tempfile.TemporaryDirectory')
+@mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 @mock.patch('tarfile.open')
 def test_resolve_gomod_deps(
@@ -59,7 +59,7 @@ def test_resolve_gomod_deps(
     assert resolved_deps == sample_deps
 
 
-@mock.patch('tempfile.TemporaryDirectory')
+@mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 @mock.patch('tarfile.open')
 def test_resolve_gomod_deps_with_copy_cache(
@@ -102,7 +102,7 @@ def test_resolve_gomod_deps_with_copy_cache(
 
 
 @pytest.mark.parametrize(('go_mod_rc', 'go_list_rc'), ((0, 1), (1, 0)))
-@mock.patch('tempfile.TemporaryDirectory')
+@mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 @mock.patch('tarfile.open')
 def test_go_list_cmd_failure(
