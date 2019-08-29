@@ -85,6 +85,10 @@ Custom configuration for the Celery workers are listed below:
   in production.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
 
+To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
+environment variable to the path of the keytab. Additional Kerberos configuration can be made in
+`/etc/krb5.conf`.
+
 ## Configuring the API
 
 Custom configuration for the API:
