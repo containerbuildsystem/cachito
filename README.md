@@ -88,6 +88,10 @@ Custom configuration for the Celery workers are listed below:
     configuration is required, and the directory must already exist and be writeable. The
     underlying volume must also be available in the API.
 
+To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
+environment variable to the path of the keytab. Additional Kerberos configuration can be made in
+`/etc/krb5.conf`.
+
 ## Configuring the API
 
 Custom configuration for the API:
