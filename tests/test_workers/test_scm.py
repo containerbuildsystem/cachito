@@ -33,9 +33,11 @@ def test_repo_name():
 @mock.patch('cachito.workers.requests.requests_session.get')
 @mock.patch('cachito.workers.scm.Git.archive_path', new_callable=mock.PropertyMock)
 @mock.patch('shutil.copyfileobj')
+@mock.patch('shutil.copyfile')
 @mock.patch('tarfile.open')
 def test_download_source_archive(
-    mock_tarfile_open, mock_copyfileobj, mock_archive_path, mock_requests, mock_temp_dir
+    mock_tarfile_open, mock_copyfile, mock_copyfileobj, mock_archive_path, mock_requests,
+    mock_temp_dir,
 ):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'
@@ -71,6 +73,11 @@ def test_download_source_archive(
     mock_initial_tarfile.extractall.assert_called_once_with('/tmp/cachito-temp')
     # Verify that the final archive was created
     mock_final_tarfile.add.assert_called_once_with('/tmp/cachito-temp/retrodep', 'app')
+    mock_copyfile.assert_called_once_with(
+        '/tmp/cachito-temp/corrected-c50b93a32df1c9d700e3e80996845bc2e13be848.tar.gz',
+        '/tmp/cachito-archives/release-engineering/retrodep/'
+        'c50b93a32df1c9d700e3e80996845bc2e13be848.tar.gz',
+    )
 
 
 @mock.patch('tempfile.TemporaryDirectory')
