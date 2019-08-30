@@ -33,6 +33,16 @@ class SCM(ABC):
         self._repo_name = None
 
     @property
+    def archive_name(self):
+        """
+        Get what the archive name should be for a particular SCM reference.
+
+        :return: the archive name
+        :rtype: str
+        """
+        return f'{self.ref}.tar.gz'
+
+    @property
     def archive_path(self):
         """
         Get the path to where the archive for a particular SCM reference should be.
@@ -44,7 +54,7 @@ class SCM(ABC):
             directory = os.path.join(self.archives_dir, *self.repo_name.split('/'))
             # Create the directories if they don't exist
             os.makedirs(directory, exist_ok=True)
-            self._archive_path = os.path.join(directory, f'{self.ref}.tar.gz')
+            self._archive_path = os.path.join(directory, self.archive_name)
 
         return self._archive_path
 
@@ -88,7 +98,7 @@ class SCM(ABC):
                         'An unexpected error was encountered when downloading the source'
                     )
 
-                temp_archive_path = os.path.join(temp_dir, os.path.basename(self.archive_path))
+                temp_archive_path = os.path.join(temp_dir, self.archive_name)
                 with open(temp_archive_path, 'wb') as archive_file:
                     shutil.copyfileobj(response.raw, archive_file)
 
@@ -99,12 +109,16 @@ class SCM(ABC):
                 temp_archive.extractall(temp_dir)
                 extracted_src = os.path.join(temp_dir, dir_name)
 
+            corrected_temp_archive_path = os.path.join(temp_dir, f'corrected-{self.archive_name}')
             log.debug(
                 'Recreating the archive with the correct directory structure at "%s"',
-                self.archive_path,
+                corrected_temp_archive_path,
             )
-            with tarfile.open(self.archive_path, 'w:gz') as archive:
+            with tarfile.open(corrected_temp_archive_path, 'w:gz') as archive:
                 archive.add(extracted_src, 'app')
+
+            log.debug('Copying %s to %s', corrected_temp_archive_path, self.archive_path)
+            shutil.copyfile(corrected_temp_archive_path, self.archive_path)
 
     @abstractmethod
     def fetch_source(self):
