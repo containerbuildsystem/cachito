@@ -7,7 +7,6 @@ TEST_DB_FILE = os.path.join(tempfile.gettempdir(), 'cachito.db')
 
 class Config(object):
     """The base Cachito Flask configuration."""
-    CACHITO_WAIT_TIMEOUT = 120  # Seconds
     CACHITO_MAX_PER_PAGE = 100
     CACHITO_WORKER_USERNAMES = []
 
@@ -21,7 +20,7 @@ class DevelopmentConfig(Config):
     """The development Cachito Flask configuration."""
     SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://cachito:cachito@db:5432/cachito'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
-    CACHITO_SHARED_DIR = os.path.join(tempfile.gettempdir(), 'cachito-shared')
+    CACHITO_ARCHIVES_DIR = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     LOGIN_DISABLED = True
 
 

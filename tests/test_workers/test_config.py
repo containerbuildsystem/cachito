@@ -39,9 +39,7 @@ def test_validate_celery_config(mock_isdir):
     celery_app.conf.cachito_shared_dir = '/tmp/some-other-path'
     celery_app.conf.cachito_api_url = 'http://cachito-api/api/v1/'
     validate_celery_config(celery_app.conf)
-    assert mock_isdir.call_count == 2
-    mock_isdir.assert_any_call(celery_app.conf.cachito_shared_dir)
-    mock_isdir.assert_any_call(celery_app.conf.cachito_archives_dir)
+    mock_isdir.assert_called_once_with(celery_app.conf.cachito_archives_dir)
 
 
 def test_validate_celery_config_failure():

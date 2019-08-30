@@ -57,7 +57,6 @@ class DevelopmentConfig(Config):
     cachito_api_url = 'http://cachito-api:8080/api/v1/'
     cachito_archives_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     cachito_athens_url = 'http://athens:3000'
-    cachito_shared_dir = os.path.join(tempfile.gettempdir(), 'cachito-shared')
     cachito_log_level = 'DEBUG'
 
 
@@ -77,9 +76,8 @@ def configure_celery(celery_app):
     if os.getenv('CACHITO_DEV', '').lower() == 'true':
         config = DevelopmentConfig
         # When in development mode, create required directories for the user
-        for dirname in (config.cachito_archives_dir, config.cachito_shared_dir):
-            if not os.path.isdir(dirname):
-                os.mkdir(dirname)
+        if not os.path.isdir(config.cachito_archives_dir):
+            os.mkdir(config.cachito_archives_dir)
     elif os.getenv('CACHITO_TESTING', 'false').lower() == 'true':
         config = TestingConfig
     elif os.path.isfile(prod_config_file_path):
@@ -108,12 +106,11 @@ def validate_celery_config(conf, **kwargs):
     :param celery.app.utils.Settings conf: the Celery application configuration to validate
     :raises ConfigError: if the configuration is invalid
     """
-    for required_dir_conf in ('cachito_archives_dir', 'cachito_shared_dir'):
-        required_dir = conf.get(required_dir_conf)
-        if not required_dir or not os.path.isdir(required_dir):
-            raise ConfigError(
-                f'The configuration "{required_dir_conf}" must be set to an existing directory'
-            )
+    archives_dir = conf.get('cachito_archives_dir')
+    if not archives_dir or not os.path.isdir(archives_dir):
+        raise ConfigError(
+            f'The configuration "cachito_archives_dir" must be set to an existing directory'
+        )
 
     if not conf.get('cachito_api_url'):
         raise ConfigError('The configuration "cachito_api_url" must be set')

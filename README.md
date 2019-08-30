@@ -84,19 +84,14 @@ Custom configuration for the Celery workers are listed below:
   endpoints. If this value is `None`, authentication will not be used. This defaults to `kerberos`
   in production.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
-* `cachito_shared_dir` - the directory for short-term storage of bundled source archives. This
-    configuration is required, and the directory must already exist and be writeable. The
-    underlying volume must also be available in the API.
 
 ## Configuring the API
 
 Custom configuration for the API:
 
+* `CACHITO_ARCHIVES_DIR` - the root of the archives directory that is also accessible by the
+  workers. This is used to download the bundle archives created by the workers.
 * `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
-* `CACHITO_SHARED_DIR` - the directory for short-term storage of bundled source archives. This
-    configuration is required, and the directory must already exist and be writeable. The
-    underlying volume must also be available in the workers.
-* `CACHITO_WAIT_TIMEOUT` - the timeout used for waiting for a synchronous task to complete.
 * `CACHITO_WORKER_USERNAMES` - the list of usernames without the realm that are allowed to
     use the `/requests/<id>` patch endpoint. The workers use this to update the request
     state.
