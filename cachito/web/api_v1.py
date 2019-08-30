@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import tempfile
 import os
 import re
 
 from celery import chain
 import flask
 from flask_login import current_user, login_required
-from werkzeug.exceptions import Unauthorized
+from werkzeug.exceptions import Unauthorized, InternalServerError
 
 from cachito.errors import ValidationError
 from cachito.web import db
@@ -65,29 +64,18 @@ def download_archive(request_id):
         raise ValidationError(
             'The request must be in the "complete" state before downloading the archive')
 
-    cachito_shared_dir = flask.current_app.config['CACHITO_SHARED_DIR']
-    wait_timeout = flask.current_app.config['CACHITO_WAIT_TIMEOUT']
+    if not os.path.exists(request.bundle_archive):
+        flask.current_app.logger.error(
+            'The bundle archive at %s for request %d doesn\'t exist',
+            request.bundle_archive, request_id,
+        )
+        raise InternalServerError()
 
-    with tempfile.TemporaryDirectory(prefix='cachito-', dir=cachito_shared_dir) as temp_dir:
-        # Although the cachito_shared_dir volume is required to be the same between celery
-        # workers and the API, they may be mounted at different locations. Use relative
-        # paths to agree on data location within the shared volume.
-        relative_temp_dir = os.path.basename(temp_dir)
-        relative_deps_path = os.path.join(relative_temp_dir, 'deps')
-        relative_bundle_archive_path = os.path.join(relative_temp_dir, 'bundle.tar.gz')
-        absolute_bundle_archive_path = os.path.join(
-            cachito_shared_dir, relative_bundle_archive_path)
-
-        # Chain tasks
-        chain_result = chain(
-            tasks.fetch_app_source.s(request.repo, request.ref),
-            tasks.fetch_gomod_source.s(copy_cache_to=relative_deps_path),
-            tasks.assemble_source_code_archive.s(
-                deps_path=relative_deps_path, bundle_archive_path=relative_bundle_archive_path)
-        ).delay()
-        chain_result.wait(timeout=wait_timeout)
-
-        return flask.send_file(absolute_bundle_archive_path, mimetype='application/gzip')
+    flask.current_app.logger.debug(
+        'Sending the bundle at %s for request %d',
+        request.bundle_archive, request_id,
+    )
+    return flask.send_file(request.bundle_archive, mimetype='application/gzip')
 
 
 @api_v1.route('/requests', methods=['POST'])

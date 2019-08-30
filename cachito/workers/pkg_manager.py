@@ -34,12 +34,13 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
             super().__exit__(exc, value, tb)
 
 
-def resolve_gomod_deps(archive_path, copy_cache_to=None):
+def resolve_gomod_deps(archive_path, request_id=None):
     """
     Resolve and fetch gomod dependencies for given app source archive.
 
     :param str archive_path: the full path to the application source code
-    :param str copy_cache_to: path to copy artifacts from gomod cache
+    :param int request_id: the request ID of the bundle to add the gomod deps to; if not set, this
+        step will be skipped
     :return: a list of dictionaries representing the gomod dependencies
     :rtype: list
     :raises CachitoError: if fetching dependencies fails
@@ -74,13 +75,12 @@ def resolve_gomod_deps(archive_path, copy_cache_to=None):
             if len(parts) == 2:
                 deps.append({'type': 'gomod', 'name': parts[0], 'version': parts[1]})
 
-        if copy_cache_to:
-            # Copy gomod cache to requested location
+        # Add the gomod cache to the bundle the user will later download
+        if request_id is not None:
             cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
             src_cache_path = os.path.join(temp_dir, cache_path)
-            dest_cache_path = os.path.join(
-                worker_config.cachito_shared_dir, copy_cache_to, 'gomod', cache_path)
-            shutil.copytree(src_cache_path, dest_cache_path)
+            dest_cache_path = os.path.join('gomod', cache_path)
+            add_deps_to_bundle_archive(request_id, archive_path, src_cache_path, dest_cache_path)
 
         return deps
 
@@ -114,6 +114,46 @@ def update_request_with_deps(request_id, deps):
             request_id, rv.status_code, rv.text,
         )
         raise CachitoError(f'Setting the dependencies on request {request_id} failed')
+
+
+def add_deps_to_bundle_archive(request_id, app_archive_path, deps_path, dest_cache_path):
+    """
+    Add the dependencies to the bundle archive to be downloaded by the user.
+
+    :param int request_id: the request the bundle is for
+    :param str app_archive_path: the path to the source archive; this is used as the base of the
+        bundle archive if it doesn't exist
+    :param str deps_path: the path to the dependencies to add to the bundle archive
+    :param str dest_cache_path: the path in the "deps" directory in the bundle to add the content of
+        deps_path to
+    """
+    config = get_worker_config()
+    bundles_path = os.path.join(config.cachito_archives_dir, 'cachito_bundles')
+    if not os.path.exists(bundles_path):
+        log.debug('Creating %s', bundles_path)
+        os.mkdir(bundles_path)
+
+    bundle_archive_path = os.path.join(bundles_path, f'{request_id}.tar.gz')
+    if os.path.exists(bundle_archive_path):
+        src_archive_path = bundle_archive_path
+    else:
+        src_archive_path = app_archive_path
+    log.debug('Using %s as the source for adding deps to the bundle', src_archive_path)
+
+    # Python can't append to a compressed tar file, so we must create a copy in a temporary
+    # directory before bundle_archive_path is created or overwritten
+    with tempfile.TemporaryDirectory(prefix='cachito') as temp_dir:
+        tmp_bundle_archive_path = os.path.join(temp_dir, 'bundle.tar.gz')
+        with tarfile.open(tmp_bundle_archive_path, mode='w:gz') as bundle_archive:
+            # Copy over the existing bundle
+            with tarfile.open(src_archive_path, mode='r:*') as src_archive:
+                for member in src_archive.getmembers():
+                    bundle_archive.addfile(member, src_archive.extractfile(member.name))
+            # Add the dependencies to the bundle
+            bundle_archive.add(deps_path, os.path.join('deps', dest_cache_path))
+        # Create or overwrite the bundle tarball at bundle_archive_path
+        log.debug('Copying %s to %s', tmp_bundle_archive_path, bundle_archive_path)
+        shutil.copyfile(tmp_bundle_archive_path, bundle_archive_path)
 
 
 def _extract_app_src(archive_path, parent_dir):

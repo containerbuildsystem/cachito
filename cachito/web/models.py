@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from copy import deepcopy
 from enum import Enum
+import os
 
+import flask
 from flask_login import UserMixin, current_user
 import sqlalchemy
 
@@ -104,6 +106,17 @@ class Request(db.Model):
 
     def __repr__(self):
         return '<Request {0!r}>'.format(self.id)
+
+    @property
+    def bundle_archive(self):
+        """
+        Get the path to the request's bundle archive.
+
+        :return: the path to the request's bundle archive
+        :rtype: str
+        """
+        cachito_archives_dir = flask.current_app.config['CACHITO_ARCHIVES_DIR']
+        return os.path.join(cachito_archives_dir, 'cachito_bundles', f'{self.id}.tar.gz')
 
     def to_json(self):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]

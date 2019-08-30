@@ -1,8 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import io
 import json
-import os
-import tarfile
 from unittest import mock
 
 import kombu.exceptions
@@ -10,8 +7,7 @@ import pytest
 
 from cachito.web.models import Request
 from cachito.workers.tasks import (
-    fetch_app_source, fetch_gomod_source, assemble_source_code_archive, set_request_state,
-    failed_request_callback
+    fetch_app_source, fetch_gomod_source, set_request_state, failed_request_callback,
 )
 
 
@@ -208,56 +204,26 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     assert rv.json == {'error': 'Failed to connect to the broker to schedule a task'}
 
 
-@mock.patch('tempfile.TemporaryDirectory')
+@mock.patch('os.path.exists')
+@mock.patch('flask.send_file')
 @mock.patch('cachito.web.api_v1.Request')
-@mock.patch('cachito.web.api_v1.chain')
-def test_download_archive(
-    mock_chain, mock_request, mock_temp_dir, client, db, app, tmpdir
-):
-    ephemeral_dir_name = 'ephemeral123'
-    shared_cachito_dir = tmpdir
-    shared_temp_dir = shared_cachito_dir.mkdir(ephemeral_dir_name)
-    mock_temp_dir.return_value.__enter__.return_value = str(shared_temp_dir)
-
-    bundle_archive_contents = {
-        'app/spam.go': b'Spam mapS',
-        'app/ham.go': b'Ham maH',
-        'gomod/pkg/mod/cache/download/server.com/dep1/@v/dep1.zip': b'dep1 archive',
-        'gomod/pkg/mod/cache/download/server.com/dep2/@v/dep2.zip': b'dep2 archive',
-    }
-    bundle_archive_path = shared_temp_dir.join('bundle.tar.gz')
-
-    def chain_side_effect(*args, **kwargs):
-        # Create mocked bundle source code archive
-        with tarfile.open(bundle_archive_path, mode='w:gz') as bundle_archive:
-            for name, data in bundle_archive_contents.items():
-                fileobj = io.BytesIO(data)
-                tarinfo = tarfile.TarInfo(name)
-                tarinfo.size = len(fileobj.getvalue())
-                bundle_archive.addfile(tarinfo, fileobj=fileobj)
-        return mock.Mock()
-
-    mock_chain.side_effect = chain_side_effect
+def test_download_archive(mock_request, mock_send_file, mock_exists, client, app):
+    bundle_archive_path = '/tmp/cachito-archives/cachito_bundles/1.tar.gz'
     mock_request.query.get_or_404().last_state.state_name = 'complete'
+    mock_request.query.get_or_404().bundle_archive = bundle_archive_path
+    mock_exists.return_value = True
+    mock_send_file.return_value = 'something'
+    client.get('/api/v1/requests/1/download')
+    mock_send_file.assert_called_once_with(bundle_archive_path, mimetype='application/gzip')
 
-    with mock.patch.dict(app.config, {'CACHITO_SHARED_DIR': str(shared_cachito_dir)}):
-        rv = client.get('/api/v1/requests/1/download')
 
-    # Verify chain was called correctly.
-    mock_chain.assert_called_once_with(
-        fetch_app_source.s(
-            mock_request.query.get_or_404().repo, mock_request.query.get_or_404().ref,
-        ),
-        fetch_gomod_source.s(copy_cache_to=os.path.join(ephemeral_dir_name, 'deps')),
-        assemble_source_code_archive.s(
-            deps_path=os.path.join(ephemeral_dir_name, 'deps'),
-            bundle_archive_path=os.path.join(ephemeral_dir_name, 'bundle.tar.gz')),
-    )
-
-    # Verify contents of downloaded archive
-    with tarfile.open(fileobj=io.BytesIO(rv.data), mode='r:*') as bundle_archive:
-        for expected_member in list(bundle_archive_contents.keys()):
-            bundle_archive.getmember(expected_member)
+@mock.patch('os.path.exists')
+@mock.patch('cachito.web.api_v1.Request')
+def test_download_archive_no_bundle(mock_request, mock_exists, client, app):
+    mock_request.query.get_or_404().last_state.state_name = 'complete'
+    mock_exists.return_value = False
+    rv = client.get('/api/v1/requests/1/download')
+    assert rv.status_code == 500
 
 
 @mock.patch('cachito.web.api_v1.Request')

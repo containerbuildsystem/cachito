@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
-import os
-import tarfile
 
 import requests
 
@@ -12,7 +10,6 @@ from cachito.workers.tasks.celery import app
 
 
 __all__ = [
-    'assemble_source_code_archive',
     'failed_request_callback',
     'fetch_app_source',
     'set_request_state',
@@ -44,30 +41,6 @@ def fetch_app_source(url, ref, request_id_to_update=None):
         raise
 
     return scm.archive_path
-
-
-@app.task
-def assemble_source_code_archive(app_archive_path, deps_path, bundle_archive_path):
-    """
-    Creates an archive with the source code for application and its dependencies.
-
-    :param str app_archive_path: the path to the archive of the application source code
-    :param str deps_path: the path to the directory containing the dependencies source code
-    :param str bundle_archive_path: the destination path of the assembled archive
-    """
-    log.info('Assembling source code archive in "%s"', bundle_archive_path)
-    cachito_shared_dir = get_worker_config().cachito_shared_dir
-    absolute_app_archive_path = os.path.join(cachito_shared_dir, app_archive_path)
-    absolute_deps_path = os.path.join(cachito_shared_dir, deps_path)
-    bundle_archive_path = os.path.join(cachito_shared_dir, bundle_archive_path)
-
-    # Generate a tarball containing the application and dependencies source code
-    with tarfile.open(bundle_archive_path, mode='w:gz') as bundle_archive:
-        with tarfile.open(absolute_app_archive_path, mode='r:*') as app_archive:
-            for member in app_archive.getmembers():
-                bundle_archive.addfile(member, app_archive.extractfile(member.name))
-
-        bundle_archive.add(absolute_deps_path, 'deps')
 
 
 @app.task
