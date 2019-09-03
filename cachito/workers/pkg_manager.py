@@ -128,12 +128,11 @@ def add_deps_to_bundle_archive(request_id, app_archive_path, deps_path, dest_cac
         deps_path to
     """
     config = get_worker_config()
-    bundles_path = os.path.join(config.cachito_archives_dir, 'cachito_bundles')
-    if not os.path.exists(bundles_path):
-        log.debug('Creating %s', bundles_path)
-        os.mkdir(bundles_path)
+    if not os.path.exists(config.cachito_bundles_dir):
+        log.debug('Creating %s', config.cachito_bundles_dir)
+        os.mkdir(config.cachito_bundles_dir)
 
-    bundle_archive_path = os.path.join(bundles_path, f'{request_id}.tar.gz')
+    bundle_archive_path = os.path.join(config.cachito_bundles_dir, f'{request_id}.tar.gz')
     if os.path.exists(bundle_archive_path):
         src_archive_path = bundle_archive_path
     else:

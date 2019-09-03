@@ -116,8 +116,8 @@ class Request(db.Model):
         :return: the path to the request's bundle archive
         :rtype: str
         """
-        cachito_archives_dir = flask.current_app.config['CACHITO_ARCHIVES_DIR']
-        return os.path.join(cachito_archives_dir, 'cachito_bundles', f'{self.id}.tar.gz')
+        cachito_bundles_dir = flask.current_app.config['CACHITO_BUNDLES_DIR']
+        return os.path.join(cachito_bundles_dir, f'{self.id}.tar.gz')
 
     def to_json(self):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]

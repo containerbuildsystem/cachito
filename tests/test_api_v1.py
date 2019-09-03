@@ -208,7 +208,7 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
 @mock.patch('flask.send_file')
 @mock.patch('cachito.web.api_v1.Request')
 def test_download_archive(mock_request, mock_send_file, mock_exists, client, app):
-    bundle_archive_path = '/tmp/cachito-archives/cachito_bundles/1.tar.gz'
+    bundle_archive_path = '/tmp/cachito-archives/bundles/1.tar.gz'
     mock_request.query.get_or_404().last_state.state_name = 'complete'
     mock_request.query.get_or_404().bundle_archive = bundle_archive_path
     mock_exists.return_value = True
@@ -299,7 +299,7 @@ def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, d
     assert fetched_request['state'] == state
     assert fetched_request['state_reason'] == state_reason
     if bundle_exists:
-        mock_remove.assert_called_once_with('/tmp/cachito-archives/cachito_bundles/1.tar.gz')
+        mock_remove.assert_called_once_with('/tmp/cachito-archives/bundles/1.tar.gz')
     else:
         mock_remove.assert_not_called()
 
