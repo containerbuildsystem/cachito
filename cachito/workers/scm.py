@@ -68,7 +68,7 @@ class SCM(ABC):
         """
         if not self._archives_dir:
             self._archives_dir = os.path.abspath(
-                get_worker_config().cachito_archives_dir
+                get_worker_config().cachito_sources_dir
             )
             log.debug('Using "%s" as the archives directory', self._archives_dir)
 

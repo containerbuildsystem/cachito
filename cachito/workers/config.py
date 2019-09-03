@@ -8,6 +8,9 @@ import kombu
 from cachito.errors import ConfigError
 
 
+ARCHIVES_VOLUME = os.path.join(tempfile.gettempdir(), 'cachito-archives')
+
+
 class Config(object):
     """The base Cachito Celery configuration."""
     # When publishing a message, don't continuously retry or else the HTTP connection times out
@@ -55,9 +58,10 @@ class DevelopmentConfig(Config):
 
     broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
     cachito_api_url = 'http://cachito-api:8080/api/v1/'
-    cachito_archives_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     cachito_athens_url = 'http://athens:3000'
+    cachito_bundles_dir = os.path.join(ARCHIVES_VOLUME, 'bundles')
     cachito_log_level = 'DEBUG'
+    cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, 'sources')
 
 
 class TestingConfig(DevelopmentConfig):
@@ -76,8 +80,9 @@ def configure_celery(celery_app):
     if os.getenv('CACHITO_DEV', '').lower() == 'true':
         config = DevelopmentConfig
         # When in development mode, create required directories for the user
-        if not os.path.isdir(config.cachito_archives_dir):
-            os.mkdir(config.cachito_archives_dir)
+        for required_dir in (config.cachito_bundles_dir, config.cachito_sources_dir):
+            if not os.path.isdir(required_dir):
+                os.mkdir(required_dir)
     elif os.getenv('CACHITO_TESTING', 'false').lower() == 'true':
         config = TestingConfig
     elif os.path.isfile(prod_config_file_path):
@@ -106,11 +111,12 @@ def validate_celery_config(conf, **kwargs):
     :param celery.app.utils.Settings conf: the Celery application configuration to validate
     :raises ConfigError: if the configuration is invalid
     """
-    archives_dir = conf.get('cachito_archives_dir')
-    if not archives_dir or not os.path.isdir(archives_dir):
-        raise ConfigError(
-            f'The configuration "cachito_archives_dir" must be set to an existing directory'
-        )
+    for required_dir_conf in ('cachito_bundles_dir', 'cachito_sources_dir'):
+        required_dir = conf.get(required_dir_conf)
+        if not required_dir or not os.path.isdir(required_dir):
+            raise ConfigError(
+                f'The configuration "{required_dir_conf}" must be set to an existing directory'
+            )
 
     if not conf.get('cachito_api_url'):
         raise ConfigError('The configuration "cachito_api_url" must be set')

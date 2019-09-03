@@ -76,14 +76,17 @@ Custom configuration for the Celery workers are listed below:
   [broker_url](https://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url)
   configuration documentation.
 * `cachito_api_url` - the URL to the Cachito API (e.g. `https://cachito-api.domain.local/api/v1/`).
-* `cachito_archives_dir` - the directory for long-term storage of app source archives. This
-    configuration is required, and the directory must already exist and be writeable.
 * `cachito_athens_url` - the URL to the Athens instance to use for caching golang dependencies. This
   is only necessary for workers that process golang requests.
 * `cachito_auth_type` - the authentication type to use when accessing protected Cachito API
   endpoints. If this value is `None`, authentication will not be used. This defaults to `kerberos`
   in production.
+* `cachito_bundles_dir` - the directory for storing bundle archives which include the source archive
+  and dependencies. This configuration is required, and the directory must already exist and be
+  writeable.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
+* `cachito_sources_dir` - the directory for long-term storage of app source archives. This
+    configuration is required, and the directory must already exist and be writeable.
 
 To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
 environment variable to the path of the keytab. Additional Kerberos configuration can be made in
@@ -93,9 +96,9 @@ environment variable to the path of the keytab. Additional Kerberos configuratio
 
 Custom configuration for the API:
 
-* `CACHITO_ARCHIVES_DIR` - the root of the archives directory that is also accessible by the
-  workers. This is used to download the bundle archives created by the workers.
 * `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
+* `CACHITO_BUNDLES_DIR` - the root of the bundles directory that is also accessible by the
+  workers. This is used to download the bundle archives created by the workers.
 * `CACHITO_WORKER_USERNAMES` - the list of usernames without the realm that are allowed to
     use the `/requests/<id>` patch endpoint. The workers use this to update the request
     state.

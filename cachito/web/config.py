@@ -18,9 +18,9 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     """The development Cachito Flask configuration."""
+    CACHITO_BUNDLES_DIR = os.path.join(tempfile.gettempdir(), 'cachito-archives', 'bundles')
     SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://cachito:cachito@db:5432/cachito'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
-    CACHITO_ARCHIVES_DIR = os.path.join(tempfile.gettempdir(), 'cachito-archives')
     LOGIN_DISABLED = True
 
 

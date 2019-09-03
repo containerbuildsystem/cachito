@@ -15,7 +15,7 @@ archive_path = f'/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz
 @mock.patch('os.makedirs')
 def test_archive_path(mock_makedirs, mock_celery_app):
     path = '/tmp/cachito-archives'
-    mock_celery_app.conf.cachito_archives_dir = path
+    mock_celery_app.conf.cachito_sources_dir = path
     git = scm.Git(url, ref)
     assert git.archives_dir == path
     assert git.archive_path == archive_path

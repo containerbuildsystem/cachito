@@ -118,8 +118,13 @@ def test_add_deps_to_bundle_archive(mock_get_worker_config, mock_temp_dir, tmpdi
     relative_add_deps_tmpdir = 'add_deps_temp'
     tmpdir.mkdir(relative_add_deps_tmpdir)
     mock_temp_dir.return_value.__enter__.return_value = tmpdir.join(relative_add_deps_tmpdir)
-    # Make the cachito_archives_dir config point to the pytest managed temp dir
-    mock_get_worker_config.return_value = mock.Mock(cachito_archives_dir=str(tmpdir))
+    # Make the bundles and sources dir configs point to under the pytest managed temp dir
+    bundles_dir = tmpdir.join('bundles')
+    sources_dir = tmpdir.join('sources')
+    mock_get_worker_config.return_value = mock.Mock(
+        cachito_bundles_dir=str(bundles_dir),
+        cachito_sources_dir=str(sources_dir),
+    )
     # Create a temporary directory to store the application source and deps. Normally the
     # application source would be in some nested folders, but for the test, it doesn't matter.
     relative_tmpdir = 'temp'
@@ -160,7 +165,7 @@ def test_add_deps_to_bundle_archive(mock_get_worker_config, mock_temp_dir, tmpdi
     add_deps_to_bundle_archive(request_id, app_archive_path, deps_path_input, dest_cache_path)
 
     # Verify the bundle was created
-    bundle_archive_path = str(tmpdir.join('cachito_bundles', f'{request_id}.tar.gz'))
+    bundle_archive_path = str(bundles_dir.join(f'{request_id}.tar.gz'))
     assert os.path.exists(bundle_archive_path)
 
     # Verify contents of assembled archive
