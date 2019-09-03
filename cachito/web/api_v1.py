@@ -169,9 +169,11 @@ def patch_request(request_id):
         raise ValidationError('The "state" key is required when "state_reason" is supplied')
 
     request = Request.query.get_or_404(request_id)
+    delete_bundle = False
     if 'state' in payload and 'state_reason' in payload:
         last_state = request.last_state
         new_state = payload['state']
+        delete_bundle = new_state in ('failed', 'stale')
         new_state_reason = payload['state_reason']
         # This is to protect against a Celery task getting executed twice and setting the
         # state each time
@@ -191,6 +193,14 @@ def patch_request(request_id):
                 request.dependencies.append(dep_obj)
 
     db.session.commit()
+    if delete_bundle and os.path.exists(request.bundle_archive):
+        flask.current_app.logger.info('Deleting the bundle archive %s', request.bundle_archive)
+        try:
+            os.remove(request.bundle_archive)
+        except:  # noqa E722
+            flask.current_app.logger.exception(
+                'Failed to delete the bundle archive %s', request.bundle_archive)
+
     if current_user.is_authenticated:
         flask.current_app.logger.info(
             'The user %s patched request %d', current_user.username, request.id)

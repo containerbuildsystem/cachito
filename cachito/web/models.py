@@ -33,6 +33,7 @@ class RequestStateMapping(Enum):
     in_progress = 1
     complete = 2
     failed = 3
+    stale = 4
 
     @classmethod
     def get_state_names(cls):
@@ -200,6 +201,9 @@ class Request(db.Model):
         :param str state_reason: the reason explaining the state transition
         :raises ValidationError: if the state is invalid
         """
+        if self.last_state and self.last_state.state_name == 'stale' and state != 'stale':
+            raise ValidationError('A stale request cannot change states')
+
         try:
             state_int = RequestStateMapping.__members__[state].value
         except KeyError:

@@ -270,6 +270,60 @@ def test_set_state(app, client, db, worker_auth_env):
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
 
 
+@pytest.mark.parametrize('bundle_exists', (True, False))
+@mock.patch('os.path.exists')
+@mock.patch('os.remove')
+def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, db, worker_auth_env):
+    mock_exists.return_value = bundle_exists
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    state = 'stale'
+    state_reason = 'The request has expired'
+    payload = {'state': state, 'state_reason': state_reason}
+    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 200
+
+    get_rv = client.get('/api/v1/requests/1')
+    assert get_rv.status_code == 200
+
+    fetched_request = get_rv.get_json()
+    assert fetched_request['state'] == state
+    assert fetched_request['state_reason'] == state_reason
+    if bundle_exists:
+        mock_remove.assert_called_once_with('/tmp/cachito-archives/cachito_bundles/1.tar.gz')
+    else:
+        mock_remove.assert_not_called()
+
+
+def test_set_state_from_stale(app, client, db, worker_auth_env):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+    request.add_state('stale', 'The request has expired')
+    db.session.commit()
+
+    payload = {'state': 'complete', 'state_reason': 'Unexpired'}
+    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 400
+    assert patch_rv.get_json() == {'error': 'A stale request cannot change states'}
+
+
 def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
@@ -337,7 +391,7 @@ def test_set_state_not_logged_in(client, db):
         {'state': 'call_for_support', 'state_reason': 'It broke'},
         400,
         'The state "call_for_support" is invalid. It must be one of: complete, failed, '
-        'in_progress.',
+        'in_progress, stale.',
     ),
     (
         1337,
