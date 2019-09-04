@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
+import os
+import tarfile
 
 import requests
 
@@ -10,6 +12,7 @@ from cachito.workers.tasks.celery import app
 
 
 __all__ = [
+    'create_bundle_archive',
     'failed_request_callback',
     'fetch_app_source',
     'set_request_state',
@@ -95,3 +98,38 @@ def failed_request_callback(context, exc, traceback, request_id):
         msg = 'An unknown error occurred'
 
     set_request_state(request_id, 'failed', msg)
+
+
+@app.task
+def create_bundle_archive(app_archive_path, request_id):
+    """
+    Create the bundle archive to be downloaded by the user.
+
+    :param str app_archive_path: the path to the source archive; this is used as the base of the
+        bundle archive
+    :param int request_id: the request the bundle is for
+    """
+    set_request_state(request_id, 'in_progress', 'Assembling the bundle archive')
+
+    config = get_worker_config()
+    bundle_archive_path = os.path.join(config.cachito_bundles_dir, f'{request_id}.tar.gz')
+    deps_path = os.path.join(config.cachito_bundles_dir, 'temp', str(request_id), 'deps')
+    log.debug(
+        'Using %s as the source and %s as the deps for creating the bundle for request %d',
+        app_archive_path, deps_path, request_id,
+    )
+
+    if not os.path.isdir(deps_path):
+        log.debug('No deps are present at %s, creating an empty directory', deps_path)
+        os.makedirs(deps_path, exist_ok=True)
+
+    # Python can't append to a compressed tar file, so we must copy the contents of the app archive
+    # to create the bundle archive rather than starting with a copy of the app archive
+    log.info('Creating %s', bundle_archive_path)
+    with tarfile.open(bundle_archive_path, mode='w:gz') as bundle_archive:
+        # Copy over the existing app archive
+        with tarfile.open(app_archive_path, mode='r:*') as app_archive:
+            for member in app_archive.getmembers():
+                bundle_archive.addfile(member, app_archive.extractfile(member.name))
+        # Add the dependencies to the bundle
+        bundle_archive.add(deps_path, 'deps')

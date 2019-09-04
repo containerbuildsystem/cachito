@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
 import re
+import shutil
 
 from celery import chain
 import flask
@@ -115,6 +116,7 @@ def create_request():
         tasks.fetch_app_source.s(
             request.repo, request.ref, request_id_to_update=request.id).on_error(error_callback),
         tasks.fetch_gomod_source.s(request_id_to_update=request.id).on_error(error_callback),
+        tasks.create_bundle_archive.s(request_id=request.id).on_error(error_callback),
         tasks.set_request_state.si(request.id, 'complete', 'Completed successfully'),
     ).delay()
 
@@ -170,10 +172,12 @@ def patch_request(request_id):
 
     request = Request.query.get_or_404(request_id)
     delete_bundle = False
+    delete_bundle_temp = False
     if 'state' in payload and 'state_reason' in payload:
         last_state = request.last_state
         new_state = payload['state']
-        delete_bundle = new_state in ('failed', 'stale')
+        delete_bundle = new_state == 'stale'
+        delete_bundle_temp = new_state in ('complete', 'failed')
         new_state_reason = payload['state_reason']
         # This is to protect against a Celery task getting executed twice and setting the
         # state each time
@@ -200,6 +204,17 @@ def patch_request(request_id):
         except:  # noqa E722
             flask.current_app.logger.exception(
                 'Failed to delete the bundle archive %s', request.bundle_archive)
+
+    if delete_bundle_temp and os.path.exists(request.bundle_temp_files):
+        flask.current_app.logger.debug(
+            'Deleting the temporary files used to create the bundle at %s',
+            request.bundle_temp_files,
+        )
+        try:
+            shutil.rmtree(request.bundle_temp_files)
+        except:  # noqa E722
+            flask.current_app.logger.exception(
+                'Failed to delete the temporary files at %s', request.bundle_temp_files)
 
     if current_user.is_authenticated:
         flask.current_app.logger.info(
