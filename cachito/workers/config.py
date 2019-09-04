@@ -19,8 +19,6 @@ class Config(object):
     }
     cachito_auth_type = None
     cachito_log_level = 'INFO'
-    result_backend = 'rpc'
-    result_persistent = True
     # The task messages will be acknowledged after the task has been executed,
     # instead of just before
     task_acks_late = True
