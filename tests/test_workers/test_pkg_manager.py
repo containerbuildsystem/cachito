@@ -1,14 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import io
 import os
-import tarfile
 from textwrap import dedent
 from unittest import mock
 
 import pytest
 
 from cachito.workers.pkg_manager import (
-    resolve_gomod_deps, update_request_with_deps, add_deps_to_bundle_archive,
+    resolve_gomod_deps, update_request_with_deps, add_deps_to_bundle,
 )
 from cachito.errors import CachitoError
 
@@ -36,7 +34,7 @@ mock_cmd_output = dedent("""\
 
 
 @pytest.mark.parametrize('request_id', (None, 3))
-@mock.patch('cachito.workers.pkg_manager.add_deps_to_bundle_archive')
+@mock.patch('cachito.workers.pkg_manager.add_deps_to_bundle')
 @mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 @mock.patch('tarfile.open')
@@ -65,10 +63,9 @@ def test_resolve_gomod_deps(
     assert resolved_deps == sample_deps
     if request_id:
         mock_add_deps.assert_called_once()
-        assert mock_add_deps.call_args[0][0] == 3
-        assert mock_add_deps.call_args[0][1] == '/this/is/path/to/archive.tar.gz'
-        assert mock_add_deps.call_args[0][2].endswith('pkg/mod/cache/download')
-        assert mock_add_deps.call_args[0][3] == 'gomod/pkg/mod/cache/download'
+        assert mock_add_deps.call_args[0][0].endswith('pkg/mod/cache/download')
+        assert mock_add_deps.call_args[0][1] == 'gomod/pkg/mod/cache/download'
+        assert mock_add_deps.call_args[0][2] == 3
     else:
         mock_add_deps.assert_not_called()
 
@@ -111,66 +108,36 @@ def test_update_request_with_deps(mock_requests, sample_deps):
     mock_requests.patch.assert_called_once_with(url, json=expected_payload, timeout=30)
 
 
-@mock.patch('tempfile.TemporaryDirectory')
 @mock.patch('cachito.workers.pkg_manager.get_worker_config')
-def test_add_deps_to_bundle_archive(mock_get_worker_config, mock_temp_dir, tmpdir):
-    # Create a temporary directory for add_deps_to_bundle_archive
-    relative_add_deps_tmpdir = 'add_deps_temp'
-    tmpdir.mkdir(relative_add_deps_tmpdir)
-    mock_temp_dir.return_value.__enter__.return_value = tmpdir.join(relative_add_deps_tmpdir)
+def test_add_deps_to_bundle(mock_get_worker_config, tmpdir):
     # Make the bundles and sources dir configs point to under the pytest managed temp dir
-    bundles_dir = tmpdir.join('bundles')
-    sources_dir = tmpdir.join('sources')
-    mock_get_worker_config.return_value = mock.Mock(
-        cachito_bundles_dir=str(bundles_dir),
-        cachito_sources_dir=str(sources_dir),
-    )
-    # Create a temporary directory to store the application source and deps. Normally the
-    # application source would be in some nested folders, but for the test, it doesn't matter.
+    bundles_dir = tmpdir.mkdir('bundles')
+    mock_get_worker_config.return_value = mock.Mock(cachito_bundles_dir=str(bundles_dir))
+    # Create a temporary directory to store the application deps
     relative_tmpdir = 'temp'
     tmpdir.mkdir(relative_tmpdir)
-    app_archive_path = tmpdir.join(relative_tmpdir, 'app.tar.gz')
     deps_path = tmpdir.join(relative_tmpdir, 'deps')
 
-    # Create the mocked application source archive (app.tar.gz)
-    app_archive_contents = {
-        'app/spam.go': b'Spam mapS',
-        'app/ham.go': b'Ham maH',
-    }
-
-    with tarfile.open(app_archive_path, mode='w:gz') as app_archive:
-        for name, data in app_archive_contents.items():
-            fileobj = io.BytesIO(data)
-            tarinfo = tarfile.TarInfo(name)
-            tarinfo.size = len(fileobj.getvalue())
-            app_archive.addfile(tarinfo, fileobj=fileobj)
-
     # Create the dependencies cache that mocks the output of `go mod download`
-    deps_archive_contents = {
+    deps_contents = {
         'pkg/mod/cache/download/server.com/dep1/@v/dep1.zip': b'dep1 archive',
         'pkg/mod/cache/download/server.com/dep2/@v/dep2.zip': b'dep2 archive',
     }
 
-    for name, data in deps_archive_contents.items():
+    for name, data in deps_contents.items():
         path = deps_path.join(name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         open(path, 'wb').write(data)
 
     cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
     # The path to the part of the gomod cache that should be added to the bundle
-    deps_path_input = os.path.join(deps_path, cache_path)
+    src_deps_path = os.path.join(deps_path, cache_path)
     # The path to where the cache should end up in the bundle archive
     dest_cache_path = os.path.join('gomod', cache_path)
     request_id = 3
-    add_deps_to_bundle_archive(request_id, app_archive_path, deps_path_input, dest_cache_path)
+    add_deps_to_bundle(src_deps_path, dest_cache_path, request_id)
 
-    # Verify the bundle was created
-    bundle_archive_path = str(bundles_dir.join(f'{request_id}.tar.gz'))
-    assert os.path.exists(bundle_archive_path)
-
-    # Verify contents of assembled archive
-    with tarfile.open(bundle_archive_path, mode='r:*') as bundle_archive:
-        for expected_member in list(app_archive_contents.keys()):
-            bundle_archive.getmember(expected_member)
-        for expected_member in list(deps_archive_contents.keys()):
-            bundle_archive.getmember(os.path.join('deps', 'gomod', expected_member))
+    # Verify the deps were copied
+    for expected in list(deps_contents.keys()):
+        expected_path = str(bundles_dir.join('temp', str(request_id), 'deps', 'gomod', expected))
+        assert os.path.exists(expected_path) is True

@@ -119,6 +119,17 @@ class Request(db.Model):
         cachito_bundles_dir = flask.current_app.config['CACHITO_BUNDLES_DIR']
         return os.path.join(cachito_bundles_dir, f'{self.id}.tar.gz')
 
+    @property
+    def bundle_temp_files(self):
+        """
+        Get the path to the request's temporary files used to create the bundle archive.
+
+        :return: the path to the temporary files
+        :rtype: str
+        """
+        cachito_bundles_dir = flask.current_app.config['CACHITO_BUNDLES_DIR']
+        return os.path.join(cachito_bundles_dir, 'temp', str(self.id))
+
     def to_json(self):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]
         # Use this list comprehension instead of a RequestState.to_json method to avoid including

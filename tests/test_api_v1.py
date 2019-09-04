@@ -8,6 +8,7 @@ import pytest
 from cachito.web.models import Request
 from cachito.workers.tasks import (
     fetch_app_source, fetch_gomod_source, set_request_state, failed_request_callback,
+    create_bundle_archive,
 )
 
 
@@ -36,6 +37,7 @@ def test_create_and_fetch_request(mock_chain, app, auth_env, client, db):
             request_id_to_update=1,
         ).on_error(error_callback),
         fetch_gomod_source.s(request_id_to_update=1).on_error(error_callback),
+        create_bundle_archive.s(request_id=1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
     )
 
@@ -236,7 +238,11 @@ def test_download_archive_not_complete(mock_request, client, db, app):
     }
 
 
-def test_set_state(app, client, db, worker_auth_env):
+@pytest.mark.parametrize('state', ('complete', 'failed'))
+@mock.patch('os.path.exists')
+@mock.patch('shutil.rmtree')
+def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth_env):
+    mock_exists.return_value = True
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -248,8 +254,8 @@ def test_set_state(app, client, db, worker_auth_env):
     db.session.add(request)
     db.session.commit()
 
-    state = 'complete'
-    state_reason = 'Completed successfully'
+    state = state
+    state_reason = 'Some status'
     payload = {'state': state, 'state_reason': state_reason}
     patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
@@ -268,6 +274,8 @@ def test_set_state(app, client, db, worker_auth_env):
     assert fetched_request['state_history'][0]['state_reason'] == state_reason
     assert fetched_request['state_history'][0]['updated']
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
+    mock_exists.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1')
+    mock_rmtree.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1')
 
 
 @pytest.mark.parametrize('bundle_exists', (True, False))

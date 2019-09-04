@@ -80,7 +80,7 @@ def resolve_gomod_deps(archive_path, request_id=None):
             cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
             src_cache_path = os.path.join(temp_dir, cache_path)
             dest_cache_path = os.path.join('gomod', cache_path)
-            add_deps_to_bundle_archive(request_id, archive_path, src_cache_path, dest_cache_path)
+            add_deps_to_bundle(src_cache_path, dest_cache_path, request_id)
 
         return deps
 
@@ -116,43 +116,24 @@ def update_request_with_deps(request_id, deps):
         raise CachitoError(f'Setting the dependencies on request {request_id} failed')
 
 
-def add_deps_to_bundle_archive(request_id, app_archive_path, deps_path, dest_cache_path):
+def add_deps_to_bundle(src_deps_path, dest_cache_path, request_id):
     """
-    Add the dependencies to the bundle archive to be downloaded by the user.
+    Add the dependencies to a directory that will be part of the bundle archive.
 
+    :param str src_deps_path: the path to the dependencies to add to the bundle archive
+    :param str dest_cache_path: the relative path in the "deps" directory in the bundle to add the
+        content of src_deps_path to
     :param int request_id: the request the bundle is for
-    :param str app_archive_path: the path to the source archive; this is used as the base of the
-        bundle archive if it doesn't exist
-    :param str deps_path: the path to the dependencies to add to the bundle archive
-    :param str dest_cache_path: the path in the "deps" directory in the bundle to add the content of
-        deps_path to
     """
     config = get_worker_config()
-    if not os.path.exists(config.cachito_bundles_dir):
-        log.debug('Creating %s', config.cachito_bundles_dir)
-        os.mkdir(config.cachito_bundles_dir)
+    deps_path = os.path.join(config.cachito_bundles_dir, 'temp', str(request_id), 'deps')
+    if not os.path.exists(deps_path):
+        log.debug('Creating %s', deps_path)
+        os.makedirs(config.cachito_bundles_dir, exist_ok=True)
 
-    bundle_archive_path = os.path.join(config.cachito_bundles_dir, f'{request_id}.tar.gz')
-    if os.path.exists(bundle_archive_path):
-        src_archive_path = bundle_archive_path
-    else:
-        src_archive_path = app_archive_path
-    log.debug('Using %s as the source for adding deps to the bundle', src_archive_path)
-
-    # Python can't append to a compressed tar file, so we must create a copy in a temporary
-    # directory before bundle_archive_path is created or overwritten
-    with tempfile.TemporaryDirectory(prefix='cachito') as temp_dir:
-        tmp_bundle_archive_path = os.path.join(temp_dir, 'bundle.tar.gz')
-        with tarfile.open(tmp_bundle_archive_path, mode='w:gz') as bundle_archive:
-            # Copy over the existing bundle
-            with tarfile.open(src_archive_path, mode='r:*') as src_archive:
-                for member in src_archive.getmembers():
-                    bundle_archive.addfile(member, src_archive.extractfile(member.name))
-            # Add the dependencies to the bundle
-            bundle_archive.add(deps_path, os.path.join('deps', dest_cache_path))
-        # Create or overwrite the bundle tarball at bundle_archive_path
-        log.debug('Copying %s to %s', tmp_bundle_archive_path, bundle_archive_path)
-        shutil.copyfile(tmp_bundle_archive_path, bundle_archive_path)
+    dest_deps_path = os.path.join(deps_path, dest_cache_path)
+    log.debug('Adding dependencies from %s to %s', src_deps_path, dest_deps_path)
+    shutil.copytree(src_deps_path, dest_deps_path)
 
 
 def _extract_app_src(archive_path, parent_dir):
