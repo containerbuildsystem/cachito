@@ -1,4 +1,4 @@
-FROM fedora:30
+FROM fedora:31
 LABEL maintainer="Factory 2.0"
 
 WORKDIR /src
