@@ -105,7 +105,7 @@ def test_update_request_with_deps(mock_requests, sample_deps):
     update_request_with_deps(1, sample_deps)
     url = 'http://cachito.domain.local/api/v1/requests/1'
     expected_payload = {'dependencies': sample_deps}
-    mock_requests.patch.assert_called_once_with(url, json=expected_payload, timeout=30)
+    mock_requests.patch.assert_called_once_with(url, json=expected_payload, timeout=60)
 
 
 @mock.patch('cachito.workers.pkg_manager.get_worker_config')
