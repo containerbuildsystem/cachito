@@ -68,7 +68,8 @@ def set_request_state(request_id, state, state_reason):
     )
     payload = {'state': state, 'state_reason': state_reason}
     try:
-        rv = requests_auth_session.patch(request_url, json=payload, timeout=30)
+        rv = requests_auth_session.patch(
+            request_url, json=payload, timeout=config.cachito_api_timeout)
     except requests.RequestException:
         msg = f'The connection failed when setting the state to "{state}" on request {request_id}'
         log.exception(msg)

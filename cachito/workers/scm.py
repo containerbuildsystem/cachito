@@ -86,10 +86,13 @@ class SCM(ABC):
         """
         # Import this here to avoid a circular import
         from cachito.workers.requests import requests_session
+        config = get_worker_config()
 
         with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
             log.debug('Downloading the archive "%s"', url)
-            with requests_session.get(url, stream=True, timeout=120) as response:
+            with requests_session.get(
+                url, stream=True, timeout=config.cachito_download_timeout,
+            ) as response:
                 if not response.ok:
                     log.error('The request to download "%s" failed with: %s', url, response.text)
                     if response.status_code == 404:
