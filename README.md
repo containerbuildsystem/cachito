@@ -76,6 +76,8 @@ Custom configuration for the Celery workers are listed below:
   [broker_url](https://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url)
   configuration documentation.
 * `cachito_api_url` - the URL to the Cachito API (e.g. `https://cachito-api.domain.local/api/v1/`).
+* `cachito_api_timeout` - the timeout when making a Cachito API request. The default is `60`
+  seconds.
 * `cachito_athens_url` - the URL to the Athens instance to use for caching golang dependencies. This
   is only necessary for workers that process golang requests.
 * `cachito_auth_type` - the authentication type to use when accessing protected Cachito API
@@ -84,6 +86,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_bundles_dir` - the directory for storing bundle archives which include the source archive
   and dependencies. This configuration is required, and the directory must already exist and be
   writeable.
+* `cachito_download_timeout` - the timeout when downloading application source archives from sources
+  such as GitHub. The default is `120` seconds.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
 * `cachito_sources_dir` - the directory for long-term storage of app source archives. This
     configuration is required, and the directory must already exist and be writeable.

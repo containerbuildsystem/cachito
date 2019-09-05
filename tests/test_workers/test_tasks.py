@@ -62,7 +62,7 @@ def test_set_request_state(mock_requests):
     tasks.set_request_state(1, 'complete', 'Completed successfully')
     expected_payload = {'state': 'complete', 'state_reason': 'Completed successfully'}
     mock_requests.patch.assert_called_once_with(
-        'http://cachito.domain.local/api/v1/requests/1', json=expected_payload, timeout=30)
+        'http://cachito.domain.local/api/v1/requests/1', json=expected_payload, timeout=60)
 
 
 @mock.patch('cachito.workers.requests.requests_auth_session.patch')

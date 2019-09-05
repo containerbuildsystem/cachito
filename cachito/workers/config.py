@@ -19,6 +19,10 @@ class Config(object):
     }
     cachito_auth_type = None
     cachito_log_level = 'INFO'
+    # The timeout when downloading application source archives from sources such as GitHub
+    cachito_download_timeout = 120
+    # The timeout when making a Cachito API request
+    cachito_api_timeout = 60
     # The task messages will be acknowledged after the task has been executed,
     # instead of just before
     task_acks_late = True
