@@ -101,7 +101,7 @@ def update_request_with_deps(request_id, deps):
     log.info('Adding %d dependencies to request %d', len(deps), request_id)
     payload = {'dependencies': deps}
     try:
-        rv = requests_auth_session.patch(request_url, json=payload, timeout=30)
+        rv = requests_auth_session.patch(request_url, json=payload, timeout=60)
     except requests.RequestException:
         msg = f'The connection failed when setting the dependencies on request {request_id}'
         log.exception(msg)
