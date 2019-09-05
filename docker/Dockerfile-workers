@@ -1,7 +1,9 @@
-FROM fedora:30
+FROM fedora:31
 LABEL maintainer="Factory 2.0"
 
 WORKDIR /src
+# Remove python3-kombu when the following is resolved:
+# https://bugzilla.redhat.com/show_bug.cgi?id=1748417
 RUN dnf -y install \
     --setopt=deltarpm=0 \
     --setopt=install_weak_deps=false \
@@ -9,6 +11,8 @@ RUN dnf -y install \
     golang \
     git-core \
     python3-celery \
+    https://kojipkgs.fedoraproject.org//packages/python-kombu/4.6.3/3.fc31/noarch/python3-kombu-4.6.3-3.fc31.noarch.rpm \
+    python3-pip \
     python3-requests \
     python3-requests-kerberos \
     && dnf clean all
