@@ -85,12 +85,13 @@ def resolve_gomod_deps(archive_path, request_id=None):
         return deps
 
 
-def update_request_with_deps(request_id, deps):
+def update_request_with_deps(request_id, deps, env_vars=None):
     """
     Update the Cachito request with the resolved dependencies.
 
     :param int request_id: the ID of the Cachito request
     :param list deps: the list of dependency dictionaries to record
+    :param dict env_vars: mapping of environment variables to record
     :raise CachitoError: if the request to the Cachito API fails
     """
     # Import this here to avoid a circular import
@@ -100,6 +101,9 @@ def update_request_with_deps(request_id, deps):
 
     log.info('Adding %d dependencies to request %d', len(deps), request_id)
     payload = {'dependencies': deps}
+    if env_vars:
+        log.info('Adding environment variables to request %d: %s', request_id, env_vars)
+        payload['environment_variables'] = env_vars
     try:
         rv = requests_auth_session.patch(
             request_url, json=payload, timeout=config.cachito_api_timeout)

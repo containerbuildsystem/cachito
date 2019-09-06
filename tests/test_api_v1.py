@@ -5,7 +5,7 @@ from unittest import mock
 import kombu.exceptions
 import pytest
 
-from cachito.web.models import Request
+from cachito.web.models import Request, EnvironmentVariable
 from cachito.workers.tasks import (
     fetch_app_source, fetch_gomod_source, set_request_state, failed_request_callback,
     create_bundle_archive,
@@ -359,7 +359,11 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     assert len(fetched_request['state_history']) == 2
 
 
-def test_set_deps(app, client, db, worker_auth_env, sample_deps):
+@pytest.mark.parametrize('env_vars', (
+    {},
+    {'spam': 'maps'},
+))
+def test_set_deps(app, client, db, worker_auth_env, sample_deps, env_vars):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -371,14 +375,20 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps):
     db.session.add(request)
     db.session.commit()
 
-    payload = {'dependencies': sample_deps}
+    payload = {'dependencies': sample_deps, 'environment_variables': env_vars}
     patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
+
+    len(EnvironmentVariable.query.all()) == len(env_vars.items())
+    for name, value in env_vars.items():
+        env_var_obj = EnvironmentVariable.query.filter_by(name=name, value=value).first()
+        assert env_var_obj
 
     get_rv = client.get('/api/v1/requests/1')
     assert get_rv.status_code == 200
     fetched_request = json.loads(get_rv.data.decode('utf-8'))
     assert fetched_request['dependencies'] == sample_deps
+    assert fetched_request['environment_variables'] == env_vars
 
 
 def test_set_state_not_logged_in(client, db):
@@ -474,6 +484,30 @@ def test_set_state_not_logged_in(client, db):
         },
         400,
         'The "version" key of the dependency must be a string',
+    ),
+    (
+        1,
+        {
+            'environment_variables': 'spam',
+        },
+        400,
+        'The value for "environment_variables" must be an object',
+    ),
+    (
+        1,
+        {
+            'environment_variables': {'spam': None},
+        },
+        400,
+        'The value of environment variables must be a string',
+    ),
+    (
+        1,
+        {
+            'environment_variables': {'spam': ['maps']},
+        },
+        400,
+        'The value of environment variables must be a string',
     ),
 ))
 def test_state_change_invalid(

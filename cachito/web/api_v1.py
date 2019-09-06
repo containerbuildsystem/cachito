@@ -10,7 +10,7 @@ from werkzeug.exceptions import Unauthorized, InternalServerError
 
 from cachito.errors import ValidationError
 from cachito.web import db
-from cachito.web.models import Request, Dependency
+from cachito.web.models import Request, Dependency, EnvironmentVariable
 from cachito.workers import tasks
 
 
@@ -150,7 +150,7 @@ def patch_request(request_id):
     if not payload:
         raise ValidationError('At least one key must be specified to update the request')
 
-    valid_keys = {'dependencies', 'state', 'state_reason'}
+    valid_keys = {'dependencies', 'environment_variables', 'state', 'state_reason'}
     invalid_keys = set(payload.keys()) - valid_keys
     if invalid_keys:
         raise ValidationError(
@@ -162,6 +162,11 @@ def patch_request(request_id):
                 raise ValidationError('The value for "dependencies" must be an array')
             for dep in value:
                 Dependency.validate_json(dep)
+        elif key == 'environment_variables':
+            if not isinstance(value, dict):
+                raise ValidationError('The value for "{}" must be an object'.format(key))
+            for env_var_name, env_var_value in value.items():
+                EnvironmentVariable.validate_json(env_var_name, env_var_value)
         elif not isinstance(value, str):
             raise ValidationError('The value for "{}" must be a string'.format(key))
 
@@ -195,6 +200,15 @@ def patch_request(request_id):
 
             if dep_obj not in request.dependencies:
                 request.dependencies.append(dep_obj)
+
+    for name, value in payload.get('environment_variables', {}).items():
+        env_var_obj = EnvironmentVariable.query.filter_by(name=name, value=value).first()
+        if not env_var_obj:
+            env_var_obj = EnvironmentVariable.from_json(name, value)
+            db.session.add(env_var_obj)
+
+        if env_var_obj not in request.environment_variables:
+            request.environment_variables.append(env_var_obj)
 
     db.session.commit()
     if delete_bundle and os.path.exists(request.bundle_archive):

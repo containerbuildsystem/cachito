@@ -76,6 +76,13 @@ def sample_deps():
     ]
 
 
+@pytest.fixture()
+def sample_env_vars():
+    sample = {}
+    sample['GOPATH'] = sample['GOCACHE'] = 'deps/gomod'
+    return sample
+
+
 @pytest.fixture(scope='session')
 def worker_auth_env():
     return {'REMOTE_USER': 'worker@DOMAIN.LOCAL'}

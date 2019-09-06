@@ -33,6 +33,9 @@ def fetch_gomod_source(app_archive_path, request_id_to_update=None):
         raise
 
     if request_id_to_update:
-        update_request_with_deps(request_id_to_update, deps)
+        env_vars = {}
+        if len(deps):
+            env_vars['GOPATH'] = env_vars['GOCACHE'] = 'deps/gomod'
+        update_request_with_deps(request_id_to_update, deps, env_vars)
 
     return app_archive_path

@@ -43,7 +43,7 @@ def test_fetch_app_source_request_timed_out(mock_git):
 @mock.patch('cachito.workers.tasks.golang.resolve_gomod_deps')
 def test_fetch_gomod_source(
     mock_resolve_gomod_deps, mock_set_request_state, mock_update_request_with_deps,
-    request_id_to_update, sample_deps,
+    request_id_to_update, sample_deps, sample_env_vars,
 ):
     app_archive_path = 'path/to/archive.tar.gz'
     mock_resolve_gomod_deps.return_value = sample_deps
@@ -51,7 +51,7 @@ def test_fetch_gomod_source(
     if request_id_to_update:
         mock_set_request_state.assert_called_once_with(
             1, 'in_progress', 'Fetching the golang dependencies')
-        mock_update_request_with_deps.assert_called_once_with(1, sample_deps)
+        mock_update_request_with_deps.assert_called_once_with(1, sample_deps, sample_env_vars)
     else:
         mock_set_request_state.assert_not_called()
 
