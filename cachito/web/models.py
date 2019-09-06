@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
 import os
@@ -23,6 +24,13 @@ request_dependency_table = db.Table(
     db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
     db.Column('dependency_id', db.Integer, db.ForeignKey('dependency.id'), nullable=False),
     db.UniqueConstraint('request_id', 'dependency_id'),
+)
+
+request_environment_variable_table = db.Table(
+    'request_environment_variable',
+    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
+    db.Column('env_var_id', db.Integer, db.ForeignKey('environment_variable.id'), nullable=False),
+    db.UniqueConstraint('request_id', 'env_var_id'),
 )
 
 
@@ -103,6 +111,9 @@ class Request(db.Model):
                                    backref='requests')
     states = db.relationship(
         'RequestState', back_populates='request', order_by='RequestState.updated')
+    environment_variables = db.relationship(
+        'EnvironmentVariable', secondary=request_environment_variable_table, backref='requests',
+        order_by='EnvironmentVariable.name')
     user = db.relationship('User', back_populates='requests')
 
     def __repr__(self):
@@ -150,6 +161,7 @@ class Request(db.Model):
         if self.user:
             user = self.user.username
 
+        env_vars_json = OrderedDict(env_var.to_json() for env_var in self.environment_variables)
         rv = {
             'dependencies': [dep.to_json() for dep in self.dependencies],
             'id': self.id,
@@ -158,6 +170,7 @@ class Request(db.Model):
             'pkg_managers': pkg_managers,
             'state_history': states,
             'user': user,
+            'environment_variables': env_vars_json,
         }
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
@@ -271,6 +284,30 @@ class RequestState(db.Model):
     def __repr__(self):
         return '<RequestState id={} state="{}" request_id={}>'.format(
             self.id, self.state_name, self.request_id)
+
+
+class EnvironmentVariable(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    value = db.Column(db.String, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('name', 'value'),
+    )
+
+    @classmethod
+    def validate_json(cls, name, value):
+        if not isinstance(value, str):
+            raise ValidationError(
+                'The value of environment variables must be a string')
+
+    @classmethod
+    def from_json(cls, name, value):
+        cls.validate_json(name, value)
+        return cls(name=name, value=value)
+
+    def to_json(self):
+        return self.name, self.value
 
 
 class User(db.Model, UserMixin):
