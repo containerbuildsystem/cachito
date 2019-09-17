@@ -33,6 +33,13 @@ request_environment_variable_table = db.Table(
     db.UniqueConstraint('request_id', 'env_var_id'),
 )
 
+request_flag_table = db.Table(
+    'request_flag',
+    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
+    db.Column('flag_id', db.Integer, db.ForeignKey('flag.id'), nullable=False),
+    db.UniqueConstraint('request_id', 'flag_id'),
+)
+
 
 class RequestStateMapping(Enum):
     """
@@ -115,6 +122,8 @@ class Request(db.Model):
         'EnvironmentVariable', secondary=request_environment_variable_table, backref='requests',
         order_by='EnvironmentVariable.name')
     user = db.relationship('User', back_populates='requests')
+    flags = db.relationship(
+        'Flag', secondary=request_flag_table, backref='requests', order_by='Flag.name')
 
     def __repr__(self):
         return '<Request {0!r}>'.format(self.id)
@@ -171,6 +180,7 @@ class Request(db.Model):
             'state_history': states,
             'user': user,
             'environment_variables': env_vars_json,
+            'flags': [flag.to_json() for flag in self.flags if flag.active],
         }
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
@@ -180,13 +190,14 @@ class Request(db.Model):
     def from_json(cls, kwargs):
         # Validate all required parameters are present
         required_params = {'repo', 'ref', 'pkg_managers'}
-        missing_params = required_params - set(kwargs.keys())
+        optional_params = {'flags'}
+        missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
             raise ValidationError('Missing required parameter(s): {}'
                                   .format(', '.join(missing_params)))
 
         # Don't allow the user to set arbitrary columns or relationships
-        invalid_params = kwargs.keys() - required_params
+        invalid_params = set(kwargs.keys()) - required_params - optional_params
         if invalid_params:
             raise ValidationError(
                 'The following parameters are invalid: {}'.format(', '.join(invalid_params)))
@@ -209,10 +220,26 @@ class Request(db.Model):
                                   .format(', '.join(invalid_pkg_managers)))
 
         request_kwargs['pkg_managers'] = found_pkg_managers
+
+        flag_names = request_kwargs.pop('flags', None)
+        if flag_names:
+            flag_names = set(flag_names)
+            found_flags = (Flag.query
+                           .filter(Flag.name.in_(flag_names))
+                           .filter(Flag.active)
+                           .all())
+
+            if len(flag_names) != len(found_flags):
+                found_flag_names = set(flag.name for flag in found_flags)
+                invalid_flags = flag_names - found_flag_names
+                raise ValidationError(
+                    'Invalid/Inactive flag(s): {}'.format(', '.join(invalid_flags)))
+
+            request_kwargs['flags'] = found_flags
+
         # current_user.is_authenticated is only ever False when auth is disabled
         if current_user.is_authenticated:
             request_kwargs['user_id'] = current_user.id
-
         request = cls(**request_kwargs)
         request.add_state('in_progress', 'The request was initiated')
         return request
@@ -314,3 +341,20 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, unique=True, nullable=False)
     requests = db.relationship('Request', back_populates='user')
+
+
+class Flag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('id', 'name'),
+    )
+
+    @classmethod
+    def from_json(cls, name):
+        return cls(name=name)
+
+    def to_json(self):
+        return self.name

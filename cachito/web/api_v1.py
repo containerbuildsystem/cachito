@@ -88,6 +88,7 @@ def create_request():
     :param str repo: the URL to the SCM repository
     :param str ref: the SCM reference to fetch
     :param list<str> pkg_managers: list of package managers to be used for resolving dependencies
+    :param list<str> flags: list of flag names
     :rtype: flask.Response
     :raise ValidationError: if required parameters are not supplied
     """
