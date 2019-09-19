@@ -100,25 +100,29 @@ def update_request_with_deps(request_id, deps, env_vars=None):
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
 
     log.info('Adding %d dependencies to request %d', len(deps), request_id)
-    payload = {'dependencies': deps}
-    if env_vars:
-        log.info('Adding environment variables to request %d: %s', request_id, env_vars)
-        payload['environment_variables'] = env_vars
-    try:
-        rv = requests_auth_session.patch(
-            request_url, json=payload, timeout=config.cachito_api_timeout)
-    except requests.RequestException:
-        msg = f'The connection failed when setting the dependencies on request {request_id}'
-        log.exception(msg)
-        raise CachitoError(msg)
+    for index in range(0, len(deps), config.cachito_deps_patch_batch_size):
+        batch_upper_limit = index + config.cachito_deps_patch_batch_size
+        payload = {'dependencies': deps[index:batch_upper_limit]}
+        if env_vars and index == 0:
+            log.info('Adding environment variables to request %d: %s', request_id, env_vars)
+            payload['environment_variables'] = env_vars
+        try:
+            log.info('Patching deps {} through {} out of {}'.format(
+                index + 1, batch_upper_limit, len(deps)))
+            rv = requests_auth_session.patch(
+                request_url, json=payload, timeout=config.cachito_api_timeout)
+        except requests.RequestException:
+            msg = f'The connection failed when setting the dependencies on request {request_id}'
+            log.exception(msg)
+            raise CachitoError(msg)
 
-    if not rv.ok:
-        log.error(
-            'The worker failed to set the dependencies on request %d. The status was %d. '
-            'The text was:\n%s',
-            request_id, rv.status_code, rv.text,
-        )
-        raise CachitoError(f'Setting the dependencies on request {request_id} failed')
+        if not rv.ok:
+            log.error(
+                'The worker failed to set the dependencies on request %d. The status was %d. '
+                'The text was:\n%s',
+                request_id, rv.status_code, rv.text,
+            )
+            raise CachitoError(f'Setting the dependencies on request {request_id} failed')
 
 
 def add_deps_to_bundle(src_deps_path, dest_cache_path, request_id):
