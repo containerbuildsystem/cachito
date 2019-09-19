@@ -103,8 +103,8 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
 
 
 @mock.patch('cachito.web.api_v1.chain')
-def test_fetch_paginated_requests(mock_chain, app, auth_env, client, db):
-
+def test_fetch_paginated_requests(
+        mock_chain, app, auth_env, client, db, sample_deps, worker_auth_env):
     repo_template = 'https://github.com/release-engineering/retrodep{}.git'
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=auth_env):
@@ -126,6 +126,7 @@ def test_fetch_paginated_requests(mock_chain, app, auth_env, client, db):
     assert len(fetched_requests) == 20
     for repo_number, request in enumerate(fetched_requests):
         assert request['repo'] == repo_template.format(repo_number)
+    assert response['meta']['previous'] is None
 
     # per_page and page parameters are honored
     rv = client.get('/api/v1/requests?page=2&per_page=10')
@@ -136,6 +137,12 @@ def test_fetch_paginated_requests(mock_chain, app, auth_env, client, db):
     # Start at 10 because each page contains 10 items and we're processing the second page
     for repo_number, request in enumerate(fetched_requests, 10):
         assert request['repo'] == repo_template.format(repo_number)
+    pagination_metadata = response['meta']
+    assert pagination_metadata['next'].endswith('?page=3&per_page=10')
+    assert pagination_metadata['last'].endswith('?page=5&per_page=10')
+    assert pagination_metadata['first'].endswith('?page=1&per_page=10')
+    assert pagination_metadata['previous'].endswith('?page=1&per_page=10')
+    assert pagination_metadata['total'] == 50
 
 
 def test_create_request_invalid_ref(auth_env, client, db):

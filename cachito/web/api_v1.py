@@ -11,6 +11,7 @@ from werkzeug.exceptions import Unauthorized, InternalServerError
 from cachito.errors import ValidationError
 from cachito.web import db
 from cachito.web.models import Request, Dependency, EnvironmentVariable
+from cachito.web.utils import pagination_metadata
 from cachito.workers import tasks
 
 
@@ -30,9 +31,11 @@ def get_requests():
     max_per_page = flask.current_app.config['CACHITO_MAX_PER_PAGE']
     # The call to `paginate` will inspect the current HTTP request for the
     # pagination parameters `page` and `per_page`.
-    requests = Request.query.paginate(max_per_page=max_per_page).items
+    pagination_query = Request.query.paginate(max_per_page=max_per_page)
+    requests = pagination_query.items
     response = {
         'items': [request.to_json() for request in requests],
+        'meta': pagination_metadata(pagination_query),
     }
     return flask.jsonify(response)
 
