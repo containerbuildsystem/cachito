@@ -99,13 +99,19 @@ def test_go_list_cmd_failure(
     assert str(exc_info.value) == 'Processing gomod dependencies failed'
 
 
+@mock.patch('cachito.workers.config.Config.cachito_deps_patch_batch_size', 5)
 @mock.patch('cachito.workers.requests.requests_auth_session')
 def test_update_request_with_deps(mock_requests, sample_deps):
     mock_requests.patch.return_value.ok = True
     update_request_with_deps(1, sample_deps)
     url = 'http://cachito.domain.local/api/v1/requests/1'
-    expected_payload = {'dependencies': sample_deps}
-    mock_requests.patch.assert_called_once_with(url, json=expected_payload, timeout=60)
+    calls = [
+        mock.call(url, json={'dependencies': sample_deps[:5]}, timeout=60),
+        mock.call(url, json={'dependencies': sample_deps[5:10]}, timeout=60),
+        mock.call(url, json={'dependencies': sample_deps[10:]}, timeout=60),
+    ]
+    assert mock_requests.patch.call_count == 3
+    mock_requests.patch.assert_has_calls(calls)
 
 
 @mock.patch('cachito.workers.pkg_manager.get_worker_config')

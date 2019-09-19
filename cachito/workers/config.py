@@ -48,6 +48,8 @@ class Config(object):
     # Don't allow the worker to fetch more messages than it can handle at a time. This is so that
     # other tasks aren't starved when processing a large archive.
     worker_prefetch_multiplier = 1
+    # Configurable batch size of the json payload so that the cachito API request doesn't time out
+    cachito_deps_patch_batch_size = 50
 
 
 class ProductionConfig(Config):
