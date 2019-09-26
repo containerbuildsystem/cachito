@@ -96,8 +96,8 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     assert rv.status_code == 200
     fetched_request = json.loads(rv.data.decode('utf-8'))
 
-    # The flag should be missing because now it is inactive
-    assert fetched_request['flags'] == []
+    # The flag should be present even if it is inactive now
+    assert fetched_request['flags'] == ['valid_flag']
     assert fetched_request['state'] == 'in_progress'
     assert fetched_request['state_reason'] == 'The request was initiated'
 
