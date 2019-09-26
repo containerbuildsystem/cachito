@@ -150,7 +150,19 @@ class Request(db.Model):
         cachito_bundles_dir = flask.current_app.config['CACHITO_BUNDLES_DIR']
         return os.path.join(cachito_bundles_dir, 'temp', str(self.id))
 
-    def to_json(self):
+    @property
+    def number_of_deps(self):
+        """
+        Get the total number of dependencies for a request.
+
+        :return: count of the number of dependencies
+        :rtype: int
+        """
+        req_dep_cols = request_dependency_table.c
+        return db.session.query(sqlalchemy.func.count(req_dep_cols.dependency_id)).filter(
+            req_dep_cols.request_id == self.id).scalar()
+
+    def to_json(self, verbose=True):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]
         # Use this list comprehension instead of a RequestState.to_json method to avoid including
         # redundant information about the request itself
@@ -172,18 +184,21 @@ class Request(db.Model):
 
         env_vars_json = OrderedDict(env_var.to_json() for env_var in self.environment_variables)
         rv = {
-            'dependencies': [dep.to_json() for dep in self.dependencies],
             'id': self.id,
             'repo': self.repo,
             'ref': self.ref,
             'pkg_managers': pkg_managers,
-            'state_history': states,
             'user': user,
             'environment_variables': env_vars_json,
             'flags': [flag.to_json() for flag in self.flags],
         }
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
+        if verbose:
+            rv.update({'state_history': states})
+            rv.update({'dependencies': [dep.to_json() for dep in self.dependencies]})
+        else:
+            rv.update({'dependencies': self.number_of_deps})
         return rv
 
     @classmethod

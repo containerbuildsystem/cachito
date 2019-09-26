@@ -118,6 +118,10 @@ def test_fetch_paginated_requests(
             db.session.add(request)
     db.session.commit()
 
+    payload = {'dependencies': sample_deps}
+    client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    client.patch('/api/v1/requests/11', json=payload, environ_base=worker_auth_env)
+
     # Sane defaults are provided
     rv = client.get('/api/v1/requests')
     assert rv.status_code == 200
@@ -127,9 +131,10 @@ def test_fetch_paginated_requests(
     for repo_number, request in enumerate(fetched_requests):
         assert request['repo'] == repo_template.format(repo_number)
     assert response['meta']['previous'] is None
+    assert fetched_requests[0]['dependencies'] == 13
 
     # per_page and page parameters are honored
-    rv = client.get('/api/v1/requests?page=2&per_page=10')
+    rv = client.get('/api/v1/requests?page=2&per_page=10&verbose=True')
     assert rv.status_code == 200
     response = json.loads(rv.data.decode('utf-8'))
     fetched_requests = response['items']
@@ -138,11 +143,13 @@ def test_fetch_paginated_requests(
     for repo_number, request in enumerate(fetched_requests, 10):
         assert request['repo'] == repo_template.format(repo_number)
     pagination_metadata = response['meta']
-    assert pagination_metadata['next'].endswith('?page=3&per_page=10')
-    assert pagination_metadata['last'].endswith('?page=5&per_page=10')
-    assert pagination_metadata['first'].endswith('?page=1&per_page=10')
-    assert pagination_metadata['previous'].endswith('?page=1&per_page=10')
+    for page, page_num in [('next', 3), ('last', 5), ('previous', 1), ('first', 1)]:
+        assert f'page={page_num}' in pagination_metadata[page]
+        assert 'per_page=10' in pagination_metadata[page]
+        assert 'verbose=True' in pagination_metadata[page]
     assert pagination_metadata['total'] == 50
+    assert len(fetched_requests[0]['dependencies']) == 13
+    assert type(fetched_requests[0]['dependencies']) == list
 
 
 def test_create_request_invalid_ref(auth_env, client, db):
