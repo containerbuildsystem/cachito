@@ -180,7 +180,7 @@ class Request(db.Model):
             'state_history': states,
             'user': user,
             'environment_variables': env_vars_json,
-            'flags': [flag.to_json() for flag in self.flags if flag.active],
+            'flags': [flag.to_json() for flag in self.flags],
         }
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
