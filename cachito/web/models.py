@@ -224,17 +224,8 @@ class Request(db.Model):
         if not pkg_managers_names:
             raise ValidationError('At least one package manager is required')
 
-        pkg_managers_names = set(pkg_managers_names)
-        found_pkg_managers = (PackageManager.query
-                              .filter(PackageManager.name.in_(pkg_managers_names))
-                              .all())
-        if len(pkg_managers_names) != len(found_pkg_managers):
-            found_pkg_managers_names = set(pkg_manager.name for pkg_manager in found_pkg_managers)
-            invalid_pkg_managers = pkg_managers_names - found_pkg_managers_names
-            raise ValidationError('Invalid package manager(s): {}'
-                                  .format(', '.join(invalid_pkg_managers)))
-
-        request_kwargs['pkg_managers'] = found_pkg_managers
+        pkg_managers = PackageManager.get_pkg_managers(pkg_managers_names)
+        request_kwargs['pkg_managers'] = pkg_managers
 
         flag_names = request_kwargs.pop('flags', None)
         if flag_names:
@@ -307,6 +298,28 @@ class PackageManager(db.Model):
     @classmethod
     def from_json(cls, name):
         return cls(name=name)
+
+    @classmethod
+    def get_pkg_managers(cls, pkg_managers):
+        """
+        Validate the input package managers and return their corresponding database objects.
+
+        :param list pkg_managers: the list of package manager names to retrieve
+        :return: a list of valid PackageManager objects
+        :rtype: list
+        :raise ValidationError: if one of the input package managers is invalid
+        """
+        pkg_managers = set(pkg_managers)
+        found_pkg_managers = cls.query.filter(PackageManager.name.in_(pkg_managers)).all()
+        if len(pkg_managers) != len(found_pkg_managers):
+            found_pkg_managers_names = set(pkg_manager.name for pkg_manager in found_pkg_managers)
+            invalid_pkg_managers = pkg_managers - found_pkg_managers_names
+            raise ValidationError(
+                'The following package managers are invalid: {}'
+                .format(', '.join(invalid_pkg_managers))
+            )
+
+        return found_pkg_managers
 
 
 class RequestState(db.Model):
