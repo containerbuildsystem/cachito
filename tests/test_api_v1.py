@@ -165,6 +165,19 @@ def test_create_request_invalid_ref(auth_env, client, db):
     assert error['error'] == 'The "ref" parameter must be a 40 character hex string'
 
 
+def test_create_request_invalid_pkg_manager(auth_env, client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['something_wrong']
+    }
+
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
+    assert rv.status_code == 400
+    error = json.loads(rv.data.decode('utf-8'))
+    assert error['error'] == 'The following package managers are invalid: something_wrong'
+
+
 def test_create_request_not_an_object(auth_env, client, db):
     rv = client.post('/api/v1/requests', json=None, environ_base=auth_env)
     assert rv.status_code == 400
