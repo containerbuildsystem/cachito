@@ -113,9 +113,6 @@ def create_request():
     else:
         flask.current_app.logger.info('An anonymous user submitted request %d', request.id)
 
-    db.session.add(request)
-    db.session.commit()
-
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)
     chain(
