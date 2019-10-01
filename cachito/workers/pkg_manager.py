@@ -108,7 +108,7 @@ def update_request_with_deps(request_id, deps, env_vars=None):
             payload['environment_variables'] = env_vars
         try:
             log.info('Patching deps {} through {} out of {}'.format(
-                index + 1, batch_upper_limit, len(deps)))
+                index + 1, min(batch_upper_limit, len(deps)), len(deps)))
             rv = requests_auth_session.patch(
                 request_url, json=payload, timeout=config.cachito_api_timeout)
         except requests.RequestException:
