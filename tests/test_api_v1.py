@@ -12,12 +12,13 @@ from cachito.workers.tasks import (
 )
 
 
+@pytest.mark.parametrize('pkg_managers', ([], ['gomod']))
 @mock.patch('cachito.web.api_v1.chain')
-def test_create_and_fetch_request(mock_chain, app, auth_env, client, db):
+def test_create_and_fetch_request(mock_chain, pkg_managers, app, auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': pkg_managers,
     }
 
     with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
@@ -30,16 +31,18 @@ def test_create_and_fetch_request(mock_chain, app, auth_env, client, db):
     assert created_request['user'] == 'tbrady@domain.local'
 
     error_callback = failed_request_callback.s(1)
-    mock_chain.assert_called_once_with(
+    auto_detect = len(pkg_managers) == 0
+    mock_chain.assert_called_once_with([
         fetch_app_source.s(
             'https://github.com/release-engineering/retrodep.git',
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
             request_id_to_update=1,
         ).on_error(error_callback),
-        fetch_gomod_source.s(request_id_to_update=1).on_error(error_callback),
+        fetch_gomod_source.s(request_id_to_update=1, auto_detect=auto_detect)
+                          .on_error(error_callback),
         create_bundle_archive.s(request_id=1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
-    )
+    ])
 
     request_id = created_request['id']
     rv = client.get('/api/v1/requests/{}'.format(request_id))
@@ -75,16 +78,16 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     assert created_request['user'] == 'tbrady@domain.local'
 
     error_callback = failed_request_callback.s(1)
-    mock_chain.assert_called_once_with(
+    mock_chain.assert_called_once_with([
         fetch_app_source.s(
             'https://github.com/release-engineering/retrodep.git',
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
             request_id_to_update=1,
         ).on_error(error_callback),
-        fetch_gomod_source.s(request_id_to_update=1).on_error(error_callback),
+        fetch_gomod_source.s(request_id_to_update=1, auto_detect=False).on_error(error_callback),
         create_bundle_archive.s(request_id=1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
-    )
+    ])
 
     # Set the flag as inactive
     flag = Flag.query.filter_by(name='valid_flag').first()
@@ -246,16 +249,14 @@ def test_create_request_invalid_flag(auth_env, client, db):
 
 
 @pytest.mark.parametrize('removed_params', (
-    ('repo', 'ref', 'pkg_managers'),
+    ('repo', 'ref'),
     ('repo',),
     ('ref',),
-    ('pkg_managers',),
 ))
 def test_validate_required_params(auth_env, client, db, removed_params):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod']
     }
     for removed_param in removed_params:
         data.pop(removed_param)
@@ -368,6 +369,28 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
     mock_exists.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1')
     mock_rmtree.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1')
+
+
+def test_set_pkg_managers(app, client, db, worker_auth_env):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    payload = {'pkg_managers': ['gomod']}
+    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 200
+
+    get_rv = client.get('/api/v1/requests/1')
+    assert get_rv.status_code == 200
+
+    fetched_request = json.loads(get_rv.data.decode('utf-8'))
+    assert fetched_request['pkg_managers'] == ['gomod']
 
 
 @pytest.mark.parametrize('bundle_exists', (True, False))
@@ -517,9 +540,9 @@ def test_set_state_not_logged_in(client, db):
     ),
     (
         1,
-        {'state': 'complete', 'state_reason': 'Success', 'pkg_managers': ['javascript']},
+        {'state': 'complete', 'state_reason': 'Success', 'id': 42},
         400,
-        'The following keys are not allowed: pkg_managers',
+        'The following keys are not allowed: id',
     ),
     (
         1,
@@ -550,6 +573,18 @@ def test_set_state_not_logged_in(client, db):
         {'dependencies': 'test'},
         400,
         'The value for "dependencies" must be an array',
+    ),
+    (
+        1,
+        {'pkg_managers': 'test'},
+        400,
+        'The value for "pkg_managers" must be an array',
+    ),
+    (
+        1,
+        {'pkg_managers': [1, 3]},
+        400,
+        'The value for "pkg_managers" must be an array of strings',
     ),
     (
         1,

@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from cachito.workers.pkg_manager import (
-    resolve_gomod_deps, update_request_with_deps, add_deps_to_bundle,
+    add_deps_to_bundle, archive_contains_path, resolve_gomod_deps, update_request_with_deps,
 )
 from cachito.errors import CachitoError
 
@@ -147,3 +147,18 @@ def test_add_deps_to_bundle(mock_get_worker_config, tmpdir):
     for expected in list(deps_contents.keys()):
         expected_path = str(bundles_dir.join('temp', str(request_id), 'deps', 'gomod', expected))
         assert os.path.exists(expected_path) is True
+
+
+@pytest.mark.parametrize('names, expected', (
+    (('app/go.mod', 'app/something'), True),
+    (('app/pizza', 'app/something'), False),
+))
+@mock.patch('tarfile.open')
+def test_archive_contains_path(mock_tarfile_open, names, expected):
+    # Mock the opening of the tar file containing application source code
+    mock_tarfile = mock.Mock()
+    mock_tarfile.getnames.return_value = names
+    mock_tarfile_open.return_value.__enter__.return_value = mock_tarfile
+
+    archive_path = '/some/path/file.tar.gz'
+    assert archive_contains_path(archive_path, 'app/go.mod') is expected
