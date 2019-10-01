@@ -37,23 +37,43 @@ def test_fetch_app_source_request_timed_out(mock_git):
         tasks.fetch_app_source(url, ref)
 
 
-@pytest.mark.parametrize('request_id_to_update', (None, 1))
+@pytest.mark.parametrize('request_id_to_update, auto_detect, contains_go_mod', (
+    (None, False, False),
+    (1, False, False),
+    (None, True, True),
+    (None, True, False),
+))
+@mock.patch('cachito.workers.tasks.golang.archive_contains_path')
 @mock.patch('cachito.workers.tasks.golang.update_request_with_deps')
 @mock.patch('cachito.workers.tasks.golang.set_request_state')
 @mock.patch('cachito.workers.tasks.golang.resolve_gomod_deps')
 def test_fetch_gomod_source(
     mock_resolve_gomod_deps, mock_set_request_state, mock_update_request_with_deps,
-    request_id_to_update, sample_deps, sample_env_vars,
+    mock_archive_contains_path, request_id_to_update, auto_detect, contains_go_mod, sample_deps,
+    sample_env_vars,
 ):
+    mock_archive_contains_path.return_value = contains_go_mod
     app_archive_path = 'path/to/archive.tar.gz'
     mock_resolve_gomod_deps.return_value = sample_deps
-    tasks.fetch_gomod_source(app_archive_path, request_id_to_update=request_id_to_update)
+    tasks.fetch_gomod_source(
+        app_archive_path, request_id_to_update=request_id_to_update, auto_detect=auto_detect,
+    )
     if request_id_to_update:
         mock_set_request_state.assert_called_once_with(
             1, 'in_progress', 'Fetching the golang dependencies')
-        mock_update_request_with_deps.assert_called_once_with(1, sample_deps, sample_env_vars)
+        mock_update_request_with_deps.assert_called_once_with(
+            1, sample_deps, sample_env_vars, 'gomod')
     else:
         mock_set_request_state.assert_not_called()
+
+    if auto_detect:
+        mock_archive_contains_path.assert_called_once_with(app_archive_path, 'app/go.mod')
+        if contains_go_mod:
+            mock_resolve_gomod_deps.assert_called_once()
+        else:
+            mock_resolve_gomod_deps.assert_not_called()
+    else:
+        mock_archive_contains_path.assert_not_called()
 
 
 @mock.patch('cachito.workers.requests.requests_auth_session')

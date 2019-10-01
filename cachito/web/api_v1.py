@@ -10,7 +10,7 @@ from werkzeug.exceptions import Unauthorized, InternalServerError
 
 from cachito.errors import ValidationError
 from cachito.web import db
-from cachito.web.models import Request, Dependency, EnvironmentVariable
+from cachito.web.models import Dependency, EnvironmentVariable, PackageManager, Request
 from cachito.web.utils import pagination_metadata, str_to_bool
 from cachito.workers import tasks
 
@@ -113,16 +113,30 @@ def create_request():
     else:
         flask.current_app.logger.info('An anonymous user submitted request %d', request.id)
 
+    pkg_manager_names = set(pkg_manager.name for pkg_manager in request.pkg_managers)
+    auto_detect = len(pkg_manager_names) == 0
+    if auto_detect:
+        flask.current_app.logger.info(
+            'Automatic detection will be used since "pkg_managers" was empty')
+
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)
-    chain(
+    chain_tasks = [
         tasks.fetch_app_source.s(
             request.repo, request.ref, request_id_to_update=request.id).on_error(error_callback),
-        tasks.fetch_gomod_source.s(request_id_to_update=request.id).on_error(error_callback),
+    ]
+    if 'gomod' in pkg_manager_names or auto_detect:
+        chain_tasks.append(
+            tasks.fetch_gomod_source.s(request_id_to_update=request.id, auto_detect=auto_detect)
+                 .on_error(error_callback)
+        )
+
+    chain_tasks.extend([
         tasks.create_bundle_archive.s(request_id=request.id).on_error(error_callback),
         tasks.set_request_state.si(request.id, 'complete', 'Completed successfully'),
-    ).delay()
+    ])
 
+    chain(chain_tasks).delay()
     flask.current_app.logger.debug('Successfully scheduled request %d', request.id)
     return flask.jsonify(request.to_json()), 201
 
@@ -153,18 +167,24 @@ def patch_request(request_id):
     if not payload:
         raise ValidationError('At least one key must be specified to update the request')
 
-    valid_keys = {'dependencies', 'environment_variables', 'state', 'state_reason'}
+    valid_keys = {'dependencies', 'environment_variables', 'pkg_managers', 'state', 'state_reason'}
     invalid_keys = set(payload.keys()) - valid_keys
     if invalid_keys:
         raise ValidationError(
             'The following keys are not allowed: {}'.format(', '.join(invalid_keys)))
 
     for key, value in payload.items():
+        if key in ('dependencies', 'pkg_managers') and not isinstance(value, list):
+            raise ValidationError(f'The value for "{key}" must be an array')
+
         if key == 'dependencies':
-            if not isinstance(value, list):
-                raise ValidationError('The value for "dependencies" must be an array')
             for dep in value:
                 Dependency.validate_json(dep)
+        elif key == 'pkg_managers':
+            for pkg_manager in value:
+                if not isinstance(pkg_manager, str):
+                    raise ValidationError(
+                        'The value for "pkg_managers" must be an array of strings')
         elif key == 'environment_variables':
             if not isinstance(value, dict):
                 raise ValidationError('The value for "{}" must be an object'.format(key))
@@ -203,6 +223,12 @@ def patch_request(request_id):
 
             if dep_obj not in request.dependencies:
                 request.dependencies.append(dep_obj)
+
+    if 'pkg_managers' in payload:
+        pkg_managers = PackageManager.get_pkg_managers(payload['pkg_managers'])
+        for pkg_manager in pkg_managers:
+            if pkg_manager not in request.pkg_managers:
+                request.pkg_managers.append(pkg_manager)
 
     for name, value in payload.get('environment_variables', {}).items():
         env_var_obj = EnvironmentVariable.query.filter_by(name=name, value=value).first()

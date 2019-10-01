@@ -204,8 +204,8 @@ class Request(db.Model):
     @classmethod
     def from_json(cls, kwargs):
         # Validate all required parameters are present
-        required_params = {'repo', 'ref', 'pkg_managers'}
-        optional_params = {'flags'}
+        required_params = {'repo', 'ref'}
+        optional_params = {'flags', 'pkg_managers'}
         missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
             raise ValidationError('Missing required parameter(s): {}'
@@ -221,11 +221,10 @@ class Request(db.Model):
 
         # Validate package managers are correctly provided
         pkg_managers_names = request_kwargs.pop('pkg_managers', None)
-        if not pkg_managers_names:
-            raise ValidationError('At least one package manager is required')
-
-        pkg_managers = PackageManager.get_pkg_managers(pkg_managers_names)
-        request_kwargs['pkg_managers'] = pkg_managers
+        # If no package managers are specified, then Cachito will detect them automatically
+        if pkg_managers_names:
+            pkg_managers = PackageManager.get_pkg_managers(pkg_managers_names)
+            request_kwargs['pkg_managers'] = pkg_managers
 
         flag_names = request_kwargs.pop('flags', None)
         if flag_names:

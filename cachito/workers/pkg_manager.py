@@ -85,13 +85,14 @@ def resolve_gomod_deps(archive_path, request_id=None):
         return deps
 
 
-def update_request_with_deps(request_id, deps, env_vars=None):
+def update_request_with_deps(request_id, deps, env_vars=None, pkg_manager=None):
     """
     Update the Cachito request with the resolved dependencies.
 
     :param int request_id: the ID of the Cachito request
     :param list deps: the list of dependency dictionaries to record
     :param dict env_vars: mapping of environment variables to record
+    :param str pkg_manager: a package manager to add to the request if auto-detection was used
     :raise CachitoError: if the request to the Cachito API fails
     """
     # Import this here to avoid a circular import
@@ -103,9 +104,16 @@ def update_request_with_deps(request_id, deps, env_vars=None):
     for index in range(0, len(deps), config.cachito_deps_patch_batch_size):
         batch_upper_limit = index + config.cachito_deps_patch_batch_size
         payload = {'dependencies': deps[index:batch_upper_limit]}
-        if env_vars and index == 0:
-            log.info('Adding environment variables to request %d: %s', request_id, env_vars)
-            payload['environment_variables'] = env_vars
+        if index == 0:
+            if env_vars:
+                log.info('Adding environment variables to the request %d: %s', request_id, env_vars)
+                payload['environment_variables'] = env_vars
+            if pkg_manager:
+                log.info(
+                    'Adding the package manager "%s" to the request %d',
+                    pkg_manager, request_id,
+                )
+                payload['pkg_managers'] = [pkg_manager]
         try:
             log.info('Patching deps {} through {} out of {}'.format(
                 index + 1, min(batch_upper_limit, len(deps)), len(deps)))
@@ -183,3 +191,16 @@ def _run_cmd(cmd, params):
         raise CachitoError('Processing gomod dependencies failed')
 
     return response.stdout
+
+
+def archive_contains_path(archive_path, path):
+    """
+    Check if an archive contains the specified path.
+
+    :param str archive_patch: the path to the archive to examine
+    :param str path: the relative path in archive to check
+    :return: a bool that determines if the path is in the archive
+    :rtype: bool
+    """
+    with tarfile.open(archive_path, 'r:*') as archive:
+        return path in archive.getnames()
