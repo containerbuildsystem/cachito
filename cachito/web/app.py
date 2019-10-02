@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import default_exceptions, InternalServerError
 
 from cachito.web.auth import user_loader, load_user_from_request
-from cachito.web.splash import splash
+from cachito.web.docs import docs
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
 from cachito.web.errors import json_error
@@ -79,7 +79,7 @@ def create_app(config_obj=None):
     login_manager.user_loader(user_loader)
     login_manager.request_loader(load_user_from_request)
 
-    app.register_blueprint(splash)
+    app.register_blueprint(docs)
     app.register_blueprint(api_v1, url_prefix='/api/v1')
     app.add_url_rule('/healthcheck', view_func=healthcheck)
 
