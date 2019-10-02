@@ -117,3 +117,11 @@ If you are planning to deploy Cachito with authentication enabled, you'll need t
 a web server that supplies the `REMOTE_USER` environment variable when the user is
 properly authenticated. A common deployment option is using httpd (Apache web server)
 with the `mod_auth_gssapi` module.
+
+## API Documentation
+
+The documentation is generated from the [API specification](cachito/web/static/api_v1.yaml)
+written in the OpenAPI 3.0 format.
+
+It is available on [GitHub Pages](https://release-engineering.github.io/cachito) or Cachito's root
+URL.

@@ -1,0 +1,368 @@
+openapi: "3.0.2"
+info:
+  description: >
+    Cachito is a service that stores application sources and their dependencies.
+  license:
+    name: "GPL-3.0"
+  title: Cachito API
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /requests:
+    get:
+      description: Return all the Cachito requests
+      parameters:
+        - name: page
+          in: query
+          description: The specific page to view
+          schema:
+            type: integer
+            example: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: The number of requests to show per page
+          schema:
+            type: integer
+            example: 10
+            default: 20
+        - name: verbose
+          in: query
+          description: Shows the same view as /requests/{id}
+          schema:
+            type: boolean
+            example: true
+            default: false
+      responses:
+        "200":
+          description: A list of requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Request"
+                  meta:
+                    $ref: "#/components/schemas/Pagination"
+        "404":
+          description: No requests were found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
+    post:
+      description: Create a new request
+      requestBody:
+        description: The request to create
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestNew'
+      security:
+      - "Kerberos Authentication": []
+      responses:
+        "201":
+          description: The request was initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestVerbose"
+        "400":
+          description: The input is invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "The \"ref\" parameter must be a 40 character hex string"
+  "/requests/{id}":
+    get:
+      description: Return a specific Cachito request
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The ID of the Cachito request to retrieve
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: The requested Cachito request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestVerbose"
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
+    patch:
+      description: Update a request (requires special authorization)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The ID of the Cachito request to retrieve
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: The request was updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dependencies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Dependency"
+                  environment_variables:
+                    $ref: "#/components/schemas/EnvironmentVariable"
+                  pkg_managers:
+                    type: array
+                    items:
+                      type: string
+                      example: gomod
+                  state:
+                    type: string
+                    example: complete
+                  state_reason:
+                    type: string
+                    example: Completed successfully
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
+        "400":
+          description: The input is invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The input data must be a JSON object
+      requestBody:
+        description: The keys to update
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestNew'
+      security:
+      - "Kerberos Authentication": []
+  "/requests/{id}/download":
+    get:
+      description: Download the bundle for the specified Cachito request
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The ID of the Cachito request
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Downloads the bundle
+          content:
+            application/gzip: {}
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
+        "400":
+          description: The input is invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "The request must be in the \"complete\" state before downloading the archive"
+components:
+  schemas:
+    Dependency:
+      type: object
+      example:
+        name: github.com/op/go-logging
+        type: gomod
+        version: "v0.1.0"
+      properties:
+        name:
+          type: string
+          example: "github.com/op/go-logging"
+        type:
+          type: string
+          example: gomod
+        version:
+          type: string
+          example: "v0.1.0"
+    EnvironmentVariable:
+      type: object
+      additionalProperties:
+        type: string
+      example:
+        GOCACHE: deps/gomod
+        GOPATH: deps/gomod
+    Pagination:
+      type: object
+      properties:
+        first:
+          type: string
+          example: "https://cachito.domain.local/api/v1/requests?page=1&per_page=20&verbose=False"
+        last:
+          type: string
+          example: "https://cachito.domain.local/api/v1/requests?page=3&per_page=20&verbose=False"
+        next:
+          type: string
+          example: "https://cachito.domain.local/api/v1/requests?page=1&per_page=20&verbose=False"
+        page:
+          type: integer
+          example: 1
+        pages:
+          type: integer
+          example: 3
+        per_page:
+          type: integer
+          example: 20
+        previous:
+          type: string
+          example: null
+        total:
+          type: integer
+          example: 45
+    RequestBase:
+      type: object
+      properties:
+        environment_variables:
+          $ref: "#/components/schemas/EnvironmentVariable"
+        flags:
+          type: array
+          items:
+            type: string
+          example:
+            - some_feature
+            - some_other_feature
+        id:
+          type: integer
+          example: 1
+        pkg_managers:
+          type: array
+          items:
+            type: string
+          example:
+            - gomod
+        ref:
+          type: string
+          example: "a7ac8d4c0b7fe90d51fb911511cbf6939655c877"
+        repo:
+          type: string
+          example: "https://github.com/kubernetes/kubernetes.git"
+        state:
+          type: string
+          example: complete
+        state_reason:
+          type: string
+          example: Completed successfully
+        updated:
+          type: string
+          example: "2019-09-17T19:42:47.149979"
+        user:
+          type: string
+          example: tbrady
+    Request:
+      allOf:
+      - type: object
+        properties:
+          dependencies:
+            type: integer
+            example: 309
+      - $ref: "#/components/schemas/RequestBase"
+    RequestNew:
+      type: object
+      properties:
+        flags:
+          type: array
+          items:
+            type: string
+            example: some_flag
+        pkg_managers:
+          type: array
+          items:
+            type: string
+            example: gomod
+        ref:
+          type: string
+          example: "a7ac8d4c0b7fe90d51fb911511cbf6939655c877"
+        repo:
+          type: string
+          example: "https://github.com/kubernetes/kubernetes.git"
+      required:
+      - ref
+      - repo
+    RequestVerbose:
+      allOf:
+      - type: object
+        properties:
+          dependencies:
+            type: array
+            items:
+              $ref: "#/components/schemas/Dependency"
+            example:
+              - name: github.com/op/go-logging
+                type: gomod
+                version: "v0.1.0"
+          state_history:
+            type: array
+            items:
+              $ref: "#/components/schemas/StateHistory"
+      - $ref: "#/components/schemas/RequestBase"
+    StateHistory:
+      type: object
+      properties:
+        state:
+          type: string
+        state_reason:
+          type: string
+        updated:
+          type: string
+      example:
+        state: complete
+        state_reason: Completed successfully
+        updated: "2019-09-19T19:35:15.722265"
+  securitySchemes:
+    "Kerberos Authentication":
+      type: http
+      scheme: negotiate
