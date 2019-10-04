@@ -23,6 +23,8 @@ class Config(object):
     cachito_download_timeout = 120
     # The timeout when making a Cachito API request
     cachito_api_timeout = 60
+    # Configurable number of days before which a request becomes stale
+    cachito_request_lifetime = 1
     # The task messages will be acknowledged after the task has been executed,
     # instead of just before
     task_acks_late = True
