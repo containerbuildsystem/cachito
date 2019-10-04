@@ -34,7 +34,10 @@ setup(
         'workers': get_requirements('requirements-workers.txt'),
     },
     entry_points={
-        'console_scripts': ['cachito=cachito.web.manage:cli'],
+        'console_scripts': [
+            'cachito=cachito.web.manage:cli',
+            'cachito-cleanup=cachito.workers.cleanup_job:main'
+        ],
     },
     classifiers=[
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
