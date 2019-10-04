@@ -178,7 +178,7 @@ paths:
       - "Kerberos Authentication": []
   "/requests/{id}/download":
     get:
-      description: Download the bundle for the specified Cachito request
+      description: Download a Cachito request bundle
       parameters:
       - name: id
         in: path
