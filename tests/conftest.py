@@ -60,7 +60,7 @@ def sample_deps():
         {'type': 'gomod', 'name': 'github.com/kr/text', 'version': 'v0.1.0'},
         {'type': 'gomod', 'name': 'github.com/op/go-logging',
          'version': 'v0.0.0-20160315200505-970db520ece7'},
-        {'type': 'gomod', 'name': 'github.com/pkg/errors', 'version': 'v0.8.1'},
+        {'type': 'gomod', 'name': 'github.com/pkg/new_errors', 'version': 'v1.0.0'},
         {'type': 'gomod', 'name': 'golang.org/x/crypto',
          'version': 'v0.0.0-20190308221718-c2843e01d9a2'},
         {'type': 'gomod', 'name': 'golang.org/x/net',
