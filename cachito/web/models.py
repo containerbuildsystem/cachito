@@ -155,7 +155,7 @@ class Request(db.Model):
         """
         Get the total number of dependencies for a request.
 
-        :return: count of the number of dependencies
+        :return: the number of dependencies
         :rtype: int
         """
         req_dep_cols = request_dependency_table.c
