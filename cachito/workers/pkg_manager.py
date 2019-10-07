@@ -61,19 +61,28 @@ def resolve_gomod_deps(archive_path, request_id=None):
 
         _run_cmd(('go', 'mod', 'download'), run_params)
         go_list_output = _run_cmd(
-            ('go', 'list', '-m', '-f', '{{.Path}} {{.Version}}', 'all'), run_params)
+            ('go', 'list', '-m', '-f', '{{.Path}} {{.Version}} {{.Replace}}', 'all'), run_params)
 
         deps = []
         for line in go_list_output.splitlines():
-            parts = line.split(' ')
+            # If there is no "replace" directive used on the dependency, then the last column will
+            # be "<nil>"
+            parts = [part for part in line.split(' ') if part not in ('', '<nil>')]
             if len(parts) == 1:
                 # This is the application itself, not a dependency
                 continue
-            if len(parts) > 2:
-                log.warning('Unexpected go module output: %s', line)
-                continue
+
+            if len(parts) == 4:
+                # If a Go module uses a "replace" directive, then it will be in the format:
+                # github.com/pkg/errors v0.8.0 github.com/pkg/errors v0.8.1
+                # In this case, just take the right side since that is the actual
+                # dependency being used
+                parts = parts[2:]
+
             if len(parts) == 2:
                 deps.append({'type': 'gomod', 'name': parts[0], 'version': parts[1]})
+            else:
+                log.warning('Unexpected go module output: %s', line)
 
         # Add the gomod cache to the bundle the user will later download
         if request_id is not None:

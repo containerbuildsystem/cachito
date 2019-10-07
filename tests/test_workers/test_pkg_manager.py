@@ -22,7 +22,7 @@ mock_cmd_output = dedent("""\
     github.com/kr/pty v1.1.1
     github.com/kr/text v0.1.0
     github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-    github.com/pkg/errors v0.8.1
+    github.com/pkg/errors v0.8.0 github.com/pkg/new_errors v1.0.0
     golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
     golang.org/x/net v0.0.0-20190311183353-d8887717615a
     golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
