@@ -122,8 +122,7 @@ def create_request():
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)
     chain_tasks = [
-        tasks.fetch_app_source.s(
-            request.repo, request.ref, request_id_to_update=request.id).on_error(error_callback),
+        tasks.fetch_app_source.s(request.repo, request.ref, request.id).on_error(error_callback),
     ]
     if 'gomod' in pkg_manager_names or auto_detect:
         chain_tasks.append(

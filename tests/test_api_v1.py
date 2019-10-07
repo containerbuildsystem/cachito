@@ -36,7 +36,7 @@ def test_create_and_fetch_request(mock_chain, pkg_managers, app, auth_env, clien
         fetch_app_source.s(
             'https://github.com/release-engineering/retrodep.git',
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
-            request_id_to_update=1,
+            1,
         ).on_error(error_callback),
         fetch_gomod_source.s(request_id_to_update=1, auto_detect=auto_detect)
                           .on_error(error_callback),
@@ -82,7 +82,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
         fetch_app_source.s(
             'https://github.com/release-engineering/retrodep.git',
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
-            request_id_to_update=1,
+            1,
         ).on_error(error_callback),
         fetch_gomod_source.s(request_id_to_update=1, auto_detect=False).on_error(error_callback),
         create_bundle_archive.s(request_id=1).on_error(error_callback),

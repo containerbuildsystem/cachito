@@ -12,29 +12,26 @@ from cachito.errors import CachitoError
 from cachito.workers import tasks
 
 
-@pytest.mark.parametrize('request_id_to_update', (None, 1))
 @mock.patch('cachito.workers.tasks.general.set_request_state')
 @mock.patch('cachito.workers.tasks.general.Git')
-def test_fetch_app_source(mock_git, mock_set_request_state, request_id_to_update):
+def test_fetch_app_source(mock_git, mock_set_request_state):
     url = 'https://github.com/release-engineering/retrodep.git'
     ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
-    tasks.fetch_app_source(url, ref, request_id_to_update=request_id_to_update)
+    tasks.fetch_app_source(url, ref, 1)
     mock_git.assert_called_once_with(url, ref)
     mock_git.return_value.fetch_source.assert_called_once_with()
-    if request_id_to_update:
-        mock_set_request_state.assert_called_once_with(
-            1, 'in_progress', 'Fetching the application source')
-    else:
-        mock_set_request_state.assert_not_called()
+    mock_set_request_state.assert_called_once_with(
+        1, 'in_progress', 'Fetching the application source')
 
 
+@mock.patch('cachito.workers.tasks.general.set_request_state')
 @mock.patch('cachito.workers.tasks.general.Git')
-def test_fetch_app_source_request_timed_out(mock_git):
+def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state):
     url = 'https://github.com/release-engineering/retrodep.git'
     ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
     mock_git.return_value.fetch_source.side_effect = Timeout('The request timed out')
     with pytest.raises(CachitoError, match='The connection timed out while downloading the source'):
-        tasks.fetch_app_source(url, ref)
+        tasks.fetch_app_source(url, ref, 1)
 
 
 @pytest.mark.parametrize('request_id_to_update, auto_detect, contains_go_mod', (

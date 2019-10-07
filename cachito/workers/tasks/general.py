@@ -21,18 +21,18 @@ log = logging.getLogger(__name__)
 
 
 @app.task
-def fetch_app_source(url, ref, request_id_to_update=None):
+def fetch_app_source(url, ref, request_id):
     """
     Fetch the application source code that was requested and put it in long-term storage.
 
     :param str url: the source control URL to pull the source from
     :param str ref: the source control reference
-    :param int request_id_to_update: the Cachito request ID this is for; if specified, this will
-        update the request's state
+    :param int request_id: the Cachito request ID this is for
+    :return: the downloaded source archive's path
+    :rtype: str
     """
     log.info('Fetching the source from "%s" at reference "%s"', url, ref)
-    if request_id_to_update:
-        set_request_state(request_id_to_update, 'in_progress', 'Fetching the application source')
+    set_request_state(request_id, 'in_progress', 'Fetching the application source')
     try:
         # Default to Git for now
         scm = Git(url, ref)
