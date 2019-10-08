@@ -34,13 +34,12 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
             super().__exit__(exc, value, tb)
 
 
-def resolve_gomod_deps(archive_path, request_id=None):
+def resolve_gomod_deps(archive_path, request_id):
     """
     Resolve and fetch gomod dependencies for given app source archive.
 
     :param str archive_path: the full path to the application source code
-    :param int request_id: the request ID of the bundle to add the gomod deps to; if not set, this
-        step will be skipped
+    :param int request_id: the request ID of the bundle to add the gomod deps to
     :return: a list of dictionaries representing the gomod dependencies
     :rtype: list
     :raises CachitoError: if fetching dependencies fails
@@ -85,11 +84,10 @@ def resolve_gomod_deps(archive_path, request_id=None):
                 log.warning('Unexpected go module output: %s', line)
 
         # Add the gomod cache to the bundle the user will later download
-        if request_id is not None:
-            cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
-            src_cache_path = os.path.join(temp_dir, cache_path)
-            dest_cache_path = os.path.join('gomod', cache_path)
-            add_deps_to_bundle(src_cache_path, dest_cache_path, request_id)
+        cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
+        src_cache_path = os.path.join(temp_dir, cache_path)
+        dest_cache_path = os.path.join('gomod', cache_path)
+        add_deps_to_bundle(src_cache_path, dest_cache_path, request_id)
 
         return deps
 

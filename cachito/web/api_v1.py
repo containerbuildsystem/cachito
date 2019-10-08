@@ -126,12 +126,11 @@ def create_request():
     ]
     if 'gomod' in pkg_manager_names or auto_detect:
         chain_tasks.append(
-            tasks.fetch_gomod_source.s(request_id_to_update=request.id, auto_detect=auto_detect)
-                 .on_error(error_callback)
+            tasks.fetch_gomod_source.s(request.id, auto_detect=auto_detect).on_error(error_callback)
         )
 
     chain_tasks.extend([
-        tasks.create_bundle_archive.s(request_id=request.id).on_error(error_callback),
+        tasks.create_bundle_archive.si(request.id).on_error(error_callback),
         tasks.set_request_state.si(request.id, 'complete', 'Completed successfully'),
     ])
 
