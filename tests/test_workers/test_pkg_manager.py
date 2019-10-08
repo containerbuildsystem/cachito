@@ -33,13 +33,12 @@ mock_cmd_output = dedent("""\
     """)
 
 
-@pytest.mark.parametrize('request_id', (None, 3))
 @mock.patch('cachito.workers.pkg_manager.add_deps_to_bundle')
 @mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 @mock.patch('tarfile.open')
 def test_resolve_gomod_deps(
-    mock_tarfile_open, mock_run, mock_temp_dir, mock_add_deps, request_id, tmpdir, sample_deps,
+    mock_tarfile_open, mock_run, mock_temp_dir, mock_add_deps, tmpdir, sample_deps,
 ):
     archive_path = '/this/is/path/to/archive.tar.gz'
     # Mock the tempfile.TemporaryDirectory context manager
@@ -58,16 +57,13 @@ def test_resolve_gomod_deps(
         mock_final_tarfile,
     ]
 
-    resolved_deps = resolve_gomod_deps(archive_path, request_id)
+    resolved_deps = resolve_gomod_deps(archive_path, 3)
 
     assert resolved_deps == sample_deps
-    if request_id:
-        mock_add_deps.assert_called_once()
-        assert mock_add_deps.call_args[0][0].endswith('pkg/mod/cache/download')
-        assert mock_add_deps.call_args[0][1] == 'gomod/pkg/mod/cache/download'
-        assert mock_add_deps.call_args[0][2] == 3
-    else:
-        mock_add_deps.assert_not_called()
+    mock_add_deps.assert_called_once()
+    assert mock_add_deps.call_args[0][0].endswith('pkg/mod/cache/download')
+    assert mock_add_deps.call_args[0][1] == 'gomod/pkg/mod/cache/download'
+    assert mock_add_deps.call_args[0][2] == 3
 
 
 @pytest.mark.parametrize(('go_mod_rc', 'go_list_rc'), ((0, 1), (1, 0)))
@@ -95,7 +91,7 @@ def test_go_list_cmd_failure(
     ]
 
     with pytest.raises(CachitoError) as exc_info:
-        resolve_gomod_deps(archive_path)
+        resolve_gomod_deps(archive_path, 1)
     assert str(exc_info.value) == 'Processing gomod dependencies failed'
 
 

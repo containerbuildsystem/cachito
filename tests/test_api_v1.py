@@ -38,8 +38,7 @@ def test_create_and_fetch_request(mock_chain, pkg_managers, app, auth_env, clien
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
             1,
         ).on_error(error_callback),
-        fetch_gomod_source.s(request_id_to_update=1, auto_detect=auto_detect)
-                          .on_error(error_callback),
+        fetch_gomod_source.s(1, auto_detect=auto_detect).on_error(error_callback),
         create_bundle_archive.s(request_id=1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
     ])
@@ -84,7 +83,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
             1,
         ).on_error(error_callback),
-        fetch_gomod_source.s(request_id_to_update=1, auto_detect=False).on_error(error_callback),
+        fetch_gomod_source.s(1, auto_detect=False).on_error(error_callback),
         create_bundle_archive.s(request_id=1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
     ])
