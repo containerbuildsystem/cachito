@@ -14,22 +14,34 @@ from cachito.web import db
 
 request_pkg_manager_table = db.Table(
     'request_pkg_manager',
-    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
-    db.Column('pkg_manager_id', db.Integer, db.ForeignKey('package_manager.id'), nullable=False),
+    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), index=True, nullable=False),
+    db.Column(
+        'pkg_manager_id',
+        db.Integer,
+        db.ForeignKey('package_manager.id'),
+        index=True,
+        nullable=False,
+    ),
     db.UniqueConstraint('request_id', 'pkg_manager_id'),
 )
 
 request_environment_variable_table = db.Table(
     'request_environment_variable',
-    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
-    db.Column('env_var_id', db.Integer, db.ForeignKey('environment_variable.id'), nullable=False),
+    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), index=True, nullable=False),
+    db.Column(
+        'env_var_id',
+        db.Integer,
+        db.ForeignKey('environment_variable.id'),
+        index=True,
+        nullable=False,
+    ),
     db.UniqueConstraint('request_id', 'env_var_id'),
 )
 
 request_flag_table = db.Table(
     'request_flag',
-    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
-    db.Column('flag_id', db.Integer, db.ForeignKey('flag.id'), nullable=False),
+    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), index=True, nullable=False),
+    db.Column('flag_id', db.Integer, db.ForeignKey('flag.id'), index=True, nullable=False),
     db.UniqueConstraint('request_id', 'flag_id'),
 )
 
@@ -57,9 +69,9 @@ class RequestStateMapping(Enum):
 class Dependency(db.Model):
     """A dependency (e.g. gomod dependency) associated with the request."""
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    type = db.Column(db.String, nullable=False)
-    version = db.Column(db.String, nullable=False)
+    name = db.Column(db.String, index=True, nullable=False)
+    type = db.Column(db.String, index=True, nullable=False)
+    version = db.Column(db.String, index=True, nullable=False)
     __table_args__ = (
         db.UniqueConstraint('name', 'type', 'version'),
     )
@@ -510,7 +522,7 @@ class RequestState(db.Model):
     state = db.Column(db.Integer, nullable=False)
     state_reason = db.Column(db.String, nullable=False)
     updated = db.Column(db.DateTime(), nullable=False, default=sqlalchemy.func.now())
-    request_id = db.Column(db.Integer, db.ForeignKey('request.id'), nullable=False)
+    request_id = db.Column(db.Integer, db.ForeignKey('request.id'), index=True, nullable=False)
     request = db.relationship('Request', back_populates='states')
 
     @property
@@ -550,7 +562,7 @@ class EnvironmentVariable(db.Model):
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String, unique=True, nullable=False)
+    username = db.Column(db.String, index=True, unique=True, nullable=False)
     requests = db.relationship('Request', back_populates='user')
 
 
