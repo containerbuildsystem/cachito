@@ -128,25 +128,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  dependencies:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Dependency"
-                  environment_variables:
-                    $ref: "#/components/schemas/EnvironmentVariable"
-                  pkg_managers:
-                    type: array
-                    items:
-                      type: string
-                      example: gomod
-                  state:
-                    type: string
-                    example: complete
-                  state_reason:
-                    type: string
-                    example: Completed successfully
+                $ref: '#/components/schemas/RequestVerbose'
         "404":
           description: The request wasn't found
           content:
@@ -173,7 +155,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RequestNew'
+              $ref: '#/components/schemas/RequestUpdate'
       security:
       - "Kerberos Authentication": []
   "/requests/{id}/download":
@@ -332,6 +314,22 @@ components:
       required:
       - ref
       - repo
+    RequestUpdate:
+      type: object
+      properties:
+        environment_variables:
+          $ref: "#/components/schemas/EnvironmentVariable"
+        pkg_managers:
+          type: array
+          items:
+            type: string
+            example: gomod
+        state:
+          type: string
+          example: complete
+        state_reason:
+          type: string
+          example: Completed successfully
     RequestVerbose:
       allOf:
       - type: object
