@@ -338,10 +338,6 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/Dependency"
-            example:
-              - name: github.com/op/go-logging
-                type: gomod
-                version: "v0.1.0"
           state_history:
             type: array
             items:
