@@ -166,7 +166,7 @@ class Request(db.Model):
         return os.path.join(cachito_bundles_dir, 'temp', str(self.id))
 
     @property
-    def number_of_deps(self):
+    def dependencies_count(self):
         """
         Get the total number of dependencies for a request.
 
@@ -212,7 +212,7 @@ class Request(db.Model):
             rv.update({'state_history': states})
             rv.update({'dependencies': [dep.to_json() for dep in self.dependencies]})
         else:
-            rv.update({'dependencies': self.number_of_deps})
+            rv.update({'dependencies': self.dependencies_count})
         return rv
 
     @classmethod
