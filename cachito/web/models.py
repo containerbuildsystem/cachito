@@ -19,13 +19,6 @@ request_pkg_manager_table = db.Table(
     db.UniqueConstraint('request_id', 'pkg_manager_id'),
 )
 
-request_dependency_table = db.Table(
-    'request_dependency',
-    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
-    db.Column('dependency_id', db.Integer, db.ForeignKey('dependency.id'), nullable=False),
-    db.UniqueConstraint('request_id', 'dependency_id'),
-)
-
 request_environment_variable_table = db.Table(
     'request_environment_variable',
     db.Column('request_id', db.Integer, db.ForeignKey('request.id'), nullable=False),
@@ -106,6 +99,28 @@ class Dependency(db.Model):
         }
 
 
+class RequestDependency(db.Model):
+    """An association table between requests and dependencies."""
+    # A primary key is required by SQLAlchemy when using declaritive style tables, so a composite
+    # primary key is used on the two required columns
+    request_id = db.Column(
+        db.Integer,
+        db.ForeignKey('request.id'),
+        autoincrement=False,
+        primary_key=True,
+    )
+    dependency_id = db.Column(
+        db.Integer,
+        db.ForeignKey('dependency.id'),
+        autoincrement=False,
+        primary_key=True,
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint('request_id', 'dependency_id'),
+    )
+
+
 class Request(db.Model):
     """A Cachito user request."""
     id = db.Column(db.Integer, primary_key=True)
@@ -113,7 +128,7 @@ class Request(db.Model):
     ref = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     dependencies = db.relationship(
-        'Dependency', secondary=request_dependency_table, backref='requests')
+        'Dependency', secondary=RequestDependency.__table__, backref='requests')
     pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
                                    backref='requests')
     states = db.relationship(
@@ -158,9 +173,8 @@ class Request(db.Model):
         :return: the number of dependencies
         :rtype: int
         """
-        req_dep_cols = request_dependency_table.c
-        return db.session.query(sqlalchemy.func.count(req_dep_cols.dependency_id)).filter(
-            req_dep_cols.request_id == self.id).scalar()
+        return db.session.query(sqlalchemy.func.count(RequestDependency.dependency_id)).filter(
+            RequestDependency.request_id == self.id).scalar()
 
     def to_json(self, verbose=True):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]
