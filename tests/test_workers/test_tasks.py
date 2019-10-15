@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import io
 import os
 import pathlib
 import tarfile
@@ -12,9 +11,17 @@ from cachito.errors import CachitoError
 from cachito.workers import tasks
 
 
+@pytest.mark.parametrize('dir_exists', (True, False))
+@mock.patch('cachito.workers.tasks.general.os.makedirs')
+@mock.patch('cachito.workers.tasks.general.os.path.exists')
+@mock.patch('cachito.workers.tasks.general.extract_app_src')
 @mock.patch('cachito.workers.tasks.general.set_request_state')
 @mock.patch('cachito.workers.tasks.general.Git')
-def test_fetch_app_source(mock_git, mock_set_request_state):
+def test_fetch_app_source(
+    mock_git, mock_set_request_state, mock_extract_app_src, mock_exists, mock_makedirs, dir_exists,
+):
+    mock_exists.return_value = dir_exists
+
     url = 'https://github.com/release-engineering/retrodep.git'
     ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
     tasks.fetch_app_source(url, ref, 1)
@@ -22,6 +29,15 @@ def test_fetch_app_source(mock_git, mock_set_request_state):
     mock_git.return_value.fetch_source.assert_called_once_with()
     mock_set_request_state.assert_called_once_with(
         1, 'in_progress', 'Fetching the application source')
+
+    bundle_dir = '/tmp/cachito-archives/bundles/temp/1'
+    mock_exists.assert_called_once_with(bundle_dir)
+    if dir_exists:
+        mock_makedirs.assert_not_called()
+    else:
+        mock_makedirs.assert_called_once_with(bundle_dir, exist_ok=True)
+
+    mock_extract_app_src.assert_called_once_with(mock_git().archive_path, bundle_dir)
 
 
 @mock.patch('cachito.workers.tasks.general.set_request_state')
@@ -34,37 +50,43 @@ def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state):
         tasks.fetch_app_source(url, ref, 1)
 
 
-@pytest.mark.parametrize('auto_detect, contains_go_mod', (
-    (False, False),
-    (True, True),
-    (True, False),
+@pytest.mark.parametrize('auto_detect, contains_go_mod, dep_replacements, expect_state_update', (
+    (False, False, None, True),
+    (True, True, None, True),
+    (True, False, None, False),
+    (True, True, False, [{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}]),
 ))
-@mock.patch('cachito.workers.tasks.golang.archive_contains_path')
+@mock.patch('cachito.workers.tasks.golang.os.path.exists')
 @mock.patch('cachito.workers.tasks.golang.update_request_with_deps')
 @mock.patch('cachito.workers.tasks.golang.set_request_state')
 @mock.patch('cachito.workers.tasks.golang.resolve_gomod_deps')
 def test_fetch_gomod_source(
     mock_resolve_gomod_deps, mock_set_request_state, mock_update_request_with_deps,
-    mock_archive_contains_path, auto_detect, contains_go_mod, sample_deps, sample_env_vars,
+    mock_path_exists, auto_detect, contains_go_mod, dep_replacements, expect_state_update,
+    sample_deps_replace, sample_env_vars,
 ):
-    mock_archive_contains_path.return_value = contains_go_mod
-    app_archive_path = 'path/to/archive.tar.gz'
-    mock_resolve_gomod_deps.return_value = sample_deps
-    tasks.fetch_gomod_source(app_archive_path, 1, auto_detect=auto_detect)
-    if not auto_detect or contains_go_mod:
+    mock_path_exists.return_value = contains_go_mod
+    mock_resolve_gomod_deps.return_value = sample_deps_replace
+    tasks.fetch_gomod_source(1, auto_detect, dep_replacements)
+    if expect_state_update:
         mock_set_request_state.assert_called_once_with(
             1, 'in_progress', 'Fetching the golang dependencies')
         mock_update_request_with_deps.assert_called_once_with(
-            1, sample_deps, sample_env_vars, 'gomod')
+            1, sample_deps_replace, sample_env_vars, 'gomod')
 
     if auto_detect:
-        mock_archive_contains_path.assert_called_once_with(app_archive_path, 'app/go.mod')
+        mock_path_exists.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1/app/go.mod')
         if contains_go_mod:
-            mock_resolve_gomod_deps.assert_called_once()
+            mock_resolve_gomod_deps.assert_called_once_with(
+                '/tmp/cachito-archives/bundles/temp/1/app', 1, dep_replacements,
+            )
         else:
             mock_resolve_gomod_deps.assert_not_called()
     else:
-        mock_archive_contains_path.assert_not_called()
+        mock_resolve_gomod_deps.assert_called_once_with(
+            '/tmp/cachito-archives/bundles/temp/1/app', 1, dep_replacements,
+        )
+        mock_path_exists.assert_not_called()
 
 
 @mock.patch('cachito.workers.requests.requests_auth_session')
@@ -108,31 +130,25 @@ def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
 
 @pytest.mark.parametrize('deps_present', (True, False))
 @mock.patch('cachito.workers.tasks.general.set_request_state')
-@mock.patch('cachito.workers.tasks.general.get_worker_config')
-def test_create_bundle_archive(mock_get_worker_config, mock_set_request, deps_present, tmpdir):
+@mock.patch('cachito.workers.utils.get_worker_config')
+def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir):
     # Make the bundles and sources dir configs point to under the pytest managed temp dir
     bundles_dir = tmpdir.mkdir('bundles')
-    sources_dir = tmpdir.mkdir('sources')
-    mock_get_worker_config.return_value = mock.Mock(
-        cachito_bundles_dir=str(bundles_dir),
-        cachito_sources_dir=str(sources_dir),
-    )
+    mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
+    request_id = 3
+    request_bundle_dir = bundles_dir.mkdir('temp').mkdir(str(request_id))
 
-    # Create the mocked application source archive (app.tar.gz)
-    app_archive_path = (
-        sources_dir.mkdir('release-engineering').mkdir('some_app').join('app.tar.gz')
-    )
+    # Create the extracted application source
     app_archive_contents = {
         'app/pizza.go': b'Cheese Pizza',
         'app/all_systems.go': b'All Systems Go',
     }
 
-    with tarfile.open(app_archive_path, mode='w:gz') as app_archive:
-        for name, data in app_archive_contents.items():
-            fileobj = io.BytesIO(data)
-            tarinfo = tarfile.TarInfo(name)
-            tarinfo.size = len(fileobj.getvalue())
-            app_archive.addfile(tarinfo, fileobj=fileobj)
+    request_bundle_dir.mkdir('app')
+    for name, data in app_archive_contents.items():
+        file_path = os.path.join(str(request_bundle_dir), name)
+        with open(file_path, 'wb') as f:
+            f.write(data)
 
     # Create the dependencies cache from the call to add_deps_to_bundle call from resolve_gomod_deps
     deps_archive_contents = {
@@ -140,16 +156,14 @@ def test_create_bundle_archive(mock_get_worker_config, mock_set_request, deps_pr
         'deps/gomod/pkg/mod/cache/download/server.com/dep2/@v/dep2.zip': b'dep2 archive',
     }
 
-    request_id = 3
     if deps_present:
-        temp_bundle_path = bundles_dir.mkdir('temp').mkdir(str(request_id))
         for name, data in deps_archive_contents.items():
-            path = temp_bundle_path.join(name)
+            path = request_bundle_dir.join(name)
             os.makedirs(os.path.dirname(path), exist_ok=True)
             open(path, 'wb').write(data)
 
     # Test the bundle is created when create_bundle_archive is called
-    tasks.create_bundle_archive(app_archive_path, request_id)
+    tasks.create_bundle_archive(request_id)
     bundle_archive_path = str(bundles_dir.join(f'{request_id}.tar.gz'))
     assert os.path.exists(bundle_archive_path)
 

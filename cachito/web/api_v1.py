@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import copy
 import os
 import re
 import shutil
@@ -125,8 +126,15 @@ def create_request():
         tasks.fetch_app_source.s(request.repo, request.ref, request.id).on_error(error_callback),
     ]
     if 'gomod' in pkg_manager_names or auto_detect:
+        gomod_dependency_replacements = [
+            dependency_replacement
+            for dependency_replacement in payload.get('dependency_replacements', [])
+            if dependency_replacement['type'] == 'gomod'
+        ]
         chain_tasks.append(
-            tasks.fetch_gomod_source.s(request.id, auto_detect=auto_detect).on_error(error_callback)
+            tasks.fetch_gomod_source.si(
+                request.id, auto_detect, gomod_dependency_replacements,
+            ).on_error(error_callback)
         )
 
     chain_tasks.extend([
@@ -177,7 +185,7 @@ def patch_request(request_id):
 
         if key == 'dependencies':
             for dep in value:
-                Dependency.validate_json(dep)
+                Dependency.validate_json(dep, for_update=True)
         elif key == 'pkg_managers':
             for pkg_manager in value:
                 if not isinstance(pkg_manager, str):
@@ -213,14 +221,15 @@ def patch_request(request_id):
             request.add_state(new_state, new_state_reason)
 
     if 'dependencies' in payload:
-        for dep in payload['dependencies']:
-            dep_obj = Dependency.query.filter_by(**dep).first()
-            if not dep_obj:
-                dep_obj = Dependency.from_json(dep)
-                db.session.add(dep_obj)
+        for dep_and_replaces in payload['dependencies']:
+            dep = copy.deepcopy(dep_and_replaces)
+            replaces = dep.pop('replaces', None)
 
-            if dep_obj not in request.dependencies:
-                request.dependencies.append(dep_obj)
+            dep_object = Dependency.get_or_create(dep)
+            replaces_object = None
+            if replaces:
+                replaces_object = Dependency.get_or_create(replaces)
+            request.add_dependency(dep_object, replaces_object)
 
     if 'pkg_managers' in payload:
         pkg_managers = PackageManager.get_pkg_managers(payload['pkg_managers'])

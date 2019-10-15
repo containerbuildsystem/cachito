@@ -12,22 +12,45 @@ from cachito.workers.tasks import (
 )
 
 
-@pytest.mark.parametrize('pkg_managers', ([], ['gomod']))
+@pytest.mark.parametrize('dependency_replacements, pkg_managers', (
+    ([], []),
+    ([], ['gomod']),
+    ([{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}], ['gomod']),
+    (
+        [{
+            'name': 'github.com/pkg/errors',
+            'new_name': 'github.com/pkg_new_errors',
+            'type': 'gomod',
+            'version': 'v0.8.1'
+        }],
+        ['gomod'],
+    ),
+))
 @mock.patch('cachito.web.api_v1.chain')
-def test_create_and_fetch_request(mock_chain, pkg_managers, app, auth_env, client, db):
+def test_create_and_fetch_request(
+    mock_chain, dependency_replacements, pkg_managers, app, auth_env, client, db,
+):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': pkg_managers,
     }
 
+    if dependency_replacements:
+        data['dependency_replacements'] = dependency_replacements
+
     with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
         rv = client.post(
             '/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 201
     created_request = json.loads(rv.data.decode('utf-8'))
+
     for key, expected_value in data.items():
-        assert expected_value == created_request[key]
+        # dependency_replacements aren't directly shown in the REST API
+        if key == 'dependency_replacements':
+            continue
+        else:
+            assert expected_value == created_request[key]
     assert created_request['user'] == 'tbrady@domain.local'
 
     error_callback = failed_request_callback.s(1)
@@ -38,8 +61,8 @@ def test_create_and_fetch_request(mock_chain, pkg_managers, app, auth_env, clien
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
             1,
         ).on_error(error_callback),
-        fetch_gomod_source.s(1, auto_detect=auto_detect).on_error(error_callback),
-        create_bundle_archive.s(request_id=1).on_error(error_callback),
+        fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback),
+        create_bundle_archive.si(1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
     ])
 
@@ -83,8 +106,8 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
             1,
         ).on_error(error_callback),
-        fetch_gomod_source.s(1, auto_detect=False).on_error(error_callback),
-        create_bundle_archive.s(request_id=1).on_error(error_callback),
+        fetch_gomod_source.si(1, False, []).on_error(error_callback),
+        create_bundle_archive.si(1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
     ])
 
@@ -106,7 +129,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
 
 @mock.patch('cachito.web.api_v1.chain')
 def test_fetch_paginated_requests(
-        mock_chain, app, auth_env, client, db, sample_deps, worker_auth_env):
+        mock_chain, app, auth_env, client, db, sample_deps_replace, worker_auth_env):
     repo_template = 'https://github.com/release-engineering/retrodep{}.git'
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=auth_env):
@@ -120,7 +143,7 @@ def test_fetch_paginated_requests(
             db.session.add(request)
     db.session.commit()
 
-    payload = {'dependencies': sample_deps}
+    payload = {'dependencies': sample_deps_replace}
     client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     client.patch('/api/v1/requests/11', json=payload, environ_base=worker_auth_env)
 
@@ -133,7 +156,7 @@ def test_fetch_paginated_requests(
     for repo_number, request in enumerate(fetched_requests):
         assert request['repo'] == repo_template.format(repo_number)
     assert response['meta']['previous'] is None
-    assert fetched_requests[0]['dependencies'] == 13
+    assert fetched_requests[0]['dependencies'] == 14
 
     # per_page and page parameters are honored
     rv = client.get('/api/v1/requests?page=2&per_page=10&verbose=True')
@@ -150,7 +173,7 @@ def test_fetch_paginated_requests(
         assert 'per_page=10' in pagination_metadata[page]
         assert 'verbose=True' in pagination_metadata[page]
     assert pagination_metadata['total'] == 50
-    assert len(fetched_requests[0]['dependencies']) == 13
+    assert len(fetched_requests[0]['dependencies']) == 14
     assert type(fetched_requests[0]['dependencies']) == list
 
 
@@ -178,6 +201,29 @@ def test_create_request_invalid_pkg_manager(auth_env, client, db):
     assert rv.status_code == 400
     error = json.loads(rv.data.decode('utf-8'))
     assert error['error'] == 'The following package managers are invalid: something_wrong'
+
+
+@pytest.mark.parametrize('dependency_replacements, error_msg', (
+    (
+        ['mypackage'],
+        'A dependency replacement must be a JSON object with the following keys: name, type, '
+        'version. It may also contain the following optional keys: new_name.',
+    ),
+    ('mypackage', '"dependency_replacements" must be an array'),
+))
+def test_create_request_invalid_dependency_replacement(
+    dependency_replacements, error_msg, auth_env, client, db,
+):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'dependency_replacements': dependency_replacements,
+    }
+
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
+    assert rv.status_code == 400
+    error = json.loads(rv.data.decode('utf-8'))
+    assert error['error'] == error_msg
 
 
 def test_create_request_not_an_object(auth_env, client, db):
@@ -477,7 +523,7 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     {},
     {'spam': 'maps'},
 ))
-def test_set_deps(app, client, db, worker_auth_env, sample_deps, env_vars):
+def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_vars):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -489,7 +535,13 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps, env_vars):
     db.session.add(request)
     db.session.commit()
 
-    payload = {'dependencies': sample_deps, 'environment_variables': env_vars}
+    # Test a dependency with no "replaces" key
+    sample_deps_replace.append({
+        'name': 'all_systems_go',
+        'type': 'gomod',
+        'version': 'v1.0.0',
+    })
+    payload = {'dependencies': sample_deps_replace, 'environment_variables': env_vars}
     patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
 
@@ -501,8 +553,52 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps, env_vars):
     get_rv = client.get('/api/v1/requests/1')
     assert get_rv.status_code == 200
     fetched_request = json.loads(get_rv.data.decode('utf-8'))
-    assert fetched_request['dependencies'] == sample_deps
+
+    # Add a null "replaces" key to match the API output
+    sample_deps_replace[-1]['replaces'] = None
+    assert fetched_request['dependencies'] == sample_deps_replace
     assert fetched_request['environment_variables'] == env_vars
+
+
+def test_add_dep_twice_diff_replaces(app, client, db, worker_auth_env):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'pkg_managers': ['gomod'],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    payload = {
+        'dependencies': [{
+            'name': 'all_systems_go',
+            'type': 'gomod',
+            'version': 'v1.0.0',
+        }]
+    }
+    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 200
+
+    # Add the dependency again with replaces set this time
+    payload2 = {
+        'dependencies': [{
+            'name': 'all_systems_go',
+            'type': 'gomod',
+            'replaces': {
+                'name': 'all_systems_go',
+                'type': 'gomod',
+                'version': 'v1.1.0',
+            },
+            'version': 'v1.0.0',
+        }]
+    }
+
+    patch_rv = client.patch('/api/v1/requests/1', json=payload2, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 400
+    assert 'can\'t have a new replacement set' in patch_rv.json['error']
 
 
 def test_set_state_not_logged_in(client, db):
@@ -589,13 +685,29 @@ def test_set_state_not_logged_in(client, db):
         1,
         {'dependencies': ['test']},
         400,
-        'A dependency must be a JSON object with the keys name, type, and version',
+        (
+            'A dependency must be a JSON object with the following keys: name, type, version. It '
+            'may also contain the following optional keys: replaces.'
+        ),
+    ),
+    (
+        1,
+        {
+            'dependencies': [
+                {'name': 'pizza', 'type': 'gomod', 'replaces': 'bad', 'version': 'v1.4.2'},
+            ]
+        },
+        400,
+        'A dependency must be a JSON object with the following keys: name, type, version.',
     ),
     (
         1,
         {'dependencies': [{'type': 'gomod', 'version': 'v1.4.2'}]},
         400,
-        'A dependency must be a JSON object with the keys name, type, and version',
+        (
+            'A dependency must be a JSON object with the following keys: name, type, version. It '
+            'may also contain the following optional keys: replaces.'
+        ),
     ),
     (
         1,

@@ -70,33 +70,114 @@ class Dependency(db.Model):
             .format(self.id, self.name, self.type, self.version)
         )
 
-    @staticmethod
-    def validate_json(dependency):
+    @classmethod
+    def get_or_create(cls, dependency):
+        """
+        Get the dependency from the database and create it if it doesn't exist.
+
+        :param dict Dependency: the JSON representation of a dependency
+        :return: a Dependency object based on the input dictionary; the Dependency object will be
+            added to the database session, but not committed, if it was created
+        :rtype: Dependency
+        """
+        dependency_object = Dependency.query.filter_by(**dependency).first()
+        if not dependency_object:
+            dependency_object = Dependency.from_json(dependency)
+            db.session.add(dependency_object)
+
+        return dependency_object
+
+    @classmethod
+    def validate_json(cls, dependency, for_update=False):
         """
         Validate the JSON representation of a dependency.
 
-        :param any dependency: the JSON representation of a dependency
+        :param dict dependency: the JSON representation of a dependency
+        :param bool for_update: a bool that determines if the schema validation should be for an
+            update (e.g. input from the PATCH API)
         :raise ValidationError: if the JSON does not match the required schema
         """
-        if not isinstance(dependency, dict) or dependency.keys() != {'name', 'type', 'version'}:
-            raise ValidationError(
-                'A dependency must be a JSON object with the keys name, type, and version')
+        required = {'name', 'type', 'version'}
+        optional = set()
+        if for_update:
+            optional.add('replaces')
 
-        for key in ('name', 'type', 'version'):
-            if not isinstance(dependency[key], str):
+        if not isinstance(dependency, dict) or (dependency.keys() - optional) != required:
+            msg = (
+                'A dependency must be a JSON object with the following '
+                f'keys: {", ".join(sorted(required))}.'
+            )
+            if for_update:
+                msg += (
+                    ' It may also contain the following optional '
+                    f'keys: {", ".join(sorted(optional))}.'
+                )
+            raise ValidationError(msg)
+
+        for key in dependency.keys():
+            if key == 'replaces':
+                if dependency[key]:
+                    cls.validate_json(dependency[key])
+            elif not isinstance(dependency[key], str):
                 raise ValidationError('The "{}" key of the dependency must be a string'.format(key))
+
+    @staticmethod
+    def validate_replacement_json(dependency_replacement):
+        """
+        Validate the JSON representation of a dependency replacement.
+
+        :param dict dependency_replacement: the JSON representation of a dependency replacement
+        :raise ValidationError: if the JSON does not match the required schema
+        """
+        required = {'name', 'type', 'version'}
+        optional = {'new_name'}
+        if (
+            not isinstance(dependency_replacement, dict) or
+            (dependency_replacement.keys() - required - optional)
+        ):
+            raise ValidationError(
+                'A dependency replacement must be a JSON object with the following '
+                f'keys: {", ".join(sorted(required))}. It may also contain the following optional '
+                f'keys: {", ".join(sorted(optional))}.'
+            )
+
+        for key in required | optional:
+            # Skip the validation of optional keys that are not set
+            if key not in dependency_replacement and key in optional:
+                continue
+
+            if not isinstance(dependency_replacement[key], str):
+                raise ValidationError(
+                    'The "{}" key of the dependency replacement must be a string'
+                    .format(key)
+                )
 
     @classmethod
     def from_json(cls, dependency):
         cls.validate_json(dependency)
         return cls(**dependency)
 
-    def to_json(self):
-        return {
+    def to_json(self, replaces=None, force_replaces=False):
+        """
+        Generate the JSON representation of the dependency.
+
+        :param Dependency replaces: the dependency that is being replaced by this dependency in the
+            context of the request
+        :param bool force_replaces: a bool that determines if the ``replaces`` key should be set
+            even when ``replaces` is ``None``
+        :return: the JSON form of the Dependency object
+        :rtype: dict
+        """
+        rv = {
             'name': self.name,
             'type': self.type,
             'version': self.version,
         }
+
+        if replaces or force_replaces:
+            rv['replaces'] = replaces
+
+        return rv
 
 
 class RequestDependency(db.Model):
@@ -107,14 +188,17 @@ class RequestDependency(db.Model):
         db.Integer,
         db.ForeignKey('request.id'),
         autoincrement=False,
+        index=True,
         primary_key=True,
     )
     dependency_id = db.Column(
         db.Integer,
         db.ForeignKey('dependency.id'),
         autoincrement=False,
+        index=True,
         primary_key=True,
     )
+    replaced_dependency_id = db.Column(db.Integer, db.ForeignKey('dependency.id'), index=True)
 
     __table_args__ = (
         db.UniqueConstraint('request_id', 'dependency_id'),
@@ -128,7 +212,23 @@ class Request(db.Model):
     ref = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     dependencies = db.relationship(
-        'Dependency', secondary=RequestDependency.__table__, backref='requests')
+        'Dependency',
+        backref='requests',
+        foreign_keys=[
+            RequestDependency.request_id,
+            RequestDependency.dependency_id,
+        ],
+        secondary=RequestDependency.__table__,
+    )
+    dependency_replacements = db.relationship(
+        'Dependency',
+        backref='replace_requests',
+        foreign_keys=[
+            RequestDependency.request_id,
+            RequestDependency.replaced_dependency_id,
+        ],
+        secondary=RequestDependency.__table__,
+    )
     pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
                                    backref='requests')
     states = db.relationship(
@@ -142,6 +242,43 @@ class Request(db.Model):
 
     def __repr__(self):
         return '<Request {0!r}>'.format(self.id)
+
+    def add_dependency(self, dependency, replaced_dependency=None):
+        """
+        Associate a dependency with this request if the association doesn't exist.
+
+        This replaces the use of ``request.dependencies.append`` to be able to associate
+        a dependency that is being replaced using the ``replaced_dependency`` keyword argument.
+
+        Note that the association is added to the database session but not committed.
+
+        :param Dependency dependency: a Dependency object
+        :param Dependency replaced_dependency: an optional Dependency object to mark as being
+            replaced by the input dependency for this request
+        :raises ValidationError: if the dependency is already associated with the request, but
+            replaced_dependency is different than what is already associated
+        """
+        # If the ID is not set, then the dependency was just created and is not part of the
+        # database's transaction buffer.
+        if not dependency.id or (replaced_dependency and not replaced_dependency.id):
+            # Send the changes queued up in SQLAlchemy to the database's transaction buffer. This
+            # will genereate an ID that can be used for the mapping below.
+            db.session.flush()
+
+        mapping = RequestDependency.query.filter_by(
+            request_id=self.id, dependency_id=dependency.id).first()
+
+        if mapping:
+            if mapping.replaced_dependency_id != getattr(replaced_dependency, 'id', None):
+                raise ValidationError(
+                    f'The dependency {dependency.to_json()} can\'t have a new replacement set')
+            return
+
+        mapping = RequestDependency(request_id=self.id, dependency_id=dependency.id)
+        if replaced_dependency:
+            mapping.replaced_dependency_id = replaced_dependency.id
+
+        db.session.add(mapping)
 
     @property
     def bundle_archive(self):
@@ -175,6 +312,21 @@ class Request(db.Model):
         """
         return db.session.query(sqlalchemy.func.count(RequestDependency.dependency_id)).filter(
             RequestDependency.request_id == self.id).scalar()
+
+    @property
+    def replaced_dependency_mappings(self):
+        """
+        Get the RequestDependency objects for the current request which contain a replacement.
+
+        :return: a list of RequestDependency
+        :rtype: list
+        """
+        return (
+            RequestDependency.query
+                             .filter_by(request_id=self.id)
+                             .filter(RequestDependency.replaced_dependency_id.isnot(None))
+                             .all()
+        )
 
     def to_json(self, verbose=True):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]
@@ -210,7 +362,18 @@ class Request(db.Model):
         rv.update(latest_state)
         if verbose:
             rv.update({'state_history': states})
-            rv.update({'dependencies': [dep.to_json() for dep in self.dependencies]})
+            replacement_id_to_replacement = {
+                replacement.id: replacement.to_json()
+                for replacement in self.dependency_replacements
+            }
+            dep_id_to_replacement = {
+                mapping.dependency_id: replacement_id_to_replacement[mapping.replaced_dependency_id]
+                for mapping in self.replaced_dependency_mappings
+            }
+            rv.update({'dependencies': [
+                dep.to_json(dep_id_to_replacement.get(dep.id), force_replaces=True)
+                for dep in self.dependencies
+            ]})
         else:
             rv.update({'dependencies': self.dependencies_count})
         return rv
@@ -219,7 +382,7 @@ class Request(db.Model):
     def from_json(cls, kwargs):
         # Validate all required parameters are present
         required_params = {'repo', 'ref'}
-        optional_params = {'flags', 'pkg_managers'}
+        optional_params = {'dependency_replacements', 'flags', 'pkg_managers'}
         missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
             raise ValidationError('Missing required parameter(s): {}'
@@ -255,6 +418,13 @@ class Request(db.Model):
                     'Invalid/Inactive flag(s): {}'.format(', '.join(invalid_flags)))
 
             request_kwargs['flags'] = found_flags
+
+        dependency_replacements = request_kwargs.pop('dependency_replacements', [])
+        if not isinstance(dependency_replacements, list):
+            raise ValidationError('"dependency_replacements" must be an array')
+
+        for dependency_replacement in dependency_replacements:
+            Dependency.validate_replacement_json(dependency_replacement)
 
         # current_user.is_authenticated is only ever False when auth is disabled
         if current_user.is_authenticated:
