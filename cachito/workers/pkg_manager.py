@@ -3,13 +3,13 @@ import logging
 import os
 import shutil
 import subprocess
-import tarfile
 import tempfile
 
 import requests
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
+from cachito.workers.utils import get_request_bundle_dir
 
 
 log = logging.getLogger(__name__)
@@ -34,20 +34,23 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
             super().__exit__(exc, value, tb)
 
 
-def resolve_gomod_deps(archive_path, request_id):
+def resolve_gomod_deps(app_source_path, request_id, dep_replacements=None):
     """
     Resolve and fetch gomod dependencies for given app source archive.
 
-    :param str archive_path: the full path to the application source code
+    :param str app_source_path: the full path to the application source code
     :param int request_id: the request ID of the bundle to add the gomod deps to
+    :param list dep_replacements: dependency replacements with the keys "name" and "version"; this
+        results in a series of `go mod edit -replace` commands
     :return: a list of dictionaries representing the gomod dependencies
     :rtype: list
     :raises CachitoError: if fetching dependencies fails
     """
+    if not dep_replacements:
+        dep_replacements = []
+
     worker_config = get_worker_config()
     with GoCacheTemporaryDirectory(prefix='cachito-') as temp_dir:
-        source_dir = _extract_app_src(archive_path, temp_dir)
-
         env = {
             'GOPATH': temp_dir,
             'GO111MODULE': 'on',
@@ -56,13 +59,28 @@ def resolve_gomod_deps(archive_path, request_id):
             'PATH': os.environ.get('PATH', ''),
         }
 
-        run_params = {'env': env, 'cwd': source_dir}
+        run_params = {'env': env, 'cwd': app_source_path}
 
+        # Collect all the dependency names that are being replaced to later verify if they were
+        # all used
+        replaced_dep_names = set()
+        for dep_replacement in dep_replacements:
+            name = dep_replacement['name']
+            replaced_dep_names.add(name)
+            new_name = dep_replacement.get('new_name', name)
+            version = dep_replacement['version']
+            log.info('Applying the gomod replacement %s => %s@%s', name, new_name, version)
+            _run_cmd(('go', 'mod', 'edit', '-replace', f'{name}={new_name}@{version}'), run_params)
+
+        log.info('Downloading the gomod dependencies')
         _run_cmd(('go', 'mod', 'download'), run_params)
         go_list_output = _run_cmd(
             ('go', 'list', '-m', '-f', '{{.Path}} {{.Version}} {{.Replace}}', 'all'), run_params)
 
         deps = []
+        # Keep track of which dependency replacements were actually applied to verify they were all
+        # used later
+        used_replaced_dep_names = set()
         for line in go_list_output.splitlines():
             # If there is no "replace" directive used on the dependency, then the last column will
             # be "<nil>"
@@ -71,17 +89,42 @@ def resolve_gomod_deps(archive_path, request_id):
                 # This is the application itself, not a dependency
                 continue
 
-            if len(parts) == 4:
+            replaces = None
+            if len(parts) == 3:
+                # If a Go module uses a "replace" directive to a local path, it will be shown as:
+                # k8s.io/metrics v0.0.0 ./staging/src/k8s.io/metrics
+                # In this case, just take the left side.
+                parts = parts[0:2]
+            elif len(parts) == 4:
                 # If a Go module uses a "replace" directive, then it will be in the format:
                 # github.com/pkg/errors v0.8.0 github.com/pkg/errors v0.8.1
                 # In this case, just take the right side since that is the actual
                 # dependency being used
+                old_name, old_version = parts[0], parts[1]
+                # Only keep track of user provided replaces. There could be existing "replace"
+                # directives in the go.mod file, but they are an implementation detail specific to
+                # Go and they don't need to be recorded in Cachito.
+                if old_name in replaced_dep_names:
+                    used_replaced_dep_names.add(old_name)
+                    replaces = {'type': 'gomod', 'name': old_name, 'version': old_version}
                 parts = parts[2:]
 
             if len(parts) == 2:
-                deps.append({'type': 'gomod', 'name': parts[0], 'version': parts[1]})
+                deps.append({
+                    'name': parts[0],
+                    'replaces': replaces,
+                    'type': 'gomod',
+                    'version': parts[1],
+                })
             else:
                 log.warning('Unexpected go module output: %s', line)
+
+        unused_dep_replacements = replaced_dep_names - used_replaced_dep_names
+        if unused_dep_replacements:
+            raise CachitoError(
+                'The following gomod dependency replacements don\'t apply: '
+                f'{", ".join(unused_dep_replacements)}'
+            )
 
         # Add the gomod cache to the bundle the user will later download
         cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
@@ -149,29 +192,14 @@ def add_deps_to_bundle(src_deps_path, dest_cache_path, request_id):
         content of src_deps_path to
     :param int request_id: the request the bundle is for
     """
-    config = get_worker_config()
-    deps_path = os.path.join(config.cachito_bundles_dir, 'temp', str(request_id), 'deps')
+    deps_path = os.path.join(get_request_bundle_dir(request_id), 'deps')
     if not os.path.exists(deps_path):
         log.debug('Creating %s', deps_path)
-        os.makedirs(config.cachito_bundles_dir, exist_ok=True)
+        os.makedirs(deps_path, exist_ok=True)
 
     dest_deps_path = os.path.join(deps_path, dest_cache_path)
     log.debug('Adding dependencies from %s to %s', src_deps_path, dest_deps_path)
     shutil.copytree(src_deps_path, dest_deps_path)
-
-
-def _extract_app_src(archive_path, parent_dir):
-    """
-    Helper method to extract application source archive to a directory.
-
-    :param str archive_path: the absolute path to the application source code
-    :param str parent_dir: the absolute path to the extract target directory
-    :returns: the absolute path of the extracted application source code
-    :rtype: str
-    """
-    with tarfile.open(archive_path, 'r:*') as archive:
-        archive.extractall(parent_dir)
-    return os.path.join(parent_dir, 'app')
 
 
 def _run_cmd(cmd, params):
@@ -198,16 +226,3 @@ def _run_cmd(cmd, params):
         raise CachitoError('Processing gomod dependencies failed')
 
     return response.stdout
-
-
-def archive_contains_path(archive_path, path):
-    """
-    Check if an archive contains the specified path.
-
-    :param str archive_patch: the path to the archive to examine
-    :param str path: the relative path in archive to check
-    :return: a bool that determines if the path is in the archive
-    :rtype: bool
-    """
-    with tarfile.open(archive_path, 'r:*') as archive:
-        return path in archive.getnames()

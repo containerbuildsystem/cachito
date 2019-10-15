@@ -200,17 +200,40 @@ components:
       example:
         name: github.com/op/go-logging
         type: gomod
-        version: "v0.1.0"
+        version: "v0.1.1"
       properties:
         name:
           type: string
-          example: "github.com/op/go-logging"
+          example: github.com/op/go-logging
         type:
           type: string
           example: gomod
         version:
           type: string
-          example: "v0.1.0"
+          example: "v0.1.1"
+    DependencyWithReplaces:
+      allOf:
+      - $ref: "#/components/schemas/Dependency"
+      - type: object
+        properties:
+          replaces:
+            $ref: "#/components/schemas/Dependency"
+        required:
+        - name
+        - type
+        - version
+    DependencyReplacement:
+      allOf:
+      - type: object
+        properties:
+          new_name:
+            type: string
+            example: gitlab.com/op/go-logging
+        required:
+        - name
+        - type
+        - version
+      - $ref: "#/components/schemas/Dependency"
     EnvironmentVariable:
       type: object
       additionalProperties:
@@ -295,6 +318,10 @@ components:
     RequestNew:
       type: object
       properties:
+        dependency_replacements:
+          type: array
+          items:
+            $ref: "#/components/schemas/DependencyReplacement"
         flags:
           type: array
           items:
@@ -317,6 +344,8 @@ components:
     RequestUpdate:
       type: object
       properties:
+        dependencies:
+          $ref: "#/components/schemas/DependencyWithReplaces"
         environment_variables:
           $ref: "#/components/schemas/EnvironmentVariable"
         pkg_managers:
@@ -337,7 +366,7 @@ components:
           dependencies:
             type: array
             items:
-              $ref: "#/components/schemas/Dependency"
+              $ref: "#/components/schemas/DependencyWithReplaces"
           state_history:
             type: array
             items:

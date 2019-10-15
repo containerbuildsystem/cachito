@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import copy
 import os
 
 import pytest
@@ -54,26 +55,120 @@ def db(app, tmpdir):
 @pytest.fixture()
 def sample_deps():
     return [
-        {'type': 'gomod', 'name': 'github.com/Masterminds/semver', 'version': 'v1.4.2'},
-        {'type': 'gomod', 'name': 'github.com/kr/pretty', 'version': 'v0.1.0'},
-        {'type': 'gomod', 'name': 'github.com/kr/pty', 'version': 'v1.1.1'},
-        {'type': 'gomod', 'name': 'github.com/kr/text', 'version': 'v0.1.0'},
-        {'type': 'gomod', 'name': 'github.com/op/go-logging',
-         'version': 'v0.0.0-20160315200505-970db520ece7'},
-        {'type': 'gomod', 'name': 'github.com/pkg/new_errors', 'version': 'v1.0.0'},
-        {'type': 'gomod', 'name': 'golang.org/x/crypto',
-         'version': 'v0.0.0-20190308221718-c2843e01d9a2'},
-        {'type': 'gomod', 'name': 'golang.org/x/net',
-         'version': 'v0.0.0-20190311183353-d8887717615a'},
-        {'type': 'gomod', 'name': 'golang.org/x/sys',
-         'version': 'v0.0.0-20190215142949-d0b11bdaac8a'},
-        {'type': 'gomod', 'name': 'golang.org/x/text', 'version': 'v0.3.0'},
-        {'type': 'gomod', 'name': 'golang.org/x/tools',
-         'version': 'v0.0.0-20190325161752-5a8dccf5b48a'},
-        {'type': 'gomod', 'name': 'gopkg.in/check.v1',
-         'version': 'v1.0.0-20180628173108-788fd7840127'},
-        {'type': 'gomod', 'name': 'gopkg.in/yaml.v2', 'version': 'v2.2.2'},
+        {
+            'name': 'github.com/Masterminds/semver',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v1.4.2',
+        },
+        {
+            'name': 'github.com/kr/pretty',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.1.0',
+        },
+        {
+            'name': 'github.com/kr/pty',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v1.1.1',
+        },
+        {
+            'name': 'github.com/kr/text',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.1.0',
+        },
+        {
+            'name': 'github.com/op/go-logging',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.0.0-20160315200505-970db520ece7',
+        },
+        {
+            'name': 'github.com/pkg/errors',
+            'type': 'gomod',
+            'version': 'v1.0.0',
+            'replaces': None,
+        },
+        {
+            'name': 'golang.org/x/crypto',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.0.0-20190308221718-c2843e01d9a2',
+        },
+        {
+            'name': 'golang.org/x/net',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.0.0-20190311183353-d8887717615a',
+        },
+        {
+            'name': 'golang.org/x/sys',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.0.0-20190215142949-d0b11bdaac8a',
+        },
+        {
+            'name': 'golang.org/x/text',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.3.0',
+        },
+        {
+            'name': 'golang.org/x/tools',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.0.0-20190325161752-5a8dccf5b48a',
+        },
+        {
+            'name': 'gopkg.in/check.v1',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v1.0.0-20180628173108-788fd7840127',
+        },
+        {
+            'name': 'gopkg.in/yaml.v2',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v2.2.2',
+        },
+        {
+            'name': 'k8s.io/metrics',
+            'type': 'gomod',
+            'replaces': None,
+            'version': 'v0.0.0',
+        },
     ]
+
+
+@pytest.fixture()
+def sample_deps_replace(sample_deps):
+    # Use a copy in case a test uses both this fixture and the sample_deps fixture
+    sample_deps_with_replace = copy.deepcopy(sample_deps)
+    sample_deps_with_replace[5]['replaces'] = {
+        'name': 'github.com/pkg/errors',
+        'type': 'gomod',
+        'version': 'v0.9.0',
+    }
+    return sample_deps_with_replace
+
+
+@pytest.fixture()
+def sample_deps_replace_new_name(sample_deps):
+    # Use a copy in case a test uses both this fixture and the sample_deps fixture
+    sample_deps_with_replace = copy.deepcopy(sample_deps)
+    sample_deps_with_replace[5] = {
+        'name': 'github.com/pkg/new_errors',
+        'type': 'gomod',
+        'replaces': {
+            'name': 'github.com/pkg/errors',
+            'type': 'gomod',
+            'version': 'v0.9.0',
+        },
+        'version': 'v1.0.0',
+    }
+    return sample_deps_with_replace
 
 
 @pytest.fixture()
