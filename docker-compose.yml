@@ -2,7 +2,6 @@ version: '3'
 services:
   db:
     image: postgres:9.6
-    restart: always
     environment:
       POSTGRES_USER: cachito
       POSTGRES_PASSWORD: cachito
