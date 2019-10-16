@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import logging
 import os
 
 from flask import current_app, Flask
+from flask.logging import default_handler
 from flask_login import LoginManager
 from flask_migrate import Migrate
 import kombu.exceptions
@@ -67,6 +69,17 @@ def create_app(config_obj=None):
         app.config.from_object(config_obj)
     else:
         load_config(app)
+
+    # Configure logging
+    default_handler.setFormatter(
+        logging.Formatter(fmt=app.config['CACHITO_LOG_FORMAT'], datefmt='%Y-%m-%d %H:%M:%S')
+    )
+    app.logger.setLevel(app.config['CACHITO_LOG_LEVEL'])
+    for logger_name in app.config['CACHITO_ADDITIONAL_LOGGERS']:
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(app.config['CACHITO_LOG_LEVEL'])
+        # Add the Flask handler that streams to WSGI stderr
+        logger.addHandler(default_handler)
 
     # Initialize the database
     db.init_app(app)

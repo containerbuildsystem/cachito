@@ -7,6 +7,11 @@ TEST_DB_FILE = os.path.join(tempfile.gettempdir(), 'cachito.db')
 
 class Config(object):
     """The base Cachito Flask configuration."""
+    # Additional loggers to set to the level defined in CACHITO_LOG_LEVEL
+    CACHITO_ADDITIONAL_LOGGERS = []
+    # This sets the level of the "flask.app" logger, which is accessed from current_app.logger
+    CACHITO_LOG_LEVEL = 'INFO'
+    CACHITO_LOG_FORMAT = '%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s %(message)s'
     CACHITO_MAX_PER_PAGE = 100
     CACHITO_WORKER_USERNAMES = []
 
@@ -19,6 +24,7 @@ class ProductionConfig(Config):
 class DevelopmentConfig(Config):
     """The development Cachito Flask configuration."""
     CACHITO_BUNDLES_DIR = os.path.join(tempfile.gettempdir(), 'cachito-archives', 'bundles')
+    CACHITO_LOG_LEVEL = 'DEBUG'
     SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://cachito:cachito@db:5432/cachito'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     LOGIN_DISABLED = True
