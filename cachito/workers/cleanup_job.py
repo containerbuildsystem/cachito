@@ -90,4 +90,5 @@ def mark_as_stale(request_id):
 
 
 if __name__ == '__main__':
+    log.setLevel(logging.INFO)
     main()
