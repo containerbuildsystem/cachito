@@ -88,7 +88,7 @@ class Dependency(db.Model):
         """
         Get the dependency from the database and create it if it doesn't exist.
 
-        :param dict Dependency: the JSON representation of a dependency
+        :param dict dependency: the JSON representation of a dependency
         :return: a Dependency object based on the input dictionary; the Dependency object will be
             added to the database session, but not committed, if it was created
         :rtype: Dependency
