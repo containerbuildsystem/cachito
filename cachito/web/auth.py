@@ -50,10 +50,8 @@ def load_user_from_request(request):
     username = remote_user.lower()
     current_app.logger.info(f'The user "{username}" was authenticated successfully by httpd')
 
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        user = User(username=username)
-        db.session.add(user)
+    user = User.get_or_create(username)
+    if not user.id:
         db.session.commit()
 
     return user
