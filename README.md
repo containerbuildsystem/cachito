@@ -113,9 +113,8 @@ Custom configuration for the API:
   workers. This is used to download the bundle archives created by the workers.
 * `CACHITO_USER_REPRESENTATIVES` - the list of usernames that are allowed to submit requests on
   behalf of other users.
-* `CACHITO_WORKER_USERNAMES` - the list of usernames without the realm that are allowed to
-    use the `/requests/<id>` patch endpoint. The workers use this to update the request
-    state.
+* `CACHITO_WORKER_USERNAMES` - the list of usernames that are allowed to use the `/requests/<id>`
+  PATCH endpoint.
 * `LOGIN_DISABLED` - disables authentication requirements.
 
 Additionally, to configure the communication with the Cachito Celery workers, create a Python file
