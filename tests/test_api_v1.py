@@ -12,10 +12,10 @@ from cachito.workers.tasks import (
 )
 
 
-@pytest.mark.parametrize('dependency_replacements, pkg_managers', (
-    ([], []),
-    ([], ['gomod']),
-    ([{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}], ['gomod']),
+@pytest.mark.parametrize('dependency_replacements, pkg_managers, user', (
+    ([], [], None),
+    ([], ['gomod'], None),
+    ([{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}], ['gomod'], None),
     (
         [{
             'name': 'github.com/pkg/errors',
@@ -24,11 +24,13 @@ from cachito.workers.tasks import (
             'version': 'v0.8.1'
         }],
         ['gomod'],
+        None,
     ),
+    ([], [], 'tom_hanks@domain.local'),
 ))
 @mock.patch('cachito.web.api_v1.chain')
 def test_create_and_fetch_request(
-    mock_chain, dependency_replacements, pkg_managers, app, auth_env, client, db,
+    mock_chain, dependency_replacements, pkg_managers, user, app, auth_env, client, db,
 ):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
@@ -38,6 +40,8 @@ def test_create_and_fetch_request(
 
     if dependency_replacements:
         data['dependency_replacements'] = dependency_replacements
+    if user:
+        data['user'] = user
 
     with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
         rv = client.post(
@@ -51,7 +55,13 @@ def test_create_and_fetch_request(
             continue
         else:
             assert expected_value == created_request[key]
-    assert created_request['user'] == 'tbrady@domain.local'
+
+    if user:
+        assert created_request['user'] == 'tom_hanks@domain.local'
+        assert created_request['submitted_by'] == 'tbrady@domain.local'
+    else:
+        assert created_request['user'] == 'tbrady@domain.local'
+        assert created_request['submitted_by'] is None
 
     error_callback = failed_request_callback.s(1)
     auto_detect = len(pkg_managers) == 0
@@ -238,13 +248,27 @@ def test_create_request_invalid_parameter(auth_env, client, db):
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
         'pkg_managers': ['gomod'],
-        'user': 'uncle_sam',
+        'username': 'uncle_sam',
     }
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
     error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == 'The following parameters are invalid: user'
+    assert error['error'] == 'The following parameters are invalid: username'
+
+
+def test_create_request_cannot_set_user(client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'user': 'tom_hanks@domain.local',
+    }
+
+    auth_env = {'REMOTE_USER': 'homer_simpson@domain.local'}
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
+    assert rv.status_code == 403
+    error = rv.json
+    assert error['error'] == 'You are not authorized to create a request on behalf of another user'
 
 
 def test_create_request_not_logged_in(client, db):

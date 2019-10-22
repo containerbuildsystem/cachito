@@ -86,6 +86,16 @@ paths:
                   error:
                     type: string
                     example: "The \"ref\" parameter must be a 40 character hex string"
+        "403":
+          description: The user is not allowed to create a request with this input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: You are not authorized to create a request on behalf of another user
   "/requests/{id}":
     get:
       description: Return a specific Cachito request
@@ -306,7 +316,7 @@ components:
           example: "2019-09-17T19:42:47.149979"
         user:
           type: string
-          example: tbrady
+          example: tbrady@domain.local
     Request:
       allOf:
       - type: object
@@ -338,6 +348,12 @@ components:
         repo:
           type: string
           example: "https://github.com/kubernetes/kubernetes.git"
+        user:
+          type: string
+          description: >
+            The user this request is created on behalf of. This is reserved for privileged users
+            that can act as a representative.
+          example: tbrady@domain.local
       required:
       - ref
       - repo
@@ -371,6 +387,9 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/StateHistory"
+          submitted_by:
+            type: string
+            example: osbs@domain.local
       - $ref: "#/components/schemas/RequestBase"
     StateHistory:
       type: object
