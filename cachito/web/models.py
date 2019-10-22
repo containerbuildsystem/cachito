@@ -373,7 +373,7 @@ class Request(db.Model):
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
         if verbose:
-            rv.update({'state_history': states})
+            rv['state_history'] = states
             replacement_id_to_replacement = {
                 replacement.id: replacement.to_json()
                 for replacement in self.dependency_replacements
@@ -382,12 +382,12 @@ class Request(db.Model):
                 mapping.dependency_id: replacement_id_to_replacement[mapping.replaced_dependency_id]
                 for mapping in self.replaced_dependency_mappings
             }
-            rv.update({'dependencies': [
+            rv['dependencies'] = [
                 dep.to_json(dep_id_to_replacement.get(dep.id), force_replaces=True)
                 for dep in self.dependencies
-            ]})
+            ]
         else:
-            rv.update({'dependencies': self.dependencies_count})
+            rv['dependencies'] = self.dependencies_count
         return rv
 
     @classmethod
