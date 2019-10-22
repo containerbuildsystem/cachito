@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import json
 from unittest import mock
 
 import kombu.exceptions
@@ -47,7 +46,7 @@ def test_create_and_fetch_request(
         rv = client.post(
             '/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 201
-    created_request = json.loads(rv.data.decode('utf-8'))
+    created_request = rv.json
 
     for key, expected_value in data.items():
         # dependency_replacements aren't directly shown in the REST API
@@ -79,7 +78,7 @@ def test_create_and_fetch_request(
     request_id = created_request['id']
     rv = client.get('/api/v1/requests/{}'.format(request_id))
     assert rv.status_code == 200
-    fetched_request = json.loads(rv.data.decode('utf-8'))
+    fetched_request = rv.json
 
     assert created_request == fetched_request
     assert fetched_request['state'] == 'in_progress'
@@ -104,7 +103,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
         rv = client.post(
             '/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 201
-    created_request = json.loads(rv.data.decode('utf-8'))
+    created_request = rv.json
     for key, expected_value in data.items():
         assert expected_value == created_request[key]
     assert created_request['user'] == 'tbrady@domain.local'
@@ -129,7 +128,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     request_id = created_request['id']
     rv = client.get('/api/v1/requests/{}'.format(request_id))
     assert rv.status_code == 200
-    fetched_request = json.loads(rv.data.decode('utf-8'))
+    fetched_request = rv.json
 
     # The flag should be present even if it is inactive now
     assert fetched_request['flags'] == ['valid_flag']
@@ -160,7 +159,7 @@ def test_fetch_paginated_requests(
     # Sane defaults are provided
     rv = client.get('/api/v1/requests')
     assert rv.status_code == 200
-    response = json.loads(rv.data.decode('utf-8'))
+    response = rv.json
     fetched_requests = response['items']
     assert len(fetched_requests) == 20
     for repo_number, request in enumerate(fetched_requests):
@@ -171,7 +170,7 @@ def test_fetch_paginated_requests(
     # per_page and page parameters are honored
     rv = client.get('/api/v1/requests?page=2&per_page=10&verbose=True')
     assert rv.status_code == 200
-    response = json.loads(rv.data.decode('utf-8'))
+    response = rv.json
     fetched_requests = response['items']
     assert len(fetched_requests) == 10
     # Start at 10 because each page contains 10 items and we're processing the second page
@@ -196,8 +195,7 @@ def test_create_request_invalid_ref(auth_env, client, db):
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == 'The "ref" parameter must be a 40 character hex string'
+    assert rv.json['error'] == 'The "ref" parameter must be a 40 character hex string'
 
 
 def test_create_request_invalid_pkg_manager(auth_env, client, db):
@@ -209,8 +207,7 @@ def test_create_request_invalid_pkg_manager(auth_env, client, db):
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == 'The following package managers are invalid: something_wrong'
+    assert rv.json['error'] == 'The following package managers are invalid: something_wrong'
 
 
 @pytest.mark.parametrize('dependency_replacements, error_msg', (
@@ -232,15 +229,13 @@ def test_create_request_invalid_dependency_replacement(
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == error_msg
+    assert rv.json['error'] == error_msg
 
 
 def test_create_request_not_an_object(auth_env, client, db):
     rv = client.post('/api/v1/requests', json=None, environ_base=auth_env)
     assert rv.status_code == 400
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == 'The input data must be a JSON object'
+    assert rv.json['error'] == 'The input data must be a JSON object'
 
 
 def test_create_request_invalid_parameter(auth_env, client, db):
@@ -253,8 +248,7 @@ def test_create_request_invalid_parameter(auth_env, client, db):
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == 'The following parameters are invalid: username'
+    assert rv.json['error'] == 'The following parameters are invalid: username'
 
 
 def test_create_request_cannot_set_user(client, db):
@@ -280,8 +274,7 @@ def test_create_request_not_logged_in(client, db):
 
     rv = client.post('/api/v1/requests', json=data)
     assert rv.status_code == 401
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == (
+    assert rv.json['error'] == (
         'The server could not verify that you are authorized to access the URL requested. You '
         'either supplied the wrong credentials (e.g. a bad password), or your browser doesn\'t '
         'understand how to supply the credentials required.'
@@ -299,8 +292,7 @@ def test_missing_request(client, db):
 def test_malformed_request_id(client, db):
     rv = client.get('/api/v1/requests/spam')
     assert rv.status_code == 404
-    data = json.loads(rv.data.decode('utf-8'))
-    assert data == {'error': 'The requested resource was not found'}
+    assert rv.json == {'error': 'The requested resource was not found'}
 
 
 def test_create_request_invalid_flag(auth_env, client, db):
@@ -313,8 +305,7 @@ def test_create_request_invalid_flag(auth_env, client, db):
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == 'Invalid/Inactive flag(s): invalid_flag'
+    assert rv.json['error'] == 'Invalid/Inactive flag(s): invalid_flag'
 
 
 @pytest.mark.parametrize('removed_params', (
@@ -332,7 +323,7 @@ def test_validate_required_params(auth_env, client, db, removed_params):
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    error_msg = json.loads(rv.data.decode('utf-8'))['error']
+    error_msg = rv.json['error']
     assert 'Missing required' in error_msg
     for removed_param in removed_params:
         assert removed_param in error_msg
@@ -348,7 +339,7 @@ def test_validate_extraneous_params(auth_env, client, db):
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    error_msg = json.loads(rv.data.decode('utf-8'))['error']
+    error_msg = rv.json['error']
     assert error_msg == 'The following parameters are invalid: spam'
 
 
@@ -425,7 +416,7 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     get_rv = client.get('/api/v1/requests/1')
     assert get_rv.status_code == 200
 
-    fetched_request = json.loads(get_rv.data.decode('utf-8'))
+    fetched_request = get_rv.json
     assert fetched_request['state'] == state
     assert fetched_request['state_reason'] == state_reason
     # Since the date is always changing, the actual value can't be confirmed
@@ -457,9 +448,7 @@ def test_set_pkg_managers(app, client, db, worker_auth_env):
 
     get_rv = client.get('/api/v1/requests/1')
     assert get_rv.status_code == 200
-
-    fetched_request = json.loads(get_rv.data.decode('utf-8'))
-    assert fetched_request['pkg_managers'] == ['gomod']
+    assert get_rv.json['pkg_managers'] == ['gomod']
 
 
 @pytest.mark.parametrize('bundle_exists', (True, False))
@@ -538,9 +527,8 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     get_rv = client.get('/api/v1/requests/1')
     assert get_rv.status_code == 200
 
-    fetched_request = json.loads(get_rv.data.decode('utf-8'))
     # Make sure no duplicate states were added
-    assert len(fetched_request['state_history']) == 2
+    assert len(get_rv.json['state_history']) == 2
 
 
 @pytest.mark.parametrize('env_vars', (
@@ -576,7 +564,7 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_var
 
     get_rv = client.get('/api/v1/requests/1')
     assert get_rv.status_code == 200
-    fetched_request = json.loads(get_rv.data.decode('utf-8'))
+    fetched_request = get_rv.json
 
     # Add a null "replaces" key to match the API output
     sample_deps_replace[-1]['replaces'] = None
@@ -629,8 +617,7 @@ def test_set_state_not_logged_in(client, db):
     payload = {'state': 'complete', 'state_reason': 'Completed successfully'}
     rv = client.patch('/api/v1/requests/1', json=payload)
     assert rv.status_code == 401
-    error = json.loads(rv.data.decode('utf-8'))
-    assert error['error'] == (
+    assert rv.json['error'] == (
         'The server could not verify that you are authorized to access the URL requested. You '
         'either supplied the wrong credentials (e.g. a bad password), or your browser doesn\'t '
         'understand how to supply the credentials required.'
@@ -788,5 +775,4 @@ def test_state_change_invalid(
 
     rv = client.patch(f'/api/v1/requests/{request_id}', json=payload, environ_base=worker_auth_env)
     assert rv.status_code == status_code
-    data = json.loads(rv.data.decode('utf-8'))
-    assert data == {'error': message}
+    assert rv.json == {'error': message}
