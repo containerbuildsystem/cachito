@@ -111,6 +111,8 @@ Custom configuration for the API:
 * `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
 * `CACHITO_BUNDLES_DIR` - the root of the bundles directory that is also accessible by the
   workers. This is used to download the bundle archives created by the workers.
+* `CACHITO_USER_REPRESENTATIVES` - the list of usernames that are allowed to submit requests on
+  behalf of other users.
 * `CACHITO_WORKER_USERNAMES` - the list of usernames without the realm that are allowed to
     use the `/requests/<id>` patch endpoint. The workers use this to update the request
     state.

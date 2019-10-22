@@ -7,6 +7,7 @@ import os
 import flask
 from flask_login import UserMixin, current_user
 import sqlalchemy
+from werkzeug.exceptions import Forbidden
 
 from cachito.errors import ValidationError
 from cachito.web import db
@@ -223,6 +224,7 @@ class Request(db.Model):
     repo = db.Column(db.String, nullable=False)
     ref = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    submitted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     dependencies = db.relationship(
         'Dependency',
         backref='requests',
@@ -248,7 +250,8 @@ class Request(db.Model):
     environment_variables = db.relationship(
         'EnvironmentVariable', secondary=request_environment_variable_table, backref='requests',
         order_by='EnvironmentVariable.name')
-    user = db.relationship('User', back_populates='requests')
+    submitted_by = db.relationship('User', foreign_keys=[submitted_by_id])
+    user = db.relationship('User', foreign_keys=[user_id], back_populates='requests')
     flags = db.relationship(
         'Flag', secondary=request_flag_table, backref='requests', order_by='Flag.name')
 
@@ -370,8 +373,13 @@ class Request(db.Model):
             'environment_variables': env_vars_json,
             'flags': [flag.to_json() for flag in self.flags],
         }
+        if self.submitted_by:
+            rv['submitted_by'] = self.submitted_by.username
+        else:
+            rv['submitted_by'] = None
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
+
         if verbose:
             rv['state_history'] = states
             replacement_id_to_replacement = {
@@ -394,7 +402,7 @@ class Request(db.Model):
     def from_json(cls, kwargs):
         # Validate all required parameters are present
         required_params = {'repo', 'ref'}
-        optional_params = {'dependency_replacements', 'flags', 'pkg_managers'}
+        optional_params = {'dependency_replacements', 'flags', 'pkg_managers', 'user'}
         missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
             raise ValidationError('Missing required parameter(s): {}'
@@ -440,7 +448,28 @@ class Request(db.Model):
 
         # current_user.is_authenticated is only ever False when auth is disabled
         if current_user.is_authenticated:
-            request_kwargs['user_id'] = current_user.id
+            submitted_for_username = request_kwargs.pop('user', None)
+            if submitted_for_username:
+                # Convert the allowed users to lower-case since they are stored in the database as
+                # lower-case for consistency
+                allowed_users = {
+                    user.lower()
+                    for user in flask.current_app.config['CACHITO_USER_REPRESENTATIVES']
+                }
+                if current_user.username not in allowed_users:
+                    raise Forbidden(
+                        'You are not authorized to create a request on behalf of another user'
+                    )
+
+                submitted_for = User.get_or_create(submitted_for_username)
+                if not submitted_for.id:
+                    # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
+                    # This will genereate an ID that can be used below.
+                    db.session.flush()
+                request_kwargs['user_id'] = submitted_for.id
+                request_kwargs['submitted_by_id'] = current_user.id
+            else:
+                request_kwargs['user_id'] = current_user.id
         request = cls(**request_kwargs)
         request.add_state('in_progress', 'The request was initiated')
         return request
@@ -563,7 +592,7 @@ class EnvironmentVariable(db.Model):
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, index=True, unique=True, nullable=False)
-    requests = db.relationship('Request', back_populates='user')
+    requests = db.relationship('Request', foreign_keys=[Request.user_id], back_populates='user')
 
     @classmethod
     def get_or_create(cls, username):
