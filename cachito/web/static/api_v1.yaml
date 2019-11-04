@@ -27,6 +27,13 @@ paths:
             type: integer
             example: 10
             default: 20
+        - name: state
+          in: query
+          description: The state to filter requests by
+          schema:
+            type: string
+            example: in_progress
+            default: null
         - name: verbose
           in: query
           description: Shows the same view as /requests/{id}

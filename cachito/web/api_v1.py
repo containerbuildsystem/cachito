@@ -8,10 +8,14 @@ from celery import chain
 import flask
 from flask_login import current_user, login_required
 from werkzeug.exceptions import Unauthorized, InternalServerError
+from sqlalchemy.sql.expression import func
 
 from cachito.errors import ValidationError
 from cachito.web import db
-from cachito.web.models import Dependency, EnvironmentVariable, Package, PackageManager, Request
+from cachito.web.models import (
+    Dependency, EnvironmentVariable, Package, PackageManager, Request,
+    RequestState, RequestStateMapping
+)
 from cachito.web.utils import pagination_metadata, str_to_bool
 from cachito.workers import tasks
 
@@ -29,12 +33,30 @@ def get_requests():
         value exceeds configuration's CACHITO_MAX_PER_PAGE.
     :rtype: flask.Response
     """
-    # Default versbose flag to False
+    # Check if the user is filtering requests by state
+    state = flask.request.args.get('state')
+    # Default verbose flag to False
     verbose = str_to_bool(flask.request.args.get('verbose', False))
     max_per_page = flask.current_app.config['CACHITO_MAX_PER_PAGE']
     # The call to `paginate` will inspect the current HTTP request for the
     # pagination parameters `page` and `per_page`.
-    pagination_query = Request.query.paginate(max_per_page=max_per_page)
+    query = Request.query
+    if state:
+        if state not in RequestStateMapping.get_state_names():
+            states = ':'.join(RequestStateMapping.get_state_names())
+            raise ValidationError(
+                f'{state} is not a valid request state. Valid states are: {states}'
+            )
+        state_int = RequestStateMapping.__members__[state].value
+        state_subquery = (
+            db.session.query(
+                RequestState.request_id, func.max(RequestState.updated).label('updated')
+            )
+            .group_by(RequestState.request_id)
+            .filter_by(state=state_int)
+        ).subquery()
+        query = query.join(state_subquery, Request.id == state_subquery.c.request_id)
+    pagination_query = query.paginate(max_per_page=max_per_page)
     requests = pagination_query.items
     response = {
         'items': [request.to_json(verbose=verbose) for request in requests],

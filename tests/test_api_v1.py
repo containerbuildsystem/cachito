@@ -4,7 +4,7 @@ from unittest import mock
 import kombu.exceptions
 import pytest
 
-from cachito.web.models import Request, EnvironmentVariable, Flag
+from cachito.web.models import Request, EnvironmentVariable, Flag, RequestStateMapping
 from cachito.workers.tasks import (
     fetch_app_source, fetch_gomod_source, set_request_state, failed_request_callback,
     create_bundle_archive,
@@ -187,6 +187,47 @@ def test_fetch_paginated_requests(
     assert len(fetched_requests[0]['dependencies']) == 14
     assert len(fetched_requests[0]['packages']) == 1
     assert type(fetched_requests[0]['dependencies']) == list
+
+
+def test_create_request_filter_state(app, auth_env, client, db):
+    """Test that requests can be filtered by state."""
+    repo_template = 'https://github.com/release-engineering/retrodep{}.git'
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=auth_env):
+        # Make a request in 'in_progress' state
+        data = {
+            'repo': repo_template.format(0),
+            'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+            'pkg_managers': ['gomod'],
+        }
+        request = Request.from_json(data)
+        db.session.add(request)
+        # Make a request in 'complete' state
+        data_complete = {
+            'repo': repo_template.format(1),
+            'ref': 'e1be527f39ec31323f0454f7d1422c6260b00580',
+            'pkg_managers': ['gomod'],
+        }
+        request_complete = Request.from_json(data_complete)
+        request_complete.add_state('complete', 'Completed successfully')
+        db.session.add(request_complete)
+    db.session.commit()
+
+    rv = client.get('/api/v1/requests?state=complete')
+    assert rv.status_code == 200
+    response = rv.json
+    fetched_requests = response['items']
+    assert len(fetched_requests) == 1
+    assert fetched_requests[0]['state'] == 'complete'
+
+
+def test_invalid_state(app, auth_env, client, db):
+    """Test that the proper error is thrown when an invalid state is entered."""
+    rv = client.get('/api/v1/requests?state=complet')
+    assert rv.status_code == 400
+    response = rv.json
+    states = ':'.join(RequestStateMapping.get_state_names())
+    assert response['error'] == f'complet is not a valid request state. Valid states are: {states}'
 
 
 def test_create_request_invalid_ref(auth_env, client, db):
