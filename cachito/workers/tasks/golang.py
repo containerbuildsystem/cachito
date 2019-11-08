@@ -3,9 +3,7 @@ import logging
 import os
 
 from cachito.errors import CachitoError
-from cachito.workers.pkg_manager import (
-    resolve_gomod_deps, update_request_with_deps,
-)
+from cachito.workers.pkg_managers import resolve_gomod_deps, update_request_with_deps
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.utils import get_request_bundle_dir
