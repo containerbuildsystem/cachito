@@ -1,13 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import os
 from textwrap import dedent
 from unittest import mock
 
 import pytest
 
-from cachito.workers.pkg_manager import (
-    add_deps_to_bundle, resolve_gomod_deps, update_request_with_deps,
-)
+from cachito.workers.pkg_managers import resolve_gomod_deps
 from cachito.errors import CachitoError
 
 
@@ -54,8 +51,8 @@ def _generate_mock_cmd_output(error_pkg='github.com/pkg/errors v1.0.0'):
         'github.com/pkg/errors=github.com/pkg/new_errors@v1.0.0',
     )
 ))
-@mock.patch('cachito.workers.pkg_manager.add_deps_to_bundle')
-@mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
+@mock.patch('cachito.workers.pkg_managers.golang.add_deps_to_bundle')
+@mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 def test_resolve_gomod_deps(
     mock_run, mock_temp_dir, mock_add_deps, dep_replacement, go_list_error_pkg, expected_replace,
@@ -99,7 +96,7 @@ def test_resolve_gomod_deps(
     assert mock_add_deps.call_args[0][2] == 3
 
 
-@mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
+@mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 def test_resolve_gomod_deps_unused_dep(mock_run, mock_temp_dir, tmpdir):
     # Mock the tempfile.TemporaryDirectory context manager
@@ -119,7 +116,7 @@ def test_resolve_gomod_deps_unused_dep(mock_run, mock_temp_dir, tmpdir):
 
 
 @pytest.mark.parametrize(('go_mod_rc', 'go_list_rc'), ((0, 1), (1, 0)))
-@mock.patch('cachito.workers.pkg_manager.GoCacheTemporaryDirectory')
+@mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
 def test_go_list_cmd_failure(
     mock_run, mock_temp_dir, tmpdir, go_mod_rc, go_list_rc
@@ -137,53 +134,3 @@ def test_go_list_cmd_failure(
     with pytest.raises(CachitoError) as exc_info:
         resolve_gomod_deps(archive_path, 1)
     assert str(exc_info.value) == 'Processing gomod dependencies failed'
-
-
-@mock.patch('cachito.workers.config.Config.cachito_deps_patch_batch_size', 5)
-@mock.patch('cachito.workers.requests.requests_auth_session')
-def test_update_request_with_deps(mock_requests, sample_deps_replace):
-    mock_requests.patch.return_value.ok = True
-    update_request_with_deps(1, sample_deps_replace)
-    url = 'http://cachito.domain.local/api/v1/requests/1'
-    calls = [
-        mock.call(url, json={'dependencies': sample_deps_replace[:5]}, timeout=60),
-        mock.call(url, json={'dependencies': sample_deps_replace[5:10]}, timeout=60),
-        mock.call(url, json={'dependencies': sample_deps_replace[10:]}, timeout=60),
-    ]
-    assert mock_requests.patch.call_count == 3
-    mock_requests.patch.assert_has_calls(calls)
-
-
-@mock.patch('cachito.workers.utils.get_worker_config')
-def test_add_deps_to_bundle(mock_get_worker_config, tmpdir):
-    # Make the bundles and sources dir configs point to under the pytest managed temp dir
-    bundles_dir = tmpdir.mkdir('bundles')
-    mock_get_worker_config.return_value = mock.Mock(cachito_bundles_dir=str(bundles_dir))
-    # Create a temporary directory to store the application deps
-    relative_tmpdir = 'temp'
-    tmpdir.mkdir(relative_tmpdir)
-    deps_path = tmpdir.join(relative_tmpdir, 'deps')
-
-    # Create the dependencies cache that mocks the output of `go mod download`
-    deps_contents = {
-        'pkg/mod/cache/download/server.com/dep1/@v/dep1.zip': b'dep1 archive',
-        'pkg/mod/cache/download/server.com/dep2/@v/dep2.zip': b'dep2 archive',
-    }
-
-    for name, data in deps_contents.items():
-        path = deps_path.join(name)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, 'wb').write(data)
-
-    cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
-    # The path to the part of the gomod cache that should be added to the bundle
-    src_deps_path = os.path.join(deps_path, cache_path)
-    # The path to where the cache should end up in the bundle archive
-    dest_cache_path = os.path.join('gomod', cache_path)
-    request_id = 3
-    add_deps_to_bundle(src_deps_path, dest_cache_path, request_id)
-
-    # Verify the deps were copied
-    for expected in list(deps_contents.keys()):
-        expected_path = str(bundles_dir.join('temp', str(request_id), 'deps', 'gomod', expected))
-        assert os.path.exists(expected_path) is True
