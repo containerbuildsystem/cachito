@@ -7,7 +7,7 @@ import flask_migrate
 
 from cachito.web import db as _db
 from cachito.web.config import TEST_DB_FILE
-from cachito.web.wsgi import create_app
+from cachito.web.app import create_app
 
 
 @pytest.fixture(scope='session')
