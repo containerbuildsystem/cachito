@@ -2,6 +2,8 @@
 import os
 import tempfile
 
+from cachito.errors import ConfigError
+
 TEST_DB_FILE = os.path.join(tempfile.gettempdir(), 'cachito.db')
 
 
@@ -44,3 +46,27 @@ class TestingConfig(DevelopmentConfig):
     DEBUG = True
     LOGIN_DISABLED = False
     TESTING = True
+
+
+def validate_cachito_config(config):
+    """
+    Perform basic validatation on the Cachito configuration.
+
+    :param dict config: a dictionary of configuration values
+    :raises ConfigError: if the configuration is invalid
+    """
+
+    # Validate the required config variables
+    for config_var in (
+        'CACHITO_LOG_LEVEL', 'CACHITO_MAX_PER_PAGE', 'CACHITO_LOG_FORMAT', 'CACHITO_BUNDLES_DIR',
+    ):
+        if config_var == 'CACHITO_BUNDLES_DIR':
+            required_dir = config.get(config_var)
+            if not required_dir or not os.path.isdir(required_dir):
+                raise ConfigError(
+                    f'The configuration "{config_var}" must be set to an existing directory'
+                )
+        elif not config.get(config_var):
+            raise ConfigError(
+                f'The configuration "{config_var}" must be set'
+            )
