@@ -67,8 +67,11 @@ class RequestStateMapping(Enum):
         return sorted([state.name for state in cls])
 
 
-class Dependency(db.Model):
-    """A dependency (e.g. gomod dependency) associated with the request."""
+class Package(db.Model):
+    """A package associated with the request."""
+    # Statically set the table name so that the inherited classes uses this value instead of one
+    # derived from the class name
+    __tablename__ = 'package'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, index=True, nullable=False)
     type = db.Column(db.String, index=True, nullable=False)
@@ -79,10 +82,17 @@ class Dependency(db.Model):
 
     def __repr__(self):
         return (
-            '<Dependency id={0!r}, name={1!r} type={2!r} version={3!r}>'
-            .format(self.id, self.name, self.type, self.version)
+            f'<{self.__class__.__name__} id={self.id}, name={self.name} type={self.type} '
+            f'version={self.version}>'
         )
 
+
+class Dependency(Package):
+    """
+    A dependency (e.g. gomod dependency) associated with the request.
+
+    This uses the same table as Package, but has different methods.
+    """
     @classmethod
     def get_or_create(cls, dependency):
         """
@@ -93,9 +103,9 @@ class Dependency(db.Model):
             added to the database session, but not committed, if it was created
         :rtype: Dependency
         """
-        dependency_object = Dependency.query.filter_by(**dependency).first()
+        dependency_object = cls.query.filter_by(**dependency).first()
         if not dependency_object:
-            dependency_object = Dependency.from_json(dependency)
+            dependency_object = cls.from_json(dependency)
             db.session.add(dependency_object)
 
         return dependency_object
@@ -206,12 +216,12 @@ class RequestDependency(db.Model):
     )
     dependency_id = db.Column(
         db.Integer,
-        db.ForeignKey('dependency.id'),
+        db.ForeignKey('package.id'),
         autoincrement=False,
         index=True,
         primary_key=True,
     )
-    replaced_dependency_id = db.Column(db.Integer, db.ForeignKey('dependency.id'), index=True)
+    replaced_dependency_id = db.Column(db.Integer, db.ForeignKey('package.id'), index=True)
 
     __table_args__ = (
         db.UniqueConstraint('request_id', 'dependency_id'),
