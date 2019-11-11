@@ -80,8 +80,12 @@ def upgrade():
         'request_dependency',
         sa.Column('request_id', sa.Integer(), nullable=False),
         sa.Column('dependency_id', sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(['dependency_id'], ['dependency.id']),
-        sa.ForeignKeyConstraint(['request_id'], ['request.id']),
+        sa.ForeignKeyConstraint(
+            ['dependency_id'], ['dependency.id'], 'request_dependency_request_id_fkey'
+        ),
+        sa.ForeignKeyConstraint(
+            ['request_id'], ['request.id'], 'request_dependency_dependency_id_fkey'
+        ),
         sa.UniqueConstraint('request_id', 'dependency_id'),
     )
 
