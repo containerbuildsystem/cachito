@@ -205,7 +205,7 @@ paths:
                     example: "The request must be in the \"complete\" state before downloading the archive"
 components:
   schemas:
-    Dependency:
+    Package:
       type: object
       example:
         name: github.com/op/go-logging
@@ -221,18 +221,18 @@ components:
         version:
           type: string
           example: "v0.1.1"
-    DependencyWithReplaces:
+    PackageWithReplaces:
       allOf:
-      - $ref: "#/components/schemas/Dependency"
+      - $ref: "#/components/schemas/Package"
       - type: object
         properties:
           replaces:
-            $ref: "#/components/schemas/Dependency"
+            $ref: "#/components/schemas/Package"
         required:
         - name
         - type
         - version
-    DependencyReplacement:
+    PackageReplacement:
       allOf:
       - type: object
         properties:
@@ -243,7 +243,7 @@ components:
         - name
         - type
         - version
-      - $ref: "#/components/schemas/Dependency"
+      - $ref: "#/components/schemas/Package"
     EnvironmentVariable:
       type: object
       additionalProperties:
@@ -331,7 +331,7 @@ components:
         dependency_replacements:
           type: array
           items:
-            $ref: "#/components/schemas/DependencyReplacement"
+            $ref: "#/components/schemas/PackageReplacement"
         flags:
           type: array
           items:
@@ -361,7 +361,7 @@ components:
       type: object
       properties:
         dependencies:
-          $ref: "#/components/schemas/DependencyWithReplaces"
+          $ref: "#/components/schemas/PackageWithReplaces"
         environment_variables:
           $ref: "#/components/schemas/EnvironmentVariable"
         pkg_managers:
@@ -382,7 +382,7 @@ components:
           dependencies:
             type: array
             items:
-              $ref: "#/components/schemas/DependencyWithReplaces"
+              $ref: "#/components/schemas/PackageWithReplaces"
           state_history:
             type: array
             items:
