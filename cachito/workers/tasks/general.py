@@ -61,6 +61,8 @@ def set_request_state(request_id, state, state_reason):
     :param int request_id: the ID of the Cachito request
     :param str state: the state to set the Cachito request to
     :param str state_reason: the state reason to set the Cachito request to
+    :return: the updated request
+    :rtype: dict
     :raise CachitoError: if the request to the Cachito API fails
     """
     # Import this here to avoid a circular import
@@ -89,6 +91,8 @@ def set_request_state(request_id, state, state_reason):
             request_id, state, rv.status_code, rv.text,
         )
         raise CachitoError(f'Setting the state to "{state}" on request {request_id} failed')
+
+    return rv.json()
 
 
 @app.task

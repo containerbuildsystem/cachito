@@ -59,32 +59,34 @@ def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state):
 @mock.patch('cachito.workers.tasks.golang.os.path.exists')
 @mock.patch('cachito.workers.tasks.golang.update_request_with_deps')
 @mock.patch('cachito.workers.tasks.golang.set_request_state')
-@mock.patch('cachito.workers.tasks.golang.resolve_gomod_deps')
+@mock.patch('cachito.workers.tasks.golang.resolve_gomod')
 def test_fetch_gomod_source(
-    mock_resolve_gomod_deps, mock_set_request_state, mock_update_request_with_deps,
+    mock_resolve_gomod, mock_set_request_state, mock_update_request_with_deps,
     mock_path_exists, auto_detect, contains_go_mod, dep_replacements, expect_state_update,
-    sample_deps_replace, sample_env_vars,
+    sample_deps_replace, sample_package, sample_env_vars,
 ):
+    mock_request = mock.Mock()
+    mock_set_request_state.return_value = mock_request
     mock_path_exists.return_value = contains_go_mod
-    mock_resolve_gomod_deps.return_value = sample_deps_replace
+    mock_resolve_gomod.return_value = sample_package, sample_deps_replace
     tasks.fetch_gomod_source(1, auto_detect, dep_replacements)
     if expect_state_update:
         mock_set_request_state.assert_called_once_with(
             1, 'in_progress', 'Fetching the golang dependencies')
         mock_update_request_with_deps.assert_called_once_with(
-            1, sample_deps_replace, sample_env_vars, 'gomod')
+            1, sample_deps_replace, sample_env_vars, 'gomod', [sample_package])
 
     if auto_detect:
         mock_path_exists.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1/app/go.mod')
         if contains_go_mod:
-            mock_resolve_gomod_deps.assert_called_once_with(
-                '/tmp/cachito-archives/bundles/temp/1/app', 1, dep_replacements,
+            mock_resolve_gomod.assert_called_once_with(
+                '/tmp/cachito-archives/bundles/temp/1/app', mock_request, dep_replacements,
             )
         else:
-            mock_resolve_gomod_deps.assert_not_called()
+            mock_resolve_gomod.assert_not_called()
     else:
-        mock_resolve_gomod_deps.assert_called_once_with(
-            '/tmp/cachito-archives/bundles/temp/1/app', 1, dep_replacements,
+        mock_resolve_gomod.assert_called_once_with(
+            '/tmp/cachito-archives/bundles/temp/1/app', mock_request, dep_replacements,
         )
         mock_path_exists.assert_not_called()
 
@@ -151,7 +153,7 @@ def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir)
         with open(file_path, 'wb') as f:
             f.write(data)
 
-    # Create the dependencies cache from the call to add_deps_to_bundle call from resolve_gomod_deps
+    # Create the dependencies cache from the call to add_deps_to_bundle call from resolve_gomod
     deps_archive_contents = {
         'deps/gomod/pkg/mod/cache/download/server.com/dep1/@v/dep1.zip': b'dep1 archive',
         'deps/gomod/pkg/mod/cache/download/server.com/dep2/@v/dep2.zip': b'dep2 archive',

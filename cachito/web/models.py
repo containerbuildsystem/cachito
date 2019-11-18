@@ -86,6 +86,60 @@ class Package(db.Model):
             f'version={self.version}>'
         )
 
+    @classmethod
+    def validate_json(cls, package):
+        """
+        Validate the JSON representation of a package.
+
+        :param dict package: the JSON representation of a package
+        :raise ValidationError: if the JSON does not match the required schema
+        """
+        required = {'name', 'type', 'version'}
+        if not isinstance(package, dict) or package.keys() != required:
+            raise ValidationError(
+                'A package must be a JSON object with the following '
+                f'keys: {", ".join(sorted(required))}.'
+            )
+
+        for key in package.keys():
+            if not isinstance(package[key], str):
+                raise ValidationError('The "{}" key of the package must be a string'.format(key))
+
+    @classmethod
+    def from_json(cls, package):
+        cls.validate_json(package)
+        return cls(**package)
+
+    def to_json(self):
+        """
+        Generate the JSON representation of the package.
+
+        :return: the JSON form of the Package object
+        :rtype: dict
+        """
+        return {
+            'name': self.name,
+            'type': self.type,
+            'version': self.version,
+        }
+
+    @classmethod
+    def get_or_create(cls, package):
+        """
+        Get the package from the database and create it if it doesn't exist.
+
+        :param dict package: the JSON representation of a package
+        :return: an object based on the input dictionary; the object will be added to the database
+            session, but not committed, if it was created
+        :rtype: Package
+        """
+        package_object = cls.query.filter_by(**package).first()
+        if not package_object:
+            package_object = cls.from_json(package)
+            db.session.add(package_object)
+
+        return package_object
+
 
 class Dependency(Package):
     """
@@ -93,23 +147,6 @@ class Dependency(Package):
 
     This uses the same table as Package, but has different methods.
     """
-    @classmethod
-    def get_or_create(cls, dependency):
-        """
-        Get the dependency from the database and create it if it doesn't exist.
-
-        :param dict dependency: the JSON representation of a dependency
-        :return: a Dependency object based on the input dictionary; the Dependency object will be
-            added to the database session, but not committed, if it was created
-        :rtype: Dependency
-        """
-        dependency_object = cls.query.filter_by(**dependency).first()
-        if not dependency_object:
-            dependency_object = cls.from_json(dependency)
-            db.session.add(dependency_object)
-
-        return dependency_object
-
     @classmethod
     def validate_json(cls, dependency, for_update=False):
         """
@@ -175,11 +212,6 @@ class Dependency(Package):
                     .format(key)
                 )
 
-    @classmethod
-    def from_json(cls, dependency):
-        cls.validate_json(dependency)
-        return cls(**dependency)
-
     def to_json(self, replaces=None, force_replaces=False):
         """
         Generate the JSON representation of the dependency.
@@ -191,16 +223,36 @@ class Dependency(Package):
         :return: the JSON form of the Dependency object
         :rtype: dict
         """
-        rv = {
-            'name': self.name,
-            'type': self.type,
-            'version': self.version,
-        }
+        rv = super().to_json()
 
         if replaces or force_replaces:
             rv['replaces'] = replaces
 
         return rv
+
+
+class RequestPackage(db.Model):
+    """An association table between requests and the packages they contain."""
+    # A primary key is required by SQLAlchemy when using declaritive style tables, so a composite
+    # primary key is used on the two required columns
+    request_id = db.Column(
+        db.Integer,
+        db.ForeignKey('request.id'),
+        autoincrement=False,
+        index=True,
+        primary_key=True,
+    )
+    package_id = db.Column(
+        db.Integer,
+        db.ForeignKey('package.id'),
+        autoincrement=False,
+        index=True,
+        primary_key=True,
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint('request_id', 'package_id'),
+    )
 
 
 class RequestDependency(db.Model):
@@ -237,7 +289,6 @@ class Request(db.Model):
     submitted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     dependencies = db.relationship(
         'Dependency',
-        backref='requests',
         foreign_keys=[
             RequestDependency.request_id,
             RequestDependency.dependency_id,
@@ -246,13 +297,13 @@ class Request(db.Model):
     )
     dependency_replacements = db.relationship(
         'Dependency',
-        backref='replace_requests',
         foreign_keys=[
             RequestDependency.request_id,
             RequestDependency.replaced_dependency_id,
         ],
         secondary=RequestDependency.__table__,
     )
+    packages = db.relationship('Package', secondary=RequestPackage.__table__)
     pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
                                    backref='requests')
     states = db.relationship(
@@ -339,6 +390,17 @@ class Request(db.Model):
             RequestDependency.request_id == self.id).scalar()
 
     @property
+    def packages_count(self):
+        """
+        Get the total number of packages for a request.
+
+        :return: the number of packages
+        :rtype: int
+        """
+        return db.session.query(sqlalchemy.func.count(RequestPackage.package_id)).filter(
+            RequestPackage.request_id == self.id).scalar()
+
+    @property
     def replaced_dependency_mappings(self):
         """
         Get the RequestDependency objects for the current request which contain a replacement.
@@ -404,8 +466,10 @@ class Request(db.Model):
                 dep.to_json(dep_id_to_replacement.get(dep.id), force_replaces=True)
                 for dep in self.dependencies
             ]
+            rv['packages'] = [package.to_json() for package in self.packages]
         else:
             rv['dependencies'] = self.dependencies_count
+            rv['packages'] = self.packages_count
         return rv
 
     @classmethod

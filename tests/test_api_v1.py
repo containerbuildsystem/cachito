@@ -138,7 +138,8 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
 
 @mock.patch('cachito.web.api_v1.chain')
 def test_fetch_paginated_requests(
-        mock_chain, app, auth_env, client, db, sample_deps_replace, worker_auth_env):
+    mock_chain, app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env,
+):
     repo_template = 'https://github.com/release-engineering/retrodep{}.git'
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=auth_env):
@@ -152,7 +153,7 @@ def test_fetch_paginated_requests(
             db.session.add(request)
     db.session.commit()
 
-    payload = {'dependencies': sample_deps_replace}
+    payload = {'dependencies': sample_deps_replace, 'packages': [sample_package]}
     client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     client.patch('/api/v1/requests/11', json=payload, environ_base=worker_auth_env)
 
@@ -166,6 +167,7 @@ def test_fetch_paginated_requests(
         assert request['repo'] == repo_template.format(repo_number)
     assert response['meta']['previous'] is None
     assert fetched_requests[0]['dependencies'] == 14
+    assert fetched_requests[0]['packages'] == 1
 
     # per_page and page parameters are honored
     rv = client.get('/api/v1/requests?page=2&per_page=10&verbose=True')
@@ -183,6 +185,7 @@ def test_fetch_paginated_requests(
         assert 'verbose=True' in pagination_metadata[page]
     assert pagination_metadata['total'] == 50
     assert len(fetched_requests[0]['dependencies']) == 14
+    assert len(fetched_requests[0]['packages']) == 1
     assert type(fetched_requests[0]['dependencies']) == list
 
 
@@ -613,6 +616,26 @@ def test_add_dep_twice_diff_replaces(app, client, db, worker_auth_env):
     assert 'can\'t have a new replacement set' in patch_rv.json['error']
 
 
+def test_set_packages(app, client, db, sample_package, worker_auth_env):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    payload = {'packages': [sample_package]}
+    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 200
+
+    get_rv = client.get('/api/v1/requests/1')
+    assert get_rv.status_code == 200
+    assert get_rv.json['packages'] == [sample_package]
+
+
 def test_set_state_not_logged_in(client, db):
     payload = {'state': 'complete', 'state_reason': 'Completed successfully'}
     rv = client.patch('/api/v1/requests/1', json=payload)
@@ -682,6 +705,12 @@ def test_set_state_not_logged_in(client, db):
     ),
     (
         1,
+        {'packages': 'test'},
+        400,
+        'The value for "packages" must be an array',
+    ),
+    (
+        1,
         {'pkg_managers': 'test'},
         400,
         'The value for "pkg_managers" must be an array',
@@ -719,6 +748,24 @@ def test_set_state_not_logged_in(client, db):
             'A dependency must be a JSON object with the following keys: name, type, version. It '
             'may also contain the following optional keys: replaces.'
         ),
+    ),
+    (
+        1,
+        {'packages': [{'type': 'gomod', 'version': 'v1.4.2'}]},
+        400,
+        'A package must be a JSON object with the following keys: name, type, version.',
+    ),
+    (
+        1,
+        {
+            'packages': [{
+                'name': 'github.com/release-engineering/retrodep/v2',
+                'type': 'gomod',
+                'version': 3,
+            }]
+        },
+        400,
+        'The "version" key of the package must be a string',
     ),
     (
         1,

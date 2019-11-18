@@ -324,6 +324,9 @@ components:
           dependencies:
             type: integer
             example: 309
+          packages:
+            type: integer
+            example: 1
       - $ref: "#/components/schemas/RequestBase"
     RequestNew:
       type: object
@@ -364,6 +367,10 @@ components:
           $ref: "#/components/schemas/PackageWithReplaces"
         environment_variables:
           $ref: "#/components/schemas/EnvironmentVariable"
+        packages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Package"
         pkg_managers:
           type: array
           items:
@@ -383,6 +390,10 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/PackageWithReplaces"
+          packages:
+            type: array
+            items:
+              $ref: "#/components/schemas/Package"
           state_history:
             type: array
             items:

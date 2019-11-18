@@ -3,7 +3,7 @@ import logging
 import os
 
 from cachito.errors import CachitoError
-from cachito.workers.pkg_managers import resolve_gomod_deps, update_request_with_deps
+from cachito.workers.pkg_managers import resolve_gomod, update_request_with_deps
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.utils import get_request_bundle_dir
@@ -31,10 +31,9 @@ def fetch_gomod_source(request_id, auto_detect=False, dep_replacements=None):
             return
 
     log.info('Fetching gomod dependencies for request %d', request_id)
-    set_request_state(request_id, 'in_progress', 'Fetching the golang dependencies')
-
+    request = set_request_state(request_id, 'in_progress', 'Fetching the golang dependencies')
     try:
-        deps = resolve_gomod_deps(app_source_path, request_id, dep_replacements)
+        module, deps = resolve_gomod(app_source_path, request, dep_replacements)
     except CachitoError:
         log.exception('Failed to fetch gomod dependencies for request %d', request_id)
         raise
@@ -42,4 +41,4 @@ def fetch_gomod_source(request_id, auto_detect=False, dep_replacements=None):
     env_vars = {}
     if len(deps):
         env_vars['GOPATH'] = env_vars['GOCACHE'] = 'deps/gomod'
-    update_request_with_deps(request_id, deps, env_vars, 'gomod')
+    update_request_with_deps(request_id, deps, env_vars, 'gomod', [module])

@@ -172,6 +172,15 @@ def sample_deps_replace_new_name(sample_deps):
 
 
 @pytest.fixture()
+def sample_package():
+    return {
+        'name': 'github.com/release-engineering/retrodep/v2',
+        'type': 'gomod',
+        'version': 'v2.1.1',
+    }
+
+
+@pytest.fixture()
 def sample_env_vars():
     sample = {}
     sample['GOPATH'] = sample['GOCACHE'] = 'deps/gomod'

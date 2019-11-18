@@ -11,7 +11,7 @@ from werkzeug.exceptions import Unauthorized, InternalServerError
 
 from cachito.errors import ValidationError
 from cachito.web import db
-from cachito.web.models import Dependency, EnvironmentVariable, PackageManager, Request
+from cachito.web.models import Dependency, EnvironmentVariable, Package, PackageManager, Request
 from cachito.web.utils import pagination_metadata, str_to_bool
 from cachito.workers import tasks
 
@@ -173,19 +173,24 @@ def patch_request(request_id):
     if not payload:
         raise ValidationError('At least one key must be specified to update the request')
 
-    valid_keys = {'dependencies', 'environment_variables', 'pkg_managers', 'state', 'state_reason'}
+    valid_keys = {
+        'dependencies', 'environment_variables', 'packages', 'pkg_managers', 'state', 'state_reason'
+    }
     invalid_keys = set(payload.keys()) - valid_keys
     if invalid_keys:
         raise ValidationError(
             'The following keys are not allowed: {}'.format(', '.join(invalid_keys)))
 
     for key, value in payload.items():
-        if key in ('dependencies', 'pkg_managers') and not isinstance(value, list):
+        if key in ('dependencies', 'packages', 'pkg_managers') and not isinstance(value, list):
             raise ValidationError(f'The value for "{key}" must be an array')
 
         if key == 'dependencies':
             for dep in value:
                 Dependency.validate_json(dep, for_update=True)
+        elif key == 'packages':
+            for dep in value:
+                Package.validate_json(dep)
         elif key == 'pkg_managers':
             for pkg_manager in value:
                 if not isinstance(pkg_manager, str):
@@ -230,6 +235,11 @@ def patch_request(request_id):
             if replaces:
                 replaces_object = Dependency.get_or_create(replaces)
             request.add_dependency(dep_object, replaces_object)
+
+    for package in payload.get('packages', []):
+        package_object = Package.get_or_create(package)
+        if package_object not in request.packages:
+            request.packages.append(package_object)
 
     if 'pkg_managers' in payload:
         pkg_managers = PackageManager.get_pkg_managers(payload['pkg_managers'])
