@@ -1,5 +1,5 @@
 -rrequirements.txt
--rrequirements-workers.txt
+-rrequirements-web.txt
 
 flake8
 pytest

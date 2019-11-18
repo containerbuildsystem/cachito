@@ -1,8 +1,4 @@
 celery
-Flask
-flask-login
-Flask-Migrate
-Flask-SQLAlchemy
 kombu # A celery dependency but it's directly imported
-psycopg2-binary
 requests
+requests_kerberos
