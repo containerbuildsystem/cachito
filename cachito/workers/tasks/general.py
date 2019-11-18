@@ -128,8 +128,14 @@ def create_bundle_archive(request_id):
 
     bundle_archive_path = get_request_bundle_path(request_id)
     log.info('Creating %s', bundle_archive_path)
+
+    def filter_git_dir(tar_info):
+        return tar_info if os.path.basename(tar_info.name) != '.git' else None
+
     with tarfile.open(bundle_archive_path, mode='w:gz') as bundle_archive:
-        # Add the source to the bundle
-        bundle_archive.add(source_path, 'app')
+        # Add the source to the bundle. This is done one file/directory at a time in the parent
+        # directory in order to exclude the app/.git folder.
+        for item in os.listdir(source_path):
+            bundle_archive.add(source_path, 'app', filter=filter_git_dir)
         # Add the dependencies to the bundle
         bundle_archive.add(deps_path, 'deps')

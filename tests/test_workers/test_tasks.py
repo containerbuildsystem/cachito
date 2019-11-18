@@ -140,6 +140,7 @@ def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir)
 
     # Create the extracted application source
     app_archive_contents = {
+        'app/.git': b'some content',
         'app/pizza.go': b'Cheese Pizza',
         'app/all_systems.go': b'All Systems Go',
     }
@@ -178,6 +179,8 @@ def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir)
         assert 'deps' in bundle_archive.getnames()
 
     expected = set(app_archive_contents.keys())
+    # The .git folder must be excluded
+    expected.remove('app/.git')
     if deps_present:
         expected |= set(deps_archive_contents.keys())
 

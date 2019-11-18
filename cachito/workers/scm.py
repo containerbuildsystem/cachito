@@ -3,10 +3,10 @@ import logging
 import os
 from abc import ABC, abstractmethod
 import urllib.parse
-import shutil
 import tarfile
 import tempfile
-import subprocess
+
+import git
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
@@ -74,55 +74,6 @@ class SCM(ABC):
 
         return self._archives_dir
 
-    def download_source_archive(self, url):
-        """
-        Download the compressed archive of the source and place it in long-term storage.
-
-        This is useful for services like GitHub, where they already provide a mechanism to
-        download the compressed archive directly.
-
-        :param str url: the URL to download the compressed source archive from
-        :raises CachitoError: if the download fails
-        """
-        # Import this here to avoid a circular import
-        from cachito.workers.requests import requests_session
-        config = get_worker_config()
-
-        with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
-            log.debug('Downloading the archive "%s"', url)
-            with requests_session.get(
-                url, stream=True, timeout=config.cachito_download_timeout,
-            ) as response:
-                if not response.ok:
-                    log.error('The request to download "%s" failed with: %s', url, response.text)
-                    if response.status_code == 404:
-                        raise CachitoError('An invalid repository or reference was provided')
-                    raise CachitoError(
-                        'An unexpected error was encountered when downloading the source'
-                    )
-
-                temp_archive_path = os.path.join(temp_dir, self.archive_name)
-                with open(temp_archive_path, 'wb') as archive_file:
-                    shutil.copyfileobj(response.raw, archive_file)
-
-            extracted_src = None
-            log.debug('Extracting the temporary archive at "%s"', temp_archive_path)
-            with tarfile.open(temp_archive_path) as temp_archive:
-                dir_name = temp_archive.firstmember.name
-                temp_archive.extractall(temp_dir)
-                extracted_src = os.path.join(temp_dir, dir_name)
-
-            corrected_temp_archive_path = os.path.join(temp_dir, f'corrected-{self.archive_name}')
-            log.debug(
-                'Recreating the archive with the correct directory structure at "%s"',
-                corrected_temp_archive_path,
-            )
-            with tarfile.open(corrected_temp_archive_path, 'w:gz') as archive:
-                archive.add(extracted_src, 'app')
-
-            log.debug('Copying %s to %s', corrected_temp_archive_path, self.archive_path)
-            shutil.copyfile(corrected_temp_archive_path, self.archive_path)
-
     @abstractmethod
     def fetch_source(self):
         """
@@ -146,47 +97,30 @@ class Git(SCM):
 
         :raises CachitoError: if cloning the repository fails or if the archive can't be created
         """
-        error = 'An unexpected error was encountered when downloading the source'
         with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
             clone_path = os.path.join(temp_dir, 'repo')
+            log.debug('Cloning the Git repository from %s', self.url)
+            # Don't allow git to prompt for a username if we don't have access
+            os.environ['GIT_TERMINAL_PROMPT'] = '0'
+            try:
+                repo = git.repo.Repo.clone_from(self.url, clone_path, no_checkout=True)
+            except:  # noqa E722
+                log.exception('Cloning the Git repository from %s failed', self.url)
+                raise CachitoError('Cloning the Git repository failed')
 
-            cmd = ['git', 'clone', '-q', '--no-checkout', self.url, clone_path]
-            log.debug('Cloning the repo with "%s"', ' '.join(cmd))
-            git_clone = subprocess.run(
-                cmd, capture_output=True, universal_newlines=True, encoding='utf-8')
-            if git_clone.returncode != 0:
-                log.error(
-                    'Cloning the git repository with "%s" failed with: %s',
-                    ' '.join(cmd),
-                    git_clone.stderr,
+            try:
+                repo.head.reference = repo.commit(self.ref)
+                repo.head.reset(index=True, working_tree=True)
+            except:  # noqa E722
+                log.exception('Checking out the Git ref "%s" failed', self.ref)
+                raise CachitoError(
+                    'Checking out the Git repository failed. Please verify the supplied reference '
+                    f'of "{self.ref}" is valid.'
                 )
-                raise CachitoError('Cloning the git repository failed')
 
-            cmd = [
-                'git',
-                '-C',
-                clone_path,
-                'archive',
-                '-o',
-                self.archive_path,
-                '--prefix=app/',
-                self.ref,
-            ]
-            log.debug('Creating the archive with "%s"', ' '.join(cmd))
-            git_archive = subprocess.run(
-                cmd, capture_output=True, universal_newlines=True, encoding='utf-8')
-            if git_archive.returncode != 0:
-                log.error(
-                    'Archiving the git repository with "%s" failed with: %s',
-                    ' '.join(cmd),
-                    git_archive.stderr,
-                )
-                if 'Not a valid object name' in git_archive.stderr:
-                    error = 'An invalid reference was provided'
-                # If git archive failed but still created the archive, then clean it up
-                if os.path.exists(self.archive_path):
-                    os.remove(self.archive_path)
-                raise CachitoError(error)
+            log.debug('Creating the archive at %s', self.archive_path)
+            with tarfile.open(self.archive_path, mode='w:gz') as bundle_archive:
+                bundle_archive.add(clone_path, 'app')
 
     def fetch_source(self):
         """
@@ -197,14 +131,7 @@ class Git(SCM):
             log.debug('The archive already exists at "%s"', self.archive_path)
             return
 
-        parsed_url = urllib.parse.urlparse(self.url)
-
-        if parsed_url.netloc == 'github.com':
-            log.debug('The SCM URL "%s" uses GitHub', self.url)
-            url = f'https://github.com/{self.repo_name}/archive/{self.ref}.tar.gz'
-            self.download_source_archive(url)
-        else:
-            self.clone_and_archive()
+        self.clone_and_archive()
 
     @property
     def repo_name(self):
