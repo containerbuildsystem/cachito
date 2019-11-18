@@ -364,7 +364,9 @@ components:
       type: object
       properties:
         dependencies:
-          $ref: "#/components/schemas/PackageWithReplaces"
+          type: array
+          items:
+            $ref: "#/components/schemas/PackageWithReplaces"
         environment_variables:
           $ref: "#/components/schemas/EnvironmentVariable"
         packages:
