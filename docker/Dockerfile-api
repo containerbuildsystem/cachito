@@ -15,8 +15,9 @@ RUN dnf -y install \
     python3-flask-migrate \
     python3-flask-sqlalchemy \
     python3-mod_wsgi \
-    python3-requests \
     python3-psycopg2 \
+    python3-requests \
+    python3-requests-kerberos \
     && dnf clean all
 COPY . .
 COPY ./docker/cachito-httpd.conf /etc/httpd/conf/httpd.conf

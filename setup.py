@@ -29,10 +29,8 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
-    extras_require={
-        'web': get_requirements('requirements.txt'),
-        'workers': get_requirements('requirements-workers.txt'),
-    },
+    install_requires=get_requirements('requirements.txt'),
+    extras_require={'web': get_requirements('requirements-web.txt')},
     entry_points={
         'console_scripts': [
             'cachito=cachito.web.manage:cli',
