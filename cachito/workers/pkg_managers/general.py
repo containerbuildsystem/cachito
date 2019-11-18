@@ -15,7 +15,7 @@ __all__ = ['add_deps_to_bundle', 'run_cmd', 'update_request_with_deps']
 log = logging.getLogger(__name__)
 
 
-def update_request_with_deps(request_id, deps, env_vars=None, pkg_manager=None):
+def update_request_with_deps(request_id, deps, env_vars=None, pkg_manager=None, packages=None):
     """
     Update the Cachito request with the resolved dependencies.
 
@@ -23,6 +23,7 @@ def update_request_with_deps(request_id, deps, env_vars=None, pkg_manager=None):
     :param list deps: the list of dependency dictionaries to record
     :param dict env_vars: mapping of environment variables to record
     :param str pkg_manager: a package manager to add to the request if auto-detection was used
+    :param list packages: the list of packages that were resolved
     :raise CachitoError: if the request to the Cachito API fails
     """
     # Import this here to avoid a circular import
@@ -44,6 +45,9 @@ def update_request_with_deps(request_id, deps, env_vars=None, pkg_manager=None):
                     pkg_manager, request_id,
                 )
                 payload['pkg_managers'] = [pkg_manager]
+            if packages:
+                log.info('Adding the packages "%s" to the request %d', packages, request_id)
+                payload['packages'] = packages
         try:
             log.info('Patching deps {} through {} out of {}'.format(
                 index + 1, min(batch_upper_limit, len(deps)), len(deps)))
