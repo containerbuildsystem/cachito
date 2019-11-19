@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from datetime import datetime
+import functools
 import logging
 import os
 import re
@@ -15,6 +16,7 @@ from cachito.workers.pkg_managers.general import add_deps_to_bundle, run_cmd
 __all__ = ['get_golang_version', 'resolve_gomod']
 
 log = logging.getLogger(__name__)
+run_gomod_cmd = functools.partial(run_cmd, exc_msg='Processing gomod dependencies failed')
 
 
 class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
@@ -31,7 +33,7 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
         """
         try:
             env = {'GOPATH': self.name, 'GOCACHE': self.name}
-            run_cmd(('go', 'clean', '-modcache'), {'env': env})
+            run_gomod_cmd(('go', 'clean', '-modcache'), {'env': env})
         finally:
             super().__exit__(exc, value, tb)
 
@@ -73,11 +75,14 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
             new_name = dep_replacement.get('new_name', name)
             version = dep_replacement['version']
             log.info('Applying the gomod replacement %s => %s@%s', name, new_name, version)
-            run_cmd(('go', 'mod', 'edit', '-replace', f'{name}={new_name}@{version}'), run_params)
+            run_gomod_cmd(
+                ('go', 'mod', 'edit', '-replace', f'{name}={new_name}@{version}'),
+                run_params,
+            )
 
         log.info('Downloading the gomod dependencies')
-        run_cmd(('go', 'mod', 'download'), run_params)
-        go_list_output = run_cmd(
+        run_gomod_cmd(('go', 'mod', 'download'), run_params)
+        go_list_output = run_gomod_cmd(
             ('go', 'list', '-m', '-f', '{{.Path}} {{.Version}} {{.Replace}}', 'all'), run_params)
 
         deps = []

@@ -86,14 +86,16 @@ def add_deps_to_bundle(src_deps_path, dest_cache_path, request_id):
     shutil.copytree(src_deps_path, dest_deps_path)
 
 
-def run_cmd(cmd, params):
+def run_cmd(cmd, params, exc_msg=None):
     """
     Run the given command with provided parameters.
 
     :param iter cmd: iterable representing command to be executed
     :param dict params: keyword parameters for command execution
+    :param str exc_msg: an optional exception message when the command fails
     :returns: the command output
     :rtype: str
+    :raises CachitoError: if the command fails
     """
     params.setdefault('capture_output', True)
     params.setdefault('universal_newlines', True)
@@ -103,10 +105,10 @@ def run_cmd(cmd, params):
 
     if response.returncode != 0:
         log.error(
-            'Processing gomod dependencies with "%s" failed with: %s',
+            'The command "%s" failed with: %s',
             ' '.join(cmd),
             response.stderr,
         )
-        raise CachitoError('Processing gomod dependencies failed')
+        raise CachitoError(exc_msg or 'An unexpected error occurred')
 
     return response.stdout
