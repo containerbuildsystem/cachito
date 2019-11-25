@@ -60,6 +60,7 @@ def validate_cachito_config(config, cli=False):
     # Validate the required config variables
     for config_var in (
         'CACHITO_LOG_LEVEL', 'CACHITO_MAX_PER_PAGE', 'CACHITO_LOG_FORMAT', 'CACHITO_BUNDLES_DIR',
+        'SQLALCHEMY_DATABASE_URI',
     ):
         if config_var == 'CACHITO_BUNDLES_DIR':
             if cli:
