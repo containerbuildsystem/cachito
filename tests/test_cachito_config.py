@@ -23,3 +23,9 @@ def test_validate_cachito_config_failure(mock_isdir, app, variable_name):
     with patch.dict(app.config, {variable_name: None}):
         with pytest.raises(ConfigError, match=expected):
             validate_cachito_config(app.config)
+
+
+@patch('os.path.isdir')
+def test_validate_cachito_config_cli(mock_isdir, app):
+    validate_cachito_config(app.config, cli=True)
+    mock_isdir.assert_not_called()

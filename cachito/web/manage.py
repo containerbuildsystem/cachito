@@ -6,10 +6,10 @@ from flask.cli import FlaskGroup
 from sqlalchemy.exc import OperationalError
 
 from cachito.web.models import db
-from cachito.web.app import create_app
+from cachito.web.app import create_cli_app
 
 
-@click.group(cls=FlaskGroup, create_app=create_app)
+@click.group(cls=FlaskGroup, create_app=create_cli_app)
 def cli():
     """Manage the Cachito Flask application."""
 
