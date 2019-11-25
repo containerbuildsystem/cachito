@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import default_exceptions, InternalServerError
 
 from cachito.web.auth import user_loader, load_user_from_request
+from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
@@ -101,4 +102,16 @@ def create_app(config_obj=None):
     app.register_error_handler(ValidationError, json_error)
     app.register_error_handler(kombu.exceptions.KombuError, json_error)
 
+    return app
+
+
+def create_cli_app():
+    """
+    Create a Flask application instance and validate the configuration for the Flask CLI.
+
+    :return: a Flask application object
+    :rtype: flask.Flask
+    """
+    app = create_app()
+    validate_cachito_config(app.config, cli=True)
     return app

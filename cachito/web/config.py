@@ -48,11 +48,12 @@ class TestingConfig(DevelopmentConfig):
     TESTING = True
 
 
-def validate_cachito_config(config):
+def validate_cachito_config(config, cli=False):
     """
     Perform basic validatation on the Cachito configuration.
 
     :param dict config: a dictionary of configuration values
+    :param bool cli: a boolean that denotes if the configuration should be validated for the CLI
     :raises ConfigError: if the configuration is invalid
     """
 
@@ -61,6 +62,12 @@ def validate_cachito_config(config):
         'CACHITO_LOG_LEVEL', 'CACHITO_MAX_PER_PAGE', 'CACHITO_LOG_FORMAT', 'CACHITO_BUNDLES_DIR',
     ):
         if config_var == 'CACHITO_BUNDLES_DIR':
+            if cli:
+                # Don't verify CACHITO_BUNDLES_DIR if this is coming from the CLI since it's not
+                # used and requires the CACHITO_BUNDLES_DIR to exist. This is a hassle for hooks
+                # in the deployments for OpenShift/Kubernetes.
+                continue
+
             required_dir = config.get(config_var)
             if not required_dir or not os.path.isdir(required_dir):
                 raise ConfigError(
