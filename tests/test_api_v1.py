@@ -309,6 +309,18 @@ def test_create_request_cannot_set_user(client, db):
     assert error['error'] == 'You are not authorized to create a request on behalf of another user'
 
 
+def test_cannot_set_user_if_auth_disabled(client_no_auth):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'user': 'tselleck',
+    }
+
+    rv = client_no_auth.post('/api/v1/requests', json=data)
+    assert rv.status_code == 400
+    assert rv.json['error'] == 'Cannot set "user" when authentication is disabled'
+
+
 def test_create_request_not_logged_in(client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
