@@ -520,9 +520,11 @@ class Request(db.Model):
         for dependency_replacement in dependency_replacements:
             Dependency.validate_replacement_json(dependency_replacement)
 
+        submitted_for_username = request_kwargs.pop('user', None)
         # current_user.is_authenticated is only ever False when auth is disabled
+        if submitted_for_username and not current_user.is_authenticated:
+            raise ValidationError('Cannot set "user" when authentication is disabled')
         if current_user.is_authenticated:
-            submitted_for_username = request_kwargs.pop('user', None)
             if submitted_for_username:
                 # Convert the allowed users to lower-case since they are stored in the database as
                 # lower-case for consistency
