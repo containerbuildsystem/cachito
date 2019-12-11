@@ -140,6 +140,8 @@ def create_bundle_archive(request_id):
         # Add the source to the bundle. This is done one file/directory at a time in the parent
         # directory in order to exclude the app/.git folder.
         for item in os.listdir(source_path):
-            bundle_archive.add(source_path, 'app', filter=filter_git_dir)
+            item_path = os.path.join(source_path, item)
+            arc_name = os.path.join('app', item)
+            bundle_archive.add(item_path, arc_name, filter=filter_git_dir)
         # Add the dependencies to the bundle
         bundle_archive.add(deps_path, 'deps')
