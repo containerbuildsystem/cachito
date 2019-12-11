@@ -10,10 +10,21 @@ from cachito.web.config import TEST_DB_FILE
 from cachito.web.app import create_app
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def app(request):
     """Return Flask application for the pytest session."""
-    app = create_app('cachito.web.config.TestingConfig')
+    return _make_app(request, 'cachito.web.config.TestingConfig')
+
+
+@pytest.fixture()
+def app_no_auth(request):
+    """Return Flask application without authentication for the pytest session."""
+    return _make_app(request, 'cachito.web.config.TestingConfigNoAuth')
+
+
+def _make_app(request, config):
+    """Helper method to create an application for the given config name"""
+    app = create_app(config)
     # Establish an application context before running the tests. This allows the use of
     # Flask-SQLAlchemy in the test setup.
     ctx = app.app_context()
@@ -31,10 +42,16 @@ def auth_env():
     return {'REMOTE_USER': 'tbrady@DOMAIN.LOCAL'}
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def client(app):
     """Return Flask application client for the pytest session."""
     return app.test_client()
+
+
+@pytest.fixture()
+def client_no_auth(app_no_auth):
+    """Return Flask application client without authentication for the pytest session."""
+    return app_no_auth.test_client()
 
 
 @pytest.fixture()

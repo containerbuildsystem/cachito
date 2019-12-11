@@ -48,6 +48,16 @@ class TestingConfig(DevelopmentConfig):
     TESTING = True
 
 
+class TestingConfigNoAuth(TestingConfig):
+    """The testing Cachito Flask configuration without authentication."""
+    # This is needed because Flask seems to read the LOGIN_DISABLED setting
+    # and configure the relevant extensions at app creation time. Changing this
+    # during a test run still leaves login enabled. This behavior also applies
+    # to ENV and DEBUG config values:
+    #   https://flask.palletsprojects.com/en/1.1.x/config/#environment-and-debug-features
+    LOGIN_DISABLED = True
+
+
 def validate_cachito_config(config, cli=False):
     """
     Perform basic validatation on the Cachito configuration.
