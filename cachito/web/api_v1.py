@@ -181,9 +181,7 @@ def patch_request(request_id):
     :raise NotFound: if the request is not found
     :raise ValidationError: if the JSON is invalid
     """
-    # Convert the allowed users to lower-case since they are stored in the database as lower-case
-    # for consistency
-    allowed_users = [user.lower() for user in flask.current_app.config['CACHITO_WORKER_USERNAMES']]
+    allowed_users = flask.current_app.config['CACHITO_WORKER_USERNAMES']
     # current_user.is_authenticated is only ever False when auth is disabled
     if current_user.is_authenticated and current_user.username not in allowed_users:
         raise Unauthorized('This API endpoint is restricted to Cachito workers')

@@ -323,7 +323,7 @@ components:
           example: "2019-09-17T19:42:47.149979"
         user:
           type: string
-          example: tbrady@domain.local
+          example: tbrady@DOMAIN.LOCAL
     Request:
       allOf:
       - type: object
@@ -363,7 +363,7 @@ components:
           description: >
             The user this request is created on behalf of. This is reserved for privileged users
             that can act as a representative.
-          example: tbrady@domain.local
+          example: tbrady@DOMAIN.LOCAL
       required:
       - ref
       - repo
@@ -409,7 +409,7 @@ components:
               $ref: "#/components/schemas/StateHistory"
           submitted_by:
             type: string
-            example: osbs@domain.local
+            example: osbs@DOMAIN.LOCAL
       - $ref: "#/components/schemas/RequestBase"
     StateHistory:
       type: object

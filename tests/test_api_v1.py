@@ -25,7 +25,7 @@ from cachito.workers.tasks import (
         ['gomod'],
         None,
     ),
-    ([], [], 'tom_hanks@domain.local'),
+    ([], [], 'tom_hanks@DOMAIN.LOCAL'),
 ))
 @mock.patch('cachito.web.api_v1.chain')
 def test_create_and_fetch_request(
@@ -56,10 +56,10 @@ def test_create_and_fetch_request(
             assert expected_value == created_request[key]
 
     if user:
-        assert created_request['user'] == 'tom_hanks@domain.local'
-        assert created_request['submitted_by'] == 'tbrady@domain.local'
+        assert created_request['user'] == 'tom_hanks@DOMAIN.LOCAL'
+        assert created_request['submitted_by'] == 'tbrady@DOMAIN.LOCAL'
     else:
-        assert created_request['user'] == 'tbrady@domain.local'
+        assert created_request['user'] == 'tbrady@DOMAIN.LOCAL'
         assert created_request['submitted_by'] is None
 
     error_callback = failed_request_callback.s(1)
@@ -106,7 +106,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     created_request = rv.json
     for key, expected_value in data.items():
         assert expected_value == created_request[key]
-    assert created_request['user'] == 'tbrady@domain.local'
+    assert created_request['user'] == 'tbrady@DOMAIN.LOCAL'
 
     error_callback = failed_request_callback.s(1)
     mock_chain.assert_called_once_with([
@@ -299,10 +299,10 @@ def test_create_request_cannot_set_user(client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'user': 'tom_hanks@domain.local',
+        'user': 'tom_hanks@DOMAIN.LOCAL',
     }
 
-    auth_env = {'REMOTE_USER': 'homer_simpson@domain.local'}
+    auth_env = {'REMOTE_USER': 'homer_simpson@DOMAIN.LOCAL'}
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 403
     error = rv.json
