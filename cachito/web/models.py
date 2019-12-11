@@ -526,12 +526,7 @@ class Request(db.Model):
             raise ValidationError('Cannot set "user" when authentication is disabled')
         if current_user.is_authenticated:
             if submitted_for_username:
-                # Convert the allowed users to lower-case since they are stored in the database as
-                # lower-case for consistency
-                allowed_users = {
-                    user.lower()
-                    for user in flask.current_app.config['CACHITO_USER_REPRESENTATIVES']
-                }
+                allowed_users = flask.current_app.config['CACHITO_USER_REPRESENTATIVES']
                 if current_user.username not in allowed_users:
                     raise Forbidden(
                         'You are not authorized to create a request on behalf of another user'

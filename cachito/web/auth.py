@@ -46,8 +46,7 @@ def load_user_from_request(request):
             )
         return
 
-    # Convert the username to lower-case for consistency
-    username = remote_user.lower()
+    username = remote_user
     current_app.logger.info(f'The user "{username}" was authenticated successfully by httpd')
 
     user = User.get_or_create(username)

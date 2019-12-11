@@ -37,7 +37,7 @@ class DevelopmentConfig(Config):
 class TestingConfig(DevelopmentConfig):
     """The testing Cachito Flask configuration."""
     CACHITO_USER_REPRESENTATIVES = ['tbrady@DOMAIN.LOCAL']
-    CACHITO_WORKER_USERNAMES = ['worker@domain.local']
+    CACHITO_WORKER_USERNAMES = ['worker@DOMAIN.LOCAL']
     # IMPORTANT: don't use in-memory sqlite. Alembic migrations will create a new
     # connection producing a new instance of the database which is deleted immediately
     # after the migration completes...
