@@ -42,9 +42,7 @@ def test_create_and_fetch_request(
     if user:
         data['user'] = user
 
-    with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
-        rv = client.post(
-            '/api/v1/requests', json=data, environ_base=auth_env)
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 201
     created_request = rv.json
 
@@ -99,9 +97,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     db.session.add(flag)
     db.session.commit()
 
-    with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
-        rv = client.post(
-            '/api/v1/requests', json=data, environ_base=auth_env)
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 201
     created_request = rv.json
     for key, expected_value in data.items():
@@ -408,8 +404,7 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     }
 
     mock_chain.side_effect = kombu.exceptions.OperationalError('Failed to connect')
-    with mock.patch.dict(app.config, {'LOGIN_DISABLED': False}):
-        rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
 
     assert rv.status_code == 500
     assert rv.json == {'error': 'Failed to connect to the broker to schedule a task'}
