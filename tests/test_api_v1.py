@@ -84,6 +84,21 @@ def test_create_and_fetch_request(
 
 
 @mock.patch('cachito.web.api_v1.chain')
+def test_create_request_ssl_auth(mock_chain, auth_ssl_env, client, db):
+    data = {
+        'repo': 'https://github.com/release-engineering/retrodep.git',
+        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+    }
+
+    rv = client.post('/api/v1/requests', json=data, environ_base=auth_ssl_env)
+    assert rv.status_code == 201
+    created_request = rv.json
+
+    cert_dn = 'CN=tbrady,OU=serviceusers,DC=domain,DC=local'
+    assert created_request['user'] == cert_dn
+
+
+@mock.patch('cachito.web.api_v1.chain')
 def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',

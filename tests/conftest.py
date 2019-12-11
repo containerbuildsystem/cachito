@@ -42,6 +42,14 @@ def auth_env():
     return {'REMOTE_USER': 'tbrady@DOMAIN.LOCAL'}
 
 
+@pytest.fixture(scope='session')
+def auth_ssl_env():
+    return {
+        'SSL_CLIENT_S_DN': 'CN=tbrady,OU=serviceusers,DC=domain,DC=local',
+        'SSL_CLIENT_VERIFY': 'SUCCESS',
+    }
+
+
 @pytest.fixture()
 def client(app):
     """Return Flask application client for the pytest session."""
