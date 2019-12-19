@@ -8,7 +8,6 @@ from celery import chain
 import flask
 from flask_login import current_user, login_required
 from werkzeug.exceptions import Unauthorized, InternalServerError
-from sqlalchemy.sql.expression import func
 
 from cachito.errors import ValidationError
 from cachito.web import db
@@ -48,14 +47,8 @@ def get_requests():
                 f'{state} is not a valid request state. Valid states are: {states}'
             )
         state_int = RequestStateMapping.__members__[state].value
-        state_subquery = (
-            db.session.query(
-                RequestState.request_id, func.max(RequestState.updated).label('updated')
-            )
-            .group_by(RequestState.request_id)
-            .filter_by(state=state_int)
-        ).subquery()
-        query = query.join(state_subquery, Request.id == state_subquery.c.request_id)
+        query = query.join(RequestState, Request.request_state_id == RequestState.id)
+        query = query.filter(RequestState.state == state_int)
     pagination_query = query.paginate(max_per_page=max_per_page)
     requests = pagination_query.items
     response = {
@@ -89,7 +82,7 @@ def download_archive(request_id):
     :raise NotFound: if the request is not found
     """
     request = Request.query.get_or_404(request_id)
-    if request.last_state.state_name != 'complete':
+    if request.state.state_name != 'complete':
         raise ValidationError(
             'The request must be in the "complete" state before downloading the archive')
 
@@ -233,14 +226,13 @@ def patch_request(request_id):
     delete_bundle = False
     delete_bundle_temp = False
     if 'state' in payload and 'state_reason' in payload:
-        last_state = request.last_state
         new_state = payload['state']
         delete_bundle = new_state == 'stale'
         delete_bundle_temp = new_state in ('complete', 'failed')
         new_state_reason = payload['state_reason']
         # This is to protect against a Celery task getting executed twice and setting the
         # state each time
-        if last_state.state_name == new_state and last_state.state_reason == new_state_reason:
+        if request.state.state_name == new_state and request.state.state_reason == new_state_reason:
             flask.current_app.logger.info('Not adding a new state since it matches the last state')
         else:
             request.add_state(new_state, new_state_reason)
