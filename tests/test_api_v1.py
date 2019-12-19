@@ -224,12 +224,12 @@ def test_create_request_filter_state(app, auth_env, client, db):
         db.session.add(request_complete)
     db.session.commit()
 
-    rv = client.get('/api/v1/requests?state=complete')
-    assert rv.status_code == 200
-    response = rv.json
-    fetched_requests = response['items']
-    assert len(fetched_requests) == 1
-    assert fetched_requests[0]['state'] == 'complete'
+    for state in ('in_progress', 'complete'):
+        rv = client.get(f'/api/v1/requests?state={state}')
+        assert rv.status_code == 200
+        fetched_requests = rv.json['items']
+        assert len(fetched_requests) == 1
+        assert fetched_requests[0]['state'] == state
 
 
 def test_invalid_state(app, auth_env, client, db):
@@ -430,7 +430,7 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
 @mock.patch('cachito.web.api_v1.Request')
 def test_download_archive(mock_request, mock_send_file, mock_exists, client, app):
     bundle_archive_path = '/tmp/cachito-archives/bundles/1.tar.gz'
-    mock_request.query.get_or_404().last_state.state_name = 'complete'
+    mock_request.query.get_or_404().state.state_name = 'complete'
     mock_request.query.get_or_404().bundle_archive = bundle_archive_path
     mock_exists.return_value = True
     mock_send_file.return_value = 'something'
@@ -441,7 +441,7 @@ def test_download_archive(mock_request, mock_send_file, mock_exists, client, app
 @mock.patch('os.path.exists')
 @mock.patch('cachito.web.api_v1.Request')
 def test_download_archive_no_bundle(mock_request, mock_exists, client, app):
-    mock_request.query.get_or_404().last_state.state_name = 'complete'
+    mock_request.query.get_or_404().state.state_name = 'complete'
     mock_exists.return_value = False
     rv = client.get('/api/v1/requests/1/download')
     assert rv.status_code == 500

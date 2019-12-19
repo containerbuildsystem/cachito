@@ -287,6 +287,13 @@ class Request(db.Model):
     ref = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     submitted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    request_state_id = db.Column(
+        db.Integer,
+        db.ForeignKey('request_state.id'),
+        index=True,
+        unique=True,
+    )
+    state = db.relationship('RequestState', foreign_keys=[request_state_id])
     dependencies = db.relationship(
         'Dependency',
         foreign_keys=[
@@ -307,7 +314,11 @@ class Request(db.Model):
     pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
                                    backref='requests')
     states = db.relationship(
-        'RequestState', back_populates='request', order_by='RequestState.updated')
+        'RequestState',
+        foreign_keys='RequestState.request_id',
+        back_populates='request',
+        order_by='RequestState.updated',
+    )
     environment_variables = db.relationship(
         'EnvironmentVariable', secondary=request_environment_variable_table, backref='requests',
         order_by='EnvironmentVariable.name')
@@ -553,7 +564,7 @@ class Request(db.Model):
         :param str state_reason: the reason explaining the state transition
         :raises ValidationError: if the state is invalid
         """
-        if self.last_state and self.last_state.state_name == 'stale' and state != 'stale':
+        if self.state and self.state.state_name == 'stale' and state != 'stale':
             raise ValidationError('A stale request cannot change states')
 
         try:
@@ -566,21 +577,10 @@ class Request(db.Model):
 
         request_state = RequestState(state=state_int, state_reason=state_reason)
         self.states.append(request_state)
-
-    @property
-    def last_state(self):
-        """
-        Get the last RequestState associated with the current request.
-
-        :return: the last RequestState
-        :rtype: RequestState
-        """
-        return (
-            RequestState.query
-            .filter_by(request_id=self.id)
-            .order_by(RequestState.updated.desc(), RequestState.id.desc())
-            .first()
-        )
+        # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
+        # This will genereate an ID that can be used below.
+        db.session.flush()
+        self.request_state_id = request_state.id
 
 
 class PackageManager(db.Model):
@@ -623,7 +623,7 @@ class RequestState(db.Model):
     state_reason = db.Column(db.String, nullable=False)
     updated = db.Column(db.DateTime(), nullable=False, default=sqlalchemy.func.now())
     request_id = db.Column(db.Integer, db.ForeignKey('request.id'), index=True, nullable=False)
-    request = db.relationship('Request', back_populates='states')
+    request = db.relationship('Request', foreign_keys=[request_id], back_populates='states')
 
     @property
     def state_name(self):
