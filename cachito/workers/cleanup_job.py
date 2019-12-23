@@ -25,7 +25,7 @@ def main():
     Get all completed requests from the Cachito API, identify the stale ones,
     and mark them as stale using the API.
     """
-    url = config.cachito_api_url.rstrip('/') + '/requests'
+    url = config.cachito_api_url.rstrip('/') + '/requests?state=complete'
     while True:
         json_response = get_completed_requests(url)
         identify_and_mark_stale_requests(json_response['items'])
