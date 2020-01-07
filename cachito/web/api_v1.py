@@ -42,7 +42,7 @@ def get_requests():
     query = Request.query
     if state:
         if state not in RequestStateMapping.get_state_names():
-            states = ':'.join(RequestStateMapping.get_state_names())
+            states = ', '.join(RequestStateMapping.get_state_names())
             raise ValidationError(
                 f'{state} is not a valid request state. Valid states are: {states}'
             )

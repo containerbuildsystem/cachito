@@ -237,7 +237,7 @@ def test_invalid_state(app, auth_env, client, db):
     rv = client.get('/api/v1/requests?state=complet')
     assert rv.status_code == 400
     response = rv.json
-    states = ':'.join(RequestStateMapping.get_state_names())
+    states = ', '.join(RequestStateMapping.get_state_names())
     assert response['error'] == f'complet is not a valid request state. Valid states are: {states}'
 
 
