@@ -579,6 +579,7 @@ class Request(db.Model):
         self.states.append(request_state)
         # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
         # This will genereate an ID that can be used below.
+        db.session.add(request_state)
         db.session.flush()
         self.request_state_id = request_state.id
 
