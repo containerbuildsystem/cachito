@@ -55,6 +55,16 @@ paths:
                       $ref: "#/components/schemas/Request"
                   meta:
                     $ref: "#/components/schemas/Pagination"
+        "400":
+          description: The query parameters are invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "awesome is not a valid request state. Valid states are: complete, failed, in_progress, stale"
         "404":
           description: No requests were found
           content:
