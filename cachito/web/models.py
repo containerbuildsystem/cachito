@@ -539,6 +539,11 @@ class Request(db.Model):
             if submitted_for_username:
                 allowed_users = flask.current_app.config['CACHITO_USER_REPRESENTATIVES']
                 if current_user.username not in allowed_users:
+                    flask.current_app.logger.error(
+                        'The user %s tried to submit a request on behalf of another user, but is '
+                        'not allowed',
+                        current_user.username,
+                    )
                     raise Forbidden(
                         'You are not authorized to create a request on behalf of another user'
                     )
