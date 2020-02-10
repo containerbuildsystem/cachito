@@ -428,19 +428,6 @@ class Request(db.Model):
 
     def to_json(self, verbose=True):
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]
-        # Use this list comprehension instead of a RequestState.to_json method to avoid including
-        # redundant information about the request itself
-        states = [
-            {
-                'state': RequestStateMapping(state.state).name,
-                'state_reason': state.state_reason,
-                'updated': state.updated.isoformat(),
-            }
-            for state in self.states
-        ]
-        # Reverse the list since the latest states should be first
-        states = list(reversed(states))
-        latest_state = states[0]
         user = None
         # If auth is disabled, there will not be a user associated with this request
         if self.user:
@@ -460,10 +447,21 @@ class Request(db.Model):
             rv['submitted_by'] = self.submitted_by.username
         else:
             rv['submitted_by'] = None
-        # Show the latest state information in the first level of the JSON
-        rv.update(latest_state)
+
+        def _state_to_json(state):
+            return {
+                'state': RequestStateMapping(state.state).name,
+                'state_reason': state.state_reason,
+                'updated': state.updated.isoformat(),
+            }
 
         if verbose:
+            # Use this list comprehension instead of a RequestState.to_json method to avoid
+            # including redundant information about the request itself
+            states = [_state_to_json(state) for state in self.states]
+            # Reverse the list since the latest states should be first
+            states = list(reversed(states))
+            latest_state = states[0]
             rv['state_history'] = states
             replacement_id_to_replacement = {
                 replacement.id: replacement.to_json()
@@ -479,8 +477,12 @@ class Request(db.Model):
             ]
             rv['packages'] = [package.to_json() for package in self.packages]
         else:
+            latest_state = _state_to_json(self.state)
             rv['dependencies'] = self.dependencies_count
             rv['packages'] = self.packages_count
+
+        # Show the latest state information in the first level of the JSON
+        rv.update(latest_state)
         return rv
 
     @classmethod
