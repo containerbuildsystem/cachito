@@ -48,9 +48,14 @@ def get_requests():
         query = query.filter(RequestState.state == state_int)
     pagination_query = query.paginate(max_per_page=max_per_page)
     requests = pagination_query.items
+    query_params = {}
+    if state:
+        query_params['state'] = state
+    if verbose:
+        query_params['verbose'] = verbose
     response = {
         'items': [request.to_json(verbose=verbose) for request in requests],
-        'meta': pagination_metadata(pagination_query, verbose=verbose),
+        'meta': pagination_metadata(pagination_query, **query_params),
     }
     return flask.jsonify(response)
 

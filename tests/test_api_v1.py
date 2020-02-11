@@ -181,7 +181,7 @@ def test_fetch_paginated_requests(
     assert fetched_requests[0]['packages'] == 1
 
     # per_page and page parameters are honored
-    rv = client.get('/api/v1/requests?page=2&per_page=10&verbose=True')
+    rv = client.get('/api/v1/requests?page=2&per_page=10&verbose=True&state=in_progress')
     assert rv.status_code == 200
     response = rv.json
     fetched_requests = response['items']
@@ -194,6 +194,7 @@ def test_fetch_paginated_requests(
         assert f'page={page_num}' in pagination_metadata[page]
         assert 'per_page=10' in pagination_metadata[page]
         assert 'verbose=True' in pagination_metadata[page]
+        assert 'state=in_progress' in pagination_metadata[page]
     assert pagination_metadata['total'] == 50
     assert len(fetched_requests[0]['dependencies']) == 14
     assert len(fetched_requests[0]['packages']) == 1
