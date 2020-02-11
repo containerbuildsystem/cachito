@@ -27,9 +27,6 @@ def get_requests():
     """
     Retrieve paginated details for requests.
 
-    :param int page: the page number to retrieve. Defaults to 1
-    :param int per_page: the amount of items on each page. Defaults to 20. Ignored if
-        value exceeds configuration's CACHITO_MAX_PER_PAGE.
     :rtype: flask.Response
     """
     # Check if the user is filtering requests by state
