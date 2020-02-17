@@ -11,4 +11,4 @@ run:
 	docker-compose up
 
 test:
-	tox
+	venv/bin/tox
