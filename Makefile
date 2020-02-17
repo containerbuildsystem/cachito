@@ -5,10 +5,10 @@ clean:
 	docker-compose down
 
 venv:
-	virtualenv --python=python3 venv && venv/bin/python setup.py develop && venv/bin/pip install -r requirements-dev.txt
+	virtualenv --python=python3 venv && venv/bin/python setup.py develop && venv/bin/pip install -r requirements-dev.txt && venv/bin/pip install tox
 
 run:
 	docker-compose up
 
 test:
-	tox
+	venv/bin/tox
