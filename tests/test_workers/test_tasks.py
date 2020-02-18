@@ -2,6 +2,7 @@
 import os
 import pathlib
 import tarfile
+import tempfile
 from unittest import mock
 
 import pytest
@@ -30,7 +31,7 @@ def test_fetch_app_source(
     mock_set_request_state.assert_called_once_with(
         1, 'in_progress', 'Fetching the application source')
 
-    bundle_dir = '/tmp/cachito-archives/bundles/temp/1'
+    bundle_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/temp/1')
     mock_exists.assert_called_once_with(bundle_dir)
     if dir_exists:
         mock_makedirs.assert_not_called()
@@ -70,6 +71,8 @@ def test_fetch_gomod_source(
     mock_path_exists.return_value = contains_go_mod
     mock_resolve_gomod.return_value = sample_package, sample_deps_replace
     tasks.fetch_gomod_source(1, auto_detect, dep_replacements)
+    temp_app_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/temp/1/app')
+
     if expect_state_update:
         mock_set_request_state.assert_called_once_with(
             1, 'in_progress', 'Fetching the golang dependencies')
@@ -77,16 +80,24 @@ def test_fetch_gomod_source(
             1, sample_deps_replace, sample_env_vars, 'gomod', [sample_package])
 
     if auto_detect:
-        mock_path_exists.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1/app/go.mod')
+        mock_path_exists.assert_called_once_with(
+            os.path.join(
+                tempfile.gettempdir(), 'cachito-archives/bundles/temp/1/app/go.mod'
+            )
+        )
         if contains_go_mod:
             mock_resolve_gomod.assert_called_once_with(
-                '/tmp/cachito-archives/bundles/temp/1/app', mock_request, dep_replacements,
+                temp_app_dir,
+                mock_request,
+                dep_replacements,
             )
         else:
             mock_resolve_gomod.assert_not_called()
     else:
         mock_resolve_gomod.assert_called_once_with(
-            '/tmp/cachito-archives/bundles/temp/1/app', mock_request, dep_replacements,
+            temp_app_dir,
+            mock_request,
+            dep_replacements,
         )
         mock_path_exists.assert_not_called()
 

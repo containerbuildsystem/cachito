@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
+import tempfile
 from unittest import mock
 
 import kombu.exceptions
@@ -435,7 +437,7 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
 @mock.patch('flask.send_file')
 @mock.patch('cachito.web.api_v1.Request')
 def test_download_archive(mock_request, mock_send_file, mock_exists, client, app):
-    bundle_archive_path = '/tmp/cachito-archives/bundles/1.tar.gz'
+    bundle_archive_path = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/1.tar.gz')
     mock_request.query.get_or_404().state.state_name = 'complete'
     mock_request.query.get_or_404().bundle_archive = bundle_archive_path
     mock_exists.return_value = True
@@ -499,8 +501,9 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     assert fetched_request['state_history'][0]['state_reason'] == state_reason
     assert fetched_request['state_history'][0]['updated']
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
-    mock_exists.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1')
-    mock_rmtree.assert_called_once_with('/tmp/cachito-archives/bundles/temp/1')
+    temp_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/temp/1')
+    mock_exists.assert_called_once_with(temp_dir)
+    mock_rmtree.assert_called_once_with(temp_dir)
 
 
 def test_set_pkg_managers(app, client, db, worker_auth_env):
@@ -552,7 +555,12 @@ def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, d
     assert fetched_request['state'] == state
     assert fetched_request['state_reason'] == state_reason
     if bundle_exists:
-        mock_remove.assert_called_once_with('/tmp/cachito-archives/bundles/1.tar.gz')
+        mock_remove.assert_called_once_with(
+            os.path.join(
+                tempfile.gettempdir(),
+                'cachito-archives/bundles/1.tar.gz',
+            )
+        )
     else:
         mock_remove.assert_not_called()
 
