@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
+import tempfile
 from unittest.mock import patch
 
 import pytest
@@ -10,7 +12,12 @@ from cachito.errors import ConfigError
 @patch('os.path.isdir', return_value=True)
 def test_validate_cachito_config_success(mock_isdir, app):
     validate_cachito_config(app.config)
-    mock_isdir.assert_any_call('/tmp/cachito-archives/bundles')
+    mock_isdir.assert_any_call(
+        os.path.join(
+            tempfile.gettempdir(),
+            'cachito-archives/bundles',
+        )
+    )
 
 
 @patch('os.path.isdir', return_value=True)
