@@ -36,6 +36,8 @@ class Config(object):
         kombu.Queue('cachito'),
         kombu.Queue('cachito_golang', routing_key='cachito.golang'),
     )
+    # Requeue the message if the worker abruptly exits or is signaled
+    task_reject_on_worker_lost = True
     # Route golang tasks to a separate queue. This will be more useful when there's more than one
     # type of worker.
     task_routes = {
