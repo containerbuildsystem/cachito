@@ -1,4 +1,4 @@
-FROM fedora:30
+FROM fedora:31
 LABEL maintainer="Factory 2.0"
 
 WORKDIR /src
@@ -10,6 +10,7 @@ RUN dnf -y install \
     git-core \
     python3-celery \
     python3-GitPython \
+    python3-pip \
     python3-requests \
     python3-requests-kerberos \
     python3-semver \
