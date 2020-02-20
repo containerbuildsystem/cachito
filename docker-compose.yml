@@ -65,7 +65,7 @@ services:
     - /bin/bash
     - -c
     - >-
-      pip3 install watchdog &&
+      pip3 install watchdog[watchmedo] &&
       watchmedo auto-restart -d ./cachito/workers -p '*.py' --recursive \
         -- /bin/celery-3 -A cachito.workers.tasks worker --loglevel=info
     environment:
