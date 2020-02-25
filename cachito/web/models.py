@@ -553,7 +553,7 @@ class Request(db.Model):
                 submitted_for = User.get_or_create(submitted_for_username)
                 if not submitted_for.id:
                     # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
-                    # This will genereate an ID that can be used below.
+                    # This will generate an ID that can be used below.
                     db.session.flush()
                 request_kwargs['user_id'] = submitted_for.id
                 request_kwargs['submitted_by_id'] = current_user.id
@@ -585,7 +585,7 @@ class Request(db.Model):
         request_state = RequestState(state=state_int, state_reason=state_reason)
         self.states.append(request_state)
         # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
-        # This will genereate an ID that can be used below.
+        # This will generate an ID that can be used below.
         db.session.add(request_state)
         db.session.flush()
         self.request_state_id = request_state.id

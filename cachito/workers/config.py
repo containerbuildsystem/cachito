@@ -112,7 +112,7 @@ def configure_celery(celery_app):
 
 def validate_celery_config(conf, **kwargs):
     """
-    Perform basic validatation on the Celery configuration when the worker is initialized.
+    Perform basic validation on the Celery configuration when the worker is initialized.
 
     :param celery.app.utils.Settings conf: the Celery application configuration to validate
     :raises ConfigError: if the configuration is invalid
