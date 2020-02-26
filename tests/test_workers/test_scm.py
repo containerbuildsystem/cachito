@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from datetime import datetime
 from unittest import mock
 
 import git
@@ -56,7 +57,7 @@ def test_clone_and_archive(mock_archive_path, mock_clone, mock_temp_dir, mock_ta
     assert mock_clone.return_value.head.reference == mock_commit
     mock_clone.return_value.head.reset.assert_called_once_with(index=True, working_tree=True)
     # Verfiy the archive was created
-    mock_tarfile.add.assert_called_once_with('/tmp/cachito-temp/repo', 'app')
+    mock_tarfile.add.assert_called_once_with(mock_clone.return_value.working_dir, 'app')
 
 
 @mock.patch('tempfile.TemporaryDirectory')
@@ -90,3 +91,73 @@ def test_clone_and_archive_checkout_failed(mock_archive_path, mock_git_clone, mo
     )
     with pytest.raises(CachitoError, match=expected):
         git_obj.clone_and_archive()
+
+
+@mock.patch('os.makedirs')
+@mock.patch('os.path.exists', return_value=True)
+@mock.patch('tarfile.is_tarfile', return_value=True)
+@mock.patch('glob.glob')
+def test_fetch_source_archive_exists(mock_glob, mock_is_tarfile, mock_exists, mock_makedirs):
+    scm.Git(url, ref).fetch_source()
+    mock_glob.assert_not_called()
+
+
+@mock.patch('os.path.exists', return_value=False)
+@mock.patch('glob.glob')
+@mock.patch('cachito.workers.scm.Git.clone_and_archive')
+def test_fetch_source_clone_is_needed(mock_clone_and_archive, mock_glob, mock_exists):
+    mock_glob.return_value = []
+    scm.Git(url, ref).fetch_source()
+    mock_clone_and_archive.assert_called_once()
+
+
+@mock.patch('os.path.exists', return_value=False)
+@mock.patch('os.path.getctime')
+@mock.patch('glob.glob')
+@mock.patch('cachito.workers.scm.Git.update_and_archive')
+def test_fetch_source_by_pull(mock_update_and_archive, mock_glob, mock_getctime, mock_exists):
+    mock_getctime.side_effect = [
+        datetime(2020, 3, 1, 20, 0, 0).timestamp(),
+        datetime(2020, 3, 4, 10, 13, 30).timestamp(),
+    ]
+    mock_glob.return_value = ['29eh2a.tar.gz', 'a8c2d2.tar.gz']
+    scm.Git(url, ref).fetch_source()
+    mock_update_and_archive.assert_called_once_with('a8c2d2.tar.gz')
+
+
+@mock.patch('tarfile.open')
+@mock.patch('tempfile.TemporaryDirectory')
+@mock.patch('git.Repo')
+def test_update_and_archive(mock_repo, mock_temp_dir, mock_tarfile_open):
+    # Mock the archive being created
+    mock_tarfile = mock.Mock()
+    mock_tarfile_open.return_value.__enter__.return_value = mock_tarfile
+
+    # Mock the tempfile.TemporaryDirectory context manager
+    mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'
+
+    # Test does not really extract this archive file. The filename could be arbitrary.
+    scm.Git(url, ref).update_and_archive('/tmp/1234567.tar.gz')
+
+    # Verify the tempfile.TemporaryDirectory context manager was used
+    mock_temp_dir.return_value.__enter__.assert_called_once()
+
+    repo = mock_repo.return_value
+    # Verify the changes are pulled.
+    repo.remote.return_value.fetch.assert_called_once()
+    # Verify the repo is reset to specific ref
+    repo.commit.assert_called_once_with(ref)
+    assert repo.commit.return_value == repo.head.reference
+    repo.head.reset.assert_called_once_with(index=True, working_tree=True)
+
+    mock_tarfile.add.assert_called_once_with(mock_repo.return_value.working_dir, 'app')
+
+
+@mock.patch('tarfile.open')
+@mock.patch('git.Repo')
+def test_update_and_archive_pull_error(mock_repo, mock_tarfile_open):
+    repo = mock_repo.return_value
+    repo.remote.return_value.fetch.side_effect = IOError
+
+    with pytest.raises(CachitoError, match='Failed to fetch from the remote Git repository'):
+        scm.Git(url, ref).update_and_archive('/tmp/1234567.tar.gz')
