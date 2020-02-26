@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import glob
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -31,6 +32,7 @@ class SCM(ABC):
         self._archives_dir = None
         self._archive_path = None
         self._repo_name = None
+        self._package_dir = None
 
     @property
     def archive_name(self):
@@ -51,10 +53,7 @@ class SCM(ABC):
         :rtype: str
         """
         if not self._archive_path:
-            directory = os.path.join(self.archives_dir, *self.repo_name.split('/'))
-            # Create the directories if they don't exist
-            os.makedirs(directory, exist_ok=True)
-            self._archive_path = os.path.join(directory, self.archive_name)
+            self._archive_path = os.path.join(self.package_dir, self.archive_name)
 
         return self._archive_path
 
@@ -74,6 +73,20 @@ class SCM(ABC):
 
         return self._archives_dir
 
+    @property
+    def package_dir(self):
+        """
+        Get the directory for the source archive of this package.
+
+        :return: the path to the directory of the source archive
+        :rtype: str
+        """
+        if self._package_dir is None:
+            self._package_dir = os.path.join(self.archives_dir, *self.repo_name.split('/'))
+            # Create the directories if they don't exist
+            os.makedirs(self._package_dir, exist_ok=True)
+        return self._package_dir
+
     @abstractmethod
     def fetch_source(self):
         """
@@ -91,6 +104,33 @@ class SCM(ABC):
 class Git(SCM):
     """The git implementation of interacting with source control."""
 
+    def _reset_git_head(self, repo):
+        """
+        Reset HEAD to a specific Git reference.
+
+        :param git.Repo repo: the repository object.
+        :raises CachitoError: if changing the HEAD of the repository fails.
+        """
+        try:
+            repo.head.reference = repo.commit(self.ref)
+            repo.head.reset(index=True, working_tree=True)
+        except:  # noqa E722
+            log.exception('Checking out the Git ref "%s" failed', self.ref)
+            raise CachitoError(
+                'Checking out the Git repository failed. Please verify the supplied reference '
+                f'of "{self.ref}" is valid.'
+            )
+
+    def _create_archive(self, from_dir):
+        """
+        Create an archive from a specified directory.
+
+        :param str from_dir: path to a directory from where to create the archive.
+        """
+        log.debug('Creating the archive at %s', self.archive_path)
+        with tarfile.open(self.archive_path, mode='w:gz') as bundle_archive:
+            bundle_archive.add(from_dir, 'app')
+
     def clone_and_archive(self):
         """
         Clone the git repository and create the compressed source archive.
@@ -98,29 +138,41 @@ class Git(SCM):
         :raises CachitoError: if cloning the repository fails or if the archive can't be created
         """
         with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
-            clone_path = os.path.join(temp_dir, 'repo')
             log.debug('Cloning the Git repository from %s', self.url)
             # Don't allow git to prompt for a username if we don't have access
             os.environ['GIT_TERMINAL_PROMPT'] = '0'
+            clone_path = os.path.join(temp_dir, 'repo')
             try:
                 repo = git.repo.Repo.clone_from(self.url, clone_path, no_checkout=True)
             except:  # noqa E722
                 log.exception('Cloning the Git repository from %s failed', self.url)
                 raise CachitoError('Cloning the Git repository failed')
 
-            try:
-                repo.head.reference = repo.commit(self.ref)
-                repo.head.reset(index=True, working_tree=True)
-            except:  # noqa E722
-                log.exception('Checking out the Git ref "%s" failed', self.ref)
-                raise CachitoError(
-                    'Checking out the Git repository failed. Please verify the supplied reference '
-                    f'of "{self.ref}" is valid.'
-                )
+            self._reset_git_head(repo)
+            self._create_archive(repo.working_dir)
 
-            log.debug('Creating the archive at %s', self.archive_path)
-            with tarfile.open(self.archive_path, mode='w:gz') as bundle_archive:
-                bundle_archive.add(clone_path, 'app')
+    def update_and_archive(self, previous_archive):
+        """
+        Pull the latest Git history inside an existing archive and create the
+        compressed source archive.
+
+        :param str previous_archive: path to an archive file created before.
+        :raises CachitoError: if pulling the Git history from the remote repo or
+            the checkout of the target Git ref fails.
+        """
+        with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
+            with tarfile.open(previous_archive, mode='r:gz') as tar:
+                tar.extractall(temp_dir)
+
+            repo = git.Repo(os.path.join(temp_dir, 'app'))
+            try:
+                repo.remote().fetch()
+            except:  # noqa E722
+                log.exception('Failed to fetch from remote %s', self.url)
+                raise CachitoError('Failed to fetch from the remote Git repository')
+
+            self._reset_git_head(repo)
+            self._create_archive(repo.working_dir)
 
     def fetch_source(self):
         """
@@ -131,7 +183,21 @@ class Git(SCM):
             log.debug('The archive already exists at "%s"', self.archive_path)
             return
 
-        self.clone_and_archive()
+        # Find a previous archive created by a previous request
+        #
+        # The previous archive does not mean the one just before the request that
+        # schedules current task. The only reason for finding out such a file is
+        # to access the git history. So, anyone is ok.
+        previous_archive = max(
+            glob.glob(os.path.join(self.package_dir, '*.tar.gz')),
+            key=os.path.getctime,
+            default=None,
+        )
+
+        if previous_archive:
+            self.update_and_archive(previous_archive)
+        else:
+            self.clone_and_archive()
 
     @property
     def repo_name(self):
