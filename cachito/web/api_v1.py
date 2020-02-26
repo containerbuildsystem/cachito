@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
 import os
-import re
 import shutil
 
 from celery import chain
@@ -120,8 +119,6 @@ def create_request():
         raise ValidationError('The input data must be a JSON object')
 
     request = Request.from_json(payload)
-    if not re.match(r'^[a-f0-9]{40}', request.ref):
-        raise ValidationError('The "ref" parameter must be a 40 character hex string')
     db.session.add(request)
     db.session.commit()
 

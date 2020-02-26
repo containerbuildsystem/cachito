@@ -242,6 +242,10 @@ def test_invalid_state(app, auth_env, client, db):
     assert response['error'] == f'complet is not a valid request state. Valid states are: {states}'
 
 
+def assert_request_is_not_created(**criteria):
+    assert 0 == Request.query.filter_by(**criteria).count()
+
+
 def test_create_request_invalid_ref(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
@@ -252,6 +256,7 @@ def test_create_request_invalid_ref(auth_env, client, db):
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
     assert rv.status_code == 400
     assert rv.json['error'] == 'The "ref" parameter must be a 40 character hex string'
+    assert_request_is_not_created(ref='not-a-ref')
 
 
 def test_create_request_invalid_pkg_manager(auth_env, client, db):
