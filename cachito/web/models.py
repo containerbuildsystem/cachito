@@ -3,6 +3,7 @@ from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
 import os
+import re
 
 import flask
 from flask_login import UserMixin, current_user
@@ -490,6 +491,7 @@ class Request(db.Model):
         # Validate all required parameters are present
         required_params = {'repo', 'ref'}
         optional_params = {'dependency_replacements', 'flags', 'pkg_managers', 'user'}
+
         missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
             raise ValidationError('Missing required parameter(s): {}'
@@ -500,6 +502,9 @@ class Request(db.Model):
         if invalid_params:
             raise ValidationError(
                 'The following parameters are invalid: {}'.format(', '.join(invalid_params)))
+
+        if not re.match(r'^[a-f0-9]{40}', kwargs['ref']):
+            raise ValidationError('The "ref" parameter must be a 40 character hex string')
 
         request_kwargs = deepcopy(kwargs)
 
