@@ -27,6 +27,13 @@ services:
     ports:
       - 3000:3000
 
+  nexus:
+    image: sonatype/nexus3
+    volumes:
+      - ./tmp/nexus-data:/nexus-data:z
+    ports:
+      - 8881:8081
+
   cachito-api:
     build:
       context: .

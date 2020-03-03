@@ -67,6 +67,7 @@ class DevelopmentConfig(Config):
     broker_url = 'amqp://cachito:cachito@rabbitmq:5672//'
     cachito_api_url = 'http://cachito-api:8080/api/v1/'
     cachito_athens_url = 'http://athens:3000'
+    cachito_nexus_url = 'http://nexus:8081/nexus/content/repositories/rubygems_org_proxy/'
     cachito_bundles_dir = os.path.join(ARCHIVES_VOLUME, 'bundles')
     cachito_log_level = 'DEBUG'
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, 'sources')

@@ -151,6 +151,13 @@ def create_request():
             ).on_error(error_callback)
         )
 
+    if 'bundler' in pkg_manager_names or auto_detect:
+        chain_tasks.append(
+            tasks.fetch_bundler_source.si(
+                request.id, auto_detect,
+            ).on_error(error_callback)
+        )
+
     chain_tasks.extend([
         tasks.create_bundle_archive.si(request.id).on_error(error_callback),
         tasks.set_request_state.si(request.id, 'complete', 'Completed successfully'),
