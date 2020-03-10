@@ -11,4 +11,4 @@ run:
 	docker-compose up
 
 test:
-	venv/bin/tox
+	PATH="$PWD/venv/bin:$PATH" tox
