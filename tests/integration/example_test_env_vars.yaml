@@ -36,3 +36,13 @@ get:
   - ["golang.org/x/tools", "gomod", "v0.0.0-20190325161752-5a8dccf5b48a"]
   - ["gopkg.in/check.v1", "gomod", "v1.0.0-20180628173108-788fd7840127"]
   - ["gopkg.in/yaml.v2", "gomod", "v2.2.2"]
+# Test data for the Check all requests test
+get_all:
+  # Filtering parameter that collects requests only from certain page
+  # Set this to an integer, starting from 1
+  page: 8
+  # Filtering parameter that sets amount of requests per one page
+  # Set this to an integer, starting from 1
+  per_page: 15
+  # Filtering parameter that selects only requests in certain state
+  state: complete
