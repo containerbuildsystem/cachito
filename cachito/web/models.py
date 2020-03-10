@@ -503,7 +503,7 @@ class Request(db.Model):
             raise ValidationError(
                 'The following parameters are invalid: {}'.format(', '.join(invalid_params)))
 
-        if not re.match(r'^[a-f0-9]{40}', kwargs['ref']):
+        if not re.match(r'^[a-f0-9]{40}$', kwargs['ref']):
             raise ValidationError('The "ref" parameter must be a 40 character hex string')
 
         request_kwargs = deepcopy(kwargs)
