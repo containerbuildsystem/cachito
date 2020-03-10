@@ -1,0 +1,13 @@
+---
+# Cachito API endpoint
+api_url: https://cachito.example.com/api/v1
+# Authentication type, user either null for no authentication or kerberos
+api_auth_type: kerberos
+# Test data for the Creating new request test
+post:
+  # The URL for the upstream git repository
+  repo: https://github.com/release-engineering/retrodep.git
+  # A git reference at the given git repository
+  ref: e1be527f39ec31323f0454f7d1422c6260b00580
+  # Package managers
+  pkg_managers: ["gomod"]
