@@ -53,6 +53,7 @@ def upgrade():
     # Insert supported pkg managers
     op.bulk_insert(pkg_manager_table, [
         {'name': 'gomod'},
+        {'name': 'bundler'},
     ])
 
     op.create_table(
