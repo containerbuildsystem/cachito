@@ -36,6 +36,7 @@ def resolve_bundler(app_source_path, request):
     with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
         env = {
             'BUNDLE_PATH': temp_dir,
+            'BUNDLE_DISABLE_SHARED_GEMS': '1',
             'PATH': os.environ.get('PATH', ''),
         }
 
