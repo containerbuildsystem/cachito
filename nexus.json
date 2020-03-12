@@ -1,0 +1,5 @@
+{
+  "name": "proxy",
+  "type": "groovy",
+  "content": "repository.createRubygemsProxy('rubygems_org','https://rubygems.org')"
+}

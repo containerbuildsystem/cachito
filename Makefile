@@ -10,5 +10,9 @@ venv:
 run:
 	docker-compose up
 
+proxy_setup:
+	curl -u admin:admin123 -X POST --header 'Content-Type: application/json' http://localhost:8881/service/rest/v1/script -d @nexus.json
+	curl -u admin:admin123 -X POST --header 'Content-Type: text/plain' --header "accept: application/json" http://localhost:8881/service/rest/v1/script/proxy/run
+
 test:
 	tox
