@@ -19,7 +19,8 @@ def fetch_bundler_source(request_id, auto_detect=False):
     Resolve and fetch bundler dependencies for a given request.
 
     :param int request_id: the Cachito request ID this is for
-    :param bool auto_detect: automatically detect if the application uses bundler for dependency management
+    :param bool auto_detect: automatically detect if the application uses bundler for
+        dependency management
     """
     app_source_path = os.path.join(get_request_bundle_dir(request_id), 'app')
     if auto_detect:

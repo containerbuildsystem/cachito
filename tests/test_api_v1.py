@@ -8,13 +8,19 @@ import pytest
 
 from cachito.web.models import Request, EnvironmentVariable, Flag, RequestStateMapping
 from cachito.workers.tasks import (
-    fetch_app_source, fetch_gomod_source, fetch_bundler_source, set_request_state, failed_request_callback,
+    fetch_app_source,
+    fetch_gomod_source,
+    fetch_bundler_source,
+    set_request_state,
+    failed_request_callback,
     create_bundle_archive,
 )
 
 
 @pytest.mark.parametrize('repo, ref, dependency_replacements, pkg_managers, user', (
-    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', [], [], None),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848', [], [], None),
     (
         'https://github.com/release-engineering/retrodep.git',
         'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -22,7 +28,13 @@ from cachito.workers.tasks import (
         ['gomod'],
         None
     ),
-    ('https://github.com/3scale/echo-api.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', [], ['bundler'], None),
+    (
+        'https://github.com/3scale/echo-api.git',
+        '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b',
+        [],
+        ['bundler'],
+        None
+    ),
     (
         'https://github.com/release-engineering/retrodep.git',
         'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -95,7 +107,9 @@ def test_create_and_fetch_request(
 
     fetch_calls = []
     if 'gomod' in pkg_managers or auto_detect:
-        fetch_calls.append(fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback),)
+        fetch_calls.append(
+            fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback),
+        )
     if 'bundler' in pkg_managers or auto_detect:
         fetch_calls.append(fetch_bundler_source.si(1, auto_detect).on_error(error_callback))
 
@@ -134,10 +148,26 @@ def test_create_request_ssl_auth(mock_chain, auth_ssl_env, client, db):
     cert_dn = 'CN=tbrady,OU=serviceusers,DC=domain,DC=local'
     assert created_request['user'] == cert_dn
 
+
 @pytest.mark.parametrize('repo, ref, pkg_managers, flags', (
-    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', [], []),
-    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', ['gomod'], []),
-    ('https://github.com/3scale/echo-api.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', ['bundler'], []),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        [],
+        []
+    ),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        ['gomod'],
+        []
+    ),
+    (
+        'https://github.com/3scale/echo-api.git',
+        '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b',
+        ['bundler'],
+        []
+    ),
     (
         'https://github.com/release-engineering/retrodep.git',
         'c50b93a32df1c9d700e3e80996845bc2e13be848',
@@ -152,7 +182,17 @@ def test_create_request_ssl_auth(mock_chain, auth_ssl_env, client, db):
     ),
 ))
 @mock.patch('cachito.web.api_v1.chain')
-def test_create_and_fetch_request_with_flag(mock_chain, repo, ref, pkg_managers, flags, app, auth_env, client, db):
+def test_create_and_fetch_request_with_flag(
+    mock_chain,
+    repo,
+    ref,
+    pkg_managers,
+    flags,
+    app,
+    auth_env,
+    client,
+    db
+):
     data = {
         'repo': repo,
         'ref': ref,
@@ -264,9 +304,21 @@ def test_fetch_paginated_requests(
 
 
 @pytest.mark.parametrize('repo_template, ref, pkg_managers', (
-    ('https://github.com/release-engineering/retrodep{}.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', []),
-    ('https://github.com/release-engineering/retrodep{}.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', ['gomod']),
-    ('https://github.com/3scale/echo-api{}.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', ['bundler']),
+    (
+        'https://github.com/release-engineering/retrodep{}.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        []
+    ),
+    (
+        'https://github.com/release-engineering/retrodep{}.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        ['gomod']
+    ),
+    (
+        'https://github.com/3scale/echo-api{}.git',
+        '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b',
+        ['bundler']
+    ),
 ))
 def test_create_request_filter_state(repo_template, ref, pkg_managers, app, auth_env, client, db):
     """Test that requests can be filtered by state."""
@@ -572,8 +624,16 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
 
 
 @pytest.mark.parametrize('repo, ref, pkg_managers', (
-    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', ['gomod']),
-    ('https://github.com/3scale/echo-api.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', ['bundler']),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        ['gomod']
+    ),
+    (
+        'https://github.com/3scale/echo-api.git',
+        '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b',
+        ['bundler']
+    ),
 ))
 def test_set_pkg_managers(repo, ref, pkg_managers, app, client, db, worker_auth_env):
     data = {
@@ -686,7 +746,16 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     ({'spam': 'maps'}, ['gomod'], {'name': 'all_systems_go', 'type': 'gomod', 'version': 'v1.0.0'}),
     ({'spam': 'maps'}, ['bundler'], {'name': 'nokogiri', 'type': 'bundler', 'version': '1.10.9'}),
 ))
-def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_vars, dep, pkg_managers):
+def test_set_deps(
+    app,
+    client,
+    db,
+    worker_auth_env,
+    sample_deps_replace,
+    env_vars,
+    dep,
+    pkg_managers
+):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',

@@ -53,7 +53,10 @@ def resolve_bundler(app_source_path, request):
 
         log.info('Downloading the bundler dependencies')
         path_param = '--path=' + temp_dir
-        bundle_package_output = run_bundler_cmd(('bundle', 'package', '--no-install', '--all', path_param), run_params)
+        bundle_package_output = run_bundler_cmd(
+            ('bundle', 'package', '--no-install', '--all', path_param),
+            run_params
+        )
 
         deps = []
         for line in bundle_package_output.splitlines():
