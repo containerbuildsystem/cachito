@@ -35,6 +35,7 @@ def _generate_mock_cmd_output(error_pkg='github.com/pkg/errors v1.0.0'):
     """)
 
 
+@pytest.mark.parametrize('cache_download_dir_exists', [True, False])
 @pytest.mark.parametrize('dep_replacement, go_list_error_pkg, expected_replace', (
     (None, 'github.com/pkg/errors v1.0.0', None),
     (
@@ -57,11 +58,14 @@ def _generate_mock_cmd_output(error_pkg='github.com/pkg/errors v1.0.0'):
 @mock.patch('cachito.workers.pkg_managers.golang.add_deps_to_bundle')
 @mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
+@mock.patch('os.path.exists')
 def test_resolve_gomod(
-    mock_run, mock_temp_dir, mock_add_deps, mock_golang_version, dep_replacement, go_list_error_pkg,
-    expected_replace, tmpdir, sample_deps, sample_deps_replace, sample_deps_replace_new_name,
-    sample_package,
+    mock_path_exists, mock_run, mock_temp_dir, mock_add_deps, mock_golang_version,
+    cache_download_dir_exists, dep_replacement, go_list_error_pkg, expected_replace,
+    tmpdir, sample_deps, sample_deps_replace, sample_deps_replace_new_name, sample_package,
 ):
+    mock_path_exists.return_value = cache_download_dir_exists
+
     mock_cmd_output = _generate_mock_cmd_output(go_list_error_pkg)
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
@@ -98,10 +102,14 @@ def test_resolve_gomod(
 
     assert module == sample_package
     assert resolved_deps == expected_deps
-    mock_add_deps.assert_called_once()
-    assert mock_add_deps.call_args[0][0].endswith('pkg/mod/cache/download')
-    assert mock_add_deps.call_args[0][1] == 'gomod/pkg/mod/cache/download'
-    assert mock_add_deps.call_args[0][2] == 3
+
+    if cache_download_dir_exists:
+        mock_add_deps.assert_called_once()
+        assert mock_add_deps.call_args[0][0].endswith('pkg/mod/cache/download')
+        assert mock_add_deps.call_args[0][1] == 'gomod/pkg/mod/cache/download'
+        assert mock_add_deps.call_args[0][2] == 3
+    else:
+        mock_add_deps.assert_not_called()
 
 
 @mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
