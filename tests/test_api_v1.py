@@ -8,7 +8,7 @@ import pytest
 
 from cachito.web.models import Request, EnvironmentVariable, Flag, RequestStateMapping
 from cachito.workers.tasks import (
-    fetch_app_source, fetch_gomod_source, set_request_state, failed_request_callback,
+    fetch_app_source, fetch_gomod_source, fetch_bundler_source, set_request_state, failed_request_callback,
     create_bundle_archive,
 )
 
@@ -64,13 +64,20 @@ def test_create_and_fetch_request(
 
     error_callback = failed_request_callback.s(1)
     auto_detect = len(pkg_managers) == 0
+
+    fetch_calls = []
+    if 'gomod' in pkg_managers or auto_detect:
+        fetch_calls.append( fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback), )
+    if 'bundler' in pkg_managers or auto_detect:
+        fetch_calls.append(fetch_bundler_source.si(1, auto_detect).on_error(error_callback) )
+
     mock_chain.assert_called_once_with([
         fetch_app_source.s(
             'https://github.com/release-engineering/retrodep.git',
             'c50b93a32df1c9d700e3e80996845bc2e13be848',
             1,
         ).on_error(error_callback),
-        fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback),
+        *fetch_calls,
         create_bundle_archive.si(1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
     ])
