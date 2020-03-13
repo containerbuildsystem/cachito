@@ -13,11 +13,33 @@ from cachito.workers.tasks import (
 )
 
 
-@pytest.mark.parametrize('dependency_replacements, pkg_managers, user', (
-    ([], [], None),
-    ([], ['gomod'], None),
-    ([{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}], ['gomod'], None),
+@pytest.mark.parametrize('repo, ref, dependency_replacements, pkg_managers, user', (
+    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', [], [], None),
     (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        [],
+        ['gomod'],
+        None
+    ),
+    ('https://github.com/3scale/echo-api.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', [], ['bundler'], None),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        [{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}],
+        ['gomod'],
+        None
+    ),
+    (
+        'https://github.com/3scale/echo-api.git',
+        '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b',
+        [{'name': 'nokogiri', 'type': 'bundler', 'version': '1.10.9'}],
+        ['bundler'],
+        None
+    ),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
         [{
             'name': 'github.com/pkg/errors',
             'new_name': 'github.com/pkg_new_errors',
@@ -27,15 +49,21 @@ from cachito.workers.tasks import (
         ['gomod'],
         None,
     ),
-    ([], [], 'tom_hanks@DOMAIN.LOCAL'),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        [],
+        [],
+        'tom_hanks@DOMAIN.LOCAL'
+    ),
 ))
 @mock.patch('cachito.web.api_v1.chain')
 def test_create_and_fetch_request(
-    mock_chain, dependency_replacements, pkg_managers, user, app, auth_env, client, db,
+    mock_chain, repo, ref, dependency_replacements, pkg_managers, user, app, auth_env, client, db,
 ):
     data = {
-        'repo': 'https://github.com/release-engineering/retrodep.git',
-        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'repo': repo,
+        'ref': ref,
         'pkg_managers': pkg_managers,
     }
 
@@ -67,14 +95,14 @@ def test_create_and_fetch_request(
 
     fetch_calls = []
     if 'gomod' in pkg_managers or auto_detect:
-        fetch_calls.append( fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback), )
+        fetch_calls.append(fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback),)
     if 'bundler' in pkg_managers or auto_detect:
-        fetch_calls.append(fetch_bundler_source.si(1, auto_detect).on_error(error_callback) )
+        fetch_calls.append(fetch_bundler_source.si(1, auto_detect).on_error(error_callback))
 
     mock_chain.assert_called_once_with([
         fetch_app_source.s(
-            'https://github.com/release-engineering/retrodep.git',
-            'c50b93a32df1c9d700e3e80996845bc2e13be848',
+            repo,
+            ref,
             1,
         ).on_error(error_callback),
         *fetch_calls,
@@ -106,14 +134,30 @@ def test_create_request_ssl_auth(mock_chain, auth_ssl_env, client, db):
     cert_dn = 'CN=tbrady,OU=serviceusers,DC=domain,DC=local'
     assert created_request['user'] == cert_dn
 
-
+@pytest.mark.parametrize('repo, ref, pkg_managers, flags', (
+    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', [], []),
+    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', ['gomod'], []),
+    ('https://github.com/3scale/echo-api.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', ['bundler'], []),
+    (
+        'https://github.com/release-engineering/retrodep.git',
+        'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        ['gomod'],
+        ['valid_flag']
+    ),
+    (
+        'https://github.com/3scale/echo-api.git',
+        '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b',
+        ['bundler'],
+        ['valid_flag']
+    ),
+))
 @mock.patch('cachito.web.api_v1.chain')
-def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, db):
+def test_create_and_fetch_request_with_flag(mock_chain, repo, ref, pkg_managers, flags, app, auth_env, client, db):
     data = {
-        'repo': 'https://github.com/release-engineering/retrodep.git',
-        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
-        'flags': ['valid_flag']
+        'repo': repo,
+        'ref': ref,
+        'pkg_managers': pkg_managers,
+        'flags': flags
     }
 
     # Add a new active flag to db
@@ -129,13 +173,22 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     assert created_request['user'] == 'tbrady@DOMAIN.LOCAL'
 
     error_callback = failed_request_callback.s(1)
+
+    auto_detect = len(pkg_managers) == 0
+
+    fetch_calls = []
+    if 'gomod' in pkg_managers or auto_detect:
+        fetch_calls.append(fetch_gomod_source.si(1, auto_detect, []).on_error(error_callback),)
+    if 'bundler' in pkg_managers or auto_detect:
+        fetch_calls.append(fetch_bundler_source.si(1, auto_detect).on_error(error_callback))
+
     mock_chain.assert_called_once_with([
         fetch_app_source.s(
-            'https://github.com/release-engineering/retrodep.git',
-            'c50b93a32df1c9d700e3e80996845bc2e13be848',
+            repo,
+            ref,
             1,
         ).on_error(error_callback),
-        fetch_gomod_source.si(1, False, []).on_error(error_callback),
+        *fetch_calls,
         create_bundle_archive.si(1).on_error(error_callback),
         set_request_state.si(1, 'complete', 'Completed successfully'),
     ])
@@ -151,7 +204,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     fetched_request = rv.json
 
     # The flag should be present even if it is inactive now
-    assert fetched_request['flags'] == ['valid_flag']
+    assert fetched_request['flags'] == flags
     assert fetched_request['state'] == 'in_progress'
     assert fetched_request['state_reason'] == 'The request was initiated'
 
@@ -210,24 +263,28 @@ def test_fetch_paginated_requests(
     assert type(fetched_requests[0]['dependencies']) == list
 
 
-def test_create_request_filter_state(app, auth_env, client, db):
+@pytest.mark.parametrize('repo_template, ref, pkg_managers', (
+    ('https://github.com/release-engineering/retrodep{}.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', []),
+    ('https://github.com/release-engineering/retrodep{}.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', ['gomod']),
+    ('https://github.com/3scale/echo-api{}.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', ['bundler']),
+))
+def test_create_request_filter_state(repo_template, ref, pkg_managers, app, auth_env, client, db):
     """Test that requests can be filtered by state."""
-    repo_template = 'https://github.com/release-engineering/retrodep{}.git'
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=auth_env):
         # Make a request in 'in_progress' state
         data = {
             'repo': repo_template.format(0),
-            'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-            'pkg_managers': ['gomod'],
+            'ref': ref,
+            'pkg_managers': pkg_managers,
         }
         request = Request.from_json(data)
         db.session.add(request)
         # Make a request in 'complete' state
         data_complete = {
             'repo': repo_template.format(1),
-            'ref': 'e1be527f39ec31323f0454f7d1422c6260b00580',
-            'pkg_managers': ['gomod'],
+            'ref': ref,
+            'pkg_managers': pkg_managers,
         }
         request_complete = Request.from_json(data_complete)
         request_complete.add_state('complete', 'Completed successfully')
@@ -260,7 +317,7 @@ def test_create_request_invalid_ref(invalid_ref, auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': invalid_ref,
-        'pkg_managers': ['gomod']
+        'pkg_managers': []
     }
 
     rv = client.post('/api/v1/requests', json=data, environ_base=auth_env)
@@ -313,7 +370,7 @@ def test_create_request_invalid_parameter(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
         'username': 'uncle_sam',
     }
 
@@ -352,7 +409,7 @@ def test_create_request_not_logged_in(client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
     }
 
     rv = client.post('/api/v1/requests', json=data)
@@ -382,7 +439,7 @@ def test_create_request_invalid_flag(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
         'flags': ['invalid_flag']
     }
 
@@ -416,7 +473,7 @@ def test_validate_extraneous_params(auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
         'spam': 'maps',
     }
 
@@ -431,7 +488,7 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod']
+        'pkg_managers': []
     }
 
     mock_chain.side_effect = kombu.exceptions.OperationalError('Failed to connect')
@@ -481,7 +538,7 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -514,10 +571,14 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     mock_rmtree.assert_called_once_with(temp_dir)
 
 
-def test_set_pkg_managers(app, client, db, worker_auth_env):
+@pytest.mark.parametrize('repo, ref, pkg_managers', (
+    ('https://github.com/release-engineering/retrodep.git', 'c50b93a32df1c9d700e3e80996845bc2e13be848', ['gomod']),
+    ('https://github.com/3scale/echo-api.git', '13a6a3fb4ab8b5bd56a74b3f5e475a87195eb87b', ['bundler']),
+))
+def test_set_pkg_managers(repo, ref, pkg_managers, app, client, db, worker_auth_env):
     data = {
-        'repo': 'https://github.com/release-engineering/retrodep.git',
-        'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
+        'repo': repo,
+        'ref': ref,
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -525,13 +586,13 @@ def test_set_pkg_managers(app, client, db, worker_auth_env):
     db.session.add(request)
     db.session.commit()
 
-    payload = {'pkg_managers': ['gomod']}
+    payload = {'pkg_managers': pkg_managers}
     patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
 
     get_rv = client.get('/api/v1/requests/1')
     assert get_rv.status_code == 200
-    assert get_rv.json['pkg_managers'] == ['gomod']
+    assert get_rv.json['pkg_managers'] == pkg_managers
 
 
 @pytest.mark.parametrize('bundle_exists', (True, False))
@@ -542,7 +603,7 @@ def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, d
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -577,7 +638,7 @@ def test_set_state_from_stale(app, client, db, worker_auth_env):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -597,7 +658,7 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -619,15 +680,17 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     assert len(get_rv.json['state_history']) == 2
 
 
-@pytest.mark.parametrize('env_vars', (
-    {},
-    {'spam': 'maps'},
+@pytest.mark.parametrize('env_vars, pkg_managers, dep', (
+    ({}, ['gomod'], {'name': 'all_systems_go', 'type': 'gomod', 'version': 'v1.0.0'}),
+    ({}, ['bundler'], {'name': 'nokogiri', 'type': 'bundler', 'version': '1.10.9'}),
+    ({'spam': 'maps'}, ['gomod'], {'name': 'all_systems_go', 'type': 'gomod', 'version': 'v1.0.0'}),
+    ({'spam': 'maps'}, ['bundler'], {'name': 'nokogiri', 'type': 'bundler', 'version': '1.10.9'}),
 ))
-def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_vars):
+def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_vars, dep, pkg_managers):
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': pkg_managers,
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -636,11 +699,7 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_var
     db.session.commit()
 
     # Test a dependency with no "replaces" key
-    sample_deps_replace.append({
-        'name': 'all_systems_go',
-        'type': 'gomod',
-        'version': 'v1.0.0',
-    })
+    sample_deps_replace.append(dep)
     payload = {'dependencies': sample_deps_replace, 'environment_variables': env_vars}
     patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
@@ -897,7 +956,7 @@ def test_state_change_invalid(
     data = {
         'repo': 'https://github.com/release-engineering/retrodep.git',
         'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848',
-        'pkg_managers': ['gomod'],
+        'pkg_managers': [],
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
