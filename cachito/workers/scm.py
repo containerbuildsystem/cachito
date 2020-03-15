@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import glob
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -10,7 +9,7 @@ import tempfile
 import git
 
 from cachito.errors import CachitoError
-from cachito.workers.config import get_worker_config
+from cachito.workers.paths import SourcesDir
 
 
 log = logging.getLogger(__name__)
@@ -34,58 +33,7 @@ class SCM(ABC):
         self._repo_name = None
         self._package_dir = None
 
-    @property
-    def archive_name(self):
-        """
-        Get what the archive name should be for a particular SCM reference.
-
-        :return: the archive name
-        :rtype: str
-        """
-        return f'{self.ref}.tar.gz'
-
-    @property
-    def archive_path(self):
-        """
-        Get the path to where the archive for a particular SCM reference should be.
-
-        :return: the path to the archive
-        :rtype: str
-        """
-        if not self._archive_path:
-            self._archive_path = os.path.join(self.package_dir, self.archive_name)
-
-        return self._archive_path
-
-    @property
-    def archives_dir(self):
-        """
-        Get the absolute path of the archives directory from the Celery configuration.
-
-        :returns: the absolute path of the archives directory
-        :rtype: str
-        """
-        if not self._archives_dir:
-            self._archives_dir = os.path.abspath(
-                get_worker_config().cachito_sources_dir
-            )
-            log.debug('Using "%s" as the archives directory', self._archives_dir)
-
-        return self._archives_dir
-
-    @property
-    def package_dir(self):
-        """
-        Get the directory for the source archive of this package.
-
-        :return: the path to the directory of the source archive
-        :rtype: str
-        """
-        if self._package_dir is None:
-            self._package_dir = os.path.join(self.archives_dir, *self.repo_name.split('/'))
-            # Create the directories if they don't exist
-            os.makedirs(self._package_dir, exist_ok=True)
-        return self._package_dir
+        self.sources_dir = SourcesDir(self.repo_name, ref)
 
     @abstractmethod
     def fetch_source(self):
@@ -127,8 +75,8 @@ class Git(SCM):
 
         :param str from_dir: path to a directory from where to create the archive.
         """
-        log.debug('Creating the archive at %s', self.archive_path)
-        with tarfile.open(self.archive_path, mode='w:gz') as bundle_archive:
+        log.debug('Creating the archive at %s', self.sources_dir.archive_path)
+        with tarfile.open(self.sources_dir.archive_path, mode='w:gz') as bundle_archive:
             bundle_archive.add(from_dir, 'app')
 
     def clone_and_archive(self):
@@ -182,8 +130,9 @@ class Git(SCM):
         Fetch the repo, create a compressed tar file, and put it in long-term storage.
         """
         # If it already exists and isn't corrupt, don't download it again
-        if os.path.exists(self.archive_path) and tarfile.is_tarfile(self.archive_path):
-            log.debug('The archive already exists at "%s"', self.archive_path)
+        archive_path = self.sources_dir.archive_path
+        if archive_path.exists() and tarfile.is_tarfile(archive_path):
+            log.debug('The archive already exists at "%s"', archive_path)
             return
 
         # Find a previous archive created by a previous request
@@ -192,7 +141,7 @@ class Git(SCM):
         # schedules current task. The only reason for finding out such a file is
         # to access the git history. So, anyone is ok.
         previous_archive = max(
-            glob.glob(os.path.join(self.package_dir, '*.tar.gz')),
+            self.sources_dir.package_dir.glob('*.tar.gz'),
             key=os.path.getctime,
             default=None,
         )

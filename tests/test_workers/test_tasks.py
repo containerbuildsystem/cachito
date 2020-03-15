@@ -2,7 +2,6 @@
 import os
 import pathlib
 import tarfile
-import tempfile
 from unittest import mock
 
 import pytest
@@ -10,35 +9,28 @@ from requests import Timeout
 
 from cachito.errors import CachitoError
 from cachito.workers import tasks
+from cachito.workers.paths import RequestBundleDir
 
 
-@pytest.mark.parametrize('dir_exists', (True, False))
-@mock.patch('cachito.workers.tasks.general.os.makedirs')
-@mock.patch('cachito.workers.tasks.general.os.path.exists')
 @mock.patch('cachito.workers.tasks.general.extract_app_src')
 @mock.patch('cachito.workers.tasks.general.set_request_state')
 @mock.patch('cachito.workers.tasks.general.Git')
-def test_fetch_app_source(
-    mock_git, mock_set_request_state, mock_extract_app_src, mock_exists, mock_makedirs, dir_exists,
-):
-    mock_exists.return_value = dir_exists
-
+def test_fetch_app_source(mock_git, mock_set_request_state, mock_extract_app_src):
     url = 'https://github.com/release-engineering/retrodep.git'
     ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
-    tasks.fetch_app_source(url, ref, 1)
+    requrest_id = 1
+
+    tasks.fetch_app_source(url, ref, requrest_id)
+
     mock_git.assert_called_once_with(url, ref)
     mock_git.return_value.fetch_source.assert_called_once_with()
+
     mock_set_request_state.assert_called_once_with(
-        1, 'in_progress', 'Fetching the application source')
+        requrest_id, 'in_progress', 'Fetching the application source')
 
-    bundle_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/temp/1')
-    mock_exists.assert_called_once_with(bundle_dir)
-    if dir_exists:
-        mock_makedirs.assert_not_called()
-    else:
-        mock_makedirs.assert_called_once_with(bundle_dir, exist_ok=True)
-
-    mock_extract_app_src.assert_called_once_with(mock_git().archive_path, bundle_dir)
+    bundle_dir = RequestBundleDir(requrest_id)
+    mock_extract_app_src.assert_called_once_with(
+        bundle_dir.bundle_archive_file, str(bundle_dir))
 
 
 @mock.patch('cachito.workers.tasks.general.set_request_state')
@@ -57,22 +49,22 @@ def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state):
     (True, False, None, False),
     (True, True, False, [{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}]),
 ))
-@mock.patch('cachito.workers.tasks.golang.os.path.exists')
+@mock.patch('cachito.workers.tasks.golang.RequestBundleDir.exists')
 @mock.patch('cachito.workers.tasks.golang.update_request_with_packages')
 @mock.patch('cachito.workers.tasks.golang.update_request_with_deps')
 @mock.patch('cachito.workers.tasks.golang.set_request_state')
 @mock.patch('cachito.workers.tasks.golang.resolve_gomod')
 def test_fetch_gomod_source(
-    mock_resolve_gomod, mock_set_request_state, mock_update_request_with_deps,
-    mock_update_request_with_packages, mock_path_exists, auto_detect, contains_go_mod,
-    dep_replacements, expect_state_update, sample_deps_replace, sample_package, sample_env_vars,
+    mock_resolve_gomod, mock_set_request_state,
+    mock_update_request_with_deps, mock_update_request_with_packages, mock_exists,
+    auto_detect, contains_go_mod, dep_replacements, expect_state_update,
+    sample_deps_replace, sample_package, sample_env_vars,
 ):
     mock_request = mock.Mock()
     mock_set_request_state.return_value = mock_request
-    mock_path_exists.return_value = contains_go_mod
+    mock_exists.return_value = contains_go_mod
     mock_resolve_gomod.return_value = sample_package, sample_deps_replace
     tasks.fetch_gomod_source(1, auto_detect, dep_replacements)
-    temp_app_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/temp/1/app')
 
     if expect_state_update:
         mock_set_request_state.assert_called_once_with(
@@ -82,15 +74,13 @@ def test_fetch_gomod_source(
         )
         mock_update_request_with_deps.assert_called_once_with(1, sample_deps_replace)
 
+    bundle_dir = RequestBundleDir(1)
+
     if auto_detect:
-        mock_path_exists.assert_called_once_with(
-            os.path.join(
-                tempfile.gettempdir(), 'cachito-archives/bundles/temp/1/app/go.mod'
-            )
-        )
+        mock_exists.assert_called_once()
         if contains_go_mod:
             mock_resolve_gomod.assert_called_once_with(
-                temp_app_dir,
+                str(bundle_dir.source_dir),
                 mock_request,
                 dep_replacements,
             )
@@ -98,11 +88,11 @@ def test_fetch_gomod_source(
             mock_resolve_gomod.assert_not_called()
     else:
         mock_resolve_gomod.assert_called_once_with(
-            temp_app_dir,
+            str(bundle_dir.source_dir),
             mock_request,
             dep_replacements,
         )
-        mock_path_exists.assert_not_called()
+        mock_exists.assert_not_called()
 
 
 @mock.patch('cachito.workers.requests.requests_auth_session')
@@ -146,7 +136,7 @@ def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
 
 @pytest.mark.parametrize('deps_present', (True, False))
 @mock.patch('cachito.workers.tasks.general.set_request_state')
-@mock.patch('cachito.workers.utils.get_worker_config')
+@mock.patch('cachito.workers.paths.get_worker_config')
 def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir):
     # Make the bundles and sources dir configs point to under the pytest managed temp dir
     bundles_dir = tmpdir.mkdir('bundles')

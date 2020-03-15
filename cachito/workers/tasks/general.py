@@ -8,9 +8,9 @@ import requests
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
-from cachito.workers.utils import extract_app_src, get_request_bundle_dir, get_request_bundle_path
-
+from cachito.workers.utils import extract_app_src
 
 __all__ = [
     'create_bundle_archive',
@@ -45,12 +45,9 @@ def fetch_app_source(url, ref, request_id):
     # Extract the archive contents to the temporary directory of where the bundle is being created.
     # This will eventually end up in the bundle the user downloads. This is extracted now since
     # some package managers may add dependency replacements, which require edits to source files.
-    request_bundle_dir = get_request_bundle_dir(request_id)
-    if not os.path.exists(request_bundle_dir):
-        log.debug('Creating %s', request_bundle_dir)
-        os.makedirs(request_bundle_dir, exist_ok=True)
-    log.debug('Extracting %s to %s', scm.archive_path, request_bundle_dir)
-    extract_app_src(scm.archive_path, request_bundle_dir)
+    bundle_dir = RequestBundleDir(request_id)
+    log.debug('Extracting %s to %s', bundle_dir.bundle_archive_file, bundle_dir)
+    extract_app_src(bundle_dir.bundle_archive_file, str(bundle_dir))
 
 
 @app.task
@@ -121,27 +118,20 @@ def create_bundle_archive(request_id):
     """
     set_request_state(request_id, 'in_progress', 'Assembling the bundle archive')
 
-    bundle_dir = get_request_bundle_dir(request_id)
-    source_path = os.path.join(bundle_dir, 'app')
-    deps_path = os.path.join(bundle_dir, 'deps')
+    bundle_dir = RequestBundleDir(request_id)
+
     log.debug('Using %s for creating the bundle for request %d', bundle_dir, request_id)
 
-    if not os.path.isdir(deps_path):
-        log.debug('No deps are present at %s, creating an empty directory', deps_path)
-        os.makedirs(deps_path, exist_ok=True)
-
-    bundle_archive_path = get_request_bundle_path(request_id)
-    log.info('Creating %s', bundle_archive_path)
+    log.info('Creating %s', bundle_dir.bundle_archive_file)
 
     def filter_git_dir(tar_info):
         return tar_info if os.path.basename(tar_info.name) != '.git' else None
 
-    with tarfile.open(bundle_archive_path, mode='w:gz') as bundle_archive:
+    with tarfile.open(bundle_dir.bundle_archive_file, mode='w:gz') as bundle_archive:
         # Add the source to the bundle. This is done one file/directory at a time in the parent
         # directory in order to exclude the app/.git folder.
-        for item in os.listdir(source_path):
-            item_path = os.path.join(source_path, item)
-            arc_name = os.path.join('app', item)
-            bundle_archive.add(item_path, arc_name, filter=filter_git_dir)
+        for item in bundle_dir.source_dir.iterdir():
+            arc_name = os.path.join('app', item.name)
+            bundle_archive.add(str(item), arc_name, filter=filter_git_dir)
         # Add the dependencies to the bundle
-        bundle_archive.add(deps_path, 'deps')
+        bundle_archive.add(str(bundle_dir.deps_dir), 'deps')
