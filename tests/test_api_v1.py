@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import os
-import tempfile
 from unittest import mock
 
 import kombu.exceptions
 import pytest
 
 from cachito.web.models import Request, EnvironmentVariable, Flag, RequestStateMapping
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import (
     fetch_app_source, fetch_gomod_source, set_request_state, failed_request_callback,
     create_bundle_archive,
@@ -434,24 +433,27 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     assert rv.json == {'error': 'Failed to connect to the broker to schedule a task'}
 
 
-@mock.patch('os.path.exists')
+@mock.patch('pathlib.Path.exists')
 @mock.patch('flask.send_file')
 @mock.patch('cachito.web.api_v1.Request')
 def test_download_archive(mock_request, mock_send_file, mock_exists, client, app):
-    bundle_archive_path = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/1.tar.gz')
-    mock_request.query.get_or_404().state.state_name = 'complete'
-    mock_request.query.get_or_404().bundle_archive = bundle_archive_path
-    mock_exists.return_value = True
+    request_id = 1
+    request = mock.Mock(id=request_id)
+    request.state.state_name = 'complete'
+    mock_request.query.get_or_404.return_value = request
     mock_send_file.return_value = 'something'
-    client.get('/api/v1/requests/1/download')
-    mock_send_file.assert_called_once_with(bundle_archive_path, mimetype='application/gzip')
+    mock_exists.return_value = True
+    client.get(f'/api/v1/requests/{request_id}/download')
+    mock_send_file.assert_called_once_with(
+        str(RequestBundleDir(request_id).bundle_archive_file),
+        mimetype='application/gzip')
 
 
-@mock.patch('os.path.exists')
 @mock.patch('cachito.web.api_v1.Request')
-def test_download_archive_no_bundle(mock_request, mock_exists, client, app):
-    mock_request.query.get_or_404().state.state_name = 'complete'
-    mock_exists.return_value = False
+def test_download_archive_no_bundle(mock_request, client, app):
+    request = mock.Mock(id=1)
+    request.state.state_name = 'complete'
+    mock_request.query.get_or_404.return_value = request
     rv = client.get('/api/v1/requests/1/download')
     assert rv.status_code == 500
 
@@ -467,7 +469,7 @@ def test_download_archive_not_complete(mock_request, client, db, app):
 
 
 @pytest.mark.parametrize('state', ('complete', 'failed'))
-@mock.patch('os.path.exists')
+@mock.patch('pathlib.Path.exists')
 @mock.patch('shutil.rmtree')
 def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth_env):
     mock_exists.return_value = True
@@ -482,13 +484,15 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     db.session.add(request)
     db.session.commit()
 
+    request_id = 1
     state = state
     state_reason = 'Some status'
     payload = {'state': state, 'state_reason': state_reason}
-    patch_rv = client.patch('/api/v1/requests/1', json=payload, environ_base=worker_auth_env)
+    patch_rv = client.patch(f'/api/v1/requests/{request_id}',
+                            json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
 
-    get_rv = client.get('/api/v1/requests/1')
+    get_rv = client.get(f'/api/v1/requests/{request_id}')
     assert get_rv.status_code == 200
 
     fetched_request = get_rv.json
@@ -502,9 +506,8 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     assert fetched_request['state_history'][0]['state_reason'] == state_reason
     assert fetched_request['state_history'][0]['updated']
     assert fetched_request['state_history'][1]['state'] == 'in_progress'
-    temp_dir = os.path.join(tempfile.gettempdir(), 'cachito-archives/bundles/temp/1')
-    mock_exists.assert_called_once_with(temp_dir)
-    mock_rmtree.assert_called_once_with(temp_dir)
+    mock_exists.assert_called_once()
+    mock_rmtree.assert_called_once_with(str(RequestBundleDir(request_id)))
 
 
 def test_set_pkg_managers(app, client, db, worker_auth_env):
@@ -528,8 +531,8 @@ def test_set_pkg_managers(app, client, db, worker_auth_env):
 
 
 @pytest.mark.parametrize('bundle_exists', (True, False))
-@mock.patch('os.path.exists')
-@mock.patch('os.remove')
+@mock.patch('pathlib.Path.exists')
+@mock.patch('pathlib.Path.unlink')
 def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, db, worker_auth_env):
     mock_exists.return_value = bundle_exists
     data = {
@@ -556,12 +559,7 @@ def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, d
     assert fetched_request['state'] == state
     assert fetched_request['state_reason'] == state_reason
     if bundle_exists:
-        mock_remove.assert_called_once_with(
-            os.path.join(
-                tempfile.gettempdir(),
-                'cachito-archives/bundles/1.tar.gz',
-            )
-        )
+        mock_remove.assert_called_once_with()
     else:
         mock_remove.assert_not_called()
 

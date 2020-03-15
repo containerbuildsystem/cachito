@@ -3,7 +3,9 @@ from datetime import datetime
 import functools
 import logging
 import os
+import os.path
 import re
+import shutil
 import tempfile
 
 import git
@@ -11,7 +13,8 @@ import semver
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
-from cachito.workers.pkg_managers.general import add_deps_to_bundle, run_cmd
+from cachito.workers.paths import RequestBundleDir
+from cachito.workers.pkg_managers.general import run_cmd
 
 __all__ = ['get_golang_version', 'resolve_gomod']
 
@@ -155,13 +158,18 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
             'version': module_version,
         }
 
+        bundle_dir = RequestBundleDir(request['id'])
+
         # Add the gomod cache to the bundle the user will later download
-        cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
-        src_cache_path = os.path.join(temp_dir, cache_path)
-        if not os.path.exists(src_cache_path):
-            os.makedirs(src_cache_path)
-        dest_cache_path = os.path.join('gomod', cache_path)
-        add_deps_to_bundle(src_cache_path, dest_cache_path, request['id'])
+        tmp_download_cache_dir = os.path.join(
+            temp_dir, RequestBundleDir.go_mod_cache_download_part)
+        if not os.path.exists(tmp_download_cache_dir):
+            os.makedirs(tmp_download_cache_dir, exist_ok=True)
+
+        log.debug('Adding dependencies from %s to %s',
+                  tmp_download_cache_dir, bundle_dir.gomod_download_dir)
+        shutil.copytree(tmp_download_cache_dir,
+                        str(bundle_dir.gomod_download_dir))
 
         return module, deps
 

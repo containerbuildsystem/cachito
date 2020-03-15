@@ -13,19 +13,6 @@ ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
 archive_path = f'/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz'
 
 
-@mock.patch('cachito.workers.tasks.celery.app')
-@mock.patch('os.makedirs')
-def test_archive_path(mock_makedirs, mock_celery_app):
-    path = '/tmp/cachito-archives'
-    mock_celery_app.conf.cachito_sources_dir = path
-    git_obj = scm.Git(url, ref)
-    assert git_obj.archives_dir == path
-    assert git_obj.archive_path == archive_path
-    mock_makedirs.assert_called_once_with(
-        '/tmp/cachito-archives/release-engineering/retrodep', exist_ok=True
-    )
-
-
 def test_repo_name():
     git_obj = scm.Git(url, ref)
     assert git_obj.repo_name == 'release-engineering/retrodep'
@@ -34,8 +21,7 @@ def test_repo_name():
 @mock.patch('tarfile.open')
 @mock.patch('tempfile.TemporaryDirectory')
 @mock.patch('git.repo.Repo.clone_from')
-@mock.patch('cachito.workers.scm.Git.archive_path', new_callable=mock.PropertyMock)
-def test_clone_and_archive(mock_archive_path, mock_clone, mock_temp_dir, mock_tarfile_open):
+def test_clone_and_archive(mock_clone, mock_temp_dir, mock_tarfile_open):
     # Mock the archive being created
     mock_tarfile = mock.Mock()
     mock_tarfile_open.return_value.__enter__.return_value = mock_tarfile
@@ -44,11 +30,11 @@ def test_clone_and_archive(mock_archive_path, mock_clone, mock_temp_dir, mock_ta
     mock_clone.return_value.commit.return_value = mock_commit
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'
-    # Mock the Git.archives_dir property
-    mock_archive_path.return_value = archive_path
 
     git_obj = scm.Git(url, ref)
-    git_obj.clone_and_archive()
+
+    with mock.patch.object(git_obj.sources_dir, 'archive_path', new=archive_path):
+        git_obj.clone_and_archive()
 
     # Verify the tempfile.TemporaryDirectory context manager was used
     mock_temp_dir.return_value.__enter__.assert_called_once()
@@ -78,53 +64,63 @@ def test_clone_and_archive_clone_failed(mock_git_clone, mock_temp_dir):
 
 @mock.patch('tempfile.TemporaryDirectory')
 @mock.patch('git.repo.Repo.clone_from')
-@mock.patch('cachito.workers.scm.Git.archive_path', new_callable=mock.PropertyMock)
-def test_clone_and_archive_checkout_failed(mock_archive_path, mock_git_clone, mock_temp_dir):
+def test_clone_and_archive_checkout_failed(mock_git_clone, mock_temp_dir):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = '/tmp/cachito-temp'
     # Mock the git calls
     mock_git_clone.return_value.commit.side_effect = git.GitCommandError('commit is invalid', 1)
-    # Mock the Git.archives_dir property
-    mock_archive_path.return_value = archive_path
 
     git_obj = scm.Git(url, ref)
     expected = (
         'Checking out the Git repository failed. Please verify the supplied reference of '
         f'"{ref}" is valid.'
     )
-    with pytest.raises(CachitoError, match=expected):
-        git_obj.clone_and_archive()
+    with mock.patch.object(git_obj.sources_dir, 'archive_path', new=archive_path):
+        with pytest.raises(CachitoError, match=expected):
+            git_obj.clone_and_archive()
 
 
-@mock.patch('os.makedirs')
-@mock.patch('os.path.exists', return_value=True)
 @mock.patch('tarfile.is_tarfile', return_value=True)
-@mock.patch('glob.glob')
-def test_fetch_source_archive_exists(mock_glob, mock_is_tarfile, mock_exists, mock_makedirs):
-    scm.Git(url, ref).fetch_source()
-    mock_glob.assert_not_called()
+def test_fetch_source_archive_exists(mock_is_tarfile):
+    scm_git = scm.Git(url, ref)
+
+    po = mock.patch.object
+    with po(scm_git.sources_dir.archive_path, 'exists', return_value=True):
+        with po(scm_git.sources_dir.package_dir, 'glob') as glob:
+            scm_git.fetch_source()
+            glob.assert_not_called()
 
 
-@mock.patch('os.path.exists', return_value=False)
-@mock.patch('glob.glob')
 @mock.patch('cachito.workers.scm.Git.clone_and_archive')
-def test_fetch_source_clone_is_needed(mock_clone_and_archive, mock_glob, mock_exists):
-    mock_glob.return_value = []
-    scm.Git(url, ref).fetch_source()
+def test_fetch_source_clone_if_no_archive_yet(mock_clone_and_archive):
+    scm_git = scm.Git(url, ref)
+
+    po = mock.patch.object
+    with po(scm_git.sources_dir.archive_path, 'exists', return_value=False):
+        with po(scm_git.sources_dir.package_dir, 'glob', return_value=[]):
+            scm_git.fetch_source()
+
     mock_clone_and_archive.assert_called_once()
 
 
-@mock.patch('os.path.exists', return_value=False)
 @mock.patch('os.path.getctime')
-@mock.patch('glob.glob')
 @mock.patch('cachito.workers.scm.Git.update_and_archive')
-def test_fetch_source_by_pull(mock_update_and_archive, mock_glob, mock_getctime, mock_exists):
+def test_fetch_source_by_pull(mock_update_and_archive, mock_getctime):
     mock_getctime.side_effect = [
         datetime(2020, 3, 1, 20, 0, 0).timestamp(),
         datetime(2020, 3, 4, 10, 13, 30).timestamp(),
     ]
-    mock_glob.return_value = ['29eh2a.tar.gz', 'a8c2d2.tar.gz']
-    scm.Git(url, ref).fetch_source()
+
+    scm_git = scm.Git(url, ref)
+
+    po = mock.patch.object
+    with po(scm_git.sources_dir.archive_path, 'exists', return_value=False):
+        with po(
+            scm_git.sources_dir.package_dir, 'glob',
+            return_value=['29eh2a.tar.gz', 'a8c2d2.tar.gz']
+        ):
+            scm_git.fetch_source()
+
     mock_update_and_archive.assert_called_once_with('a8c2d2.tar.gz')
 
 

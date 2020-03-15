@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
-import os
-import shutil
 
 from celery import chain
 import flask
@@ -16,7 +14,7 @@ from cachito.web.models import (
 )
 from cachito.web.utils import pagination_metadata, str_to_bool
 from cachito.workers import tasks
-
+from cachito.paths import RequestBundleDir
 
 api_v1 = flask.Blueprint('api_v1', __name__)
 
@@ -87,18 +85,23 @@ def download_archive(request_id):
         raise ValidationError(
             'The request must be in the "complete" state before downloading the archive')
 
-    if not os.path.exists(request.bundle_archive):
+    bundle_dir = RequestBundleDir(
+        request.id,
+        root=flask.current_app.config['CACHITO_BUNDLES_DIR'],
+    )
+
+    if not bundle_dir.bundle_archive_file.exists():
         flask.current_app.logger.error(
             'The bundle archive at %s for request %d doesn\'t exist',
-            request.bundle_archive, request_id,
+            bundle_dir.bundle_archive_file, request_id,
         )
         raise InternalServerError()
 
     flask.current_app.logger.debug(
         'Sending the bundle at %s for request %d',
-        request.bundle_archive, request_id,
+        bundle_dir.bundle_archive_file, request_id,
     )
-    return flask.send_file(request.bundle_archive, mimetype='application/gzip')
+    return flask.send_file(str(bundle_dir.bundle_archive_file), mimetype='application/gzip')
 
 
 @api_v1.route('/requests', methods=['POST'])
@@ -268,24 +271,27 @@ def patch_request(request_id):
             request.environment_variables.append(env_var_obj)
 
     db.session.commit()
-    if delete_bundle and os.path.exists(request.bundle_archive):
-        flask.current_app.logger.info('Deleting the bundle archive %s', request.bundle_archive)
-        try:
-            os.remove(request.bundle_archive)
-        except:  # noqa E722
-            flask.current_app.logger.exception(
-                'Failed to delete the bundle archive %s', request.bundle_archive)
 
-    if delete_bundle_temp and os.path.exists(request.bundle_temp_files):
-        flask.current_app.logger.debug(
-            'Deleting the temporary files used to create the bundle at %s',
-            request.bundle_temp_files,
-        )
+    bundle_dir = RequestBundleDir(
+        request.id, root=flask.current_app.config['CACHITO_BUNDLES_DIR'])
+
+    if delete_bundle and bundle_dir.bundle_archive_file.exists():
+        flask.current_app.logger.info(
+            'Deleting the bundle archive %s', bundle_dir.bundle_archive_file)
         try:
-            shutil.rmtree(request.bundle_temp_files)
+            bundle_dir.bundle_archive_file.unlink()
         except:  # noqa E722
             flask.current_app.logger.exception(
-                'Failed to delete the temporary files at %s', request.bundle_temp_files)
+                'Failed to delete the bundle archive %s', bundle_dir.bundle_archive_file)
+
+    if delete_bundle_temp and bundle_dir.exists():
+        flask.current_app.logger.debug(
+            'Deleting the temporary files used to create the bundle at %s', bundle_dir)
+        try:
+            bundle_dir.rmtree()
+        except:  # noqa E722
+            flask.current_app.logger.exception(
+                'Failed to delete the temporary files at %s', bundle_dir)
 
     if current_user.is_authenticated:
         flask.current_app.logger.info(

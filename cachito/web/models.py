@@ -2,7 +2,6 @@
 from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
-import os
 import re
 
 import flask
@@ -367,28 +366,6 @@ class Request(db.Model):
             mapping.replaced_dependency_id = replaced_dependency.id
 
         db.session.add(mapping)
-
-    @property
-    def bundle_archive(self):
-        """
-        Get the path to the request's bundle archive.
-
-        :return: the path to the request's bundle archive
-        :rtype: str
-        """
-        cachito_bundles_dir = flask.current_app.config['CACHITO_BUNDLES_DIR']
-        return os.path.join(cachito_bundles_dir, f'{self.id}.tar.gz')
-
-    @property
-    def bundle_temp_files(self):
-        """
-        Get the path to the request's temporary files used to create the bundle archive.
-
-        :return: the path to the temporary files
-        :rtype: str
-        """
-        cachito_bundles_dir = flask.current_app.config['CACHITO_BUNDLES_DIR']
-        return os.path.join(cachito_bundles_dir, 'temp', str(self.id))
 
     @property
     def dependencies_count(self):

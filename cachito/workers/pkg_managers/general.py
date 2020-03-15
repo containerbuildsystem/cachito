@@ -1,17 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
-import os
-import shutil
 import subprocess
 
 import requests
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
-from cachito.workers.utils import get_request_bundle_dir
 
 __all__ = [
-    'add_deps_to_bundle',
     'run_cmd',
     'update_request_with_deps',
     'update_request_with_packages',
@@ -111,25 +107,6 @@ def update_request_with_packages(request_id, packages, pkg_manager=None, env_var
             rv.text,
         )
         raise CachitoError(f'Setting the packages on request {request_id} failed')
-
-
-def add_deps_to_bundle(src_deps_path, dest_cache_path, request_id):
-    """
-    Add the dependencies to a directory that will be part of the bundle archive.
-
-    :param str src_deps_path: the path to the dependencies to add to the bundle archive
-    :param str dest_cache_path: the relative path in the "deps" directory in the bundle to add the
-        content of src_deps_path to
-    :param int request_id: the request the bundle is for
-    """
-    deps_path = os.path.join(get_request_bundle_dir(request_id), 'deps')
-    if not os.path.exists(deps_path):
-        log.debug('Creating %s', deps_path)
-        os.makedirs(deps_path, exist_ok=True)
-
-    dest_deps_path = os.path.join(deps_path, dest_cache_path)
-    log.debug('Adding dependencies from %s to %s', src_deps_path, dest_deps_path)
-    shutil.copytree(src_deps_path, dest_deps_path)
 
 
 def run_cmd(cmd, params, exc_msg=None):

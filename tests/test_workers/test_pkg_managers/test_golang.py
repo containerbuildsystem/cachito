@@ -8,7 +8,7 @@ import pytest
 
 from cachito.workers.pkg_managers import get_golang_version, resolve_gomod
 from cachito.errors import CachitoError
-
+from cachito.workers.paths import RequestBundleDir
 
 url = 'https://github.com/release-engineering/retrodep.git'
 ref = 'c50b93a32df1c9d700e3e80996845bc2e13be848'
@@ -54,14 +54,13 @@ def _generate_mock_cmd_output(error_pkg='github.com/pkg/errors v1.0.0'):
     )
 ))
 @mock.patch('cachito.workers.pkg_managers.golang.get_golang_version')
-@mock.patch('cachito.workers.pkg_managers.golang.add_deps_to_bundle')
 @mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
-@mock.patch('os.path.exists')
+@mock.patch('shutil.copytree')
 def test_resolve_gomod(
-    mock_path_exists, mock_run, mock_temp_dir, mock_add_deps, mock_golang_version, dep_replacement,
-    go_list_error_pkg, expected_replace, tmpdir, sample_deps, sample_deps_replace,
-    sample_deps_replace_new_name, sample_package,
+    mock_copytree, mock_run, mock_temp_dir, mock_golang_version,
+    dep_replacement, go_list_error_pkg, expected_replace,
+    tmpdir, sample_deps, sample_deps_replace, sample_deps_replace_new_name, sample_package,
 ):
     mock_cmd_output = _generate_mock_cmd_output(go_list_error_pkg)
     # Mock the tempfile.TemporaryDirectory context manager
@@ -79,7 +78,6 @@ def test_resolve_gomod(
     ])
     mock_run.side_effect = run_side_effects
     mock_golang_version.return_value = 'v2.1.1'
-    mock_path_exists.return_value = True
 
     archive_path = '/this/is/path/to/archive.tar.gz'
     request = {'id': 3, 'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848'}
@@ -99,28 +97,31 @@ def test_resolve_gomod(
 
     assert module == sample_package
     assert resolved_deps == expected_deps
-    mock_add_deps.assert_called_once()
-    assert mock_add_deps.call_args[0][0].endswith('pkg/mod/cache/download')
-    assert mock_add_deps.call_args[0][1] == 'gomod/pkg/mod/cache/download'
-    assert mock_add_deps.call_args[0][2] == 3
+
+    mock_copytree.assert_called_once_with(
+        os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
+        str(RequestBundleDir(request['id']).gomod_download_dir))
 
 
 @mock.patch('cachito.workers.pkg_managers.golang.get_golang_version')
-@mock.patch('cachito.workers.pkg_managers.golang.add_deps_to_bundle')
 @mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
 @mock.patch('subprocess.run')
-@mock.patch('os.path.exists')
 @mock.patch('os.makedirs')
+@mock.patch('os.path.exists')
+@mock.patch('shutil.copytree')
 def test_resolve_gomod_no_deps(
+    mock_copytree,
+    mock_exists,
     mock_makedirs,
-    mock_path_exists,
     mock_run,
     mock_temp_dir,
-    mock_add_deps,
     mock_golang_version,
     tmpdir,
     sample_package,
 ):
+    # Ensure to create the gomod download cache directory
+    mock_exists.return_value = False
+
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
 
@@ -132,7 +133,6 @@ def test_resolve_gomod_no_deps(
         mock.Mock(returncode=0, stdout='github.com/release-engineering/retrodep/v2'),
     ]
     mock_golang_version.return_value = 'v2.1.1'
-    mock_path_exists.return_value = False
 
     archive_path = '/this/is/path/to/archive.tar.gz'
     request = {'id': 3, 'ref': 'c50b93a32df1c9d700e3e80996845bc2e13be848'}
@@ -140,8 +140,18 @@ def test_resolve_gomod_no_deps(
 
     assert module == sample_package
     assert not resolved_deps
-    mock_makedirs.assert_called_once()
-    mock_add_deps.assert_called_once()
+
+    # The second one ensures the source cache directory exists
+    mock_makedirs.assert_called_once_with(
+        os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
+        exist_ok=True
+    )
+
+    bundle_dir = RequestBundleDir(request['id'])
+    mock_copytree.assert_called_once_with(
+        os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
+        str(bundle_dir.gomod_download_dir)
+    )
 
 
 @mock.patch('cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory')
