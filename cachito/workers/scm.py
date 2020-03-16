@@ -139,11 +139,14 @@ class Git(SCM):
         """
         with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
             log.debug('Cloning the Git repository from %s', self.url)
-            # Don't allow git to prompt for a username if we don't have access
-            os.environ['GIT_TERMINAL_PROMPT'] = '0'
             clone_path = os.path.join(temp_dir, 'repo')
             try:
-                repo = git.repo.Repo.clone_from(self.url, clone_path, no_checkout=True)
+                repo = git.repo.Repo.clone_from(
+                    self.url, clone_path,
+                    no_checkout=True,
+                    # Don't allow git to prompt for a username if we don't have access
+                    env={'GIT_TERMINAL_PROMPT': '0'}
+                )
             except:  # noqa E722
                 log.exception('Cloning the Git repository from %s failed', self.url)
                 raise CachitoError('Cloning the Git repository failed')

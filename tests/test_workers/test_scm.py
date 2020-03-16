@@ -53,7 +53,10 @@ def test_clone_and_archive(mock_archive_path, mock_clone, mock_temp_dir, mock_ta
     # Verify the tempfile.TemporaryDirectory context manager was used
     mock_temp_dir.return_value.__enter__.assert_called_once()
     # Verify the repo was cloned and checked out properly
-    mock_clone.assert_called_once_with(url, '/tmp/cachito-temp/repo', no_checkout=True)
+    mock_clone.assert_called_once_with(
+        url, '/tmp/cachito-temp/repo',
+        no_checkout=True, env={'GIT_TERMINAL_PROMPT': '0'}
+    )
     assert mock_clone.return_value.head.reference == mock_commit
     mock_clone.return_value.head.reset.assert_called_once_with(index=True, working_tree=True)
     # Verfiy the archive was created
