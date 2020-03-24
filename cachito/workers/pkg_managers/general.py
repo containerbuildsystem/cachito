@@ -10,44 +10,45 @@ from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 from cachito.workers.utils import get_request_bundle_dir
 
-__all__ = ['add_deps_to_bundle', 'run_cmd', 'update_request_with_deps']
+__all__ = [
+    'add_deps_to_bundle',
+    'run_cmd',
+    'update_request_with_deps',
+    'update_request_with_packages',
+]
 
 log = logging.getLogger(__name__)
 
 
-def update_request_with_deps(request_id, deps, env_vars=None, pkg_manager=None, packages=None):
+def _get_request_url(request_id):
+    """
+    Get the API URL for the Cachito request.
+
+    :param int request_id: the request ID to use when constructing the API URL
+    :return: the API URL of the Cachito request
+    :rtype: str
+    """
+    config = get_worker_config()
+    return f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+
+
+def update_request_with_deps(request_id, deps):
     """
     Update the Cachito request with the resolved dependencies.
 
     :param int request_id: the ID of the Cachito request
     :param list deps: the list of dependency dictionaries to record
-    :param dict env_vars: mapping of environment variables to record
-    :param str pkg_manager: a package manager to add to the request if auto-detection was used
-    :param list packages: the list of packages that were resolved
     :raise CachitoError: if the request to the Cachito API fails
     """
     # Import this here to avoid a circular import
     from cachito.workers.requests import requests_auth_session
     config = get_worker_config()
-    request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+    request_url = _get_request_url(request_id)
 
     log.info('Adding %d dependencies to request %d', len(deps), request_id)
     for index in range(0, len(deps), config.cachito_deps_patch_batch_size):
         batch_upper_limit = index + config.cachito_deps_patch_batch_size
         payload = {'dependencies': deps[index:batch_upper_limit]}
-        if index == 0:
-            if env_vars:
-                log.info('Adding environment variables to the request %d: %s', request_id, env_vars)
-                payload['environment_variables'] = env_vars
-            if pkg_manager:
-                log.info(
-                    'Adding the package manager "%s" to the request %d',
-                    pkg_manager, request_id,
-                )
-                payload['pkg_managers'] = [pkg_manager]
-            if packages:
-                log.info('Adding the packages "%s" to the request %d', packages, request_id)
-                payload['packages'] = packages
         try:
             log.info('Patching deps {} through {} out of {}'.format(
                 index + 1, min(batch_upper_limit, len(deps)), len(deps)))
@@ -65,6 +66,51 @@ def update_request_with_deps(request_id, deps, env_vars=None, pkg_manager=None, 
                 request_id, rv.status_code, rv.text,
             )
             raise CachitoError(f'Setting the dependencies on request {request_id} failed')
+
+
+def update_request_with_packages(request_id, packages, pkg_manager=None, env_vars=None):
+    """
+    Update the request with the resolved packages and corresponding metadata.
+
+    :param list packages: the list of packages that were resolved
+    :param dict env_vars: mapping of environment variables to record
+    :param str pkg_manager: a package manager to add to the request if auto-detection was used
+    :raise CachitoError: if the request to the Cachito API fails
+    """
+    log.info('Adding the packages "%r" to the request %d', packages, request_id)
+    payload = {'packages': packages}
+
+    if pkg_manager:
+        log.info('Also adding the package manager "%s" to the request %d', pkg_manager, request_id)
+        payload['pkg_managers'] = [pkg_manager]
+
+    if env_vars:
+        log.info('Also adding environment variables to the request %d: %s', request_id, env_vars)
+        payload['environment_variables'] = env_vars
+
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_auth_session
+    config = get_worker_config()
+    request_url = _get_request_url(request_id)
+
+    try:
+        rv = requests_auth_session.patch(
+            request_url, json=payload, timeout=config.cachito_api_timeout
+        )
+    except requests.RequestException:
+        msg = f'The connection failed when adding packages to the request {request_id}'
+        log.exception(msg)
+        raise CachitoError(msg)
+
+    if not rv.ok:
+        log.error(
+            'The worker failed to add packages to the request %d. The status was %d. '
+            'The text was:\n%s',
+            request_id,
+            rv.status_code,
+            rv.text,
+        )
+        raise CachitoError(f'Setting the packages on request {request_id} failed')
 
 
 def add_deps_to_bundle(src_deps_path, dest_cache_path, request_id):

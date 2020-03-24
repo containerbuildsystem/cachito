@@ -3,7 +3,9 @@ import logging
 import os
 
 from cachito.errors import CachitoError
-from cachito.workers.pkg_managers import resolve_gomod, update_request_with_deps
+from cachito.workers.pkg_managers import (
+    resolve_gomod, update_request_with_deps, update_request_with_packages
+)
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.utils import get_request_bundle_dir
@@ -41,4 +43,5 @@ def fetch_gomod_source(request_id, auto_detect=False, dep_replacements=None):
     env_vars = {}
     if len(deps):
         env_vars['GOPATH'] = env_vars['GOCACHE'] = 'deps/gomod'
-    update_request_with_deps(request_id, deps, env_vars, 'gomod', [module])
+    update_request_with_packages(request_id, [module], 'gomod', env_vars)
+    update_request_with_deps(request_id, deps)
