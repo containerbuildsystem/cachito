@@ -58,13 +58,14 @@ def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state):
     (True, True, False, [{'name': 'github.com/pkg/errors', 'type': 'gomod', 'version': 'v0.8.1'}]),
 ))
 @mock.patch('cachito.workers.tasks.golang.os.path.exists')
+@mock.patch('cachito.workers.tasks.golang.update_request_with_packages')
 @mock.patch('cachito.workers.tasks.golang.update_request_with_deps')
 @mock.patch('cachito.workers.tasks.golang.set_request_state')
 @mock.patch('cachito.workers.tasks.golang.resolve_gomod')
 def test_fetch_gomod_source(
     mock_resolve_gomod, mock_set_request_state, mock_update_request_with_deps,
-    mock_path_exists, auto_detect, contains_go_mod, dep_replacements, expect_state_update,
-    sample_deps_replace, sample_package, sample_env_vars,
+    mock_update_request_with_packages, mock_path_exists, auto_detect, contains_go_mod,
+    dep_replacements, expect_state_update, sample_deps_replace, sample_package, sample_env_vars,
 ):
     mock_request = mock.Mock()
     mock_set_request_state.return_value = mock_request
@@ -76,8 +77,10 @@ def test_fetch_gomod_source(
     if expect_state_update:
         mock_set_request_state.assert_called_once_with(
             1, 'in_progress', 'Fetching the golang dependencies')
-        mock_update_request_with_deps.assert_called_once_with(
-            1, sample_deps_replace, sample_env_vars, 'gomod', [sample_package])
+        mock_update_request_with_packages.assert_called_once_with(
+            1, [sample_package], 'gomod', sample_env_vars
+        )
+        mock_update_request_with_deps.assert_called_once_with(1, sample_deps_replace)
 
     if auto_detect:
         mock_path_exists.assert_called_once_with(
