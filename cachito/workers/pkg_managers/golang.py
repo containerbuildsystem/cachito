@@ -158,6 +158,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
         # Add the gomod cache to the bundle the user will later download
         cache_path = os.path.join('pkg', 'mod', 'cache', 'download')
         src_cache_path = os.path.join(temp_dir, cache_path)
+        if not os.path.exists(src_cache_path):
+            os.makedirs(src_cache_path)
         dest_cache_path = os.path.join('gomod', cache_path)
         add_deps_to_bundle(src_cache_path, dest_cache_path, request['id'])
 

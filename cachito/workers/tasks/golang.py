@@ -40,8 +40,9 @@ def fetch_gomod_source(request_id, auto_detect=False, dep_replacements=None):
         log.exception('Failed to fetch gomod dependencies for request %d', request_id)
         raise
 
-    env_vars = {}
-    if len(deps):
-        env_vars['GOPATH'] = env_vars['GOCACHE'] = 'deps/gomod'
+    env_vars = {
+        'GOCACHE': 'deps/gomod',
+        'GOPATH': 'deps/gomod',
+    }
     update_request_with_packages(request_id, [module], 'gomod', env_vars)
     update_request_with_deps(request_id, deps)
