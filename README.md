@@ -7,6 +7,26 @@ Caching service for source code
 The codebase conforms to the style enforced by `flake8` with the following exceptions:
 * The maximum line length allowed is 100 characters instead of 80 characters
 
+In addition to `flake8`, docstrings are also enforced by the plugin `flake8-docstrings` with
+the following exceptions:
+* D100: Missing docstring in public module
+* D104: Missing docstring in public package
+* D105: Missing docstring in magic method
+
+The format of the docstrings should be in the
+[reStructuredText](https://docs.python-guide.org/writing/documentation/#restructuredtext-ref) style
+such as:
+```
+Set the state of the request using the Cachito API.
+
+:param int request_id: the ID of the Cachito request
+:param str state: the state to set the Cachito request to
+:param str state_reason: the state reason to set the Cachito request to
+:return: the updated request
+:rtype: dict
+:raise CachitoError: if the request to the Cachito API fails
+```
+
 Additionally, `black` is used to enforce other coding standards.
 
 To verify that your code meets these standards, you may run `tox -e black,flake8`.

@@ -32,9 +32,7 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
     """
 
     def __exit__(self, exc, value, tb):
-        """
-        Clean up temporary directory by first cleaning up the Go cache.
-        """
+        """Clean up the temporary directory by first cleaning up the Go cache."""
         try:
             env = {"GOPATH": self.name, "GOCACHE": self.name}
             run_gomod_cmd(("go", "clean", "-modcache"), {"env": env})

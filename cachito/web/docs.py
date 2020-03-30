@@ -7,4 +7,5 @@ docs = Blueprint("docs", __name__)
 
 @docs.route("/", methods=["GET"])
 def index():
+    """Return the OpenAPI documentation presented by redoc."""
     return send_from_directory("static", "docs.html")

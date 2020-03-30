@@ -22,6 +22,7 @@ class RequestBundleDir(type(Path())):
     go_mod_cache_download_part = Path("pkg", "mod", "cache", "download")
 
     def __new__(cls, request_id, root):
+        """Create a new Path object."""
         self = super().__new__(cls, root, "temp", str(request_id))
 
         self.source_dir = self.joinpath("app")

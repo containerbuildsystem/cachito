@@ -21,10 +21,7 @@ payload = {"state": state, "state_reason": state_reason}
 
 
 def main():
-    """
-    Get all completed requests from the Cachito API, identify the stale ones,
-    and mark them as stale using the API.
-    """
+    """Mark all stale completed requests as stale using the REST API."""
     url = config.cachito_api_url.rstrip("/") + "/requests?state=complete"
     while True:
         json_response = get_completed_requests(url)
@@ -37,7 +34,7 @@ def main():
 
 def get_completed_requests(url):
     """
-    Get one page of completed requests from the Cachito API
+    Get one page of completed requests from the Cachito API.
 
     :param str url: the URL to fetch the Cachito requests from
     :raise CachitoError: if the request to the Cachito API fails

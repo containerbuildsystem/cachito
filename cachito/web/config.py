@@ -71,7 +71,6 @@ def validate_cachito_config(config, cli=False):
     :param bool cli: a boolean that denotes if the configuration should be validated for the CLI
     :raises ConfigError: if the configuration is invalid
     """
-
     # Validate the required config variables
     for config_var in (
         "CACHITO_LOG_LEVEL",

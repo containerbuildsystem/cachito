@@ -37,16 +37,12 @@ class SCM(ABC):
 
     @abstractmethod
     def fetch_source(self):
-        """
-        Fetch the repo, create a compressed tar file, and put it in long-term storage.
-        """
+        """Fetch the repo, create a compressed tar file, and put it in long-term storage."""
 
     @property
     @abstractmethod
     def repo_name(self):
-        """
-        Determine the repo name based on the URL
-        """
+        """Determine the repo name based on the URL."""
 
 
 class Git(SCM):
@@ -105,8 +101,7 @@ class Git(SCM):
 
     def update_and_archive(self, previous_archive):
         """
-        Pull the latest Git history inside an existing archive and create the
-        compressed source archive.
+        Update the existing Git history and create a source archive.
 
         :param str previous_archive: path to an archive file created before.
         :raises CachitoError: if pulling the Git history from the remote repo or
@@ -127,9 +122,7 @@ class Git(SCM):
             self._create_archive(repo.working_dir)
 
     def fetch_source(self):
-        """
-        Fetch the repo, create a compressed tar file, and put it in long-term storage.
-        """
+        """Fetch the repo, create a compressed tar file, and put it in long-term storage."""
         # If it already exists and isn't corrupt, don't download it again
         archive_path = self.sources_dir.archive_path
         if archive_path.exists() and tarfile.is_tarfile(archive_path):
@@ -152,9 +145,7 @@ class Git(SCM):
 
     @property
     def repo_name(self):
-        """
-        Determine the repo name based on the URL
-        """
+        """Determine the repo name based on the URL."""
         if not self._repo_name:
             parsed_url = urllib.parse.urlparse(self.url)
             repo = parsed_url.path.strip("/")

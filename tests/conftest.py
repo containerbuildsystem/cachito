@@ -23,7 +23,7 @@ def app_no_auth(request):
 
 
 def _make_app(request, config):
-    """Helper method to create an application for the given config name"""
+    """Create an application for the given config name."""
     app = create_app(config)
     # Establish an application context before running the tests. This allows the use of
     # Flask-SQLAlchemy in the test setup.
@@ -64,7 +64,7 @@ def client_no_auth(app_no_auth):
 
 @pytest.fixture()
 def db(app, tmpdir):
-    """Yields a DB with required app tables but with no records."""
+    """Yield a DB with required app tables but with no records."""
     # Clear the database for each test to ensure tests are idempotent.
     try:
         os.remove(TEST_DB_FILE)
