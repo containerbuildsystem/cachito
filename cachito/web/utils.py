@@ -5,6 +5,7 @@ from flask import request, url_for
 def pagination_metadata(pagination_query, **kwargs):
     """
     Return a dictionary containing metadata about the paginated query.
+
     This must be run as part of a Flask request.
 
     :param pagination_query: flask_sqlalchemy.Pagination object

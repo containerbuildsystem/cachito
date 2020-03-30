@@ -48,9 +48,7 @@ request_flag_table = db.Table(
 
 
 class RequestStateMapping(Enum):
-    """
-    An Enum that represents the request states.
-    """
+    """An Enum that represents the request states."""
 
     in_progress = 1
     complete = 2
@@ -107,6 +105,13 @@ class Package(db.Model):
 
     @classmethod
     def from_json(cls, package):
+        """
+        Create a Package object from JSON.
+
+        :param dict package: the dictionary representing the package
+        :return: the Package object
+        :rtype: Package
+        """
         cls.validate_json(package)
         return cls(**package)
 
@@ -386,6 +391,13 @@ class Request(db.Model):
         )
 
     def to_json(self, verbose=True):
+        """
+        Generate the JSON representation of the request.
+
+        :param bool verbose: determines if the JSON should have verbose details
+        :return: the JSON representation of the request
+        :rtype: dict
+        """
         pkg_managers = [pkg_manager.to_json() for pkg_manager in self.pkg_managers]
         user = None
         # If auth is disabled, there will not be a user associated with this request
@@ -446,6 +458,13 @@ class Request(db.Model):
 
     @classmethod
     def from_json(cls, kwargs):
+        """
+        Create a Request object from JSON.
+
+        :param dict kwargs: the dictionary representing the request
+        :return: the Request object
+        :rtype: Request
+        """
         # Validate all required parameters are present
         required_params = {"repo", "ref"}
         optional_params = {"dependency_replacements", "flags", "pkg_managers", "user"}
@@ -556,14 +575,29 @@ class Request(db.Model):
 
 
 class PackageManager(db.Model):
+    """A package manager that Cachito supports."""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
 
     def to_json(self):
+        """
+        Generate the JSON representation of the package manager.
+
+        :return: the JSON representation of the package manager.
+        :rtype: str
+        """
         return self.name
 
     @classmethod
     def from_json(cls, name):
+        """
+        Create a PackageManager object from JSON.
+
+        :param str name: the name of the package manager
+        :return: the PackageManager object
+        :rtype: PackageManager
+        """
         return cls(name=name)
 
     @classmethod
@@ -591,6 +625,8 @@ class PackageManager(db.Model):
 
 
 class RequestState(db.Model):
+    """Represents a state (historical or present) of a request."""
+
     id = db.Column(db.Integer, primary_key=True)
     state = db.Column(db.Integer, nullable=False)
     state_reason = db.Column(db.String, nullable=False)
@@ -611,6 +647,8 @@ class RequestState(db.Model):
 
 
 class EnvironmentVariable(db.Model):
+    """An environment variable that the consumer of the request should set."""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     value = db.Column(db.String, nullable=False)
@@ -619,19 +657,42 @@ class EnvironmentVariable(db.Model):
 
     @classmethod
     def validate_json(cls, name, value):
+        """
+        Validate the input environment variable.
+
+        :param str name: the environment variable name
+        :param str value: the environment variable value
+        :raises ValidationError: if the environment variable is invalid
+        """
         if not isinstance(value, str):
             raise ValidationError("The value of environment variables must be a string")
 
     @classmethod
     def from_json(cls, name, value):
+        """
+        Create an EnvironmentVariable object from JSON.
+
+        :param str name: the environment variable name
+        :param str value: the environment variable value
+        :return: the EnvironmentVariable object
+        :rtype: EnvironmentVariable
+        """
         cls.validate_json(name, value)
         return cls(name=name, value=value)
 
     def to_json(self):
+        """
+        Generate the JSON representation of the EnvironmentVariable.
+
+        :return: the JSON representation of the Environment Variable.
+        :rtype: tuple
+        """
         return self.name, self.value
 
 
 class User(db.Model, UserMixin):
+    """Represents an external user that owns a Cachito request."""
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, index=True, unique=True, nullable=False)
     requests = db.relationship("Request", foreign_keys=[Request.user_id], back_populates="user")
@@ -655,6 +716,8 @@ class User(db.Model, UserMixin):
 
 
 class Flag(db.Model):
+    """A flag to enable a feature on the Cachito request."""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     active = db.Column(db.Boolean, nullable=False, default=True)
@@ -663,7 +726,20 @@ class Flag(db.Model):
 
     @classmethod
     def from_json(cls, name):
+        """
+        Create a Flag object from JSON.
+
+        :param str name: the flag name
+        :return: the Flag object
+        :rtype: Flag
+        """
         return cls(name=name)
 
     def to_json(self):
+        """
+        Generate the JSON representation of the Flag.
+
+        :return: the JSON representation of the Flag.
+        :rtype: str
+        """
         return self.name

@@ -132,6 +132,7 @@ def validate_celery_config(conf, **kwargs):
 
 
 def get_worker_config():
+    """Get the Celery worker configuration."""
     # Import this here to avoid a circular import
     import cachito.workers.tasks.celery
 

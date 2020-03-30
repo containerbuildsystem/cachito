@@ -11,8 +11,9 @@ log = logging.getLogger(__name__)
 
 class RequestBundleDir(paths.RequestBundleDir):
     """
-    Represents a concrete request bundle directory used on worker whose root
-    directory defaults to ``cachito_bundles_dir`` in config.
+    Represents a concrete request bundle directory used on the worker.
+
+    The root directory is set to the ``cachito_bundles_dir`` configuration.
 
     By default, this request bundle directory and its dependency directory will
     be created when this object is instantiated.
@@ -21,6 +22,7 @@ class RequestBundleDir(paths.RequestBundleDir):
     """
 
     def __new__(cls, request_id):
+        """Create a new Path object."""
         root_dir = get_worker_config().cachito_bundles_dir
         self = super().__new__(cls, request_id, root_dir)
 
@@ -35,8 +37,9 @@ class RequestBundleDir(paths.RequestBundleDir):
 # correct type for Linux or Windows individually.
 class SourcesDir(type(pathlib.Path())):
     """
-    Represents a sources directory tree for a package, which will be created
-    automatically when this object is instantiated.
+    Represents a sources directory tree for a package.
+
+    The directory will be created automatically when this object is instantiated.
 
     :param str repo_name: a namespaced repository name of package. For example,
         ``release-engineering/retrodep``.
@@ -44,6 +47,7 @@ class SourcesDir(type(pathlib.Path())):
     """
 
     def __new__(cls, repo_name, ref):
+        """Create a new Path object."""
         self = super().__new__(cls, get_worker_config().cachito_sources_dir)
 
         repo_relative_dir = pathlib.Path(*repo_name.split("/"))
