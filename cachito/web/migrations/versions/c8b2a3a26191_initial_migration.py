@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'c8b2a3a26191'
+revision = "c8b2a3a26191"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -17,83 +17,81 @@ depends_on = None
 
 def upgrade():
     pkg_manager_table = op.create_table(
-        'package_manager',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(), nullable=False),
-        sa.PrimaryKeyConstraint('id')
+        "package_manager",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
     )
 
     op.create_table(
-        'user',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('username', sa.String(), nullable=False),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('username'),
+        "user",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("username", sa.String(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("username"),
     )
 
     op.create_table(
-        'request',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('repo', sa.String(), nullable=False),
-        sa.Column('ref', sa.String(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.ForeignKeyConstraint(['user_id'], ['user.id']),
+        "request",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("repo", sa.String(), nullable=False),
+        sa.Column("ref", sa.String(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["user_id"], ["user.id"]),
     )
 
     op.create_table(
-        'request_pkg_manager',
-        sa.Column('request_id', sa.Integer(), nullable=False),
-        sa.Column('pkg_manager_id', sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(['pkg_manager_id'], ['package_manager.id'], ),
-        sa.ForeignKeyConstraint(['request_id'], ['request.id'], ),
-        sa.UniqueConstraint('request_id', 'pkg_manager_id'),
+        "request_pkg_manager",
+        sa.Column("request_id", sa.Integer(), nullable=False),
+        sa.Column("pkg_manager_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(["pkg_manager_id"], ["package_manager.id"]),
+        sa.ForeignKeyConstraint(["request_id"], ["request.id"]),
+        sa.UniqueConstraint("request_id", "pkg_manager_id"),
     )
 
     # Insert supported pkg managers
-    op.bulk_insert(pkg_manager_table, [
-        {'name': 'gomod'},
-    ])
+    op.bulk_insert(pkg_manager_table, [{"name": "gomod"}])
 
     op.create_table(
-        'request_state',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('state', sa.Integer(), nullable=False),
-        sa.Column('state_reason', sa.String(), nullable=False),
-        sa.Column('updated', sa.DateTime(), nullable=False),
-        sa.Column('request_id', sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(['request_id'], ['request.id']),
-        sa.PrimaryKeyConstraint('id'),
+        "request_state",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("state", sa.Integer(), nullable=False),
+        sa.Column("state_reason", sa.String(), nullable=False),
+        sa.Column("updated", sa.DateTime(), nullable=False),
+        sa.Column("request_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(["request_id"], ["request.id"]),
+        sa.PrimaryKeyConstraint("id"),
     )
 
     op.create_table(
-        'dependency',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(), nullable=False),
-        sa.Column('type', sa.String(), nullable=False),
-        sa.Column('version', sa.String(), nullable=False),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('name', 'type', 'version'),
+        "dependency",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
+        sa.Column("type", sa.String(), nullable=False),
+        sa.Column("version", sa.String(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("name", "type", "version"),
     )
 
     op.create_table(
-        'request_dependency',
-        sa.Column('request_id', sa.Integer(), nullable=False),
-        sa.Column('dependency_id', sa.Integer(), nullable=False),
+        "request_dependency",
+        sa.Column("request_id", sa.Integer(), nullable=False),
+        sa.Column("dependency_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
-            ['dependency_id'], ['dependency.id'], 'request_dependency_request_id_fkey'
+            ["dependency_id"], ["dependency.id"], "request_dependency_request_id_fkey"
         ),
         sa.ForeignKeyConstraint(
-            ['request_id'], ['request.id'], 'request_dependency_dependency_id_fkey'
+            ["request_id"], ["request.id"], "request_dependency_dependency_id_fkey"
         ),
-        sa.UniqueConstraint('request_id', 'dependency_id'),
+        sa.UniqueConstraint("request_id", "dependency_id"),
     )
 
 
 def downgrade():
-    op.drop_table('request_pkg_manager')
-    op.drop_table('package_manager')
-    op.drop_table('request_state')
-    op.drop_table('request_dependency')
-    op.drop_table('dependency')
-    op.drop_table('request')
+    op.drop_table("request_pkg_manager")
+    op.drop_table("package_manager")
+    op.drop_table("request_state")
+    op.drop_table("request_dependency")
+    op.drop_table("dependency")
+    op.drop_table("request")

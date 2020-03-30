@@ -65,7 +65,7 @@ class Git(SCM):
         except:  # noqa E722
             log.exception('Checking out the Git ref "%s" failed', self.ref)
             raise CachitoError(
-                'Checking out the Git repository failed. Please verify the supplied reference '
+                "Checking out the Git repository failed. Please verify the supplied reference "
                 f'of "{self.ref}" is valid.'
             )
 
@@ -75,9 +75,9 @@ class Git(SCM):
 
         :param str from_dir: path to a directory from where to create the archive.
         """
-        log.debug('Creating the archive at %s', self.sources_dir.archive_path)
-        with tarfile.open(self.sources_dir.archive_path, mode='w:gz') as bundle_archive:
-            bundle_archive.add(from_dir, 'app')
+        log.debug("Creating the archive at %s", self.sources_dir.archive_path)
+        with tarfile.open(self.sources_dir.archive_path, mode="w:gz") as bundle_archive:
+            bundle_archive.add(from_dir, "app")
 
     def clone_and_archive(self):
         """
@@ -85,19 +85,20 @@ class Git(SCM):
 
         :raises CachitoError: if cloning the repository fails or if the archive can't be created
         """
-        with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
-            log.debug('Cloning the Git repository from %s', self.url)
-            clone_path = os.path.join(temp_dir, 'repo')
+        with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
+            log.debug("Cloning the Git repository from %s", self.url)
+            clone_path = os.path.join(temp_dir, "repo")
             try:
                 repo = git.repo.Repo.clone_from(
-                    self.url, clone_path,
+                    self.url,
+                    clone_path,
                     no_checkout=True,
                     # Don't allow git to prompt for a username if we don't have access
-                    env={'GIT_TERMINAL_PROMPT': '0'}
+                    env={"GIT_TERMINAL_PROMPT": "0"},
                 )
             except:  # noqa E722
-                log.exception('Cloning the Git repository from %s failed', self.url)
-                raise CachitoError('Cloning the Git repository failed')
+                log.exception("Cloning the Git repository from %s failed", self.url)
+                raise CachitoError("Cloning the Git repository failed")
 
             self._reset_git_head(repo)
             self._create_archive(repo.working_dir)
@@ -111,16 +112,16 @@ class Git(SCM):
         :raises CachitoError: if pulling the Git history from the remote repo or
             the checkout of the target Git ref fails.
         """
-        with tempfile.TemporaryDirectory(prefix='cachito-') as temp_dir:
-            with tarfile.open(previous_archive, mode='r:gz') as tar:
+        with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
+            with tarfile.open(previous_archive, mode="r:gz") as tar:
                 tar.extractall(temp_dir)
 
-            repo = git.Repo(os.path.join(temp_dir, 'app'))
+            repo = git.Repo(os.path.join(temp_dir, "app"))
             try:
                 repo.remote().fetch()
             except:  # noqa E722
-                log.exception('Failed to fetch from remote %s', self.url)
-                raise CachitoError('Failed to fetch from the remote Git repository')
+                log.exception("Failed to fetch from remote %s", self.url)
+                raise CachitoError("Failed to fetch from the remote Git repository")
 
             self._reset_git_head(repo)
             self._create_archive(repo.working_dir)
@@ -141,9 +142,7 @@ class Git(SCM):
         # schedules current task. The only reason for finding out such a file is
         # to access the git history. So, anyone is ok.
         previous_archive = max(
-            self.sources_dir.package_dir.glob('*.tar.gz'),
-            key=os.path.getctime,
-            default=None,
+            self.sources_dir.package_dir.glob("*.tar.gz"), key=os.path.getctime, default=None
         )
 
         if previous_archive:
@@ -158,9 +157,9 @@ class Git(SCM):
         """
         if not self._repo_name:
             parsed_url = urllib.parse.urlparse(self.url)
-            repo = parsed_url.path.strip('/')
-            if repo.endswith('.git'):
-                repo = repo[: -len('.git')]
+            repo = parsed_url.path.strip("/")
+            if repo.endswith(".git"):
+                repo = repo[: -len(".git")]
             self._repo_name = repo
             log.debug('Parsed the repository name "%s" from %s', self._repo_name, self.url)
 

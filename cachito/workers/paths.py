@@ -24,8 +24,8 @@ class RequestBundleDir(paths.RequestBundleDir):
         root_dir = get_worker_config().cachito_bundles_dir
         self = super().__new__(cls, request_id, root_dir)
 
-        log.debug('Ensure directory %s exists.', self)
-        log.debug('Ensure directory %s exists.', self.deps_dir)
+        log.debug("Ensure directory %s exists.", self)
+        log.debug("Ensure directory %s exists.", self.deps_dir)
         self.deps_dir.mkdir(parents=True, exist_ok=True)
 
         return self
@@ -46,11 +46,11 @@ class SourcesDir(type(pathlib.Path())):
     def __new__(cls, repo_name, ref):
         self = super().__new__(cls, get_worker_config().cachito_sources_dir)
 
-        repo_relative_dir = pathlib.Path(*repo_name.split('/'))
+        repo_relative_dir = pathlib.Path(*repo_name.split("/"))
         self.package_dir = self.joinpath(repo_relative_dir)
-        self.archive_path = self.joinpath(repo_relative_dir, f'{ref}.tar.gz')
+        self.archive_path = self.joinpath(repo_relative_dir, f"{ref}.tar.gz")
 
-        log.debug('Ensure directory %s exists.', self.package_dir)
+        log.debug("Ensure directory %s exists.", self.package_dir)
         self.package_dir.mkdir(parents=True, exist_ok=True)
 
         return self

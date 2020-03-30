@@ -14,7 +14,7 @@ def cli():
     """Manage the Cachito Flask application."""
 
 
-@cli.command(name='wait-for-db')
+@cli.command(name="wait-for-db")
 def wait_for_db():
     """Wait until database server is reachable."""
     # The polling interval in seconds
@@ -23,13 +23,13 @@ def wait_for_db():
         try:
             db.engine.connect()
         except OperationalError as e:
-            click.echo('Failed to connect to database: {}'.format(e), err=True)
-            click.echo('Sleeping for {} seconds...'.format(poll_interval))
+            click.echo("Failed to connect to database: {}".format(e), err=True)
+            click.echo("Sleeping for {} seconds...".format(poll_interval))
             time.sleep(poll_interval)
-            click.echo('Retrying...')
+            click.echo("Retrying...")
         else:
             break
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()

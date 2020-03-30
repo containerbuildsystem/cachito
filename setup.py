@@ -17,32 +17,32 @@ def get_requirements(req_file):
     for line in lines:
         dep = line.strip()
         # Skip comments and inclusion of other requirements files
-        if not dep.startswith('#') and not dep.startswith('-r'):
+        if not dep.startswith("#") and not dep.startswith("-r"):
             dependencies.append(dep)
     return dependencies
 
 
 setup(
-    name='cachito',
-    version='1.0',
+    name="cachito",
+    version="1.0",
     long_description=__doc__,
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
-    install_requires=get_requirements('requirements.txt'),
-    extras_require={'web': get_requirements('requirements-web.txt')},
+    install_requires=get_requirements("requirements.txt"),
+    extras_require={"web": get_requirements("requirements-web.txt")},
     entry_points={
-        'console_scripts': [
-            'cachito=cachito.web.manage:cli',
-            'cachito-cleanup=cachito.workers.cleanup_job:main'
-        ],
+        "console_scripts": [
+            "cachito=cachito.web.manage:cli",
+            "cachito-cleanup=cachito.workers.cleanup_job:main",
+        ]
     },
     classifiers=[
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
     ],
     license="GPLv3+",
-    python_requires='>=3.5',
+    python_requires=">=3.5",
 )

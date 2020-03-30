@@ -19,17 +19,17 @@ class RequestBundleDir(type(Path())):
         created under ``root/temp/``.
     """
 
-    go_mod_cache_download_part = Path('pkg', 'mod', 'cache', 'download')
+    go_mod_cache_download_part = Path("pkg", "mod", "cache", "download")
 
     def __new__(cls, request_id, root):
-        self = super().__new__(cls, root, 'temp', str(request_id))
+        self = super().__new__(cls, root, "temp", str(request_id))
 
-        self.source_dir = self.joinpath('app')
-        self.go_mod_file = self.joinpath('app', 'go.mod')
-        self.deps_dir = self.joinpath('deps')
-        self.gomod_download_dir = self.joinpath('deps', 'gomod', cls.go_mod_cache_download_part)
+        self.source_dir = self.joinpath("app")
+        self.go_mod_file = self.joinpath("app", "go.mod")
+        self.deps_dir = self.joinpath("deps")
+        self.gomod_download_dir = self.joinpath("deps", "gomod", cls.go_mod_cache_download_part)
 
-        self.bundle_archive_file = Path(root, f'{request_id}.tar.gz')
+        self.bundle_archive_file = Path(root, f"{request_id}.tar.gz")
 
         return self
 
