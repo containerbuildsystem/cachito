@@ -13,10 +13,10 @@ from cachito.workers.tasks.celery import app
 from cachito.workers.utils import extract_app_src
 
 __all__ = [
-    'create_bundle_archive',
-    'failed_request_callback',
-    'fetch_app_source',
-    'set_request_state',
+    "create_bundle_archive",
+    "failed_request_callback",
+    "fetch_app_source",
+    "set_request_state",
 ]
 log = logging.getLogger(__name__)
 
@@ -31,13 +31,13 @@ def fetch_app_source(url, ref, request_id):
     :param int request_id: the Cachito request ID this is for
     """
     log.info('Fetching the source from "%s" at reference "%s"', url, ref)
-    set_request_state(request_id, 'in_progress', 'Fetching the application source')
+    set_request_state(request_id, "in_progress", "Fetching the application source")
     try:
         # Default to Git for now
         scm = Git(url, ref)
         scm.fetch_source()
     except requests.Timeout:
-        raise CachitoError('The connection timed out while downloading the source')
+        raise CachitoError("The connection timed out while downloading the source")
     except CachitoError:
         log.exception('Failed to fetch the source from the URL "%s" and reference "%s"', url, ref)
         raise
@@ -46,7 +46,7 @@ def fetch_app_source(url, ref, request_id):
     # This will eventually end up in the bundle the user downloads. This is extracted now since
     # some package managers may add dependency replacements, which require edits to source files.
     bundle_dir = RequestBundleDir(request_id)
-    log.debug('Extracting %s to %s', bundle_dir.bundle_archive_file, bundle_dir)
+    log.debug("Extracting %s to %s", bundle_dir.bundle_archive_file, bundle_dir)
     extract_app_src(bundle_dir.bundle_archive_file, str(bundle_dir))
 
 
@@ -70,12 +70,15 @@ def set_request_state(request_id, state, state_reason):
 
     log.info(
         'Setting the state of request %d to "%s" with the reason "%s"',
-        request_id, state, state_reason
+        request_id,
+        state,
+        state_reason,
     )
-    payload = {'state': state, 'state_reason': state_reason}
+    payload = {"state": state, "state_reason": state_reason}
     try:
         rv = requests_auth_session.patch(
-            request_url, json=payload, timeout=config.cachito_api_timeout)
+            request_url, json=payload, timeout=config.cachito_api_timeout
+        )
     except requests.RequestException:
         msg = f'The connection failed when setting the state to "{state}" on request {request_id}'
         log.exception(msg)
@@ -84,8 +87,11 @@ def set_request_state(request_id, state, state_reason):
     if not rv.ok:
         log.error(
             'The worker failed to set request %d to the "%s" state. The status was %d. '
-            'The text was:\n%s',
-            request_id, state, rv.status_code, rv.text,
+            "The text was:\n%s",
+            request_id,
+            state,
+            rv.status_code,
+            rv.text,
         )
         raise CachitoError(f'Setting the state to "{state}" on request {request_id} failed')
 
@@ -104,9 +110,9 @@ def failed_request_callback(context, exc, traceback, request_id):
     if isinstance(exc, CachitoError):
         msg = str(exc)
     else:
-        msg = 'An unknown error occurred'
+        msg = "An unknown error occurred"
 
-    set_request_state(request_id, 'failed', msg)
+    set_request_state(request_id, "failed", msg)
 
 
 @app.task
@@ -116,22 +122,22 @@ def create_bundle_archive(request_id):
 
     :param int request_id: the request the bundle is for
     """
-    set_request_state(request_id, 'in_progress', 'Assembling the bundle archive')
+    set_request_state(request_id, "in_progress", "Assembling the bundle archive")
 
     bundle_dir = RequestBundleDir(request_id)
 
-    log.debug('Using %s for creating the bundle for request %d', bundle_dir, request_id)
+    log.debug("Using %s for creating the bundle for request %d", bundle_dir, request_id)
 
-    log.info('Creating %s', bundle_dir.bundle_archive_file)
+    log.info("Creating %s", bundle_dir.bundle_archive_file)
 
     def filter_git_dir(tar_info):
-        return tar_info if os.path.basename(tar_info.name) != '.git' else None
+        return tar_info if os.path.basename(tar_info.name) != ".git" else None
 
-    with tarfile.open(bundle_dir.bundle_archive_file, mode='w:gz') as bundle_archive:
+    with tarfile.open(bundle_dir.bundle_archive_file, mode="w:gz") as bundle_archive:
         # Add the source to the bundle. This is done one file/directory at a time in the parent
         # directory in order to exclude the app/.git folder.
         for item in bundle_dir.source_dir.iterdir():
-            arc_name = os.path.join('app', item.name)
+            arc_name = os.path.join("app", item.name)
             bundle_archive.add(str(item), arc_name, filter=filter_git_dir)
         # Add the dependencies to the bundle
-        bundle_archive.add(str(bundle_dir.deps_dir), 'deps')
+        bundle_archive.add(str(bundle_dir.deps_dir), "deps")

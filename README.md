@@ -2,6 +2,15 @@
 
 Caching service for source code
 
+## Coding Standards
+
+The codebase conforms to the style enforced by `flake8` with the following exceptions:
+* The maximum line length allowed is 100 characters instead of 80 characters
+
+Additionally, `black` is used to enforce other coding standards.
+
+To verify that your code meets these standards, you may run `tox -e black,flake8`.
+
 ## Quick Start
 
 Run the application locally (requires [docker-compose](https://docs.docker.com/compose/)):

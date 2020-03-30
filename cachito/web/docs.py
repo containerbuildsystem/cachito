@@ -2,9 +2,9 @@
 from flask import Blueprint, send_from_directory
 
 
-docs = Blueprint('docs', __name__)
+docs = Blueprint("docs", __name__)
 
 
-@docs.route('/', methods=['GET'])
+@docs.route("/", methods=["GET"])
 def index():
-    return send_from_directory('static', 'docs.html')
+    return send_from_directory("static", "docs.html")

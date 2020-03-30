@@ -28,12 +28,12 @@ def healthcheck():
     a 500 response otherwise.
     """
     try:
-        db.session.execute('SELECT 1 FROM request LIMIT 0').fetchall()
+        db.session.execute("SELECT 1 FROM request LIMIT 0").fetchall()
     except SQLAlchemyError:
-        current_app.logger.exception('The healthcheck failed when querying the database')
+        current_app.logger.exception("The healthcheck failed when querying the database")
         raise InternalServerError()
 
-    return ('OK', 200, [('Content-Type', 'text/plain')])
+    return ("OK", 200, [("Content-Type", "text/plain")])
 
 
 def load_config(app):
@@ -43,11 +43,11 @@ def load_config(app):
     :param flask.Flask app: a Flask application object
     """
     config_file = None
-    if os.getenv('CACHITO_DEV', '').lower() == 'true':
-        default_config_obj = 'cachito.web.config.DevelopmentConfig'
+    if os.getenv("CACHITO_DEV", "").lower() == "true":
+        default_config_obj = "cachito.web.config.DevelopmentConfig"
     else:
-        default_config_obj = 'cachito.web.config.ProductionConfig'
-        config_file = '/etc/cachito/settings.py'
+        default_config_obj = "cachito.web.config.ProductionConfig"
+        config_file = "/etc/cachito/settings.py"
     app.config.from_object(default_config_obj)
 
     if config_file and os.path.isfile(config_file):
@@ -73,19 +73,19 @@ def create_app(config_obj=None):
 
     # Configure logging
     default_handler.setFormatter(
-        logging.Formatter(fmt=app.config['CACHITO_LOG_FORMAT'], datefmt='%Y-%m-%d %H:%M:%S')
+        logging.Formatter(fmt=app.config["CACHITO_LOG_FORMAT"], datefmt="%Y-%m-%d %H:%M:%S")
     )
-    app.logger.setLevel(app.config['CACHITO_LOG_LEVEL'])
-    for logger_name in app.config['CACHITO_ADDITIONAL_LOGGERS']:
+    app.logger.setLevel(app.config["CACHITO_LOG_LEVEL"])
+    for logger_name in app.config["CACHITO_ADDITIONAL_LOGGERS"]:
         logger = logging.getLogger(logger_name)
-        logger.setLevel(app.config['CACHITO_LOG_LEVEL'])
+        logger.setLevel(app.config["CACHITO_LOG_LEVEL"])
         # Add the Flask handler that streams to WSGI stderr
         logger.addHandler(default_handler)
 
     # Initialize the database
     db.init_app(app)
     # Initialize the database migrations
-    migrations_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'migrations')
+    migrations_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "migrations")
     Migrate(app, db, directory=migrations_dir)
     # Initialize Flask Login
     login_manager = LoginManager()
@@ -94,8 +94,8 @@ def create_app(config_obj=None):
     login_manager.request_loader(load_user_from_request)
 
     app.register_blueprint(docs)
-    app.register_blueprint(api_v1, url_prefix='/api/v1')
-    app.add_url_rule('/healthcheck', view_func=healthcheck)
+    app.register_blueprint(api_v1, url_prefix="/api/v1")
+    app.add_url_rule("/healthcheck", view_func=healthcheck)
 
     for code in default_exceptions.keys():
         app.register_error_handler(code, json_error)

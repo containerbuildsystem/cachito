@@ -16,10 +16,10 @@ def json_error(error):
     """
     if isinstance(error, HTTPException):
         if error.code == 404:
-            msg = 'The requested resource was not found'
+            msg = "The requested resource was not found"
         else:
             msg = error.description
-        response = jsonify({'error': msg})
+        response = jsonify({"error": msg})
         response.status_code = error.code
     else:
         status_code = 500
@@ -27,8 +27,8 @@ def json_error(error):
         if isinstance(error, ValidationError):
             status_code = 400
         elif isinstance(error, kombu.exceptions.KombuError):
-            msg = 'Failed to connect to the broker to schedule a task'
+            msg = "Failed to connect to the broker to schedule a task"
 
-        response = jsonify({'error': msg})
+        response = jsonify({"error": msg})
         response.status_code = status_code
     return response

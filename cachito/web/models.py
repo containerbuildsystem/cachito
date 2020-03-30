@@ -14,36 +14,36 @@ from cachito.web import db
 
 
 request_pkg_manager_table = db.Table(
-    'request_pkg_manager',
-    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), index=True, nullable=False),
+    "request_pkg_manager",
+    db.Column("request_id", db.Integer, db.ForeignKey("request.id"), index=True, nullable=False),
     db.Column(
-        'pkg_manager_id',
+        "pkg_manager_id",
         db.Integer,
-        db.ForeignKey('package_manager.id'),
+        db.ForeignKey("package_manager.id"),
         index=True,
         nullable=False,
     ),
-    db.UniqueConstraint('request_id', 'pkg_manager_id'),
+    db.UniqueConstraint("request_id", "pkg_manager_id"),
 )
 
 request_environment_variable_table = db.Table(
-    'request_environment_variable',
-    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), index=True, nullable=False),
+    "request_environment_variable",
+    db.Column("request_id", db.Integer, db.ForeignKey("request.id"), index=True, nullable=False),
     db.Column(
-        'env_var_id',
+        "env_var_id",
         db.Integer,
-        db.ForeignKey('environment_variable.id'),
+        db.ForeignKey("environment_variable.id"),
         index=True,
         nullable=False,
     ),
-    db.UniqueConstraint('request_id', 'env_var_id'),
+    db.UniqueConstraint("request_id", "env_var_id"),
 )
 
 request_flag_table = db.Table(
-    'request_flag',
-    db.Column('request_id', db.Integer, db.ForeignKey('request.id'), index=True, nullable=False),
-    db.Column('flag_id', db.Integer, db.ForeignKey('flag.id'), index=True, nullable=False),
-    db.UniqueConstraint('request_id', 'flag_id'),
+    "request_flag",
+    db.Column("request_id", db.Integer, db.ForeignKey("request.id"), index=True, nullable=False),
+    db.Column("flag_id", db.Integer, db.ForeignKey("flag.id"), index=True, nullable=False),
+    db.UniqueConstraint("request_id", "flag_id"),
 )
 
 
@@ -51,6 +51,7 @@ class RequestStateMapping(Enum):
     """
     An Enum that represents the request states.
     """
+
     in_progress = 1
     complete = 2
     failed = 3
@@ -69,21 +70,20 @@ class RequestStateMapping(Enum):
 
 class Package(db.Model):
     """A package associated with the request."""
+
     # Statically set the table name so that the inherited classes uses this value instead of one
     # derived from the class name
-    __tablename__ = 'package'
+    __tablename__ = "package"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, index=True, nullable=False)
     type = db.Column(db.String, index=True, nullable=False)
     version = db.Column(db.String, index=True, nullable=False)
-    __table_args__ = (
-        db.UniqueConstraint('name', 'type', 'version'),
-    )
+    __table_args__ = (db.UniqueConstraint("name", "type", "version"),)
 
     def __repr__(self):
         return (
-            f'<{self.__class__.__name__} id={self.id}, name={self.name} type={self.type} '
-            f'version={self.version}>'
+            f"<{self.__class__.__name__} id={self.id}, name={self.name} type={self.type} "
+            f"version={self.version}>"
         )
 
     @classmethod
@@ -94,10 +94,10 @@ class Package(db.Model):
         :param dict package: the JSON representation of a package
         :raise ValidationError: if the JSON does not match the required schema
         """
-        required = {'name', 'type', 'version'}
+        required = {"name", "type", "version"}
         if not isinstance(package, dict) or package.keys() != required:
             raise ValidationError(
-                'A package must be a JSON object with the following '
+                "A package must be a JSON object with the following "
                 f'keys: {", ".join(sorted(required))}.'
             )
 
@@ -117,11 +117,7 @@ class Package(db.Model):
         :return: the JSON form of the Package object
         :rtype: dict
         """
-        return {
-            'name': self.name,
-            'type': self.type,
-            'version': self.version,
-        }
+        return {"name": self.name, "type": self.type, "version": self.version}
 
     @classmethod
     def get_or_create(cls, package):
@@ -147,6 +143,7 @@ class Dependency(Package):
 
     This uses the same table as Package, but has different methods.
     """
+
     @classmethod
     def validate_json(cls, dependency, for_update=False):
         """
@@ -157,25 +154,25 @@ class Dependency(Package):
             update (e.g. input from the PATCH API)
         :raise ValidationError: if the JSON does not match the required schema
         """
-        required = {'name', 'type', 'version'}
+        required = {"name", "type", "version"}
         optional = set()
         if for_update:
-            optional.add('replaces')
+            optional.add("replaces")
 
         if not isinstance(dependency, dict) or (dependency.keys() - optional) != required:
             msg = (
-                'A dependency must be a JSON object with the following '
+                "A dependency must be a JSON object with the following "
                 f'keys: {", ".join(sorted(required))}.'
             )
             if for_update:
                 msg += (
-                    ' It may also contain the following optional '
+                    " It may also contain the following optional "
                     f'keys: {", ".join(sorted(optional))}.'
                 )
             raise ValidationError(msg)
 
         for key in dependency.keys():
-            if key == 'replaces':
+            if key == "replaces":
                 if dependency[key]:
                     cls.validate_json(dependency[key])
             elif not isinstance(dependency[key], str):
@@ -189,14 +186,13 @@ class Dependency(Package):
         :param dict dependency_replacement: the JSON representation of a dependency replacement
         :raise ValidationError: if the JSON does not match the required schema
         """
-        required = {'name', 'type', 'version'}
-        optional = {'new_name'}
-        if (
-            not isinstance(dependency_replacement, dict) or
-            (dependency_replacement.keys() - required - optional)
+        required = {"name", "type", "version"}
+        optional = {"new_name"}
+        if not isinstance(dependency_replacement, dict) or (
+            dependency_replacement.keys() - required - optional
         ):
             raise ValidationError(
-                'A dependency replacement must be a JSON object with the following '
+                "A dependency replacement must be a JSON object with the following "
                 f'keys: {", ".join(sorted(required))}. It may also contain the following optional '
                 f'keys: {", ".join(sorted(optional))}.'
             )
@@ -208,8 +204,7 @@ class Dependency(Package):
 
             if not isinstance(dependency_replacement[key], str):
                 raise ValidationError(
-                    'The "{}" key of the dependency replacement must be a string'
-                    .format(key)
+                    'The "{}" key of the dependency replacement must be a string'.format(key)
                 )
 
     def to_json(self, replaces=None, force_replaces=False):
@@ -226,109 +221,88 @@ class Dependency(Package):
         rv = super().to_json()
 
         if replaces or force_replaces:
-            rv['replaces'] = replaces
+            rv["replaces"] = replaces
 
         return rv
 
 
 class RequestPackage(db.Model):
     """An association table between requests and the packages they contain."""
+
     # A primary key is required by SQLAlchemy when using declaritive style tables, so a composite
     # primary key is used on the two required columns
     request_id = db.Column(
-        db.Integer,
-        db.ForeignKey('request.id'),
-        autoincrement=False,
-        index=True,
-        primary_key=True,
+        db.Integer, db.ForeignKey("request.id"), autoincrement=False, index=True, primary_key=True
     )
     package_id = db.Column(
-        db.Integer,
-        db.ForeignKey('package.id'),
-        autoincrement=False,
-        index=True,
-        primary_key=True,
+        db.Integer, db.ForeignKey("package.id"), autoincrement=False, index=True, primary_key=True
     )
 
-    __table_args__ = (
-        db.UniqueConstraint('request_id', 'package_id'),
-    )
+    __table_args__ = (db.UniqueConstraint("request_id", "package_id"),)
 
 
 class RequestDependency(db.Model):
     """An association table between requests and dependencies."""
+
     # A primary key is required by SQLAlchemy when using declaritive style tables, so a composite
     # primary key is used on the two required columns
     request_id = db.Column(
-        db.Integer,
-        db.ForeignKey('request.id'),
-        autoincrement=False,
-        index=True,
-        primary_key=True,
+        db.Integer, db.ForeignKey("request.id"), autoincrement=False, index=True, primary_key=True
     )
     dependency_id = db.Column(
-        db.Integer,
-        db.ForeignKey('package.id'),
-        autoincrement=False,
-        index=True,
-        primary_key=True,
+        db.Integer, db.ForeignKey("package.id"), autoincrement=False, index=True, primary_key=True
     )
-    replaced_dependency_id = db.Column(db.Integer, db.ForeignKey('package.id'), index=True)
+    replaced_dependency_id = db.Column(db.Integer, db.ForeignKey("package.id"), index=True)
 
-    __table_args__ = (
-        db.UniqueConstraint('request_id', 'dependency_id'),
-    )
+    __table_args__ = (db.UniqueConstraint("request_id", "dependency_id"),)
 
 
 class Request(db.Model):
     """A Cachito user request."""
+
     id = db.Column(db.Integer, primary_key=True)
     repo = db.Column(db.String, nullable=False)
     ref = db.Column(db.String, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    submitted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    submitted_by_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     request_state_id = db.Column(
-        db.Integer,
-        db.ForeignKey('request_state.id'),
-        index=True,
-        unique=True,
+        db.Integer, db.ForeignKey("request_state.id"), index=True, unique=True
     )
-    state = db.relationship('RequestState', foreign_keys=[request_state_id])
+    state = db.relationship("RequestState", foreign_keys=[request_state_id])
     dependencies = db.relationship(
-        'Dependency',
-        foreign_keys=[
-            RequestDependency.request_id,
-            RequestDependency.dependency_id,
-        ],
+        "Dependency",
+        foreign_keys=[RequestDependency.request_id, RequestDependency.dependency_id],
         secondary=RequestDependency.__table__,
     )
     dependency_replacements = db.relationship(
-        'Dependency',
-        foreign_keys=[
-            RequestDependency.request_id,
-            RequestDependency.replaced_dependency_id,
-        ],
+        "Dependency",
+        foreign_keys=[RequestDependency.request_id, RequestDependency.replaced_dependency_id],
         secondary=RequestDependency.__table__,
     )
-    packages = db.relationship('Package', secondary=RequestPackage.__table__)
-    pkg_managers = db.relationship('PackageManager', secondary=request_pkg_manager_table,
-                                   backref='requests')
+    packages = db.relationship("Package", secondary=RequestPackage.__table__)
+    pkg_managers = db.relationship(
+        "PackageManager", secondary=request_pkg_manager_table, backref="requests"
+    )
     states = db.relationship(
-        'RequestState',
-        foreign_keys='RequestState.request_id',
-        back_populates='request',
-        order_by='RequestState.updated',
+        "RequestState",
+        foreign_keys="RequestState.request_id",
+        back_populates="request",
+        order_by="RequestState.updated",
     )
     environment_variables = db.relationship(
-        'EnvironmentVariable', secondary=request_environment_variable_table, backref='requests',
-        order_by='EnvironmentVariable.name')
-    submitted_by = db.relationship('User', foreign_keys=[submitted_by_id])
-    user = db.relationship('User', foreign_keys=[user_id], back_populates='requests')
+        "EnvironmentVariable",
+        secondary=request_environment_variable_table,
+        backref="requests",
+        order_by="EnvironmentVariable.name",
+    )
+    submitted_by = db.relationship("User", foreign_keys=[submitted_by_id])
+    user = db.relationship("User", foreign_keys=[user_id], back_populates="requests")
     flags = db.relationship(
-        'Flag', secondary=request_flag_table, backref='requests', order_by='Flag.name')
+        "Flag", secondary=request_flag_table, backref="requests", order_by="Flag.name"
+    )
 
     def __repr__(self):
-        return '<Request {0!r}>'.format(self.id)
+        return "<Request {0!r}>".format(self.id)
 
     def add_dependency(self, dependency, replaced_dependency=None):
         """
@@ -353,12 +327,14 @@ class Request(db.Model):
             db.session.flush()
 
         mapping = RequestDependency.query.filter_by(
-            request_id=self.id, dependency_id=dependency.id).first()
+            request_id=self.id, dependency_id=dependency.id
+        ).first()
 
         if mapping:
-            if mapping.replaced_dependency_id != getattr(replaced_dependency, 'id', None):
+            if mapping.replaced_dependency_id != getattr(replaced_dependency, "id", None):
                 raise ValidationError(
-                    f'The dependency {dependency.to_json()} can\'t have a new replacement set')
+                    f"The dependency {dependency.to_json()} can't have a new replacement set"
+                )
             return
 
         mapping = RequestDependency(request_id=self.id, dependency_id=dependency.id)
@@ -375,8 +351,11 @@ class Request(db.Model):
         :return: the number of dependencies
         :rtype: int
         """
-        return db.session.query(sqlalchemy.func.count(RequestDependency.dependency_id)).filter(
-            RequestDependency.request_id == self.id).scalar()
+        return (
+            db.session.query(sqlalchemy.func.count(RequestDependency.dependency_id))
+            .filter(RequestDependency.request_id == self.id)
+            .scalar()
+        )
 
     @property
     def packages_count(self):
@@ -386,8 +365,11 @@ class Request(db.Model):
         :return: the number of packages
         :rtype: int
         """
-        return db.session.query(sqlalchemy.func.count(RequestPackage.package_id)).filter(
-            RequestPackage.request_id == self.id).scalar()
+        return (
+            db.session.query(sqlalchemy.func.count(RequestPackage.package_id))
+            .filter(RequestPackage.request_id == self.id)
+            .scalar()
+        )
 
     @property
     def replaced_dependency_mappings(self):
@@ -398,10 +380,9 @@ class Request(db.Model):
         :rtype: list
         """
         return (
-            RequestDependency.query
-                             .filter_by(request_id=self.id)
-                             .filter(RequestDependency.replaced_dependency_id.isnot(None))
-                             .all()
+            RequestDependency.query.filter_by(request_id=self.id)
+            .filter(RequestDependency.replaced_dependency_id.isnot(None))
+            .all()
         )
 
     def to_json(self, verbose=True):
@@ -413,24 +394,24 @@ class Request(db.Model):
 
         env_vars_json = OrderedDict(env_var.to_json() for env_var in self.environment_variables)
         rv = {
-            'id': self.id,
-            'repo': self.repo,
-            'ref': self.ref,
-            'pkg_managers': pkg_managers,
-            'user': user,
-            'environment_variables': env_vars_json,
-            'flags': [flag.to_json() for flag in self.flags],
+            "id": self.id,
+            "repo": self.repo,
+            "ref": self.ref,
+            "pkg_managers": pkg_managers,
+            "user": user,
+            "environment_variables": env_vars_json,
+            "flags": [flag.to_json() for flag in self.flags],
         }
         if self.submitted_by:
-            rv['submitted_by'] = self.submitted_by.username
+            rv["submitted_by"] = self.submitted_by.username
         else:
-            rv['submitted_by'] = None
+            rv["submitted_by"] = None
 
         def _state_to_json(state):
             return {
-                'state': RequestStateMapping(state.state).name,
-                'state_reason': state.state_reason,
-                'updated': state.updated.isoformat(),
+                "state": RequestStateMapping(state.state).name,
+                "state_reason": state.state_reason,
+                "updated": state.updated.isoformat(),
             }
 
         if verbose:
@@ -440,7 +421,7 @@ class Request(db.Model):
             # Reverse the list since the latest states should be first
             states = list(reversed(states))
             latest_state = states[0]
-            rv['state_history'] = states
+            rv["state_history"] = states
             replacement_id_to_replacement = {
                 replacement.id: replacement.to_json()
                 for replacement in self.dependency_replacements
@@ -449,15 +430,15 @@ class Request(db.Model):
                 mapping.dependency_id: replacement_id_to_replacement[mapping.replaced_dependency_id]
                 for mapping in self.replaced_dependency_mappings
             }
-            rv['dependencies'] = [
+            rv["dependencies"] = [
                 dep.to_json(dep_id_to_replacement.get(dep.id), force_replaces=True)
                 for dep in self.dependencies
             ]
-            rv['packages'] = [package.to_json() for package in self.packages]
+            rv["packages"] = [package.to_json() for package in self.packages]
         else:
             latest_state = _state_to_json(self.state)
-            rv['dependencies'] = self.dependencies_count
-            rv['packages'] = self.packages_count
+            rv["dependencies"] = self.dependencies_count
+            rv["packages"] = self.packages_count
 
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
@@ -466,70 +447,70 @@ class Request(db.Model):
     @classmethod
     def from_json(cls, kwargs):
         # Validate all required parameters are present
-        required_params = {'repo', 'ref'}
-        optional_params = {'dependency_replacements', 'flags', 'pkg_managers', 'user'}
+        required_params = {"repo", "ref"}
+        optional_params = {"dependency_replacements", "flags", "pkg_managers", "user"}
 
         missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
-            raise ValidationError('Missing required parameter(s): {}'
-                                  .format(', '.join(missing_params)))
+            raise ValidationError(
+                "Missing required parameter(s): {}".format(", ".join(missing_params))
+            )
 
         # Don't allow the user to set arbitrary columns or relationships
         invalid_params = set(kwargs.keys()) - required_params - optional_params
         if invalid_params:
             raise ValidationError(
-                'The following parameters are invalid: {}'.format(', '.join(invalid_params)))
+                "The following parameters are invalid: {}".format(", ".join(invalid_params))
+            )
 
-        if not re.match(r'^[a-f0-9]{40}$', kwargs['ref']):
+        if not re.match(r"^[a-f0-9]{40}$", kwargs["ref"]):
             raise ValidationError('The "ref" parameter must be a 40 character hex string')
 
         request_kwargs = deepcopy(kwargs)
 
         # Validate package managers are correctly provided
-        pkg_managers_names = request_kwargs.pop('pkg_managers', None)
+        pkg_managers_names = request_kwargs.pop("pkg_managers", None)
         # If no package managers are specified, then Cachito will detect them automatically
         if pkg_managers_names:
             pkg_managers = PackageManager.get_pkg_managers(pkg_managers_names)
-            request_kwargs['pkg_managers'] = pkg_managers
+            request_kwargs["pkg_managers"] = pkg_managers
 
-        flag_names = request_kwargs.pop('flags', None)
+        flag_names = request_kwargs.pop("flags", None)
         if flag_names:
             flag_names = set(flag_names)
-            found_flags = (Flag.query
-                           .filter(Flag.name.in_(flag_names))
-                           .filter(Flag.active)
-                           .all())
+            found_flags = Flag.query.filter(Flag.name.in_(flag_names)).filter(Flag.active).all()
 
             if len(flag_names) != len(found_flags):
                 found_flag_names = set(flag.name for flag in found_flags)
                 invalid_flags = flag_names - found_flag_names
                 raise ValidationError(
-                    'Invalid/Inactive flag(s): {}'.format(', '.join(invalid_flags)))
+                    "Invalid/Inactive flag(s): {}".format(", ".join(invalid_flags))
+                )
 
-            request_kwargs['flags'] = found_flags
+            request_kwargs["flags"] = found_flags
 
-        dependency_replacements = request_kwargs.pop('dependency_replacements', [])
+        dependency_replacements = request_kwargs.pop("dependency_replacements", [])
         if not isinstance(dependency_replacements, list):
             raise ValidationError('"dependency_replacements" must be an array')
 
         for dependency_replacement in dependency_replacements:
             Dependency.validate_replacement_json(dependency_replacement)
 
-        submitted_for_username = request_kwargs.pop('user', None)
+        submitted_for_username = request_kwargs.pop("user", None)
         # current_user.is_authenticated is only ever False when auth is disabled
         if submitted_for_username and not current_user.is_authenticated:
             raise ValidationError('Cannot set "user" when authentication is disabled')
         if current_user.is_authenticated:
             if submitted_for_username:
-                allowed_users = flask.current_app.config['CACHITO_USER_REPRESENTATIVES']
+                allowed_users = flask.current_app.config["CACHITO_USER_REPRESENTATIVES"]
                 if current_user.username not in allowed_users:
                     flask.current_app.logger.error(
-                        'The user %s tried to submit a request on behalf of another user, but is '
-                        'not allowed',
+                        "The user %s tried to submit a request on behalf of another user, but is "
+                        "not allowed",
                         current_user.username,
                     )
                     raise Forbidden(
-                        'You are not authorized to create a request on behalf of another user'
+                        "You are not authorized to create a request on behalf of another user"
                     )
 
                 submitted_for = User.get_or_create(submitted_for_username)
@@ -537,12 +518,12 @@ class Request(db.Model):
                     # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
                     # This will generate an ID that can be used below.
                     db.session.flush()
-                request_kwargs['user_id'] = submitted_for.id
-                request_kwargs['submitted_by_id'] = current_user.id
+                request_kwargs["user_id"] = submitted_for.id
+                request_kwargs["submitted_by_id"] = current_user.id
             else:
-                request_kwargs['user_id'] = current_user.id
+                request_kwargs["user_id"] = current_user.id
         request = cls(**request_kwargs)
-        request.add_state('in_progress', 'The request was initiated')
+        request.add_state("in_progress", "The request was initiated")
         return request
 
     def add_state(self, state, state_reason):
@@ -553,15 +534,16 @@ class Request(db.Model):
         :param str state_reason: the reason explaining the state transition
         :raises ValidationError: if the state is invalid
         """
-        if self.state and self.state.state_name == 'stale' and state != 'stale':
-            raise ValidationError('A stale request cannot change states')
+        if self.state and self.state.state_name == "stale" and state != "stale":
+            raise ValidationError("A stale request cannot change states")
 
         try:
             state_int = RequestStateMapping.__members__[state].value
         except KeyError:
             raise ValidationError(
-                'The state "{}" is invalid. It must be one of: {}.'
-                .format(state, ', '.join(RequestStateMapping.get_state_names()))
+                'The state "{}" is invalid. It must be one of: {}.'.format(
+                    state, ", ".join(RequestStateMapping.get_state_names())
+                )
             )
 
         request_state = RequestState(state=state_int, state_reason=state_reason)
@@ -600,8 +582,9 @@ class PackageManager(db.Model):
             found_pkg_managers_names = set(pkg_manager.name for pkg_manager in found_pkg_managers)
             invalid_pkg_managers = pkg_managers - found_pkg_managers_names
             raise ValidationError(
-                'The following package managers are invalid: {}'
-                .format(', '.join(invalid_pkg_managers))
+                "The following package managers are invalid: {}".format(
+                    ", ".join(invalid_pkg_managers)
+                )
             )
 
         return found_pkg_managers
@@ -612,8 +595,8 @@ class RequestState(db.Model):
     state = db.Column(db.Integer, nullable=False)
     state_reason = db.Column(db.String, nullable=False)
     updated = db.Column(db.DateTime(), nullable=False, default=sqlalchemy.func.now())
-    request_id = db.Column(db.Integer, db.ForeignKey('request.id'), index=True, nullable=False)
-    request = db.relationship('Request', foreign_keys=[request_id], back_populates='states')
+    request_id = db.Column(db.Integer, db.ForeignKey("request.id"), index=True, nullable=False)
+    request = db.relationship("Request", foreign_keys=[request_id], back_populates="states")
 
     @property
     def state_name(self):
@@ -623,7 +606,8 @@ class RequestState(db.Model):
 
     def __repr__(self):
         return '<RequestState id={} state="{}" request_id={}>'.format(
-            self.id, self.state_name, self.request_id)
+            self.id, self.state_name, self.request_id
+        )
 
 
 class EnvironmentVariable(db.Model):
@@ -631,15 +615,12 @@ class EnvironmentVariable(db.Model):
     name = db.Column(db.String, nullable=False)
     value = db.Column(db.String, nullable=False)
 
-    __table_args__ = (
-        db.UniqueConstraint('name', 'value'),
-    )
+    __table_args__ = (db.UniqueConstraint("name", "value"),)
 
     @classmethod
     def validate_json(cls, name, value):
         if not isinstance(value, str):
-            raise ValidationError(
-                'The value of environment variables must be a string')
+            raise ValidationError("The value of environment variables must be a string")
 
     @classmethod
     def from_json(cls, name, value):
@@ -653,7 +634,7 @@ class EnvironmentVariable(db.Model):
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, index=True, unique=True, nullable=False)
-    requests = db.relationship('Request', foreign_keys=[Request.user_id], back_populates='user')
+    requests = db.relationship("Request", foreign_keys=[Request.user_id], back_populates="user")
 
     @classmethod
     def get_or_create(cls, username):
@@ -678,9 +659,7 @@ class Flag(db.Model):
     name = db.Column(db.String, nullable=False)
     active = db.Column(db.Boolean, nullable=False, default=True)
 
-    __table_args__ = (
-        db.UniqueConstraint('id', 'name'),
-    )
+    __table_args__ = (db.UniqueConstraint("id", "name"),)
 
     @classmethod
     def from_json(cls, name):
