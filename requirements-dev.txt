@@ -1,5 +1,0 @@
--rrequirements.txt
--rrequirements-web.txt
-
-flake8
-pytest

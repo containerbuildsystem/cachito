@@ -5,7 +5,7 @@ clean:
 	docker-compose down
 
 venv:
-	virtualenv --python=python3 venv && venv/bin/python setup.py develop && venv/bin/pip install -r requirements-dev.txt && venv/bin/pip install tox
+	virtualenv --python=python3 venv && venv/bin/python setup.py develop && venv/bin/pip install -r requirements.txt -r requirements-web.txt tox
 
 run:
 	docker-compose up
