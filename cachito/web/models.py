@@ -682,9 +682,9 @@ class EnvironmentVariable(db.Model):
 
     def to_json(self):
         """
-        Generate the JSON representation of the EnvironmentVariable.
+        Generate the JSON representation of the environment variable.
 
-        :return: the JSON representation of the Environment Variable.
+        :return: the JSON representation of the environment variable.
         :rtype: tuple
         """
         return self.name, self.value
