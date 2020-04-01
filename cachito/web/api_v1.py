@@ -104,7 +104,12 @@ def download_archive(request_id):
     flask.current_app.logger.debug(
         "Sending the bundle at %s for request %d", bundle_dir.bundle_archive_file, request_id
     )
-    return flask.send_file(str(bundle_dir.bundle_archive_file), mimetype="application/gzip")
+    return flask.send_file(
+        str(bundle_dir.bundle_archive_file),
+        mimetype="application/gzip",
+        as_attachment=True,
+        attachment_filename=f"cachito-{request_id}.tar.gz",
+    )
 
 
 @api_v1.route("/requests", methods=["POST"])

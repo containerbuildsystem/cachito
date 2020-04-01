@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os.path
+import tempfile
 from unittest import mock
 
+import flask
 import kombu.exceptions
 import pytest
 
@@ -449,19 +452,21 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
 
 
 @mock.patch("pathlib.Path.exists")
-@mock.patch("flask.send_file")
 @mock.patch("cachito.web.api_v1.Request")
-def test_download_archive(mock_request, mock_send_file, mock_exists, client, app):
+def test_download_archive(mock_request, mock_exists, client, app):
     request_id = 1
     request = mock.Mock(id=request_id)
     request.state.state_name = "complete"
     mock_request.query.get_or_404.return_value = request
-    mock_send_file.return_value = "something"
     mock_exists.return_value = True
-    client.get(f"/api/v1/requests/{request_id}/download")
-    mock_send_file.assert_called_once_with(
-        str(RequestBundleDir(request_id).bundle_archive_file), mimetype="application/gzip"
-    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with open(os.path.join(temp_dir, "1.tar.gz"), "w") as f:
+            f.write("hello")
+        with mock.patch.dict(flask.current_app.config, values={"CACHITO_BUNDLES_DIR": temp_dir}):
+            resp = client.get(f"/api/v1/requests/{request_id}/download")
+            assert "hello" == resp.data.decode()
+            assert "attachment; filename=cachito-1.tar.gz" == resp.headers["Content-Disposition"]
 
 
 @mock.patch("cachito.web.api_v1.Request")
