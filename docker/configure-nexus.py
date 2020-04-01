@@ -86,8 +86,8 @@ rv_script_run = requests.post(
     auth=auth,
     json={
         'base_url': 'http://localhost:8082',
-        'cachito_js_password': 'cachito_js',
         'cachito_password': 'cachito',
+        'cachito_unprivileged_password': 'cachito_unprivileged',
         'new_admin_password': 'admin',
     },
 )

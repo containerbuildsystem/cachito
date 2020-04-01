@@ -11,7 +11,7 @@ As part of the script, the following occurs:
 - The "cachito-js-proxy" NPM proxy repository is created
 - The "cachito-js" NPM group repository is created which points to the "cachito-js-hosted" and "cachito-js-proxy" repositories
 - The "cachito" service account is created, which is used to manage the per-request proxy repositories, roles, and users
-- The "cachito_js" service account is created, which is used by the per-request proxy repositories to connect to the "cachito-js" repository
+- The "cachito_unprivileged" service account is created, which is used by the per-request proxy repositories to connect to the "cachito-js" repository
  */
 import com.google.common.collect.Sets
 import groovy.json.JsonSlurper
@@ -222,7 +222,7 @@ def createCachitoUser(String password) {
 }
 
 
-def createCachitoJsUser(String password) {
+def createCachitoUnprivilegedUser(String password) {
     // This creates an unprivileged user that just has the ability to use the cachito-js Nexus repository. This is
     // the account used for authentication against the cachito-js Nexus repository for the NPM proxy repositories
     // created per Cachito request.
@@ -230,16 +230,16 @@ def createCachitoJsUser(String password) {
         // This allows the unprivileged user to use the cachito-js Nexus repository
         'nx-repository-view-npm-cachito-js-*'
     ]
-    String description = 'The user that can use the the cachito-js repository'
-    createRole('cachito_js', description, privileges)
+    String description = 'The user that can just use the main cachito repositories'
+    createRole('cachito_unprivileged', description, privileges)
 
-    createUser('cachito_js', password, ['cachito_js'])
+    createUser('cachito_unprivileged', password, ['cachito_unprivileged'])
 }
 
 
 // Main execution starts here
 def request = new JsonSlurper().parseText(args)
-['base_url', 'cachito_js_password', 'cachito_password'].each { param ->
+['base_url', 'cachito_password', 'cachito_unprivileged_password'].each { param ->
     assert request.get(param): "The ${param} parameter is required"
     assert request.get(param) instanceof String: "The ${param} parameter must be a string"
 }
@@ -278,6 +278,6 @@ List<String> groupMembers = [hostedRepoName, proxyRepoName]
 createGroupNpmRepo(groupRepoName, groupMembers, blobStoreName)
 
 createCachitoUser(request.cachito_password)
-createCachitoJsUser(request.cachito_js_password)
+createCachitoUnprivilegedUser(request.cachito_unprivileged_password)
 
 return "Nexus was configured successfully"
