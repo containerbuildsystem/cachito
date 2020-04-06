@@ -185,6 +185,78 @@ paths:
               $ref: '#/components/schemas/RequestUpdate'
       security:
       - "Kerberos Authentication": []
+  "/requests/{id}/configuration-files":
+    get:
+      description: Return the configuration files of a request
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The ID of the Cachito request to retrieve the configuration files for
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: The configuration files of the Cachito request
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RequestConfiguration"
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
+    post:
+      description: Add configuration files to the request (requires special authorization)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The ID of the Cachito request to update
+        schema:
+          type: integer
+      responses:
+        "204":
+          description: The request's configuration files were updated
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
+        "400":
+          description: The input is invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The input data must be a JSON object
+      requestBody:
+        description: The configuration files
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/RequestConfiguration"
+      security:
+      - "Kerberos Authentication": []
   "/requests/{id}/download":
     get:
       description: Download a Cachito request bundle
@@ -345,6 +417,25 @@ components:
             type: integer
             example: 1
       - $ref: "#/components/schemas/RequestBase"
+    RequestConfiguration:
+      type: object
+      properties:
+        content:
+          type: any
+          description: This varies based on the type
+          example: IlNodXQgdXAgYnJhaW4gb3IgSSdsbCBzdGFiIHlvdSB3aXRoIGEgUS1UaXAiIC0gSG9tZXIgSi4gU2ltcHNvbg==
+        path:
+          type: string
+          description: The relative path in the bundle that the configuration should be created at
+          example: app/.npmrc
+        type:
+          type: string
+          description: The type of the configuration file content
+          example: base64
+      required:
+      - content
+      - path
+      - type
     RequestNew:
       type: object
       properties:
@@ -405,6 +496,10 @@ components:
       allOf:
       - type: object
         properties:
+          configuration_files:
+            type: string
+            description: The URL to the API endpoint with the configuration files
+            example: "https://cachito.domain.local/api/v1/requests/1/configuration-files"
           dependencies:
             type: array
             items:

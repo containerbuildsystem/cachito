@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
+import functools
 
 from celery import chain
 import flask
@@ -9,6 +10,7 @@ from werkzeug.exceptions import Unauthorized, InternalServerError
 from cachito.errors import ValidationError
 from cachito.web import db
 from cachito.web.models import (
+    ConfigFileBase64,
     Dependency,
     EnvironmentVariable,
     Package,
@@ -73,6 +75,22 @@ def get_request(request_id):
     :raise NotFound: if the request is not found
     """
     return flask.jsonify(Request.query.get_or_404(request_id).to_json())
+
+
+@api_v1.route("/requests/<int:request_id>/configuration-files", methods=["GET"])
+def get_request_config_files(request_id):
+    """
+    Retrieve the configuration files associated with the given request.
+
+    :param int request_id: the value of the request ID
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    """
+    config_files = Request.query.get_or_404(request_id).config_files_base64
+    config_files_json = [config_file.to_json() for config_file in config_files]
+    config_files_json = sorted(config_files_json, key=lambda c: c["path"])
+    return flask.jsonify(config_files_json)
 
 
 @api_v1.route("/requests/<int:request_id>/download", methods=["GET"])
@@ -176,8 +194,27 @@ def create_request():
     return flask.jsonify(request.to_json()), 201
 
 
+def worker_required(func):
+    """
+    Decorate a function and assert that the current user is a worker.
+
+    :raise Unauthorized: if the user is not a worker
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        allowed_users = flask.current_app.config["CACHITO_WORKER_USERNAMES"]
+        # current_user.is_authenticated is only ever False when auth is disabled
+        if current_user.is_authenticated and current_user.username not in allowed_users:
+            raise Unauthorized("This API endpoint is restricted to Cachito workers")
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @api_v1.route("/requests/<int:request_id>", methods=["PATCH"])
 @login_required
+@worker_required
 def patch_request(request_id):
     """
     Modify the given request.
@@ -188,11 +225,6 @@ def patch_request(request_id):
     :raise NotFound: if the request is not found
     :raise ValidationError: if the JSON is invalid
     """
-    allowed_users = flask.current_app.config["CACHITO_WORKER_USERNAMES"]
-    # current_user.is_authenticated is only ever False when auth is disabled
-    if current_user.is_authenticated and current_user.username not in allowed_users:
-        raise Unauthorized("This API endpoint is restricted to Cachito workers")
-
     payload = flask.request.get_json()
     if not isinstance(payload, dict):
         raise ValidationError("The input data must be a JSON object")
@@ -323,3 +355,49 @@ def patch_request(request_id):
         flask.current_app.logger.info("An anonymous user patched request %d", request.id)
 
     return flask.jsonify(request.to_json()), 200
+
+
+@api_v1.route("/requests/<int:request_id>/configuration-files", methods=["POST"])
+@login_required
+@worker_required
+def add_request_config_files(request_id):
+    """
+    Add the configuration files associated with the given request.
+
+    :param int request_id: the value of the request ID
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    :raise ValidationError: if the JSON is invalid
+    """
+    payload = flask.request.get_json()
+    if not isinstance(payload, list):
+        raise ValidationError("The input data must be a JSON array")
+
+    request = Request.query.get_or_404(request_id)
+    flask.current_app.logger.info(
+        "Adding %d configuration files to the request %d", len(payload), request.id
+    )
+
+    for config_file in payload:
+        ConfigFileBase64.validate_json(config_file)
+        config_file_obj = ConfigFileBase64.get_or_create(
+            config_file["path"], config_file["content"]
+        )
+        if config_file_obj not in request.config_files_base64:
+            request.config_files_base64.append(config_file_obj)
+
+    if current_user.is_authenticated:
+        flask.current_app.logger.info(
+            "The user %s added %d configuration files to request %d",
+            current_user.username,
+            len(payload),
+            request.id,
+        )
+    else:
+        flask.current_app.logger.info(
+            "An anonymous user added %d configuration files to request %d", len(payload), request.id
+        )
+
+    db.session.commit()
+    return "", 204
