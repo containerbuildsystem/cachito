@@ -47,6 +47,20 @@ request_flag_table = db.Table(
 )
 
 
+request_config_file_base64_table = db.Table(
+    "request_config_file_base64",
+    db.Column("request_id", db.Integer, db.ForeignKey("request.id"), index=True, nullable=False),
+    db.Column(
+        "config_file_base64_id",
+        db.Integer,
+        db.ForeignKey("config_file_base64.id"),
+        index=True,
+        nullable=False,
+    ),
+    db.UniqueConstraint("request_id", "config_file_base64_id"),
+)
+
+
 class RequestStateMapping(Enum):
     """An Enum that represents the request states."""
 
@@ -305,6 +319,9 @@ class Request(db.Model):
     flags = db.relationship(
         "Flag", secondary=request_flag_table, backref="requests", order_by="Flag.name"
     )
+    config_files_base64 = db.relationship(
+        "ConfigFileBase64", secondary=request_config_file_base64_table, backref="requests"
+    )
 
     def __repr__(self):
         return "<Request {0!r}>".format(self.id)
@@ -427,6 +444,9 @@ class Request(db.Model):
             }
 
         if verbose:
+            rv["configuration_files"] = flask.url_for(
+                "api_v1.get_request_config_files", request_id=self.id, _external=True
+            )
             # Use this list comprehension instead of a RequestState.to_json method to avoid
             # including redundant information about the request itself
             states = [_state_to_json(state) for state in self.states]
@@ -743,3 +763,100 @@ class Flag(db.Model):
         :rtype: str
         """
         return self.name
+
+
+class ConfigFileBase:
+    """A base class with attributes common to all configuration file classes."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    # This is the relative path of where the file should be in the extracted bundle
+    path = db.Column(db.String, nullable=False, index=True)
+
+    @classmethod
+    def validate_json(cls, payload):
+        """
+        Validate the input configuration file.
+
+        Note that the type of the "content" key's value is not validated. This is the responsibility
+        of the child class since it can be any type.
+
+        :param dict payload: the dictionary of the configuration file
+        :raises ValidationError: if the configuration file is invalid
+        """
+        if not isinstance(payload, dict):
+            raise ValidationError(f"The {cls.type_name} configuration file must be a JSON object")
+
+        required_keys = {"content", "path", "type"}
+        missing_keys = required_keys - payload.keys()
+        if missing_keys:
+            raise ValidationError(
+                f"The following keys for the {cls.type_name} configuration file are "
+                f"missing: {', '.join(missing_keys)}"
+            )
+
+        invalid_keys = payload.keys() - required_keys
+        if invalid_keys:
+            raise ValidationError(
+                f"The following keys for the {cls.type_name} configuration file are "
+                f"invalid: {', '.join(invalid_keys)}"
+            )
+
+        if payload["type"] != cls.type_name:
+            raise ValidationError(f'The configuration type of "{payload["type"]}" is invalid')
+
+        # The content key type is validated by the child class
+        for key in required_keys - {"content"}:
+            if not isinstance(payload[key], str):
+                raise ValidationError(
+                    f'The {cls.type_name} configuration file key of "{key}" must be a string'
+                )
+
+
+class ConfigFileBase64(ConfigFileBase, db.Model):
+    """A configuration file that the consumer must set for the bundle to be usable."""
+
+    __table_args__ = (db.UniqueConstraint("content", "path"),)
+    content = db.Column(db.String, nullable=False, index=True)
+    type_name = "base64"
+
+    @classmethod
+    def get_or_create(cls, path, content):
+        """
+        Get the configuration file from the database and create it if it doesn't exist.
+
+        :param str path: the relative path of where the file should be in the bundle
+        :param str content: the base64 string of the content
+        :return: a ConfigFileBase64 object based on the input; the ConfigFileBase64 object will be
+            added to the database session, but not committed if it was created
+        :rtype: ConfigFileBase64
+        """
+        config_file = cls.query.filter_by(path=path, content=content).first()
+        if not config_file:
+            config_file = cls(path=path, content=content)
+            db.session.add(config_file)
+
+        return config_file
+
+    def to_json(self):
+        """
+        Generate the JSON representation of the configuration file.
+
+        :return: the JSON representation of the configuration file.
+        :rtype: dict
+        """
+        return {"content": self.content, "path": self.path, "type": "base64"}
+
+    @classmethod
+    def validate_json(cls, payload):
+        """
+        Validate the input configuration file.
+
+        :param dict payload: the dictionary of the configuration file
+        :raises ValidationError: if the configuration file is invalid
+        """
+        super(ConfigFileBase64, cls).validate_json(payload)
+
+        if not isinstance(payload["content"], str):
+            raise ValidationError(
+                f'The {cls.type_name} configuration file key of "content" must be a string'
+            )

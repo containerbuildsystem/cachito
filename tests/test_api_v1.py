@@ -7,7 +7,13 @@ import flask
 import kombu.exceptions
 import pytest
 
-from cachito.web.models import Request, EnvironmentVariable, Flag, RequestStateMapping
+from cachito.web.models import (
+    ConfigFileBase64,
+    EnvironmentVariable,
+    Flag,
+    Request,
+    RequestStateMapping,
+)
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import (
     fetch_app_source,
@@ -165,6 +171,9 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     assert fetched_request["flags"] == ["valid_flag"]
     assert fetched_request["state"] == "in_progress"
     assert fetched_request["state_reason"] == "The request was initiated"
+    assert fetched_request["configuration_files"].endswith(
+        f"/api/v1/requests/{request_id}/configuration-files"
+    )
 
 
 @mock.patch("cachito.web.api_v1.chain")
@@ -251,6 +260,58 @@ def test_create_request_filter_state(app, auth_env, client, db):
         fetched_requests = rv.json["items"]
         assert len(fetched_requests) == 1
         assert fetched_requests[0]["state"] == state
+
+
+def test_fetch_request_config(app, client, db, worker_auth_env):
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    config = ConfigFileBase64.get_or_create(
+        path="src/.npmrc", content="cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo="
+    )
+    db.session.add(config)
+    config2 = ConfigFileBase64.get_or_create(
+        path="src/.npmrc2", content="cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo="
+    )
+    db.session.add(config2)
+    request.config_files_base64.append(config)
+    request.config_files_base64.append(config2)
+    db.session.commit()
+
+    rv = client.get("/api/v1/requests/1/configuration-files")
+    expected = [
+        {
+            "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
+            "path": "src/.npmrc",
+            "type": "base64",
+        },
+        {
+            "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
+            "path": "src/.npmrc2",
+            "type": "base64",
+        },
+    ]
+    assert rv.json == expected
+
+
+def test_fetch_request_config_empty(app, client, db, worker_auth_env):
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    rv = client.get("/api/v1/requests/1/configuration-files")
+    assert rv.json == []
 
 
 def test_invalid_state(app, auth_env, client, db):
@@ -870,3 +931,116 @@ def test_request_patch_invalid(
     rv = client.patch(f"/api/v1/requests/{request_id}", json=payload, environ_base=worker_auth_env)
     assert rv.status_code == status_code
     assert rv.json == {"error": message}
+
+
+def test_request_patch_not_authorized(auth_env, client, db):
+    rv = client.patch("/api/v1/requests/1", json={}, environ_base=auth_env)
+    assert rv.status_code == 401
+    assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
+
+
+def test_request_post_config(app, client, db, worker_auth_env):
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    payload = [
+        {
+            "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
+            "path": "src/.npmrc",
+            "type": "base64",
+        },
+        {
+            "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
+            "path": "src/.npmrc2",
+            "type": "base64",
+        },
+    ]
+    rv = client.post(
+        "/api/v1/requests/1/configuration-files", json=payload, environ_base=worker_auth_env
+    )
+    assert rv.status_code == 204
+
+
+@pytest.mark.parametrize(
+    "request_id, payload, status_code, message",
+    (
+        (1, {"hello": "world"}, 400, "The input data must be a JSON array"),
+        (1337, [], 404, "The requested resource was not found"),
+        (
+            1,
+            [{"content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=", "type": "base64"}],
+            400,
+            "The following keys for the base64 configuration file are missing: path",
+        ),
+        (
+            1,
+            [{"content": "Home on the range", "path": "src/music", "type": "song"}],
+            400,
+            'The configuration type of "song" is invalid',
+        ),
+        (
+            1,
+            [
+                {
+                    "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
+                    "lunch": "time",
+                    "path": "src/.npmrc",
+                    "type": "base64",
+                }
+            ],
+            400,
+            "The following keys for the base64 configuration file are invalid: lunch",
+        ),
+        (
+            1,
+            [
+                {
+                    "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
+                    "path": 3,
+                    "type": "base64",
+                }
+            ],
+            400,
+            'The base64 configuration file key of "path" must be a string',
+        ),
+        (
+            1,
+            [{"content": 123, "path": "src/.npmrc", "type": "base64"}],
+            400,
+            'The base64 configuration file key of "content" must be a string',
+        ),
+    ),
+)
+def test_request_post_config_invalid(
+    app, client, db, worker_auth_env, request_id, payload, status_code, message
+):
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    rv = client.post(
+        f"/api/v1/requests/{request_id}/configuration-files",
+        json=payload,
+        environ_base=worker_auth_env,
+    )
+    assert rv.status_code == status_code
+    assert rv.json == {"error": message}
+
+
+def test_request_config_post_not_authorized(auth_env, client, db):
+    rv = client.post("/api/v1/requests/1/configuration-files", json={}, environ_base=auth_env)
+    assert rv.status_code == 401
+    assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
