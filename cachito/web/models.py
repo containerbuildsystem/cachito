@@ -709,7 +709,7 @@ class User(db.Model, UserMixin):
         """
         user = cls.query.filter_by(username=username).first()
         if not user:
-            user = User(username=username)
+            user = cls(username=username)
             db.session.add(user)
 
         return user
