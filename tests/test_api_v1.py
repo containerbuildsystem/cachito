@@ -853,7 +853,7 @@ def test_set_state_not_logged_in(client, db):
         ),
     ),
 )
-def test_state_change_invalid(
+def test_request_patch_invalid(
     app, client, db, worker_auth_env, request_id, payload, status_code, message
 ):
     data = {
