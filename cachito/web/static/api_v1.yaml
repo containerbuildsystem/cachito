@@ -146,7 +146,7 @@ paths:
       - name: id
         in: path
         required: true
-        description: The ID of the Cachito request to retrieve
+        description: The ID of the Cachito request to update
         schema:
           type: integer
       responses:
