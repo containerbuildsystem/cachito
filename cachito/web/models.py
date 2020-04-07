@@ -292,6 +292,7 @@ class Request(db.Model):
         "Dependency",
         foreign_keys=[RequestDependency.request_id, RequestDependency.dependency_id],
         secondary=RequestDependency.__table__,
+        order_by="Dependency.name",
     )
     dependency_replacements = db.relationship(
         "Dependency",
