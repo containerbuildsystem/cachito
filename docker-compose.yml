@@ -71,12 +71,17 @@ services:
       context: .
       dockerfile: ./docker/Dockerfile-workers
     # Override the default command so that Celery auto-reloads on code changes
+    # Instead of using cachito-update-nexus-scripts directly, we must perform this workaround
+    # because the console scripts are not available in this container. This is because the
+    # API container performs the `setup.py develop` and not this container and the source is
+    # shared.
     command:
     - /bin/bash
     - -c
     - >-
       pip3 install watchdog[watchmedo] &&
       /src/docker/configure-nexus.py &&
+      python3 -c 'from cachito.workers.nexus import create_or_update_scripts; create_or_update_scripts()' &&
       watchmedo auto-restart -d ./cachito/workers -p '*.py' --recursive \
         -- /bin/celery-3 -A cachito.workers.tasks worker --loglevel=info
     environment:

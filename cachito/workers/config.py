@@ -22,28 +22,46 @@ class Config(object):
     cachito_download_timeout = 120
     # The timeout when making a Cachito API request
     cachito_api_timeout = 60
+    # The number of JavaScript dependencies to download at once using `npm pack`
+    cachito_js_download_batch_size = 30
+    # The path to the CA certificate that signed the Nexus server's SSL certificate
+    cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
+    # The timeout when making a Nexus API request
+    cachito_nexus_timeout = 60
+    # The username of the unprivileged Nexus user that has read access to the main Cachito managed
+    # Nexus repositories (e.g. cachito-js)
+    cachito_nexus_unprivileged_username = "cachito_unprivileged"
+    # The username of the privileged Nexus user
+    cachito_nexus_username = "cachito"
     # Configurable number of days before which a request becomes stale
     cachito_request_lifetime = 1
+    include = [
+        "cachito.workers.tasks.general",
+        "cachito.workers.tasks.golang",
+        "cachito.workers.tasks.npm",
+    ]
     # The task messages will be acknowledged after the task has been executed,
     # instead of just before
     task_acks_late = True
     # Don't use the default 'celery' queue and routing key
     task_default_queue = "cachito"
     task_default_routing_key = "cachito"
-    # By default, have the worker process general and golang tasks
+    # By default, have the worker process general, golang, and npm tasks
     task_queues = (
         kombu.Queue("cachito"),
         kombu.Queue("cachito_golang", routing_key="cachito.golang"),
+        kombu.Queue("cachito_npm", routing_key="cachito.npm"),
     )
     # Requeue the message if the worker abruptly exits or is signaled
     task_reject_on_worker_lost = True
-    # Route golang tasks to a separate queue. This will be more useful when there's more than one
-    # type of worker.
+    # Route golang tasks and npm tasks to separate queues. This is useful if workers are dedicated
+    # to specific package managers.
     task_routes = {
         "cachito.workers.tasks.golang.*": {
             "queue": "cachito_golang",
             "routing_key": "cachito.golang",
-        }
+        },
+        "cachito.workers.tasks.npm.*": {"queue": "cachito_npm", "routing_key": "cachito.npm"},
     }
     # Only allow a single process so the concurrency is only based on the number of instances of the
     # worker container
@@ -69,6 +87,9 @@ class DevelopmentConfig(Config):
     cachito_athens_url = "http://athens:3000"
     cachito_bundles_dir = os.path.join(ARCHIVES_VOLUME, "bundles")
     cachito_log_level = "DEBUG"
+    cachito_nexus_password = "cachito"
+    cachito_nexus_unprivileged_password = "cachito_unprivileged"
+    cachito_nexus_url = "http://nexus:8081"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
 
 
@@ -129,6 +150,26 @@ def validate_celery_config(conf, **kwargs):
 
     if not conf.get("cachito_api_url"):
         raise ConfigError('The configuration "cachito_api_url" must be set')
+
+
+def validate_nexus_config():
+    """
+    Perform validation on the Celery configuration for package managers that require Nexus.
+
+    :raise ConfigError: if the Celery configuration isn't configured for Nexus
+    """
+    conf = get_worker_config()
+    for nexus_conf in (
+        "cachito_nexus_password",
+        "cachito_nexus_unprivileged_password",
+        "cachito_nexus_unprivileged_username",
+        "cachito_nexus_url",
+        "cachito_nexus_username",
+    ):
+        if not conf.get(nexus_conf):
+            raise ConfigError(
+                f'The configuration "{nexus_conf}" must be set for this package manager'
+            )
 
 
 def get_worker_config():

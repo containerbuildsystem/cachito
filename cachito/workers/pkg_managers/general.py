@@ -7,7 +7,12 @@ import requests
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 
-__all__ = ["run_cmd", "update_request_with_deps", "update_request_with_packages"]
+__all__ = [
+    "run_cmd",
+    "update_request_with_config_files",
+    "update_request_with_deps",
+    "update_request_with_packages",
+]
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +27,40 @@ def _get_request_url(request_id):
     """
     config = get_worker_config()
     return f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+
+
+def update_request_with_config_files(request_id, config_files):
+    """
+    Update the Cachito request with the input configuration files.
+
+    :param list config_files: the list of configuration files to add to the request
+    :raise CachitoError: if the request to the Cachito API fails
+    """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_auth_session
+
+    log.info("Adding %d configuration files to the request %d", len(config_files), request_id)
+    config = get_worker_config()
+    request_url = _get_request_url(request_id) + "/configuration-files"
+
+    try:
+        rv = requests_auth_session.post(
+            request_url, json=config_files, timeout=config.cachito_api_timeout
+        )
+    except requests.RequestException:
+        msg = f"The connection failed when adding configuration files to the request {request_id}"
+        log.exception(msg)
+        raise CachitoError(msg)
+
+    if not rv.ok:
+        log.error(
+            "The worker failed to add configuration files to the request %d. The status was %d. "
+            "The text was:\n%s",
+            request_id,
+            rv.status_code,
+            rv.text,
+        )
+        raise CachitoError(f"Adding configuration files on request {request_id} failed")
 
 
 def update_request_with_deps(request_id, deps):

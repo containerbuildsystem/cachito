@@ -7,6 +7,7 @@ import re
 import flask
 from flask_login import UserMixin, current_user
 import sqlalchemy
+import sqlalchemy.sql
 from werkzeug.exceptions import Forbidden
 
 from cachito.errors import ValidationError
@@ -87,14 +88,23 @@ class Package(db.Model):
     # derived from the class name
     __tablename__ = "package"
     id = db.Column(db.Integer, primary_key=True)
+    # On top-level packages, dev will always be false. This can be set to true on dependencies
+    # for package managers that denote a difference between dev and prod dependencies.
+    dev = db.Column(
+        db.Boolean,
+        default=False,
+        server_default=sqlalchemy.sql.expression.false(),
+        index=True,
+        nullable=False,
+    )
     name = db.Column(db.String, index=True, nullable=False)
     type = db.Column(db.String, index=True, nullable=False)
     version = db.Column(db.String, index=True, nullable=False)
-    __table_args__ = (db.UniqueConstraint("name", "type", "version"),)
+    __table_args__ = (db.UniqueConstraint("dev", "name", "type", "version"),)
 
     def __repr__(self):
         return (
-            f"<{self.__class__.__name__} id={self.id}, name={self.name} type={self.type} "
+            f"<{self.__class__.__name__} id={self.id}, name={self.name}, type={self.type}, "
             f"version={self.version}>"
         )
 
@@ -143,7 +153,8 @@ class Package(db.Model):
         """
         Get the package from the database and create it if it doesn't exist.
 
-        :param dict package: the JSON representation of a package
+        :param dict package: the JSON representation of a package; the dev key should be present
+            if the package manager has this distinction
         :return: an object based on the input dictionary; the object will be added to the database
             session, but not committed, if it was created
         :rtype: Package
@@ -163,6 +174,18 @@ class Dependency(Package):
     This uses the same table as Package, but has different methods.
     """
 
+    pkg_managers_with_dev = ("npm",)
+
+    def __repr__(self):
+        rv = (
+            f"<{self.__class__.__name__} id={self.id}, name={self.name}, type={self.type}, "
+            f"version={self.version}"
+        )
+        if self.type in self.pkg_managers_with_dev:
+            rv = f"{rv}, dev={self.dev}"
+        rv += ">"
+        return rv
+
     @classmethod
     def validate_json(cls, dependency, for_update=False):
         """
@@ -174,26 +197,31 @@ class Dependency(Package):
         :raise ValidationError: if the JSON does not match the required schema
         """
         required = {"name", "type", "version"}
-        optional = set()
+        optional = {"dev"}
         if for_update:
             optional.add("replaces")
 
         if not isinstance(dependency, dict) or (dependency.keys() - optional) != required:
             msg = (
                 "A dependency must be a JSON object with the following "
-                f'keys: {", ".join(sorted(required))}.'
+                f'keys: {", ".join(sorted(required))}. It may also contain the following optional '
+                f'keys if applicable: {", ".join(sorted(optional))}.'
             )
-            if for_update:
-                msg += (
-                    " It may also contain the following optional "
-                    f'keys: {", ".join(sorted(optional))}.'
-                )
             raise ValidationError(msg)
 
         for key in dependency.keys():
             if key == "replaces":
                 if dependency[key]:
                     cls.validate_json(dependency[key])
+            elif key == "dev":
+                if dependency["type"] not in cls.pkg_managers_with_dev:
+                    raise ValidationError(
+                        'The "dev" key is not supported on the package '
+                        f"manager {dependency['type']}"
+                    )
+
+                if not isinstance(dependency["dev"], bool):
+                    raise ValidationError('The "dev" key of the dependency must be a boolean')
             elif not isinstance(dependency[key], str):
                 raise ValidationError('The "{}" key of the dependency must be a string'.format(key))
 
@@ -241,6 +269,10 @@ class Dependency(Package):
 
         if replaces or force_replaces:
             rv["replaces"] = replaces
+
+        # Only show the dev key for dependencies of package managers that support it
+        if self.type in self.pkg_managers_with_dev:
+            rv["dev"] = self.dev
 
         return rv
 

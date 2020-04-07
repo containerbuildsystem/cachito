@@ -16,6 +16,7 @@ class Config(object):
     CACHITO_LOG_LEVEL = "INFO"
     CACHITO_LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s %(message)s"
     CACHITO_MAX_PER_PAGE = 100
+    CACHITO_PACKAGE_MANAGERS = ["gomod"]
     # Users that are allowed to use the "user" property when creating a request
     CACHITO_USER_REPRESENTATIVES = []
     CACHITO_WORKER_USERNAMES = []
@@ -32,6 +33,7 @@ class DevelopmentConfig(Config):
 
     CACHITO_BUNDLES_DIR = os.path.join(tempfile.gettempdir(), "cachito-archives", "bundles")
     CACHITO_LOG_LEVEL = "DEBUG"
+    CACHITO_PACKAGE_MANAGERS = ["gomod", "npm"]
     SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://cachito:cachito@db:5432/cachito"
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     LOGIN_DISABLED = True

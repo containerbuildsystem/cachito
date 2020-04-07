@@ -5,7 +5,11 @@ import requests
 import pytest
 
 from cachito.errors import CachitoError
-from cachito.workers.pkg_managers import update_request_with_deps, update_request_with_packages
+from cachito.workers.pkg_managers.general import (
+    update_request_with_config_files,
+    update_request_with_deps,
+    update_request_with_packages,
+)
 
 
 @mock.patch("cachito.workers.config.Config.cachito_deps_patch_batch_size", 5)
@@ -61,3 +65,38 @@ def test_update_request_with_packages_failed_connection(mock_requests):
     expected_msg = "The connection failed when adding packages to the request 1"
     with pytest.raises(CachitoError, match=expected_msg):
         update_request_with_packages(1, packages)
+
+
+@mock.patch("cachito.workers.requests.requests_auth_session")
+def test_update_request_with_config_files(mock_requests):
+    mock_requests.post.return_value.ok = True
+
+    config_files = [
+        {
+            "content": "U3RyYW5nZSB0aGluZ3MgYXJlIGhhcHBlbmluZyB0byBtZQo=",
+            "path": "app/mystery",
+            "type": "base64",
+        }
+    ]
+    update_request_with_config_files(1, config_files)
+
+    mock_requests.post.assert_called_once()
+    assert mock_requests.post.call_args[0][0].endswith("/api/v1/requests/1/configuration-files")
+
+
+@mock.patch("cachito.workers.requests.requests_auth_session")
+def test_update_request_with_config_files_failed_connection(mock_requests):
+    mock_requests.post.side_effect = requests.ConnectionError()
+
+    expected = "The connection failed when adding configuration files to the request 1"
+    with pytest.raises(CachitoError, match=expected):
+        update_request_with_config_files(1, [])
+
+
+@mock.patch("cachito.workers.requests.requests_auth_session")
+def test_update_request_with_config_files_failed(mock_requests):
+    mock_requests.post.return_value.ok = False
+
+    expected = "Adding configuration files on request 1 failed"
+    with pytest.raises(CachitoError, match=expected):
+        update_request_with_config_files(1, [])

@@ -125,9 +125,27 @@ Custom configuration for the Celery workers are listed below:
   writeable.
 * `cachito_download_timeout` - the timeout when downloading application source archives from sources
   such as GitHub. The default is `120` seconds.
+* `cachito_js_download_batch_size` - the number of JavaScript dependencies to download at once using
+  `npm pack`. If this value is too high, Nexus will return the error "Header is too large". This
+  defaults to `30`.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
+* `cachito_nexus_ca_cert` - the CA certificate that signed the SSL certificate used by the Nexus
+  instance. This defaults to `/etc/cachito/nexus_ca.pem`. If this file does not exist, Cachito will
+  not provide the CA certificate in the package manager configuration.
+* `cachito_nexus_password` - the password of the Nexus service account used by Cachito.
+* `cachito_nexus_timeout` - the timeout when making a Nexus API request. The default is `60`
+  seconds.
+* `cachito_nexus_unprivileged_password` - the password of the unprivileged user that has read access
+  to the main Cachito repositories (e.g. `cachito-js`).
+* `cachito_nexus_unprivileged_username` - the username of the unprivileged user that has read access
+  to the main Cachito repositories (e.g. `cachito-js`). This defaults to `cachito_unprivileged`.
+* `cachito_nexus_url` - the base URL to the Nexus Repository Manager 3 instance used by Cachito.
+* `cachito_nexus_username` - the username of the Nexus service account used by Cachito. The
+  following privileges are required: `nx-repository-admin-*-*-*`, `nx-repository-view-npm-*-*`,
+  `nx-roles-all`, `nx-script-*-*`, `nx-users-all` and `nx-userschangepw`. This defaults to
+  `cachito`.
 * `cachito_sources_dir` - the directory for long-term storage of app source archives. This
-    configuration is required, and the directory must already exist and be writeable.
+  configuration is required, and the directory must already exist and be writeable.
 
 To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
 environment variable to the path of the keytab. Additional Kerberos configuration can be made in
@@ -140,6 +158,7 @@ Custom configuration for the API:
 * `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
 * `CACHITO_BUNDLES_DIR` - the root of the bundles directory that is also accessible by the
   workers. This is used to download the bundle archives created by the workers.
+* `CACHITO_PACKAGE_MANAGERS` - the list of enabled package managers. This defaults to `["gomod"]`.
 * `CACHITO_USER_REPRESENTATIVES` - the list of usernames that are allowed to submit requests on
   behalf of other users.
 * `CACHITO_WORKER_USERNAMES` - the list of usernames that are allowed to use the `/requests/<id>`
@@ -155,3 +174,28 @@ If you are planning to deploy Cachito with authentication enabled, you'll need t
 a web server that supplies the `REMOTE_USER` environment variable when the user is
 properly authenticated. A common deployment option is using httpd (Apache web server)
 with the `mod_auth_gssapi` module.
+
+## Package Managers
+
+#### npm
+
+The npm package manager works by parsing the `npm-shrinkwrap.json` or `package-lock.json` file
+present in the source repository to determine what dependencies are required to build the
+application.
+
+Cachito then creates an npm registry in an instance of Nexus it manages that contains just
+the dependencies discovered in the lock file. The registry is locked down so that no other
+dependencies can be added. The connection information is stored in an
+[.npmrc](https://docs.npmjs.com/configuring-npm/npmrc.html) file accessible at the
+`/api/v1/requests/<id>/configuration-files` API endpoint.
+
+Cachito will produce a bundle that is downloadable at `/api/v1/requests/<id>/download`. This
+bundle will contain the application source code in the `app` directory and individual tarballs
+of all the dependencies in the `deps/npm` directory. These tarballs are not meant to be used to
+build the application. They are there for convenience so that the dependency sources can be
+published alongside your application sources. In addition, they can be used to populate a local npm
+registry in the event that the application needs to be built without Cachito and the Nexus instance
+it manages.
+
+This package manager does not currently support dependencies not from the npm registry. This will
+come at a later date.
