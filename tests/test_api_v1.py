@@ -706,7 +706,7 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_var
     db.session.commit()
 
     # Test a dependency with no "replaces" key
-    sample_deps_replace.append({"name": "all_systems_go", "type": "gomod", "version": "v1.0.0"})
+    sample_deps_replace.insert(0, {"name": "all_systems_go", "type": "gomod", "version": "v1.0.0"})
     payload = {"dependencies": sample_deps_replace, "environment_variables": env_vars}
     patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
@@ -721,7 +721,7 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_var
     fetched_request = get_rv.json
 
     # Add a null "replaces" key to match the API output
-    sample_deps_replace[-1]["replaces"] = None
+    sample_deps_replace[0]["replaces"] = None
     assert fetched_request["dependencies"] == sample_deps_replace
     assert fetched_request["environment_variables"] == env_vars
 
