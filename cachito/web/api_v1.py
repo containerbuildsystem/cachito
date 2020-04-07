@@ -165,21 +165,42 @@ def create_request():
             'Automatic detection will be used since "pkg_managers" was empty'
         )
 
+    supported_pkg_managers = set(flask.current_app.config["CACHITO_PACKAGE_MANAGERS"])
+    unsupported_pkg_managers = pkg_manager_names - supported_pkg_managers
+    if unsupported_pkg_managers:
+        # At this point, unsupported_pkg_managers would only contain valid package managers that
+        # are not enabled
+        raise ValidationError(
+            "The following package managers are not "
+            f"enabled: {', '.join(unsupported_pkg_managers)}"
+        )
+
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)
     chain_tasks = [
         tasks.fetch_app_source.s(request.repo, request.ref, request.id).on_error(error_callback)
     ]
-    if "gomod" in pkg_manager_names or auto_detect:
-        gomod_dependency_replacements = [
-            dependency_replacement
-            for dependency_replacement in payload.get("dependency_replacements", [])
-            if dependency_replacement["type"] == "gomod"
-        ]
+
+    pkg_manager_to_dep_replacements = {}
+    for dependency_replacement in payload.get("dependency_replacements", []):
+        type_ = dependency_replacement["type"]
+        pkg_manager_to_dep_replacements.setdefault(type_, [])
+        pkg_manager_to_dep_replacements[type_].append(dependency_replacement)
+
+    if "gomod" in pkg_manager_names or (auto_detect and "gomod" in supported_pkg_managers):
         chain_tasks.append(
             tasks.fetch_gomod_source.si(
-                request.id, auto_detect, gomod_dependency_replacements
+                request.id, auto_detect, pkg_manager_to_dep_replacements.get("gomod", [])
             ).on_error(error_callback)
+        )
+    if "npm" in pkg_manager_names or (auto_detect and "npm" in supported_pkg_managers):
+        if pkg_manager_to_dep_replacements.get("npm"):
+            raise ValidationError(
+                "Dependency replacements are not yet supported for the npm package manager"
+            )
+
+        chain_tasks.append(
+            tasks.fetch_npm_source.si(request.id, auto_detect).on_error(error_callback)
         )
 
     chain_tasks.extend(
@@ -278,9 +299,11 @@ def patch_request(request_id):
     request = Request.query.get_or_404(request_id)
     delete_bundle = False
     delete_bundle_temp = False
+    cleanup_nexus = False
     if "state" in payload and "state_reason" in payload:
         new_state = payload["state"]
         delete_bundle = new_state == "stale"
+        cleanup_nexus = new_state == "stale" and any(p.name == "npm" for p in request.pkg_managers)
         delete_bundle_temp = new_state in ("complete", "failed")
         new_state_reason = payload["state_reason"]
         # This is to protect against a Celery task getting executed twice and setting the
@@ -346,6 +369,12 @@ def patch_request(request_id):
             flask.current_app.logger.exception(
                 "Failed to delete the temporary files at %s", bundle_dir
             )
+
+    if cleanup_nexus:
+        flask.current_app.logger.info(
+            "Cleaning up the Nexus npm content for request %d", request_id
+        )
+        tasks.cleanup_npm_request.delay(request_id)
 
     if current_user.is_authenticated:
         flask.current_app.logger.info(

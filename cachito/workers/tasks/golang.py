@@ -2,11 +2,11 @@
 import logging
 
 from cachito.errors import CachitoError
-from cachito.workers.pkg_managers import (
-    resolve_gomod,
+from cachito.workers.pkg_managers.general import (
     update_request_with_deps,
     update_request_with_packages,
 )
+from cachito.workers.pkg_managers.golang import resolve_gomod
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.paths import RequestBundleDir

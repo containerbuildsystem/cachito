@@ -71,7 +71,7 @@ def upgrade():
         sa.Column("type", sa.String(), nullable=False),
         sa.Column("version", sa.String(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name", "type", "version"),
+        sa.UniqueConstraint("name", "type", "version", name="dependency_name_type_version_key"),
     )
 
     op.create_table(

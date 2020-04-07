@@ -18,6 +18,7 @@ from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import (
     fetch_app_source,
     fetch_gomod_source,
+    fetch_npm_source,
     set_request_state,
     failed_request_callback,
     create_bundle_archive,
@@ -25,14 +26,16 @@ from cachito.workers.tasks import (
 
 
 @pytest.mark.parametrize(
-    "dependency_replacements, pkg_managers, user",
+    "dependency_replacements, pkg_managers, user, enabled_pkg_managers, expected_pkg_managers",
     (
-        ([], [], None),
-        ([], ["gomod"], None),
+        ([], [], None, ["gomod", "npm"], ["gomod", "npm"]),
+        ([], ["gomod"], None, ["gomod", "npm"], ["gomod"]),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             ["gomod"],
             None,
+            ["gomod", "npm"],
+            ["gomod"],
         ),
         (
             [
@@ -45,14 +48,28 @@ from cachito.workers.tasks import (
             ],
             ["gomod"],
             None,
+            ["gomod"],
+            ["gomod"],
         ),
-        ([], [], "tom_hanks@DOMAIN.LOCAL"),
+        ([], [], "tom_hanks@DOMAIN.LOCAL", ["gomod", "npm"], ["gomod", "npm"]),
+        ([], ["npm"], None, ["gomod", "npm"], ["npm"]),
+        ([], [], None, ["gomod"], ["gomod"]),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_and_fetch_request(
-    mock_chain, dependency_replacements, pkg_managers, user, app, auth_env, client, db
+    mock_chain,
+    dependency_replacements,
+    pkg_managers,
+    user,
+    enabled_pkg_managers,
+    expected_pkg_managers,
+    app,
+    auth_env,
+    client,
+    db,
 ):
+    app.config["CACHITO_PACKAGE_MANAGERS"] = enabled_pkg_managers
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -84,18 +101,26 @@ def test_create_and_fetch_request(
 
     error_callback = failed_request_callback.s(1)
     auto_detect = len(pkg_managers) == 0
-    mock_chain.assert_called_once_with(
+    expected = [
+        fetch_app_source.s(
+            "https://github.com/release-engineering/retrodep.git",
+            "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            1,
+        ).on_error(error_callback)
+    ]
+    if "gomod" in expected_pkg_managers:
+        expected.append(
+            fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback)
+        )
+    if "npm" in expected_pkg_managers:
+        expected.append(fetch_npm_source.si(1, auto_detect).on_error(error_callback))
+    expected.extend(
         [
-            fetch_app_source.s(
-                "https://github.com/release-engineering/retrodep.git",
-                "c50b93a32df1c9d700e3e80996845bc2e13be848",
-                1,
-            ).on_error(error_callback),
-            fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback),
             create_bundle_archive.si(1).on_error(error_callback),
             set_request_state.si(1, "complete", "Completed successfully"),
         ]
     )
+    mock_chain.assert_called_once_with(expected)
 
     request_id = created_request["id"]
     rv = client.get("/api/v1/requests/{}".format(request_id))
@@ -272,11 +297,11 @@ def test_fetch_request_config(app, client, db, worker_auth_env):
         request = Request.from_json(data)
     db.session.add(request)
     config = ConfigFileBase64.get_or_create(
-        path="src/.npmrc", content="cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo="
+        path="app/.npmrc", content="cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo="
     )
     db.session.add(config)
     config2 = ConfigFileBase64.get_or_create(
-        path="src/.npmrc2", content="cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo="
+        path="app/.npmrc2", content="cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo="
     )
     db.session.add(config2)
     request.config_files_base64.append(config)
@@ -287,12 +312,12 @@ def test_fetch_request_config(app, client, db, worker_auth_env):
     expected = [
         {
             "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
-            "path": "src/.npmrc",
+            "path": "app/.npmrc",
             "type": "base64",
         },
         {
             "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
-            "path": "src/.npmrc2",
+            "path": "app/.npmrc2",
             "type": "base64",
         },
     ]
@@ -362,6 +387,10 @@ def test_create_request_invalid_pkg_manager(auth_env, client, db):
             "version. It may also contain the following optional keys: new_name.",
         ),
         ("mypackage", '"dependency_replacements" must be an array'),
+        (
+            [{"name": "rxjs", "type": "npm", "version": "6.5.5"}],
+            "Dependency replacements are not yet supported for the npm package manager",
+        ),
     ),
 )
 def test_create_request_invalid_dependency_replacement(
@@ -512,6 +541,20 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     assert rv.json == {"error": "Failed to connect to the broker to schedule a task"}
 
 
+def test_create_request_using_disabled_pkg_manager(app, auth_env, client, db):
+    app.config["CACHITO_PACKAGE_MANAGERS"] = ["gomod"]
+    data = {
+        "repo": "https://github.com/release-engineering/retrodep.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+
+    assert rv.status_code == 400
+    assert rv.json == {"error": "The following package managers are not enabled: npm"}
+
+
 @mock.patch("pathlib.Path.exists")
 @mock.patch("cachito.web.api_v1.Request")
 def test_download_archive(mock_request, mock_exists, client, app):
@@ -613,14 +656,26 @@ def test_set_pkg_managers(app, client, db, worker_auth_env):
 
 
 @pytest.mark.parametrize("bundle_exists", (True, False))
+@pytest.mark.parametrize("pkg_managers", (["gomod"], ["npm"], ["gomod", "npm"]))
 @mock.patch("pathlib.Path.exists")
 @mock.patch("pathlib.Path.unlink")
-def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, db, worker_auth_env):
+@mock.patch("cachito.web.api_v1.tasks.cleanup_npm_request")
+def test_set_state_stale(
+    mock_cleanup_npm,
+    mock_remove,
+    mock_exists,
+    pkg_managers,
+    bundle_exists,
+    app,
+    client,
+    db,
+    worker_auth_env,
+):
     mock_exists.return_value = bundle_exists
     data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
+        "repo": "https://github.com/release-engineering/project.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["gomod"],
+        "pkg_managers": pkg_managers,
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -644,6 +699,10 @@ def test_set_state_stale(mock_remove, mock_exists, bundle_exists, app, client, d
         mock_remove.assert_called_once_with()
     else:
         mock_remove.assert_not_called()
+    if "npm" in pkg_managers:
+        mock_cleanup_npm.delay.assert_called_once_with(1)
+    else:
+        mock_cleanup_npm.assert_not_called()
 
 
 def test_set_state_from_stale(app, client, db, worker_auth_env):
@@ -724,6 +783,35 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_var
     sample_deps_replace[0]["replaces"] = None
     assert fetched_request["dependencies"] == sample_deps_replace
     assert fetched_request["environment_variables"] == env_vars
+
+
+def test_set_deps_with_dev(app, client, db, worker_auth_env):
+    data = {
+        "repo": "https://github.com/release-engineering/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    dep = {
+        "name": "@angular-devkit/build-angular",
+        "dev": True,
+        "type": "npm",
+        "version": "0.803.26",
+    }
+    payload = {"dependencies": [dep]}
+    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    assert patch_rv.status_code == 200
+
+    get_rv = client.get("/api/v1/requests/1")
+    assert get_rv.status_code == 200
+
+    dep["replaces"] = None
+    assert get_rv.json["dependencies"] == [dep]
 
 
 def test_add_dep_twice_diff_replaces(app, client, db, worker_auth_env):
@@ -842,7 +930,7 @@ def test_set_state_not_logged_in(client, db):
             400,
             (
                 "A dependency must be a JSON object with the following keys: name, type, version. "
-                "It may also contain the following optional keys: replaces."
+                "It may also contain the following optional keys if applicable: dev, replaces."
             ),
         ),
         (
@@ -853,7 +941,8 @@ def test_set_state_not_logged_in(client, db):
                 ]
             },
             400,
-            "A dependency must be a JSON object with the following keys: name, type, version.",
+            "A dependency must be a JSON object with the following keys: name, type, version. "
+            "It may also contain the following optional keys if applicable: dev.",
         ),
         (
             1,
@@ -861,7 +950,7 @@ def test_set_state_not_logged_in(client, db):
             400,
             (
                 "A dependency must be a JSON object with the following keys: name, type, version. "
-                "It may also contain the following optional keys: replaces."
+                "It may also contain the following optional keys if applicable: dev, replaces."
             ),
         ),
         (
@@ -912,15 +1001,45 @@ def test_set_state_not_logged_in(client, db):
             400,
             "The value of environment variables must be a string",
         ),
+        (
+            1,
+            {
+                "dependencies": [
+                    {
+                        "dev": True,
+                        "name": "github.com/Masterminds/semver",
+                        "type": "gomod",
+                        "version": "v3.0.0",
+                    }
+                ]
+            },
+            400,
+            'The "dev" key is not supported on the package manager gomod',
+        ),
+        (
+            1,
+            {
+                "dependencies": [
+                    {
+                        "dev": 123,
+                        "name": "@angular-devkit/build-angular",
+                        "type": "npm",
+                        "version": "0.803.26",
+                    }
+                ]
+            },
+            400,
+            'The "dev" key of the dependency must be a boolean',
+        ),
     ),
 )
 def test_request_patch_invalid(
     app, client, db, worker_auth_env, request_id, payload, status_code, message
 ):
     data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
+        "repo": "https://github.com/release-engineering/project.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["gomod"],
+        "pkg_managers": [],
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
@@ -953,12 +1072,12 @@ def test_request_post_config(app, client, db, worker_auth_env):
     payload = [
         {
             "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
-            "path": "src/.npmrc",
+            "path": "app/.npmrc",
             "type": "base64",
         },
         {
             "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
-            "path": "src/.npmrc2",
+            "path": "app/.npmrc2",
             "type": "base64",
         },
     ]
@@ -981,7 +1100,7 @@ def test_request_post_config(app, client, db, worker_auth_env):
         ),
         (
             1,
-            [{"content": "Home on the range", "path": "src/music", "type": "song"}],
+            [{"content": "Home on the range", "path": "app/music", "type": "song"}],
             400,
             'The configuration type of "song" is invalid',
         ),
@@ -991,7 +1110,7 @@ def test_request_post_config(app, client, db, worker_auth_env):
                 {
                     "content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=",
                     "lunch": "time",
-                    "path": "src/.npmrc",
+                    "path": "app/.npmrc",
                     "type": "base64",
                 }
             ],

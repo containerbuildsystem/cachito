@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.workers.pkg_managers import get_golang_version, resolve_gomod
+from cachito.workers.pkg_managers.golang import get_golang_version, resolve_gomod
 from cachito.errors import CachitoError
 from cachito.workers.paths import RequestBundleDir
 

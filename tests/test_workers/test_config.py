@@ -5,7 +5,7 @@ from io import BytesIO
 import celery
 import pytest
 
-from cachito.workers.config import configure_celery, validate_celery_config
+from cachito.workers.config import configure_celery, validate_celery_config, validate_nexus_config
 from cachito.errors import ConfigError
 
 
@@ -61,3 +61,29 @@ def test_validate_celery_config_failure(mock_isdir, bundles_dir, sources_dir):
     expected = f'The configuration "{dir_name}" must be set to an existing directory'
     with pytest.raises(ConfigError, match=expected):
         validate_celery_config(celery_app.conf)
+
+
+@pytest.mark.parametrize(
+    "missing_config",
+    (
+        "cachito_nexus_password",
+        "cachito_nexus_unprivileged_password",
+        "cachito_nexus_unprivileged_username",
+        "cachito_nexus_url",
+        "cachito_nexus_username",
+    ),
+)
+@patch("cachito.workers.config.get_worker_config")
+def test_validate_nexus_config(mock_gwc, missing_config):
+    config = {
+        "cachito_nexus_password": "cachito",
+        "cachito_nexus_unprivileged_password": "cachito_unprivileged",
+        "cachito_nexus_unprivileged_username": "cachito_unprivileged",
+        "cachito_nexus_url": "https://nexus.domain.local",
+        "cachito_nexus_username": "cachito",
+    }
+    config.pop(missing_config)
+    mock_gwc.return_value = config
+    expected = f'The configuration "{missing_config}" must be set for this package manager'
+    with pytest.raises(ConfigError, match=expected):
+        validate_nexus_config()

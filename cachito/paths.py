@@ -27,8 +27,13 @@ class RequestBundleDir(type(Path())):
 
         self.source_dir = self.joinpath("app")
         self.go_mod_file = self.joinpath("app", "go.mod")
+
         self.deps_dir = self.joinpath("deps")
         self.gomod_download_dir = self.joinpath("deps", "gomod", cls.go_mod_cache_download_part)
+
+        self.npm_deps_dir = self.joinpath("deps", "npm")
+        self.npm_package_lock_file = self.joinpath("app", "package-lock.json")
+        self.npm_shrinkwrap_file = self.joinpath("app", "npm-shrinkwrap.json")
 
         self.bundle_archive_file = Path(root, f"{request_id}.tar.gz")
 
