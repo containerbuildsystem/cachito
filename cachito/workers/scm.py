@@ -28,10 +28,7 @@ class SCM(ABC):
         super().__init__()
         self.url = url
         self.ref = ref
-        self._archives_dir = None
-        self._archive_path = None
         self._repo_name = None
-        self._package_dir = None
 
         self.sources_dir = SourcesDir(self.repo_name, ref)
 
