@@ -46,8 +46,8 @@ def fetch_app_source(url, ref, request_id):
     # This will eventually end up in the bundle the user downloads. This is extracted now since
     # some package managers may add dependency replacements, which require edits to source files.
     bundle_dir = RequestBundleDir(request_id)
-    log.debug("Extracting %s to %s", bundle_dir.bundle_archive_file, bundle_dir)
-    extract_app_src(bundle_dir.bundle_archive_file, str(bundle_dir))
+    log.debug("Extracting %s to %s", scm.sources_dir.archive_path, bundle_dir)
+    extract_app_src(scm.sources_dir.archive_path, str(bundle_dir))
 
 
 @app.task

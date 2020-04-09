@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
+import os.path
 import pathlib
 import tarfile
 from unittest import mock
@@ -9,28 +10,24 @@ from requests import Timeout
 
 from cachito.errors import CachitoError
 from cachito.workers import tasks
-from cachito.workers.paths import RequestBundleDir
+from cachito.workers.paths import RequestBundleDir, SourcesDir
 
 
-@mock.patch("cachito.workers.tasks.general.extract_app_src")
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-@mock.patch("cachito.workers.tasks.general.Git")
-def test_fetch_app_source(mock_git, mock_set_request_state, mock_extract_app_src):
-    url = "https://github.com/release-engineering/retrodep.git"
-    ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
-    requrest_id = 1
+def test_fetch_app_source(mock_set_request_state, fake_repo):
+    request_id = 1
 
-    tasks.fetch_app_source(url, ref, requrest_id)
+    repo_dir, repo_name = fake_repo
+    tasks.fetch_app_source(f"file://{repo_dir}", "master", request_id)
 
-    mock_git.assert_called_once_with(url, ref)
-    mock_git.return_value.fetch_source.assert_called_once_with()
+    # Verify the archive file is created from fetched app source.
+    sources_dir = SourcesDir(repo_name, "master")
+    assert sources_dir.archive_path.name == "master.tar.gz"
 
-    mock_set_request_state.assert_called_once_with(
-        requrest_id, "in_progress", "Fetching the application source"
-    )
-
-    bundle_dir = RequestBundleDir(requrest_id)
-    mock_extract_app_src.assert_called_once_with(bundle_dir.bundle_archive_file, str(bundle_dir))
+    # Verify the archive file is extracted into request bundle directory.
+    bundle_dir = RequestBundleDir(request_id)
+    assert bundle_dir.joinpath("app", "readme.rst").exists()
+    assert bundle_dir.joinpath("app", "main.py").exists()
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")

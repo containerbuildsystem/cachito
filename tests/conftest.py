@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
 import os
+import tempfile
 
+import git
 import pytest
 import flask_migrate
 
@@ -176,3 +178,26 @@ def sample_env_vars():
 @pytest.fixture(scope="session")
 def worker_auth_env():
     return {"REMOTE_USER": "worker@DOMAIN.LOCAL"}
+
+
+@pytest.fixture()
+def fake_repo():
+    """
+    Create a fake git repository representing a remote resource to be fetched.
+
+    This fixture yields a tuple containing two data. The first one is the
+    absolute path to the repository, and the other one is the namespaced
+    repository name. Because of the repository is created as a temporary
+    directory, the repository name looks like tmp/test-tasks-xxxxx.
+    """
+    with tempfile.TemporaryDirectory(prefix="test-tasks-") as repo_dir:
+        r = git.Repo.init(repo_dir)
+        r.git.config("user.name", "tester")
+        r.git.config("user.email", "tester@localhost")
+        open(os.path.join(repo_dir, "readme.rst"), "w").close()
+        r.index.add(["readme.rst"])
+        r.index.commit("first commit")
+        open(os.path.join(repo_dir, "main.py"), "w").close()
+        r.index.add(["main.py"])
+        r.index.commit("add main source")
+        yield repo_dir, repo_dir.lstrip("/")
