@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
 import os
+import shutil
 import tarfile
 
 import requests
@@ -10,7 +11,6 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
-from cachito.workers.utils import extract_app_src
 
 __all__ = [
     "create_bundle_archive",
@@ -47,7 +47,7 @@ def fetch_app_source(url, ref, request_id):
     # some package managers may add dependency replacements, which require edits to source files.
     bundle_dir = RequestBundleDir(request_id)
     log.debug("Extracting %s to %s", scm.sources_dir.archive_path, bundle_dir)
-    extract_app_src(scm.sources_dir.archive_path, str(bundle_dir))
+    shutil.unpack_archive(str(scm.sources_dir.archive_path), str(bundle_dir))
 
 
 @app.task
