@@ -83,6 +83,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
 
         log.info("Downloading the gomod dependencies")
         run_gomod_cmd(("go", "mod", "download"), run_params)
+        if dep_replacements:
+            run_gomod_cmd(("go", "mod", "tidy"), run_params)
         go_list_output = run_gomod_cmd(
             ("go", "list", "-m", "-f", "{{.Path}} {{.Version}} {{.Replace}}", "all"), run_params
         )

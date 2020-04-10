@@ -84,13 +84,12 @@ def test_resolve_gomod(
     run_side_effects = []
     if dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod edit -replace
-    run_side_effects.extend(
-        [
-            mock.Mock(returncode=0, stdout=None),  # go mod download
-            mock.Mock(returncode=0, stdout=mock_cmd_output),  # go list -m all
-        ]
-    )
+    run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
+    if dep_replacement:
+        run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
+    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_cmd_output))  # go list -m all
     mock_run.side_effect = run_side_effects
+
     mock_golang_version.return_value = "v2.1.1"
 
     archive_path = "/this/is/path/to/archive.tar.gz"
@@ -113,6 +112,8 @@ def test_resolve_gomod(
             "-replace",
             expected_replace,
         )
+        if dep_replacement:
+            assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
 
     assert module == sample_package
     assert resolved_deps == expected_deps
@@ -183,6 +184,7 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
     mock_run.side_effect = [
         mock.Mock(returncode=0, stdout=None),  # go mod edit -replace
         mock.Mock(returncode=0, stdout=None),  # go mod download
+        mock.Mock(returncode=0, stdout=None),  # go mod tidy
         mock.Mock(returncode=0, stdout=_generate_mock_cmd_output()),  # go list -m all
     ]
 
