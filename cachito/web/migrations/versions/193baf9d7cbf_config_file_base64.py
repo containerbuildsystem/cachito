@@ -22,7 +22,6 @@ def upgrade():
         sa.Column("path", sa.String(), nullable=False),
         sa.Column("content", sa.String(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("content", "path"),
     )
     op.create_index(
         op.f("ix_config_file_base64_path"), "config_file_base64", ["path"], unique=False
