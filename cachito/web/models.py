@@ -816,7 +816,7 @@ class ConfigFileBase64(ConfigFileBase, db.Model):
     """A configuration file that the consumer must set for the bundle to be usable."""
 
     __table_args__ = (db.UniqueConstraint("content", "path"),)
-    content = db.Column(db.String, nullable=False, index=True)
+    content = db.Column(db.String, nullable=False)
     type_name = "base64"
 
     @classmethod

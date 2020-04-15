@@ -25,9 +25,6 @@ def upgrade():
         sa.UniqueConstraint("content", "path"),
     )
     op.create_index(
-        op.f("ix_config_file_base64_content"), "config_file_base64", ["content"], unique=False
-    )
-    op.create_index(
         op.f("ix_config_file_base64_path"), "config_file_base64", ["path"], unique=False
     )
 
@@ -62,6 +59,5 @@ def downgrade():
 
     with op.batch_alter_table("config_file_base64") as batch_op:
         batch_op.drop_index(batch_op.f("ix_config_file_base64_path"))
-        batch_op.drop_index(batch_op.f("ix_config_file_base64_content"))
 
     op.drop_table("config_file_base64")
