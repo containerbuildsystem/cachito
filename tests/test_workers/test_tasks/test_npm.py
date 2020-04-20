@@ -15,17 +15,29 @@ def test_cleanup_npm_request(mock_exec_script):
     mock_exec_script.assert_called_once_with("js_cleanup", expected_payload)
 
 
+@pytest.mark.parametrize("ca_file", (None, "some CA file contents"))
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
 @mock.patch("cachito.workers.tasks.npm.finalize_nexus_for_js_request")
+@mock.patch("cachito.workers.tasks.npm.nexus.get_ca_cert")
 @mock.patch("cachito.workers.tasks.npm.generate_npmrc_content")
 @mock.patch("cachito.workers.tasks.npm.update_request_with_config_files")
 @mock.patch("cachito.workers.tasks.npm.update_request_with_packages")
 @mock.patch("cachito.workers.tasks.npm.update_request_with_deps")
 def test_fetch_npm_source(
-    mock_urwd, mock_urwp, mock_urwcf, mock_gnc, mock_fnfjr, mock_rn, mock_pnfjr, mock_srs, mock_rbd,
+    mock_urwd,
+    mock_urwp,
+    mock_urwcf,
+    mock_gnc,
+    mock_gcc,
+    mock_fnfjr,
+    mock_rn,
+    mock_pnfjr,
+    mock_srs,
+    mock_rbd,
+    ca_file,
 ):
     mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = False
     mock_rbd.return_value.npm_package_lock_file.exists.return_value = True
@@ -42,6 +54,7 @@ def test_fetch_npm_source(
     username = f"cachito-js-{request_id}"
     password = "asjfhjsdfkwe"
     mock_fnfjr.return_value = (username, password)
+    mock_gcc.return_value = ca_file
     mock_gnc.return_value = "some npmrc"
 
     npm.fetch_npm_source(request_id)
@@ -50,10 +63,25 @@ def test_fetch_npm_source(
     mock_pnfjr.assert_called_once_with(request_id)
     lock_file_path = str(mock_rbd().source_dir)
     mock_rn.assert_called_once_with(lock_file_path, request)
-    mock_gnc.assert_called_once_with(request_id, username, password)
-    expected_config_files = [
-        {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"}
-    ]
+    if ca_file:
+        mock_gnc.assert_called_once_with(
+            request_id, username, password, custom_ca_path="./registry-ca.pem"
+        )
+    else:
+        mock_gnc.assert_called_once_with(request_id, username, password, custom_ca_path=None)
+    if ca_file:
+        expected_config_files = [
+            {
+                "content": "c29tZSBDQSBmaWxlIGNvbnRlbnRz",
+                "path": "app/registry-ca.pem",
+                "type": "base64",
+            },
+            {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"},
+        ]
+    else:
+        expected_config_files = [
+            {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"},
+        ]
     mock_urwcf.assert_called_once_with(request_id, expected_config_files)
     mock_urwp.assert_called_once_with(request_id, [package], "npm")
     mock_urwd.assert_called_once_with(request_id, deps)

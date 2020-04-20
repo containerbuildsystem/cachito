@@ -65,15 +65,11 @@ def test_finalize_nexus_for_js_request_failed(mock_exec_script):
         _, password = general_js.finalize_nexus_for_js_request(1)
 
 
-@pytest.mark.parametrize("ca_exists", (False, True))
-@mock.patch("cachito.workers.pkg_managers.general_js.nexus.get_ca_cert")
-def test_generate_npmrc_content(mock_get_ca, ca_exists):
-    if ca_exists:
-        mock_get_ca.return_value = "some cert"
-    else:
-        mock_get_ca.return_value = None
-
-    npm_rc = general_js.generate_npmrc_content(1, "admin", "admin123")
+@pytest.mark.parametrize("custom_ca_path", (None, "./registry-ca.pem"))
+def test_generate_npmrc_content(custom_ca_path):
+    npm_rc = general_js.generate_npmrc_content(
+        1, "admin", "admin123", custom_ca_path=custom_ca_path
+    )
 
     expected = textwrap.dedent(
         f"""\
@@ -83,17 +79,12 @@ def test_generate_npmrc_content(mock_get_ca, ca_exists):
         _auth=YWRtaW46YWRtaW4xMjM=
         fetch-retries=5
         fetch-retry-factor=2
+        strict-ssl=true
         """
     )
 
-    if ca_exists:
-        expected = textwrap.dedent(
-            f"""\
-            {expected}
-            ca="some cert"
-            strict-ssl=true
-            """
-        )
+    if custom_ca_path:
+        expected += f'cafile="{custom_ca_path}"\n'
 
     assert npm_rc == expected
 

@@ -84,12 +84,30 @@ def fetch_npm_source(request_id, auto_detect=False):
     username, password = finalize_nexus_for_js_request(request_id)
 
     log.info("Generating the .npmrc file")
-    npm_rc = generate_npmrc_content(request_id, username, password)
-    npm_rc_config_file = {
-        "content": base64.b64encode(npm_rc.encode("utf-8")).decode("utf-8"),
-        "path": "app/.npmrc",
-        "type": "base64",
-    }
-    update_request_with_config_files(request_id, [npm_rc_config_file])
+    ca_cert = nexus.get_ca_cert()
+    if ca_cert:
+        # The custom CA will be called registry-ca.pem in the same directory as the .npmrc file
+        npm_config_files = [
+            {
+                "content": base64.b64encode(ca_cert.encode("utf-8")).decode("utf-8"),
+                "path": "app/registry-ca.pem",
+                "type": "base64",
+            }
+        ]
+        custom_ca_path = "./registry-ca.pem"
+    else:
+        npm_config_files = []
+        custom_ca_path = None
+
+    npm_rc = generate_npmrc_content(request_id, username, password, custom_ca_path=custom_ca_path)
+    npm_config_files.append(
+        {
+            "content": base64.b64encode(npm_rc.encode("utf-8")).decode("utf-8"),
+            "path": "app/.npmrc",
+            "type": "base64",
+        }
+    )
+
+    update_request_with_config_files(request_id, npm_config_files)
     update_request_with_packages(request_id, [package], "npm")
     update_request_with_deps(request_id, deps)

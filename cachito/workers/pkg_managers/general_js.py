@@ -112,7 +112,7 @@ def finalize_nexus_for_js_request(request_id):
     return username, password
 
 
-def generate_and_write_npmrc_file(npm_rc_path, request_id, username, password):
+def generate_and_write_npmrc_file(npm_rc_path, request_id, username, password, custom_ca_path=None):
     """
     Generate a .npmrc file at the input location with the registry and authentication configured.
 
@@ -120,19 +120,25 @@ def generate_and_write_npmrc_file(npm_rc_path, request_id, username, password):
     :param int request_id: the ID of the request to determine the npm registry URL
     :param str username: the username of the user to use for authenticating to the registry
     :param str password: the password of the user to use for authenticating to the registry
+    :param str custom_ca_path: the path to set ``cafile`` to in the .npm rc file; if not provided,
+        this option will be omitted
     """
     log.debug("Generating a .npmrc file at %s", npm_rc_path)
     with open(npm_rc_path, "w") as f:
-        f.write(generate_npmrc_content(request_id, username, password))
+        f.write(
+            generate_npmrc_content(request_id, username, password, custom_ca_path=custom_ca_path)
+        )
 
 
-def generate_npmrc_content(request_id, username, password):
+def generate_npmrc_content(request_id, username, password, custom_ca_path=None):
     """
     Generate a .npmrc file with the registry and authentication configured.
 
     :param int request_id: the ID of the request to determine the npm registry URL
     :param str username: the username of the user to use for authenticating to the registry
     :param str password: the password of the user to use for authenticating to the registry
+    :param str custom_ca_path: the path to set ``cafile`` to in the .npm rc file; if not provided,
+        this option will be omitted
     :return: the contents of the .npmrc file
     :rtype: str
     """
@@ -148,17 +154,15 @@ def generate_npmrc_content(request_id, username, password):
         _auth={token}
         fetch-retries=5
         fetch-retry-factor=2
+        strict-ssl=true
         """
     )
-    nexus_ca_cert = nexus.get_ca_cert()
-    if nexus_ca_cert:
-        npm_rc = textwrap.dedent(
-            f"""\
-            {npm_rc}
-            ca="{nexus_ca_cert}"
-            strict-ssl=true
-            """
-        )
+
+    if custom_ca_path:
+        # The CA could be embedded in the actual .npmrc file with the `ca` option, but this would
+        # mean that the CA file contents would be duplicated in the Cachito database for every
+        # request that uses a .npmrc file
+        npm_rc += f'cafile="{custom_ca_path}"\n'
 
     return npm_rc
 
