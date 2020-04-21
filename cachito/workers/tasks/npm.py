@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import base64
+import json
 import logging
+import os
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus
@@ -67,6 +69,10 @@ def fetch_npm_source(request_id, auto_detect=False):
     if bundle_dir.npm_deps_dir.joinpath("node_modules").exists():
         raise CachitoError("The node_modules directory cannot be present in the source repository")
 
+    log.debug("Ensuring that the package.json file is present")
+    if not bundle_dir.npm_package_file.exists():
+        raise CachitoError("The package.json file is not present in the source repository")
+
     log.info("Configuring Nexus for npm for the request %d", request_id)
     set_request_state(request_id, "in_progress", "Configuring Nexus for npm")
     prepare_nexus_for_js_request(request_id)
@@ -74,7 +80,7 @@ def fetch_npm_source(request_id, auto_detect=False):
     log.info("Fetching the npm dependencies for request %d", request_id)
     request = set_request_state(request_id, "in_progress", "Fetching the npm dependencies")
     try:
-        package, deps = resolve_npm(str(bundle_dir.source_dir), request)
+        package_and_deps_info = resolve_npm(str(bundle_dir.source_dir), request)
     except CachitoError:
         log.exception("Failed to fetch npm dependencies for request %d", request_id)
         raise
@@ -108,6 +114,27 @@ def fetch_npm_source(request_id, auto_detect=False):
         }
     )
 
+    if package_and_deps_info["package.json"]:
+        package_json_str = json.dumps(package_and_deps_info["package.json"], indent=2)
+        npm_config_files.append(
+            {
+                "content": base64.b64encode(package_json_str.encode("utf-8")).decode("utf-8"),
+                "path": "app/package.json",
+                "type": "base64",
+            }
+        )
+
+    if package_and_deps_info["lock_file"]:
+        package_lock_str = json.dumps(package_and_deps_info["lock_file"], indent=2)
+        npm_config_files.append(
+            {
+                "content": base64.b64encode(package_lock_str.encode("utf-8")).decode("utf-8"),
+                "path": f"app/{os.path.basename(str(lock_file))}",
+                "type": "base64",
+            }
+        )
+
     update_request_with_config_files(request_id, npm_config_files)
-    update_request_with_packages(request_id, [package], "npm")
-    update_request_with_deps(request_id, deps)
+
+    update_request_with_packages(request_id, [package_and_deps_info["package"]], "npm")
+    update_request_with_deps(request_id, package_and_deps_info["deps"])
