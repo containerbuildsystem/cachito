@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import copy
 import logging
 import os
+import time
 
 import requests.auth
 
@@ -149,3 +151,151 @@ def get_ca_cert():
     if config.cachito_nexus_ca_cert and os.path.exists(config.cachito_nexus_ca_cert):
         with open(config.cachito_nexus_ca_cert, "r") as f:
             return f.read()
+
+
+def get_component_info_from_nexus(
+    repository, component_format, name, version, group=None, max_attempts=1
+):
+    """
+    Get the component information from a Nexus repository using Nexus' REST API.
+
+    :param str repository: the name of the repository
+    :param str component_format: the format of the component (e.g. npm)
+    :param str name: the name of the component
+    :param str version: the version of the dependency; a wildcard can be specified but it should
+        not match more than a single version
+    :param str group: an optional group of the dependency (e.g. the scope of a npm package)
+    :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
+    :return: the JSON about the component or None
+    :rtype: dict or None
+    :raise CachitoError: if the search fails or more than one component is returned
+    """
+    if max_attempts < 1:
+        raise ValueError("The max_attempts parameter must be at least 1")
+
+    component = None
+    attempts = 0
+    while component is None and attempts < max_attempts:
+        if attempts != 0:
+            log.warning(
+                "The component search did not yield any results. Trying again in three seconds."
+            )
+            time.sleep(3)
+
+        components = search_components(
+            format=component_format, group=group, name=name, repository=repository, version=version
+        )
+        if len(components) > 1:
+            log.error(
+                "The following Nexus components were returned but more than one was not "
+                "expected:\n%r",
+                components,
+            )
+            raise CachitoError(
+                "The component search in Nexus unexpectedly returned more than one result"
+            )
+        if components:
+            return components[0]
+
+        attempts += 1
+
+    return None
+
+
+def search_components(**query_params):
+    """
+    Search for components using the Nexus REST API.
+
+    :param query_params: the query parameters to filter
+    :return: the list of components returned by the search
+    :rtype: list<dict>
+    :raise CachitoError: if the search fails
+    """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_session
+
+    config = get_worker_config()
+    auth = requests.auth.HTTPBasicAuth(config.cachito_nexus_username, config.cachito_nexus_password)
+    url = f"{config.cachito_nexus_url.rstrip('/')}/service/rest/v1/search"
+    # Create a copy so that the original query parameters are unaltered later on
+    params = copy.deepcopy(query_params)
+
+    log.debug(
+        "Searching Nexus for components using the following query parameters: %r", query_params
+    )
+    items = []
+    while True:
+        try:
+            rv = requests_session.get(
+                url, auth=auth, params=params, timeout=config.cachito_nexus_timeout
+            )
+        except requests.RequestException:
+            msg = "Could not connect to the Nexus instance to search for components"
+            log.exception(msg)
+            raise CachitoError(msg)
+
+        if not rv.ok:
+            log.error(
+                "Failed to search for components (%r) in Nexus with the status code %d and the "
+                "text: %s",
+                query_params,
+                rv.status_code,
+                rv.text,
+            )
+            raise CachitoError("Failed to search for components in Nexus")
+
+        rv_json = rv.json()
+        items.extend(rv_json["items"])
+
+        # Handle pagination
+        if rv_json["continuationToken"]:
+            log.debug("Getting the next page of Nexus component search results")
+            params["continuationToken"] = rv_json["continuationToken"]
+        else:
+            break
+
+    return items
+
+
+def upload_artifact(repo_name, repo_type, artifact_path):
+    """
+    Upload an artifact to the Nexus hosted repository.
+
+    :param str repo_name: the name of the Nexus hosted repository
+    :param str repo_type: the type of the Nexus hosted repository (e.g. ``npm``)
+    :param str artifact_path: the path to the artifact to upload
+    :raise CachitoError: if the upload fails
+    """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_session
+
+    with open(artifact_path, "rb") as artifact:
+        file_payload = {f"{repo_type}.asset": artifact.read()}
+
+    config = get_worker_config()
+    auth = requests.auth.HTTPBasicAuth(config.cachito_nexus_username, config.cachito_nexus_password)
+    url = f"{config.cachito_nexus_url.rstrip('/')}/service/rest/v1/components"
+
+    log.info("Uploading the artifact %s", artifact_path)
+    try:
+        rv = requests_session.post(
+            url,
+            auth=auth,
+            files=file_payload,
+            params={"repository": repo_name},
+            timeout=config.cachito_nexus_timeout,
+        )
+    except requests.RequestException:
+        log.exception(
+            "Could not connect to the Nexus instance to upload the artifact %s", artifact_path
+        )
+        raise CachitoError("Could not connect to the Nexus instance to upload an artifact")
+
+    if not rv.ok:
+        log.error(
+            "Failed to upload the artifact %s with the status code %d and the text: %s",
+            artifact_path,
+            rv.status_code,
+            rv.text,
+        )
+        raise CachitoError("Failed to upload an artifact to Nexus")

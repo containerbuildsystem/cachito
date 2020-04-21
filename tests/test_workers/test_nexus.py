@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import copy
 from unittest import mock
 
 import requests
@@ -7,6 +8,83 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
+
+
+@pytest.fixture()
+def components_search_results():
+    return {
+        "items": [
+            {
+                "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6MTNiMjllNDQ5ZjBlM2I4ZDM5OTY0ZWQzZTExMGUyZTM",
+                "repository": "cachito-js-hosted",
+                "format": "npm",
+                "group": None,
+                "name": "rxjs",
+                "version": "7.0.0-beta.0-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+                "assets": [
+                    {
+                        "downloadUrl": (
+                            "http://nexus/repository/cachito-js-hosted/rxjs/-/rxjs-7.0.0-beta.0"
+                            "-external-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+                        ),
+                        "path": (
+                            "rxjs/-/rxjs-7.0.0-beta.0-external-"
+                            "dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+                        ),
+                        "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6Mjk0YzYzMzJiNDlhNmQ0NTY3MmM5YmNhZDg0YWI2ZTM",
+                        "repository": "cachito-js-hosted",
+                        "format": "npm",
+                        "checksum": {
+                            "sha1": "7500bf7b05fb79a85b2c10c4aed0550ee57f0d87",
+                            "sha512": (
+                                "144d7633612bf4e46422557cd72be605af8f86249e87f6585a447622746cfcfbc"
+                                "d05aff81f5786368b9ff377d0bb08a05b363b8da82ea797e38795c497fc70e7"
+                            ),
+                            "sha256": (
+                                "78b4e698935ebb54e958fb92646e0cad2effcbfdb36be06f491b033779cd0fdf"
+                            ),
+                            "md5": "8e5b6513036e0de8a6e9f40e3a7a386e",
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6ZDQ4MTE3NTQxZGNiODllYzYxM2IyMzk3MzIwMWQ3YmE",
+                "repository": "cachito-js-hosted",
+                "format": "npm",
+                "group": "reactivex",
+                "name": "rxjs",
+                "version": "6.5.5-external-78032157f5c1655436829017bbda787565b48c30",
+                "assets": [
+                    {
+                        "downloadUrl": (
+                            "http://nexus/repository/cachito-js-hosted/@reactivex/rxjs/-/"
+                            "rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz"
+                        ),
+                        "path": (
+                            "@reactivex/rxjs/-/rxjs-6.5.5-external-"
+                            "78032157f5c1655436829017bbda787565b48c30.tgz"
+                        ),
+                        "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6Yzc1NDU1NzlhN2ExNTM5MDI5YmRiOTI4YzdkNGFiZDQ",
+                        "repository": "cachito-js-hosted",
+                        "format": "npm",
+                        "checksum": {
+                            "sha1": "3d125fa8fda499a6405da48d14796607041b7ed7",
+                            "sha512": (
+                                "7cda573352bb69f9aee6bbe31875e3bfb6978faf1551cc41f6bda31331ffcbade"
+                                "48cf38d2bf621346c09ba35bc0d023d26acdbe82167e934e73d646c7fae4286"
+                            ),
+                            "sha256": (
+                                "0b1bd5838ec06d6e26064a958636559eb9ecb8fe11722e703c90d4becf9265a2"
+                            ),
+                            "md5": "1977decdef38174ce256927687dd197d",
+                        },
+                    }
+                ],
+            },
+        ],
+        "continuationToken": None,
+    }
 
 
 @mock.patch("cachito.workers.requests.requests_session")
@@ -182,3 +260,123 @@ def test_get_ca_cert_exists(mock_exists):
     mock_exists.return_value = True
 
     assert nexus.get_ca_cert() == "some CA cert"
+
+
+@mock.patch("cachito.workers.nexus.search_components")
+def test_get_component_info_from_nexus(mock_search_components, components_search_results):
+    repository = "cachito-js-proxy"
+    component_format = "npm"
+    name = "rxjs"
+    version = "6.5.5-external-78032157f5c1655436829017bbda787565b48c30"
+    group = "reactive"
+    components_search_results["items"].pop(0)
+    mock_search_components.return_value = components_search_results["items"]
+
+    results = nexus.get_component_info_from_nexus(
+        repository, component_format, name, version, group=group
+    )
+
+    expected = components_search_results["items"][0]
+    assert results == expected
+
+
+@mock.patch("cachito.workers.nexus.time.sleep")
+@mock.patch("cachito.workers.nexus.search_components")
+def test_get_component_info_from_nexus_no_results(mock_search_components, mock_sleep):
+    mock_search_components.return_value = []
+
+    results = nexus.get_component_info_from_nexus(
+        "cachito-js-proxy", "npm", "rxjs", "6.55.5", max_attempts=3
+    )
+
+    assert results is None
+    assert mock_sleep.call_count == 2
+    assert mock_search_components.call_count == 3
+
+
+@mock.patch("cachito.workers.nexus.search_components")
+def test_get_component_info_from_nexus_multiple_results(
+    mock_search_components, components_search_results
+):
+    mock_search_components.return_value = components_search_results["items"]
+
+    expected = "The component search in Nexus unexpectedly returned more than one result"
+    with pytest.raises(CachitoError, match=expected):
+        nexus.get_component_info_from_nexus("cachito-js-proxy", "npm", "rxjs", "*")
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_search_components(mock_requests, components_search_results):
+    # Split up the components_search_results fixture into two pages to test pagination
+    first_page = copy.deepcopy(components_search_results)
+    first_page["items"].pop(1)
+    first_page["continuationToken"] = "someToken"
+    mock_rv_first = mock.Mock()
+    mock_rv_first.ok = True
+    mock_rv_first.json.return_value = first_page
+
+    second_page = copy.deepcopy(components_search_results)
+    second_page["items"].pop(0)
+    mock_rv_second = mock.Mock()
+    mock_rv_second.ok = True
+    mock_rv_second.json.return_value = second_page
+
+    mock_requests.get.side_effect = [mock_rv_first, mock_rv_second]
+
+    results = nexus.search_components(repository="cachito-js-hosted", type="npm")
+
+    assert results == components_search_results["items"]
+
+    assert mock_requests.get.call_count == 2
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_search_components_connection_error(mock_requests):
+    mock_requests.get.side_effect = requests.ConnectionError()
+
+    expected = "Could not connect to the Nexus instance to search for components"
+    with pytest.raises(CachitoError, match=expected):
+        nexus.search_components(repository="cachito-js-hosted", type="npm")
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_search_components_failed(mock_requests):
+    mock_requests.get.return_value.ok = False
+
+    expected = "Failed to search for components in Nexus"
+    with pytest.raises(CachitoError, match=expected):
+        nexus.search_components(repository="cachito-js-hosted", type="npm")
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_upload_artifact(mock_requests):
+    mock_open = mock.mock_open(read_data=b"some tgz file")
+    mock_requests.post.return_value.ok = True
+
+    with mock.patch("cachito.workers.nexus.open", mock_open):
+        nexus.upload_artifact("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
+
+    assert mock_requests.post.call_args[1]["files"] == {"npm.asset": b"some tgz file"}
+    assert mock_requests.post.call_args[1]["params"] == {"repository": "cachito-js-hosted"}
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_upload_artifact_connection_error(mock_requests):
+    mock_open = mock.mock_open(read_data=b"some tgz file")
+    mock_requests.post.side_effect = requests.ConnectionError()
+
+    expected = "Could not connect to the Nexus instance to upload an artifact"
+    with mock.patch("cachito.workers.nexus.open", mock_open):
+        with pytest.raises(CachitoError, match=expected):
+            nexus.upload_artifact("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_upload_artifact_failed(mock_requests):
+    mock_open = mock.mock_open(read_data=b"some tgz file")
+    mock_requests.post.return_value.ok = False
+
+    expected = "Failed to upload an artifact to Nexus"
+    with mock.patch("cachito.workers.nexus.open", mock_open):
+        with pytest.raises(CachitoError, match=expected):
+            nexus.upload_artifact("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")

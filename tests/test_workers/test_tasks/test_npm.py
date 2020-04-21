@@ -15,6 +15,10 @@ def test_cleanup_npm_request(mock_exec_script):
     mock_exec_script.assert_called_once_with("js_cleanup", expected_payload)
 
 
+# The package.json and package-lock.json mock values are not actually valid,
+# they just need to be valid JSON
+@pytest.mark.parametrize("package_json", (None, {"name": "han-solo"}))
+@pytest.mark.parametrize("lock_file", (None, {"dependencies": []}))
 @pytest.mark.parametrize("ca_file", (None, "some CA file contents"))
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
@@ -38,19 +42,30 @@ def test_fetch_npm_source(
     mock_srs,
     mock_rbd,
     ca_file,
+    lock_file,
+    package_json,
 ):
     mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = False
     mock_rbd.return_value.npm_package_lock_file.exists.return_value = True
+    # The mock package-lock.json Path object must act like one for os.path functions
+    mock_rbd.return_value.npm_package_lock_file.__str__.return_value = "/path/to/package-lock.json"
+    mock_rbd.return_value.npm_package_file.exists.return_value = True
+    # The node_modules directory doesn't exist
     mock_rbd.return_value.npm_deps_dir.joinpath.return_value.exists.return_value = False
     request_id = 6
     request = {"id": request_id}
     mock_srs.return_value = request
-    package = {"name": "han_solo", "type": "npm", "version": "5.0.0"}
+    package = {"name": "han-solo", "type": "npm", "version": "5.0.0"}
     deps = [
         {"dev": False, "name": "@angular/animations", "type": "npm", "version": "8.2.14"},
         {"dev": False, "name": "tslib", "type": "npm", "version": "1.11.1"},
     ]
-    mock_rn.return_value = (package, deps)
+    mock_rn.return_value = {
+        "deps": deps,
+        "lock_file": lock_file,
+        "package": package,
+        "package.json": package_json,
+    }
     username = f"cachito-js-{request_id}"
     password = "asjfhjsdfkwe"
     mock_fnfjr.return_value = (username, password)
@@ -69,19 +84,39 @@ def test_fetch_npm_source(
         )
     else:
         mock_gnc.assert_called_once_with(request_id, username, password, custom_ca_path=None)
+
+    expected_config_files = []
     if ca_file:
-        expected_config_files = [
+        expected_config_files.append(
             {
                 "content": "c29tZSBDQSBmaWxlIGNvbnRlbnRz",
                 "path": "app/registry-ca.pem",
                 "type": "base64",
-            },
-            {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"},
-        ]
-    else:
-        expected_config_files = [
-            {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"},
-        ]
+            }
+        )
+
+    expected_config_files.append(
+        {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"}
+    )
+
+    if package_json:
+        expected_config_files.append(
+            {
+                "content": "ewogICJuYW1lIjogImhhbi1zb2xvIgp9",
+                "path": "app/package.json",
+                "type": "base64",
+            }
+        )
+
+    if lock_file:
+        expected_config_files.append(
+            {
+                "content": "ewogICJkZXBlbmRlbmNpZXMiOiBbXQp9",
+                "path": "app/package-lock.json",
+                "type": "base64",
+            }
+        )
+
     mock_urwcf.assert_called_once_with(request_id, expected_config_files)
     mock_urwp.assert_called_once_with(request_id, [package], "npm")
     mock_urwd.assert_called_once_with(request_id, deps)
@@ -96,6 +131,19 @@ def test_fetch_npm_source_no_lock(mock_rbd):
         "The npm-shrinkwrap.json or package-lock.json file must be present for the npm package "
         "manager"
     )
+    with pytest.raises(CachitoError, match=expected):
+        npm.fetch_npm_source(6)
+
+
+@mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
+def test_fetch_npm_source_no_package_json(mock_rbd):
+    mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = True
+    mock_rbd.return_value.npm_package_lock_file.exists.return_value = True
+    # The node_modules directory doesn't exist
+    mock_rbd.return_value.npm_deps_dir.joinpath.return_value.exists.return_value = False
+    mock_rbd.return_value.npm_package_file.exists.return_value = False
+
+    expected = "The package.json file is not present in the source repository"
     with pytest.raises(CachitoError, match=expected):
         npm.fetch_npm_source(6)
 
