@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+from os import path
+import tarfile
+
+import utils
+
+
+def test_dependency_replacement(test_env, tmpdir):
+    """
+    Check that proper versions of dependencies were used.
+
+    Process:
+    * Send new request to Cachito API to fetch retrodep with another version of dependency package
+    * Download a bundle archive
+
+    Checks:
+    * Check that the state of request is complete
+    * Check that in the response there is a key "replaces" with dict values which was replaced
+    * Check that dir deps/gomod/pkg/mod/cache/download/github.com/pkg/errors/@v/… contains
+        only the required version
+    * Check that app/go.mod file has replace directive for the specified package
+    """
+    dependency_replacements = test_env["dep_replacement"]["dependency_replacements"]
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    response_created_req = client.create_new_request(
+        payload={
+            "repo": test_env["package"]["repo"],
+            "ref": test_env["package"]["ref"],
+            "pkg_managers": test_env["package"]["pkg_managers"],
+            "dependency_replacements": dependency_replacements,
+        },
+    )
+    response = client.wait_for_complete_request(response_created_req)
+    assert response.data["state"] == "complete"
+
+    names_replaced_dependencies = {
+        i["replaces"]["name"] for i in response.data["dependencies"] if i["replaces"] is not None
+    }
+    supposed_replaced_dependencies = set(i["name"] for i in dependency_replacements)
+    assert names_replaced_dependencies == supposed_replaced_dependencies
+
+    bundle_dir_name = tmpdir.join(f"download_{str(response.id)}")
+    bundle_archive = tmpdir.join(f"download_{str(response.id)}.tar.gz")
+    resp = client.download_bundle(response.id, bundle_archive)
+    assert resp.status == 200
+    assert tarfile.is_tarfile(bundle_archive)
+
+    with tarfile.open(bundle_archive, "r:gz") as tar:
+        tar.extractall(bundle_dir_name)
+
+    for dependency in dependency_replacements:
+        dep_name = utils.escape_path_go(dependency["name"])
+        dependency_version_file = path.join(
+            bundle_dir_name,
+            "deps",
+            "gomod",
+            "pkg",
+            "mod",
+            "cache",
+            "download",
+            dep_name,
+            "@v",
+            "list",
+        )
+        assert path.exists(dependency_version_file)
+        with open(dependency_version_file, "r") as file:
+            lines = {line.rstrip() for line in file.readlines()}
+            assert dependency["version"] in lines
+
+    go_mod_path = path.join(bundle_dir_name, "app", "go.mod")
+    assert path.exists(go_mod_path)
+    with open(go_mod_path, "r") as file:
+        go_mod_replace = []
+        for line in file:
+            if line.startswith("replace "):
+                go_mod_replace.append(
+                    {"name": line.split()[-2], "type": "gomod", "version": line.split()[-1]}
+                )
+        assert go_mod_replace == dependency_replacements
