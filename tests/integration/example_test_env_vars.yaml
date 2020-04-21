@@ -33,3 +33,13 @@ get:
   - ["golang.org/x/tools", "gomod", "v0.0.0-20190325161752-5a8dccf5b48a"]
   - ["gopkg.in/check.v1", "gomod", "v1.0.0-20180628173108-788fd7840127"]
   - ["gopkg.in/yaml.v2", "gomod", "v2.2.2"]
+# Test data for the Dependency replacement test
+dep_replacement:
+  # The list of dependencies that are replaced with specific versions
+  dependency_replacements:
+  - name: github.com/pkg/errors
+    type: gomod
+    version: v0.8.0
+  - name: github.com/Masterminds/semver
+    type: gomod
+    version: v1.4.0
