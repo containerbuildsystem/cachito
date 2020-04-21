@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import operator
-import time
 
 import utils
 
@@ -31,13 +30,7 @@ def test_valid_data_in_request(test_env):
     response = client.fetch_request(response_created_req.id)
     assert response.status == 200
 
-    start_time = time.time()
-    while response.data["state"] == "in_progress":
-        # 300 seconds
-        if time.time() - start_time >= 300:
-            raise TimeoutError("The Cachito request did not complete within 5 minutes")
-        time.sleep(5)
-        response = client.fetch_request(response_created_req.id)
+    response = client.wait_for_complete_request(response)
     assert response.data["state"] == "complete"
 
     response_dependencies = list_of_dict_to_list_of_name_type_version(response.data["dependencies"])

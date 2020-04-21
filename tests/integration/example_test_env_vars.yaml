@@ -36,3 +36,7 @@ get:
   - ["golang.org/x/tools", "gomod", "v0.0.0-20190325161752-5a8dccf5b48a"]
   - ["gopkg.in/check.v1", "gomod", "v1.0.0-20180628173108-788fd7840127"]
   - ["gopkg.in/yaml.v2", "gomod", "v2.2.2"]
+download_output:
+  repo: https://github.com/release-engineering/retrodep.git
+  ref: e1be527f39ec31323f0454f7d1422c6260b00580
+  pkg_managers: ["gomod"]
