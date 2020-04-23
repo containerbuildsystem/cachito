@@ -205,10 +205,11 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
 def test_fetch_paginated_requests(
     mock_chain, app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env
 ):
+    sample_requests_count = 50
     repo_template = "https://github.com/release-engineering/retrodep{}.git"
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=auth_env):
-        for i in range(50):
+        for i in range(sample_requests_count):
             data = {
                 "repo": repo_template.format(i),
                 "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -218,9 +219,13 @@ def test_fetch_paginated_requests(
             db.session.add(request)
     db.session.commit()
 
+    # Endpoint /requests/ returns requests in descending order of id.
+
     payload = {"dependencies": sample_deps_replace, "packages": [sample_package]}
-    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    client.patch("/api/v1/requests/11", json=payload, environ_base=worker_auth_env)
+    client.patch(
+        f"/api/v1/requests/{sample_requests_count}", json=payload, environ_base=worker_auth_env
+    )
+    client.patch("/api/v1/requests/40", json=payload, environ_base=worker_auth_env)
 
     # Sane defaults are provided
     rv = client.get("/api/v1/requests")
@@ -228,8 +233,8 @@ def test_fetch_paginated_requests(
     response = rv.json
     fetched_requests = response["items"]
     assert len(fetched_requests) == 20
-    for repo_number, request in enumerate(fetched_requests):
-        assert request["repo"] == repo_template.format(repo_number)
+    for i, request in enumerate(fetched_requests, 1):
+        assert request["repo"] == repo_template.format(sample_requests_count - i)
     assert response["meta"]["previous"] is None
     assert fetched_requests[0]["dependencies"] == 14
     assert fetched_requests[0]["packages"] == 1
@@ -241,15 +246,15 @@ def test_fetch_paginated_requests(
     fetched_requests = response["items"]
     assert len(fetched_requests) == 10
     # Start at 10 because each page contains 10 items and we're processing the second page
-    for repo_number, request in enumerate(fetched_requests, 10):
-        assert request["repo"] == repo_template.format(repo_number)
+    for i, request in enumerate(fetched_requests, 1):
+        assert request["repo"] == repo_template.format(sample_requests_count - 10 - i)
     pagination_metadata = response["meta"]
     for page, page_num in [("next", 3), ("last", 5), ("previous", 1), ("first", 1)]:
         assert f"page={page_num}" in pagination_metadata[page]
         assert "per_page=10" in pagination_metadata[page]
         assert "verbose=True" in pagination_metadata[page]
         assert "state=in_progress" in pagination_metadata[page]
-    assert pagination_metadata["total"] == 50
+    assert pagination_metadata["total"] == sample_requests_count
     assert len(fetched_requests[0]["dependencies"]) == 14
     assert len(fetched_requests[0]["packages"]) == 1
     assert type(fetched_requests[0]["dependencies"]) == list

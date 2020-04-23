@@ -40,7 +40,7 @@ def get_requests():
     max_per_page = flask.current_app.config["CACHITO_MAX_PER_PAGE"]
     # The call to `paginate` will inspect the current HTTP request for the
     # pagination parameters `page` and `per_page`.
-    query = Request.query
+    query = Request.query.order_by(Request.id.desc())
     if state:
         if state not in RequestStateMapping.get_state_names():
             states = ", ".join(RequestStateMapping.get_state_names())
