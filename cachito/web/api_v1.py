@@ -5,7 +5,7 @@ import functools
 from celery import chain
 import flask
 from flask_login import current_user, login_required
-from werkzeug.exceptions import Unauthorized, InternalServerError
+from werkzeug.exceptions import Forbidden, InternalServerError
 
 from cachito.errors import ValidationError
 from cachito.web import db
@@ -219,7 +219,7 @@ def worker_required(func):
     """
     Decorate a function and assert that the current user is a worker.
 
-    :raise Unauthorized: if the user is not a worker
+    :raise Forbidden: if the user is not a worker
     """
 
     @functools.wraps(func)
@@ -227,7 +227,7 @@ def worker_required(func):
         allowed_users = flask.current_app.config["CACHITO_WORKER_USERNAMES"]
         # current_user.is_authenticated is only ever False when auth is disabled
         if current_user.is_authenticated and current_user.username not in allowed_users:
-            raise Unauthorized("This API endpoint is restricted to Cachito workers")
+            raise Forbidden("This API endpoint is restricted to Cachito workers")
         return func(*args, **kwargs)
 
     return wrapper

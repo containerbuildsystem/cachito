@@ -1054,7 +1054,7 @@ def test_request_patch_invalid(
 
 def test_request_patch_not_authorized(auth_env, client, db):
     rv = client.patch("/api/v1/requests/1", json={}, environ_base=auth_env)
-    assert rv.status_code == 401
+    assert rv.status_code == 403
     assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
 
 
@@ -1161,5 +1161,5 @@ def test_request_post_config_invalid(
 
 def test_request_config_post_not_authorized(auth_env, client, db):
     rv = client.post("/api/v1/requests/1/configuration-files", json={}, environ_base=auth_env)
-    assert rv.status_code == 401
+    assert rv.status_code == 403
     assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
