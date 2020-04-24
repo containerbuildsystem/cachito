@@ -331,6 +331,11 @@ class Request(db.Model):
         foreign_keys=[RequestDependency.request_id, RequestDependency.replaced_dependency_id],
         secondary=RequestDependency.__table__,
     )
+    replaced_dependency_mappings = db.relationship(
+        "RequestDependency",
+        primaryjoin="and_(Request.id == RequestDependency.request_id, "
+        "RequestDependency.replaced_dependency_id.isnot(None))",
+    )
     packages = db.relationship("Package", secondary=RequestPackage.__table__)
     pkg_managers = db.relationship(
         "PackageManager", secondary=request_pkg_manager_table, backref="requests"
@@ -424,20 +429,6 @@ class Request(db.Model):
             db.session.query(sqlalchemy.func.count(RequestPackage.package_id))
             .filter(RequestPackage.request_id == self.id)
             .scalar()
-        )
-
-    @property
-    def replaced_dependency_mappings(self):
-        """
-        Get the RequestDependency objects for the current request which contain a replacement.
-
-        :return: a list of RequestDependency
-        :rtype: list
-        """
-        return (
-            RequestDependency.query.filter_by(request_id=self.id)
-            .filter(RequestDependency.replaced_dependency_id.isnot(None))
-            .all()
         )
 
     def to_json(self, verbose=True):
@@ -590,10 +581,10 @@ class Request(db.Model):
                     # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
                     # This will generate an ID that can be used below.
                     db.session.flush()
-                request_kwargs["user_id"] = submitted_for.id
-                request_kwargs["submitted_by_id"] = current_user.id
+                request_kwargs["user"] = submitted_for
+                request_kwargs["submitted_by"] = current_user
             else:
-                request_kwargs["user_id"] = current_user.id
+                request_kwargs["user"] = current_user._get_current_object()
         request = cls(**request_kwargs)
         request.add_state("in_progress", "The request was initiated")
         return request
@@ -624,7 +615,7 @@ class Request(db.Model):
         # This will generate an ID that can be used below.
         db.session.add(request_state)
         db.session.flush()
-        self.request_state_id = request_state.id
+        self.state = request_state
 
 
 class PackageManager(db.Model):
