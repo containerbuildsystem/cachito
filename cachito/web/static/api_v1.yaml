@@ -156,6 +156,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RequestVerbose'
+        "403":
+          description: The requester is not allowed to modify a request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: This API endpoint is restricted to Cachito workers
         "404":
           description: The request wasn't found
           content:
@@ -204,6 +214,16 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/RequestConfiguration"
+        "403":
+          description: The requester is not allowed to add configuration files for a request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: This API endpoint is restricted to Cachito workers
         "404":
           description: The request wasn't found
           content:
