@@ -305,6 +305,12 @@ class RequestDependency(db.Model):
     )
     replaced_dependency_id = db.Column(db.Integer, db.ForeignKey("package.id"), index=True)
 
+    request = db.relationship("Request", backref="request_dependencies")
+    dependency = db.relationship("Dependency", foreign_keys=[dependency_id], lazy="joined")
+    replaced_dependency = db.relationship(
+        "Dependency", foreign_keys=[replaced_dependency_id], lazy="joined"
+    )
+
     __table_args__ = (db.UniqueConstraint("request_id", "dependency_id"),)
 
 
@@ -320,22 +326,6 @@ class Request(db.Model):
         db.Integer, db.ForeignKey("request_state.id"), index=True, unique=True
     )
     state = db.relationship("RequestState", foreign_keys=[request_state_id])
-    dependencies = db.relationship(
-        "Dependency",
-        foreign_keys=[RequestDependency.request_id, RequestDependency.dependency_id],
-        secondary=RequestDependency.__table__,
-        order_by="Dependency.name",
-    )
-    dependency_replacements = db.relationship(
-        "Dependency",
-        foreign_keys=[RequestDependency.request_id, RequestDependency.replaced_dependency_id],
-        secondary=RequestDependency.__table__,
-    )
-    replaced_dependency_mappings = db.relationship(
-        "RequestDependency",
-        primaryjoin="and_(Request.id == RequestDependency.request_id, "
-        "RequestDependency.replaced_dependency_id.isnot(None))",
-    )
     packages = db.relationship("Package", secondary=RequestPackage.__table__)
     pkg_managers = db.relationship(
         "PackageManager", secondary=request_pkg_manager_table, backref="requests"
@@ -478,17 +468,12 @@ class Request(db.Model):
             states = list(reversed(states))
             latest_state = states[0]
             rv["state_history"] = states
-            replacement_id_to_replacement = {
-                replacement.id: replacement.to_json()
-                for replacement in self.dependency_replacements
-            }
-            dep_id_to_replacement = {
-                mapping.dependency_id: replacement_id_to_replacement[mapping.replaced_dependency_id]
-                for mapping in self.replaced_dependency_mappings
-            }
             rv["dependencies"] = [
-                dep.to_json(dep_id_to_replacement.get(dep.id), force_replaces=True)
-                for dep in self.dependencies
+                req_dep.dependency.to_json(
+                    req_dep.replaced_dependency.to_json() if req_dep.replaced_dependency else None,
+                    force_replaces=True,
+                )
+                for req_dep in self.request_dependencies
             ]
             rv["packages"] = [package.to_json() for package in self.packages]
         else:
