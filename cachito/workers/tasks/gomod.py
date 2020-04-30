@@ -6,7 +6,7 @@ from cachito.workers.pkg_managers.general import (
     update_request_with_deps,
     update_request_with_packages,
 )
-from cachito.workers.pkg_managers.golang import resolve_gomod
+from cachito.workers.pkg_managers.gomod import resolve_gomod
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.paths import RequestBundleDir
@@ -32,7 +32,7 @@ def fetch_gomod_source(request_id, auto_detect=False, dep_replacements=None):
             return
 
     log.info("Fetching gomod dependencies for request %d", request_id)
-    request = set_request_state(request_id, "in_progress", "Fetching the golang dependencies")
+    request = set_request_state(request_id, "in_progress", "Fetching the gomod dependencies")
     try:
         module, deps = resolve_gomod(str(bundle_dir.source_dir), request, dep_replacements)
     except CachitoError:

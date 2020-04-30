@@ -21,11 +21,11 @@ from cachito.workers.paths import RequestBundleDir
         ),
     ),
 )
-@mock.patch("cachito.workers.tasks.golang.RequestBundleDir.exists")
-@mock.patch("cachito.workers.tasks.golang.update_request_with_packages")
-@mock.patch("cachito.workers.tasks.golang.update_request_with_deps")
-@mock.patch("cachito.workers.tasks.golang.set_request_state")
-@mock.patch("cachito.workers.tasks.golang.resolve_gomod")
+@mock.patch("cachito.workers.tasks.gomod.RequestBundleDir.exists")
+@mock.patch("cachito.workers.tasks.gomod.update_request_with_packages")
+@mock.patch("cachito.workers.tasks.gomod.update_request_with_deps")
+@mock.patch("cachito.workers.tasks.gomod.set_request_state")
+@mock.patch("cachito.workers.tasks.gomod.resolve_gomod")
 def test_fetch_gomod_source(
     mock_resolve_gomod,
     mock_set_request_state,
@@ -48,7 +48,7 @@ def test_fetch_gomod_source(
 
     if expect_state_update:
         mock_set_request_state.assert_called_once_with(
-            1, "in_progress", "Fetching the golang dependencies"
+            1, "in_progress", "Fetching the gomod dependencies"
         )
         mock_update_request_with_packages.assert_called_once_with(
             1, [sample_package], "gomod", sample_env_vars
