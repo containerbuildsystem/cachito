@@ -37,7 +37,7 @@ class Config(object):
     cachito_request_lifetime = 1
     include = [
         "cachito.workers.tasks.general",
-        "cachito.workers.tasks.golang",
+        "cachito.workers.tasks.gomod",
         "cachito.workers.tasks.npm",
     ]
     # The task messages will be acknowledged after the task has been executed,
@@ -46,20 +46,20 @@ class Config(object):
     # Don't use the default 'celery' queue and routing key
     task_default_queue = "cachito"
     task_default_routing_key = "cachito"
-    # By default, have the worker process general, golang, and npm tasks
+    # By default, have the worker process general, gomod, and npm tasks
     task_queues = (
         kombu.Queue("cachito"),
-        kombu.Queue("cachito_golang", routing_key="cachito.golang"),
+        kombu.Queue("cachito_gomod", routing_key="cachito.gomod"),
         kombu.Queue("cachito_npm", routing_key="cachito.npm"),
     )
     # Requeue the message if the worker abruptly exits or is signaled
     task_reject_on_worker_lost = True
-    # Route golang tasks and npm tasks to separate queues. This is useful if workers are dedicated
+    # Route gomod tasks and npm tasks to separate queues. This is useful if workers are dedicated
     # to specific package managers.
     task_routes = {
-        "cachito.workers.tasks.golang.*": {
-            "queue": "cachito_golang",
-            "routing_key": "cachito.golang",
+        "cachito.workers.tasks.gomod.*": {
+            "queue": "cachito_gomod",
+            "routing_key": "cachito.gomod",
         },
         "cachito.workers.tasks.npm.*": {"queue": "cachito_npm", "routing_key": "cachito.npm"},
     }

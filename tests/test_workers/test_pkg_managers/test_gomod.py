@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.workers.pkg_managers.golang import get_golang_version, resolve_gomod
+from cachito.workers.pkg_managers.gomod import get_golang_version, resolve_gomod
 from cachito.errors import CachitoError
 from cachito.workers.paths import RequestBundleDir
 
@@ -58,8 +58,8 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
         ),
     ),
 )
-@mock.patch("cachito.workers.pkg_managers.golang.get_golang_version")
-@mock.patch("cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("shutil.copytree")
 def test_resolve_gomod(
@@ -124,8 +124,8 @@ def test_resolve_gomod(
     )
 
 
-@mock.patch("cachito.workers.pkg_managers.golang.get_golang_version")
-@mock.patch("cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("os.makedirs")
 @mock.patch("os.path.exists")
@@ -174,7 +174,7 @@ def test_resolve_gomod_no_deps(
     )
 
 
-@mock.patch("cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
     # Mock the tempfile.TemporaryDirectory context manager
@@ -196,7 +196,7 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
 
 
 @pytest.mark.parametrize(("go_mod_rc", "go_list_rc"), ((0, 1), (1, 0)))
-@mock.patch("cachito.workers.pkg_managers.golang.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 def test_go_list_cmd_failure(mock_run, mock_temp_dir, tmpdir, go_mod_rc, go_list_rc):
     archive_path = "/this/is/path/to/archive.tar.gz"

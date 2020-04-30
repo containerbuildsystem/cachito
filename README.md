@@ -115,8 +115,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_api_url` - the URL to the Cachito API (e.g. `https://cachito-api.domain.local/api/v1/`).
 * `cachito_api_timeout` - the timeout when making a Cachito API request. The default is `60`
   seconds.
-* `cachito_athens_url` - the URL to the Athens instance to use for caching golang dependencies. This
-  is only necessary for workers that process golang requests.
+* `cachito_athens_url` - the URL to the Athens instance to use for caching gomod dependencies. This
+  is only necessary for workers that process gomod requests.
 * `cachito_auth_type` - the authentication type to use when accessing protected Cachito API
   endpoints. If this value is `None`, authentication will not be used. This defaults to `kerberos`
   in production.
