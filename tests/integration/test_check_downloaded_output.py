@@ -7,7 +7,7 @@ from pathlib import Path
 import utils
 
 
-def test_check_downloaded_output(test_env, tmpdir):
+def test_check_downloaded_output(test_env, default_request, tmpdir):
     """
     Check that the bundle has all the necessities.
 
@@ -23,18 +23,9 @@ def test_check_downloaded_output(test_env, tmpdir):
     * Check that dir app/ contains application source code
     * Check that the same full path filename is not duplicated
     """
-
+    response = default_request.complete_response
+    assert response.status == 200
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
-    response = client.create_new_request(
-        payload={
-            "repo": test_env["download_output"]["repo"],
-            "ref": test_env["download_output"]["ref"],
-            "pkg_managers": test_env["download_output"]["pkg_managers"],
-        },
-    )
-
-    assert response.status == 201
-    response = client.wait_for_complete_request(response)
     assert response.data["state"] == "complete"
 
     file_name = tmpdir.join(f"download_{str(response.id)}")

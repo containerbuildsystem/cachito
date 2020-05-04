@@ -3,8 +3,8 @@
 api_url: https://cachito.example.com/api/v1
 # Authentication type, user either null for no authentication or kerberos
 api_auth_type: kerberos
-# Test data for the Creating new request test
-post:
+# Package that will be used for testing
+package:
   # The URL for the upstream git repository
   repo: https://github.com/release-engineering/retrodep.git
   # A git reference at the given git repository
@@ -13,9 +13,6 @@ post:
   pkg_managers: ["gomod"]
 # Test data for the Valid data in request test
 get:
-  repo: https://github.com/release-engineering/retrodep.git
-  ref: e1be527f39ec31323f0454f7d1422c6260b00580
-  pkg_managers: ["gomod"]
   # The list of fetched packages
   # Every package is defined by name, type and version.
   packages:
@@ -36,7 +33,3 @@ get:
   - ["golang.org/x/tools", "gomod", "v0.0.0-20190325161752-5a8dccf5b48a"]
   - ["gopkg.in/check.v1", "gomod", "v1.0.0-20180628173108-788fd7840127"]
   - ["gopkg.in/yaml.v2", "gomod", "v2.2.2"]
-download_output:
-  repo: https://github.com/release-engineering/retrodep.git
-  ref: e1be527f39ec31323f0454f7d1422c6260b00580
-  pkg_managers: ["gomod"]
