@@ -2,10 +2,8 @@
 
 import operator
 
-import utils
 
-
-def test_valid_data_in_request(test_env):
+def test_valid_data_in_request(test_env, default_request):
     """
     Validate data in the request.
 
@@ -18,19 +16,8 @@ def test_valid_data_in_request(test_env):
     * Check in the response that state is complete
     * Check that "packages" and "dependencies" keys have appropriate values
     """
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
-    response_created_req = client.create_new_request(
-        payload={
-            "repo": test_env["get"]["repo"],
-            "ref": test_env["get"]["ref"],
-            "pkg_managers": test_env["get"]["pkg_managers"],
-        },
-    )
-
-    response = client.fetch_request(response_created_req.id)
+    response = default_request.complete_response
     assert response.status == 200
-
-    response = client.wait_for_complete_request(response)
     assert response.data["state"] == "complete"
 
     response_dependencies = list_of_dict_to_list_of_name_type_version(response.data["dependencies"])
