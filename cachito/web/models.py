@@ -369,16 +369,7 @@ class Request(db.Model):
         :raises ValidationError: if the dependency is already associated with the request, but
             replaced_dependency is different than what is already associated
         """
-        # If the ID is not set, then the dependency was just created and is not part of the
-        # database's transaction buffer.
-        if not dependency.id or (replaced_dependency and not replaced_dependency.id):
-            # Send the changes queued up in SQLAlchemy to the database's transaction buffer. This
-            # will genereate an ID that can be used for the mapping below.
-            db.session.flush()
-
-        mapping = RequestDependency.query.filter_by(
-            request_id=self.id, dependency_id=dependency.id
-        ).first()
+        mapping = RequestDependency.query.filter_by(request=self, dependency=dependency).first()
 
         if mapping:
             if mapping.replaced_dependency_id != getattr(replaced_dependency, "id", None):
@@ -387,11 +378,11 @@ class Request(db.Model):
                 )
             return
 
-        mapping = RequestDependency(request_id=self.id, dependency_id=dependency.id)
-        if replaced_dependency:
-            mapping.replaced_dependency_id = replaced_dependency.id
-
-        db.session.add(mapping)
+        db.session.add(
+            RequestDependency(
+                request=self, dependency=dependency, replaced_dependency=replaced_dependency
+            )
+        )
 
     @property
     def dependencies_count(self):
