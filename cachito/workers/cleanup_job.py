@@ -21,40 +21,44 @@ payload = {"state": state, "state_reason": state_reason}
 
 
 def main():
-    """Mark all stale completed requests as stale using the REST API."""
-    url = config.cachito_api_url.rstrip("/") + "/requests?state=complete"
-    while True:
-        json_response = get_completed_requests(url)
-        identify_and_mark_stale_requests(json_response["items"])
-        if json_response["meta"]["next"]:
+    """Mark all end of life requests as stale using the REST API."""
+    for state in ("complete", "in_progress"):
+        url = f"{config.cachito_api_url.rstrip('/')}/requests"
+        while url:
+            try:
+                response = session.get(
+                    url, params={"state": state}, timeout=config.cachito_api_timeout
+                )
+            except requests.RequestException:
+                msg = f"The connection failed when querying {url}"
+                log.exception(msg)
+                raise CachitoError(msg)
+
+            if not response.ok:
+                log.error(
+                    "The request to %s failed with the status code %d and the following text: %s",
+                    url,
+                    response.status_code,
+                    response.text,
+                )
+                raise CachitoError(
+                    "Could not reach the Cachito API to find the requests to be marked as stale"
+                )
+
+            json_response = response.json()
+            identify_and_mark_stale_requests(json_response["items"])
             url = json_response["meta"]["next"]
-        else:
-            break
-
-
-def get_completed_requests(url):
-    """
-    Get one page of completed requests from the Cachito API.
-
-    :param str url: the URL to fetch the Cachito requests from
-    :raise CachitoError: if the request to the Cachito API fails
-    :rtype: dict
-    """
-    response = session.get(url)
-    if not response.ok:
-        raise CachitoError("Could not reach Cachito API to get all completed requests")
-    return response.json()
 
 
 def identify_and_mark_stale_requests(requests_json):
     """
-    Identify completed Cachito requests which have reached end of life and mark them as stale.
+    Identify Cachito requests which have reached end of life and mark them as stale.
 
     :param dict requests_json: the JSON representation of a Cachito API response page
     """
     current_time = datetime.utcnow()
     for request in requests_json:
-        if request["state"] != "complete":
+        if request["state"] not in ("complete", "in_progress"):
             continue
         date_time_obj = datetime.strptime(request["updated"], "%Y-%m-%dT%H:%M:%S.%f")
         if current_time - date_time_obj > timedelta(config.cachito_request_lifetime):
