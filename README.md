@@ -144,6 +144,9 @@ Custom configuration for the Celery workers are listed below:
   following privileges are required: `nx-repository-admin-*-*-*`, `nx-repository-view-npm-*-*`,
   `nx-roles-all`, `nx-script-*-*`, `nx-users-all` and `nx-userschangepw`. This defaults to
   `cachito`.
+* `cachito_request_lifetime` - the number of days before a request that is in the `complete` state
+  or that is stuck in the `in_progress` state will be marked as stale by the `cachito-cleanup`
+  script. This defaults to `1`.
 * `cachito_sources_dir` - the directory for long-term storage of app source archives. This
   configuration is required, and the directory must already exist and be writeable.
 
