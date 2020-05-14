@@ -38,15 +38,16 @@ def test_check_downloaded_output(test_env, default_request, tmpdir):
     with tarfile.open(file_name_tar, "r:gz") as tar:
         tar.extractall(file_name)
 
-    dependencies_path = "deps/gomod/pkg/mod/cache/download/"
+    dependencies_path = path.join("deps", "gomod", "pkg", "mod", "cache", "download")
     names = [i["name"] for i in response.data["dependencies"]]
     for dependency in names:
         package_name = utils.escape_path_go(dependency)
         dependency_path = path.join(file_name, dependencies_path, package_name)
         assert path.exists(dependency_path)
 
-    assert path.exists(f"{file_name}/app/go.mod")
-    with open(f"{file_name}/app/go.mod", "r") as file:
+    go_mod_path = path.join(file_name, "app", "go.mod")
+    assert path.exists(go_mod_path)
+    with open(go_mod_path, "r") as file:
         module_names = []
         for line in file:
             if line.startswith("module "):
@@ -55,7 +56,7 @@ def test_check_downloaded_output(test_env, default_request, tmpdir):
         assert module_names == [i["name"] for i in response.data["packages"]]
 
     list_go_files = []
-    for app_path in Path(f"{file_name}/app/").rglob("*.go"):
+    for app_path in Path(path.join(file_name, "app")).rglob("*.go"):
         list_go_files.append(app_path)
     assert len(list_go_files) > 0
 
