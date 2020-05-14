@@ -11,15 +11,25 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general_js
+from cachito.workers.paths import RequestBundleDir
 
 
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
-@mock.patch("cachito.workers.pkg_managers.general_js.RequestBundleDir")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-def test_download_dependencies(mock_run_cmd, mock_rbd, mock_gawnf, mock_td):
+@mock.patch("shutil.move")
+@mock.patch("cachito.workers.paths.get_worker_config")
+def test_download_dependencies(mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mock_td, tmpdir):
+    bundles_dir = tmpdir.mkdir("bundles")
+    mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
     mock_td.return_value.__enter__.return_value = "/tmp/cachito-agfdsk"
-
+    mock_run_cmd.return_value = textwrap.dedent(
+        """\
+        angular-devkit-architect-0.803.26.tgz
+        angular-animations-8.2.14.tgz
+        rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz
+        """
+    )
     deps = [
         {
             "bundled": False,
@@ -51,6 +61,8 @@ def test_download_dependencies(mock_run_cmd, mock_rbd, mock_gawnf, mock_td):
         },
     ]
     request_id = 1
+    request_bundle_dir = bundles_dir.mkdir("temp").mkdir(str(request_id))
+    npm_dir_path = os.path.join(request_bundle_dir, "deps/npm")
     general_js.download_dependencies(request_id, deps)
 
     mock_gawnf.assert_called_once()
@@ -67,7 +79,28 @@ def test_download_dependencies(mock_run_cmd, mock_rbd, mock_gawnf, mock_td):
     run_cmd_env_vars = mock_run_cmd.call_args[0][1]["env"]
     assert run_cmd_env_vars["NPM_CONFIG_CACHE"] == "/tmp/cachito-agfdsk/cache"
     assert run_cmd_env_vars["NPM_CONFIG_USERCONFIG"] == "/tmp/cachito-agfdsk/.npmrc"
-    assert mock_run_cmd.call_args[0][1]["cwd"] == str(mock_rbd().npm_deps_dir)
+    assert mock_run_cmd.call_args[0][1]["cwd"] == f"{npm_dir_path}"
+    dep1_source_path = RequestBundleDir(f"{npm_dir_path}/angular-devkit-architect-0.803.26.tgz")
+    dep1_dest_path = RequestBundleDir(
+        f"{npm_dir_path}/@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz"
+    )
+    dep2_source_path = RequestBundleDir(f"{npm_dir_path}/angular-animations-8.2.14.tgz")
+    dep2_dest_path = RequestBundleDir(
+        f"{npm_dir_path}/@angular/animations/angular-animations-8.2.14.tgz"
+    )
+    dep3_source_path = RequestBundleDir(
+        f"{npm_dir_path}/rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz"
+    )
+    dep3_dest_path = RequestBundleDir(
+        f"{npm_dir_path}/rxjs/rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz"
+    )
+    mock_move.assert_has_calls(
+        [
+            mock.call(dep1_source_path, dep1_dest_path),
+            mock.call(dep2_source_path, dep2_dest_path),
+            mock.call(dep3_source_path, dep3_dest_path),
+        ]
+    )
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.execute_script")

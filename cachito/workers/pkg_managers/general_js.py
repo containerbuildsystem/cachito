@@ -7,6 +7,7 @@ import os
 import random
 import re
 import secrets
+import shutil
 import tarfile
 import tempfile
 import textwrap
@@ -93,7 +94,19 @@ def download_dependencies(request_id, deps):
         for dep_batch in deps_batches:
             log.debug(f"Downloading the following npm dependencies: {', '.join(dep_batch)}")
             npm_pack_args = ["npm", "pack"] + dep_batch
-            run_cmd(npm_pack_args, run_params, "Failed to download the npm dependencies")
+            output = run_cmd(npm_pack_args, run_params, "Failed to download the npm dependencies")
+
+            # Move dependencies to their respective folders
+            # Iterate through the tuples made of dependency tarball and dep_identifier
+            # e.g. ('angular-animations-8.2.0.tgz', '@angular/animations@8.2.0')
+            for dep_pair in list(zip(output.split("\n"), dep_batch)):
+                tarball = dep_pair[0]  # e.g. angular-animations-8.2.0.tgz
+                dir_path = dep_pair[1].rsplit("@", 1)[0]  # e.g. @angular/animations
+                # Create the target directory for the dependency
+                dep_dir = bundle_dir.npm_deps_dir.joinpath(*dir_path.split("/", 1))
+                dep_dir.mkdir(exist_ok=True, parents=True)
+                # Move the dependency into the target directory
+                shutil.move(bundle_dir.npm_deps_dir.joinpath(tarball), dep_dir.joinpath(tarball))
 
 
 def finalize_nexus_for_js_request(request_id):
