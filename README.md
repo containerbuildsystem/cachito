@@ -201,12 +201,16 @@ registry in the event that the application needs to be built without Cachito and
 it manages.
 
 Cachito can also handle dependencies that are not from the npm registry such as those directly
-from GitHub, a Git repository, or an HTTP(S) URL. If the dependency location is not supported,
-Cachito will fail the request. When Cachito encounters a supported location, it will download the
+from GitHub, a Git repository, or an HTTP(S) URL. Please note that if the dependency is from a
+private repository, set the
+[.netrc](https://www.gnu.org/software/inetutils/manual/html_node/The-_002enetrc-file.html) and
+`known_hosts` files for the Cachito workers. If the dependency location is not supported, Cachito
+will fail the request. When Cachito encounters a supported location, it will download the
 dependency, modify the version in the [package.json](https://docs.npmjs.com/files/package.json) to
 be unique, upload it to Nexus, modify the top level project's
 [package.json](https://docs.npmjs.com/files/package.json) and lock files to use the dependency from
-Nexus instead. The modified files will accessible at the `/api/v1/requests/<id>/configuration-files`
-API endpoint. If Cachito encounters this same dependency again in a future request, it will use it
-directly from Nexus rather than downloading it and uploading it again. This guarantees that any
-dependency used for a Cachito request can be used again in a future Cachito request.
+Nexus instead. The modified files will be accessible at the
+`/api/v1/requests/<id>/configuration-files` API endpoint. If Cachito encounters this same dependency
+again in a future request, it will use it directly from Nexus rather than downloading it and
+uploading it again. This guarantees that any dependency used for a Cachito request can be used again
+in a future Cachito request.
