@@ -31,7 +31,7 @@ services:
     image: sonatype/nexus3:3.21.2
     environment:
       # Enable the script API. This is disabled by default in 3.21.2+.
-      INSTALL4J_ADD_VM_PARAMS: -Dnexus.scripts.allowCreation=true
+      INSTALL4J_ADD_VM_PARAMS: -Dnexus.scripts.allowCreation=true -Dstorage.diskCache.diskFreeSpaceLimit=512
     volumes:
       - nexus-volume:/nexus-data:z
     ports:
