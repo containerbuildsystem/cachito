@@ -34,29 +34,6 @@ with open(admin_password_path, 'r') as admin_password_file:
 
 auth = requests.auth.HTTPBasicAuth('admin', admin_password)
 headers = {'Content-Type': 'application/json'}
-realms = [
-    'NexusAuthenticatingRealm',
-    'NexusAuthorizingRealm',
-    'NpmToken'
-]
-print('Configuring the active realms...')
-rv_set_realms = requests.put(
-    f'{base_url}/service/rest/beta/security/realms/active',
-    headers=headers,
-    auth=auth,
-    json=realms,
-    timeout=15,
-)
-
-if not rv_set_realms.ok:
-    print(
-        f'Setting the realms to {realms} failed with the status code: {rv_set_realms.status_code}\n'
-        f'The output was: {rv_set_realms.text}',
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-
 name = 'configure_nexus'
 print(f'Adding the {name} script...')
 with open('/src/docker/configure-nexus.groovy', 'r') as script:
