@@ -16,24 +16,17 @@ class Config(object):
 
     # When publishing a message, don't continuously retry or else the HTTP connection times out
     broker_transport_options = {"max_retries": 10}
+    # Refer to README.md for information on all the Cachito configuration options
     cachito_auth_type = None
+    cachito_deps_patch_batch_size = 50
     cachito_log_level = "INFO"
-    # The timeout when downloading application source archives from sources such as GitHub
     cachito_download_timeout = 120
-    # The timeout when making a Cachito API request
     cachito_api_timeout = 60
-    # The number of JavaScript dependencies to download at once using `npm pack`
     cachito_js_download_batch_size = 30
-    # The path to the CA certificate that signed the Nexus server's SSL certificate
     cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
-    # The timeout when making a Nexus API request
     cachito_nexus_timeout = 60
-    # The username of the unprivileged Nexus user that has read access to the main Cachito managed
-    # Nexus repositories (e.g. cachito-js)
     cachito_nexus_unprivileged_username = "cachito_unprivileged"
-    # The username of the privileged Nexus user
     cachito_nexus_username = "cachito"
-    # Configurable number of days before which a request becomes stale
     cachito_request_lifetime = 1
     include = [
         "cachito.workers.tasks.general",
@@ -69,8 +62,6 @@ class Config(object):
     # Don't allow the worker to fetch more messages than it can handle at a time. This is so that
     # other tasks aren't starved when processing a large archive.
     worker_prefetch_multiplier = 1
-    # Configurable batch size of the json payload so that the cachito API request doesn't time out
-    cachito_deps_patch_batch_size = 50
 
 
 class ProductionConfig(Config):
