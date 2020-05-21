@@ -141,7 +141,7 @@ def test_update_and_archive(mock_repo, mock_temp_dir, mock_tarfile_open):
 
     repo = mock_repo.return_value
     # Verify the changes are pulled.
-    repo.remote.return_value.fetch.assert_called_once()
+    repo.remote.return_value.fetch.assert_called_once_with(refspec=ref)
     # Verify the repo is reset to specific ref
     repo.commit.assert_called_once_with(ref)
     assert repo.commit.return_value == repo.head.reference

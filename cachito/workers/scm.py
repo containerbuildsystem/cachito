@@ -110,7 +110,9 @@ class Git(SCM):
 
             repo = git.Repo(os.path.join(temp_dir, "app"))
             try:
-                repo.remote().fetch()
+                # The reference must be specified to handle commits which are not part
+                # of a branch.
+                repo.remote().fetch(refspec=self.ref)
             except:  # noqa E722
                 log.exception("Failed to fetch from remote %s", self.url)
                 raise CachitoError("Failed to fetch from the remote Git repository")
