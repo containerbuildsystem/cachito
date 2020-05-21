@@ -178,6 +178,32 @@ a web server that supplies the `REMOTE_USER` environment variable when the user 
 properly authenticated. A common deployment option is using httpd (Apache web server)
 with the `mod_auth_gssapi` module.
 
+## Nexus
+
+### Nexus For npm
+
+The npm package manager functionality relies on
+[Nexus Repository Manager 3](https://help.sonatype.com/repomanager3) to store npm dependencies. The
+Nexus instance will have an npm group repository (e.g. `cachito-js`) which points to an npm hosted
+repository (e.g. `cachito-js-hosted`) and an npm proxy repository (e.g. `cachito-js-proxy`) that
+points to registry.npmjs.org. The hosted repository will contain all non-registry dependencies and
+the proxy repository will contain all dependencies from the npm registry. The union of these two
+repositories gives the set of all the npm dependencies ever encountered by Cachito.
+
+On each request, Cachito will create a proxy repository to the npm group repository
+(e.g. `cachito-js`). Cachito will populate this proxy repository to contain the subset of
+dependencies declared in the repository's lock file. Once populated, Cachito will block the
+repository from getting additional content. This prevents the consumer of the repository from
+installing something that was not declared in the lock file. This is further enforced by locking
+down the repository to a single user created for the request, which the consumer will use. Please
+keep in mind that for this to function properly, anonymous access needs to be disabled on the Nexus
+instance or at least not set to have read access on all repositories.
+
+These repositories and users created per request are deleted when the request is marked as stale
+or the request fails.
+
+Refer to the Configuring Workers section to see how to configure Cachito to use Nexus.
+
 ## Package Managers
 
 ### npm
