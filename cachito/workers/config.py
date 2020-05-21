@@ -17,11 +17,11 @@ class Config(object):
     # When publishing a message, don't continuously retry or else the HTTP connection times out
     broker_transport_options = {"max_retries": 10}
     # Refer to README.md for information on all the Cachito configuration options
+    cachito_api_timeout = 60
     cachito_auth_type = None
     cachito_deps_patch_batch_size = 50
-    cachito_log_level = "INFO"
     cachito_download_timeout = 120
-    cachito_api_timeout = 60
+    cachito_log_level = "INFO"
     cachito_js_download_batch_size = 30
     cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
     cachito_nexus_timeout = 60
