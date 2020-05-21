@@ -303,7 +303,9 @@ def patch_request(request_id):
     if "state" in payload and "state_reason" in payload:
         new_state = payload["state"]
         delete_bundle = new_state == "stale"
-        cleanup_nexus = new_state == "stale" and any(p.name == "npm" for p in request.pkg_managers)
+        cleanup_nexus = new_state in ("stale", "failed") and any(
+            p.name == "npm" for p in request.pkg_managers
+        )
         delete_bundle_temp = new_state in ("complete", "failed")
         new_state_reason = payload["state_reason"]
         # This is to protect against a Celery task getting executed twice and setting the
