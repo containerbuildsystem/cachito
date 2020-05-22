@@ -132,13 +132,35 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_nexus_ca_cert` - the CA certificate that signed the SSL certificate used by the Nexus
   instance. This defaults to `/etc/cachito/nexus_ca.pem`. If this file does not exist, Cachito will
   not provide the CA certificate in the package manager configuration.
+* `cachito_nexus_hoster_password` - the password of the Nexus service account used by Cachito for
+  the Nexus instance that has the hosted repositories. This is used instead of
+  `cachito_nexus_password` for uploading content if you are using the two Nexus instance approach as
+  described in the "Nexus For npm" section. If this is set, `cachito_nexus_hoster_username` must
+  also be set.
+* `cachito_nexus_hoster_url` - the URL to the Nexus instance that has the hosted repositories. This
+  is used instead of `cachito_nexus_url` for uploading content if you are using the two Nexus
+  instance approach as described in the "Nexus For npm" section.
+* `cachito_nexus_hoster_username` - the username of the Nexus service account used by Cachito for
+  the Nexus instance that has the hosted repositories. This is used instead of
+  `cachito_nexus_username` for uploading content if you are using the two Nexus instance approach as
+  described in the "Nexus For npm" section. If this is set, `cachito_nexus_hoster_password` must
+  also be set.
 * `cachito_nexus_password` - the password of the Nexus service account used by Cachito.
+* `cachito_nexus_proxy_password` - the password of the unprivileged user that has read access
+  to the main Cachito repositories (e.g. `cachito-js`). This is needed if the Nexus instance that
+  hosts the main Cachito repositories has anonymous access disabled. This is the case if Cachito
+  utilizes just a single Nexus instance.
+* `cachito_nexus_proxy_username` - the username of the unprivileged user that has read access
+  to the main Cachito repositories (e.g. `cachito-js`). This is needed if the Nexus instance that
+  hosts the main Cachito repositories has anonymous access disabled. This is the case if Cachito
+  utilizes just a single Nexus instance.
+* `cachito_nexus_npm_proxy_repo_url` - the URL to the `cachito-js` repository which is a Nexus group
+  that points to the `cachito-js-hosted` hosted repository and the `cachito-js-proxy` proxy
+  repository. This defaults to `http://localhost:8081/repository/cachito-js/`. This only needs to
+  change if you are using the two Nexus instance approach as described in the "Nexus For npm"
+  section or you use a different name for the repository.
 * `cachito_nexus_timeout` - the timeout when making a Nexus API request. The default is `60`
   seconds.
-* `cachito_nexus_unprivileged_password` - the password of the unprivileged user that has read access
-  to the main Cachito repositories (e.g. `cachito-js`).
-* `cachito_nexus_unprivileged_username` - the username of the unprivileged user that has read access
-  to the main Cachito repositories (e.g. `cachito-js`). This defaults to `cachito_unprivileged`.
 * `cachito_nexus_url` - the base URL to the Nexus Repository Manager 3 instance used by Cachito.
 * `cachito_nexus_username` - the username of the Nexus service account used by Cachito. The
   following privileges are required: `nx-repository-admin-*-*-*`, `nx-repository-view-npm-*-*`,
@@ -202,7 +224,13 @@ instance or at least not set to have read access on all repositories.
 These repositories and users created per request are deleted when the request is marked as stale
 or the request fails.
 
-Refer to the Configuring Workers section to see how to configure Cachito to use Nexus.
+Refer to the "Configuring Workers" section to see how to configure Cachito to use Nexus. Please
+note that you may choose to use two Nexus instances. One for hosting the permanent content and the
+other for the ephemeral repositories created per request. This is useful if your organization
+already has a shared Nexus instance but doesn't want Cachito to have near admin level access on it.
+In this case, you will need to configure the following additional settings that point to the
+Nexus instance that hosts the permanent content: `cachito_nexus_hoster_username`,
+`cachito_nexus_hoster_password`, and `cachito_nexus_hoster_url`.
 
 ## Package Managers
 

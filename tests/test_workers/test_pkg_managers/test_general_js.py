@@ -263,6 +263,7 @@ def test_prepare_nexus_for_js_request(mock_exec_script):
         "repository_name": "cachito-js-1",
         "http_password": "cachito_unprivileged",
         "http_username": "cachito_unprivileged",
+        "npm_proxy_url": "http://localhost:8081/repository/cachito-js/",
     }
 
 

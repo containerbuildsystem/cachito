@@ -88,6 +88,58 @@ def components_search_results():
     }
 
 
+@pytest.mark.parametrize(
+    "hoster_username, username, hoster_password, password, expected_username, expected_password",
+    (
+        (None, "cachito", None, "cachito", "cachito", "cachito"),
+        ("cachito-uploader", "cachito", None, "cachito", "cachito-uploader", "cachito"),
+        (
+            "cachito-uploader",
+            "cachito",
+            None,
+            "cachito-password",
+            "cachito-uploader",
+            "cachito-password",
+        ),
+        (None, "cachito", "cachito-password", "cachito", "cachito", "cachito-password"),
+    ),
+)
+@mock.patch("cachito.workers.nexus.get_worker_config")
+def test_get_nexus_hoster_credentials(
+    mock_gwc,
+    hoster_username,
+    username,
+    hoster_password,
+    password,
+    expected_username,
+    expected_password,
+):
+    mock_gwc.return_value.cachito_nexus_hoster_username = hoster_username
+    mock_gwc.return_value.cachito_nexus_hoster_password = hoster_password
+    mock_gwc.return_value.cachito_nexus_username = username
+    mock_gwc.return_value.cachito_nexus_password = password
+
+    rv_username, rv_password = nexus._get_nexus_hoster_credentials()
+
+    assert rv_username == expected_username
+    assert rv_password == expected_password
+
+
+@pytest.mark.parametrize(
+    "cachito_nexus_hoster_url, cachito_nexus_url, expected",
+    (
+        ("http://hoster", "http://managed", "http://hoster"),
+        (None, "http://managed", "http://managed"),
+    ),
+)
+@mock.patch("cachito.workers.nexus.get_worker_config")
+def test_get_nexus_hoster_url(mock_gwc, cachito_nexus_hoster_url, cachito_nexus_url, expected):
+    mock_gwc.return_value.cachito_nexus_hoster_url = cachito_nexus_hoster_url
+    mock_gwc.return_value.cachito_nexus_url = cachito_nexus_url
+
+    assert nexus._get_nexus_hoster_url() == expected
+
+
 @mock.patch("cachito.workers.requests.requests_session")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_create(mock_requests):

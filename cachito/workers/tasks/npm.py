@@ -6,7 +6,7 @@ import os
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus
-from cachito.workers.config import validate_nexus_config
+from cachito.workers.config import validate_npm_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
     update_request_with_config_files,
@@ -48,7 +48,7 @@ def fetch_npm_source(request_id, auto_detect=False):
     :param bool auto_detect: automatically detect if the archive uses npm
     :raise CachitoError: if the task fails
     """
-    validate_nexus_config()
+    validate_npm_config()
 
     bundle_dir = RequestBundleDir(request_id)
     log.debug("Checking if the application source uses npm")
