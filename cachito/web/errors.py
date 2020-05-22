@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from flask import jsonify
-import kombu.exceptions
 from werkzeug.exceptions import HTTPException
 
-from cachito.errors import ValidationError
+from cachito.errors import CachitoError, ValidationError
 
 
 def json_error(error):
@@ -26,8 +25,9 @@ def json_error(error):
         msg = str(error)
         if isinstance(error, ValidationError):
             status_code = 400
-        elif isinstance(error, kombu.exceptions.KombuError):
-            msg = "Failed to connect to the broker to schedule a task"
+        elif isinstance(error, CachitoError):
+            # If a generic exception is raised, assume the service is unavailable
+            status_code = 503
 
         response = jsonify({"error": msg})
         response.status_code = status_code

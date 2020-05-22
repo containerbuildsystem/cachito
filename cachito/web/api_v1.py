@@ -5,9 +5,10 @@ import functools
 from celery import chain
 import flask
 from flask_login import current_user, login_required
+import kombu.exceptions
 from werkzeug.exceptions import Forbidden, InternalServerError
 
-from cachito.errors import ValidationError
+from cachito.errors import CachitoError, ValidationError
 from cachito.web import db
 from cachito.web.models import (
     ConfigFileBase64,
@@ -210,7 +211,16 @@ def create_request():
         ]
     )
 
-    chain(chain_tasks).delay()
+    try:
+        chain(chain_tasks).delay()
+    except kombu.exceptions.OperationalError:
+        flask.current_app.logger.exception(
+            "Failed to schedule the task for request %d. Failing the request.", request.id
+        )
+        error = "Failed to schedule the task to the workers. Please try again."
+        request.add_state("failed", error)
+        raise CachitoError(error)
+
     flask.current_app.logger.debug("Successfully scheduled request %d", request.id)
     return flask.jsonify(request.to_json()), 201
 
@@ -376,7 +386,14 @@ def patch_request(request_id):
         flask.current_app.logger.info(
             "Cleaning up the Nexus npm content for request %d", request_id
         )
-        tasks.cleanup_npm_request.delay(request_id)
+        try:
+            tasks.cleanup_npm_request.delay(request_id)
+        except kombu.exceptions.OperationalError:
+            flask.current_app.logger.exception(
+                "Failed to schedule the cleanup_npm_request task for request %d. An administrator "
+                "must clean this up manually.",
+                request.id,
+            )
 
     if current_user.is_authenticated:
         flask.current_app.logger.info(

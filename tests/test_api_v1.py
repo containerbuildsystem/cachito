@@ -539,11 +539,15 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
         "pkg_managers": ["gomod"],
     }
 
-    mock_chain.side_effect = kombu.exceptions.OperationalError("Failed to connect")
+    mock_chain.return_value.delay.side_effect = kombu.exceptions.OperationalError(
+        "Failed to connect"
+    )
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
 
-    assert rv.status_code == 500
-    assert rv.json == {"error": "Failed to connect to the broker to schedule a task"}
+    assert rv.status_code == 503
+    assert rv.json == {"error": "Failed to schedule the task to the workers. Please try again."}
+    # Verify that the request is in the failed state
+    assert Request.query.get(1).state.state_name == "failed"
 
 
 def test_create_request_using_disabled_pkg_manager(app, auth_env, client, db):
@@ -708,6 +712,34 @@ def test_set_state_stale(
         mock_cleanup_npm.delay.assert_called_once_with(1)
     else:
         mock_cleanup_npm.assert_not_called()
+
+
+@mock.patch("pathlib.Path.exists")
+@mock.patch("pathlib.Path.unlink")
+@mock.patch("cachito.web.api_v1.tasks.cleanup_npm_request")
+def test_set_state_stale_failed_to_schedule(
+    mock_cleanup_npm, mock_remove, mock_exists, app, client, db, worker_auth_env
+):
+    mock_cleanup_npm.delay.side_effect = kombu.exceptions.OperationalError("Failed to connect")
+    mock_exists.return_value = True
+    data = {
+        "repo": "https://github.com/release-engineering/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    payload = {"state": "stale", "state_reason": "The request has expired"}
+    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
+    # Verify that even though the cleanup_npm_request task failed to schedule, the PATCH
+    # request still succeeded
+    assert patch_rv.status_code == 200
+    mock_cleanup_npm.delay.assert_called_once()
 
 
 def test_set_state_from_stale(app, client, db, worker_auth_env):

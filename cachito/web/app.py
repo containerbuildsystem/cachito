@@ -6,7 +6,6 @@ from flask import current_app, Flask
 from flask.logging import default_handler
 from flask_login import LoginManager
 from flask_migrate import Migrate
-import kombu.exceptions
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import default_exceptions, InternalServerError
 
@@ -16,7 +15,7 @@ from cachito.web.docs import docs
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
 from cachito.web.errors import json_error
-from cachito.errors import ValidationError
+from cachito.errors import CachitoError, ValidationError
 
 
 def healthcheck():
@@ -99,8 +98,8 @@ def create_app(config_obj=None):
 
     for code in default_exceptions.keys():
         app.register_error_handler(code, json_error)
+    app.register_error_handler(CachitoError, json_error)
     app.register_error_handler(ValidationError, json_error)
-    app.register_error_handler(kombu.exceptions.KombuError, json_error)
 
     return app
 
