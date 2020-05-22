@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 
-class ValidationError(ValueError):
-    """An error was encountered during validation."""
-
-
 class CachitoError(RuntimeError):
     """An error was encountered in Cachito."""
+
+
+class ValidationError(CachitoError, ValueError):
+    """An error was encountered during validation."""
 
 
 class ConfigError(CachitoError):
