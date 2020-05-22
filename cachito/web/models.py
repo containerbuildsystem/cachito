@@ -553,10 +553,6 @@ class Request(db.Model):
                     )
 
                 submitted_for = User.get_or_create(submitted_for_username)
-                if not submitted_for.id:
-                    # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
-                    # This will generate an ID that can be used below.
-                    db.session.flush()
                 request_kwargs["user"] = submitted_for
                 request_kwargs["submitted_by"] = current_user
             else:
