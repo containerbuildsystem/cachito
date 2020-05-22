@@ -14,6 +14,43 @@ from cachito.workers.errors import NexusScriptError
 log = logging.getLogger(__name__)
 
 
+def _get_nexus_hoster_credentials():
+    """
+    Get the username and password of the account to use on Nexus instance that hosts content.
+
+    :return: a tuple of username and password
+    :rtype: tuple(str, str)
+    """
+    config = get_worker_config()
+
+    if config.cachito_nexus_hoster_username:
+        username = config.cachito_nexus_hoster_username
+    else:
+        username = config.cachito_nexus_username
+
+    if config.cachito_nexus_hoster_password:
+        password = config.cachito_nexus_hoster_password
+    else:
+        password = config.cachito_nexus_password
+
+    return username, password
+
+
+def _get_nexus_hoster_url():
+    """
+    Get the Nexus instance with the hosted repositories.
+
+    :return: the URL to the Nexus instance
+    :rtype: str
+    """
+    config = get_worker_config()
+
+    if config.cachito_nexus_hoster_url:
+        return config.cachito_nexus_hoster_url.rstrip("/")
+
+    return config.cachito_nexus_url.rstrip("/")
+
+
 def create_or_update_script(script_name, script_path):
     """
     Create or update a Nexus script to be executed by the REST API.
@@ -214,11 +251,12 @@ def search_components(**query_params):
     # Import this here to avoid a circular import
     from cachito.workers.requests import requests_session
 
-    config = get_worker_config()
-    auth = requests.auth.HTTPBasicAuth(config.cachito_nexus_username, config.cachito_nexus_password)
-    url = f"{config.cachito_nexus_url.rstrip('/')}/service/rest/v1/search"
+    username, password = _get_nexus_hoster_credentials()
+    auth = requests.auth.HTTPBasicAuth(username, password)
+    url = f"{_get_nexus_hoster_url()}/service/rest/v1/search"
     # Create a copy so that the original query parameters are unaltered later on
     params = copy.deepcopy(query_params)
+    config = get_worker_config()
 
     log.debug(
         "Searching Nexus for components using the following query parameters: %r", query_params
@@ -272,9 +310,10 @@ def upload_artifact(repo_name, repo_type, artifact_path):
     with open(artifact_path, "rb") as artifact:
         file_payload = {f"{repo_type}.asset": artifact.read()}
 
+    username, password = _get_nexus_hoster_credentials()
+    auth = requests.auth.HTTPBasicAuth(username, password)
+    url = f"{_get_nexus_hoster_url()}/service/rest/v1/components"
     config = get_worker_config()
-    auth = requests.auth.HTTPBasicAuth(config.cachito_nexus_username, config.cachito_nexus_password)
-    url = f"{config.cachito_nexus_url.rstrip('/')}/service/rest/v1/components"
 
     log.info("Uploading the artifact %s", artifact_path)
     try:

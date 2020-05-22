@@ -5,7 +5,12 @@ from io import BytesIO
 import celery
 import pytest
 
-from cachito.workers.config import configure_celery, validate_celery_config, validate_nexus_config
+from cachito.workers.config import (
+    configure_celery,
+    validate_celery_config,
+    validate_nexus_config,
+    validate_npm_config,
+)
 from cachito.errors import ConfigError
 
 
@@ -39,6 +44,8 @@ def test_validate_celery_config(mock_isdir):
     celery_app.conf.cachito_api_url = "http://cachito-api/api/v1/"
     celery_app.conf.cachito_bundles_dir = "/tmp/some-path/bundles"
     celery_app.conf.cachito_sources_dir = "/tmp/some-path/sources"
+    celery_app.conf.cachito_nexus_hoster_username = "cachito"
+    celery_app.conf.cachito_nexus_hoster_password = "cachito-password"
     validate_celery_config(celery_app.conf)
     mock_isdir.assert_any_call(celery_app.conf.cachito_bundles_dir)
     mock_isdir.assert_any_call(celery_app.conf.cachito_sources_dir)
@@ -64,21 +71,33 @@ def test_validate_celery_config_failure(mock_isdir, bundles_dir, sources_dir):
 
 
 @pytest.mark.parametrize(
-    "missing_config",
-    (
-        "cachito_nexus_password",
-        "cachito_nexus_unprivileged_password",
-        "cachito_nexus_unprivileged_username",
-        "cachito_nexus_url",
-        "cachito_nexus_username",
-    ),
+    "hoster_username, hoster_password", ((None, "password"), ("username", None),)
+)
+@patch("os.path.isdir", return_value=True)
+def test_validate_celery_config_invalid_nexus_hoster_config(
+    mock_isdir, hoster_username, hoster_password
+):
+    celery_app = celery.Celery()
+    celery_app.conf.cachito_api_url = "http://cachito-api/api/v1/"
+    celery_app.conf.cachito_bundles_dir = "/tmp/some-path/bundles"
+    celery_app.conf.cachito_sources_dir = "/tmp/some-path/sources"
+    celery_app.conf.cachito_nexus_hoster_username = hoster_username
+    celery_app.conf.cachito_nexus_hoster_password = hoster_password
+    expected = (
+        'If "cachito_nexus_hoster_username" or "cachito_nexus_hoster_password" is set, '
+        "the other must also be set"
+    )
+    with pytest.raises(ConfigError, match=expected):
+        validate_celery_config(celery_app.conf)
+
+
+@pytest.mark.parametrize(
+    "missing_config", ("cachito_nexus_password", "cachito_nexus_url", "cachito_nexus_username"),
 )
 @patch("cachito.workers.config.get_worker_config")
 def test_validate_nexus_config(mock_gwc, missing_config):
     config = {
         "cachito_nexus_password": "cachito",
-        "cachito_nexus_unprivileged_password": "cachito_unprivileged",
-        "cachito_nexus_unprivileged_username": "cachito_unprivileged",
         "cachito_nexus_url": "https://nexus.domain.local",
         "cachito_nexus_username": "cachito",
     }
@@ -87,3 +106,14 @@ def test_validate_nexus_config(mock_gwc, missing_config):
     expected = f'The configuration "{missing_config}" must be set for this package manager'
     with pytest.raises(ConfigError, match=expected):
         validate_nexus_config()
+
+
+@patch("cachito.workers.config.get_worker_config")
+@patch("cachito.workers.config.validate_nexus_config")
+def test_validate_npm_config(mock_vnc, mock_gwc):
+    mock_gwc.return_value = {}
+    expected = (
+        'The configuration "cachito_nexus_npm_proxy_repo_url" must be set for this package manager'
+    )
+    with pytest.raises(ConfigError, match=expected):
+        validate_npm_config()

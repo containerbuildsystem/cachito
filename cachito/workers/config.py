@@ -24,8 +24,13 @@ class Config(object):
     cachito_log_level = "INFO"
     cachito_js_download_batch_size = 30
     cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
+    cachito_nexus_hoster_password = None
+    cachito_nexus_hoster_url = None
+    cachito_nexus_hoster_username = None
+    cachito_nexus_proxy_password = None
+    cachito_nexus_proxy_username = None
+    cachito_nexus_npm_proxy_repo_url = "http://localhost:8081/repository/cachito-js/"
     cachito_nexus_timeout = 60
-    cachito_nexus_unprivileged_username = "cachito_unprivileged"
     cachito_nexus_username = "cachito"
     cachito_request_lifetime = 1
     include = [
@@ -79,7 +84,8 @@ class DevelopmentConfig(Config):
     cachito_bundles_dir = os.path.join(ARCHIVES_VOLUME, "bundles")
     cachito_log_level = "DEBUG"
     cachito_nexus_password = "cachito"
-    cachito_nexus_unprivileged_password = "cachito_unprivileged"
+    cachito_nexus_proxy_password = "cachito_unprivileged"
+    cachito_nexus_proxy_username = "cachito_unprivileged"
     cachito_nexus_url = "http://nexus:8081"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
 
@@ -142,6 +148,14 @@ def validate_celery_config(conf, **kwargs):
     if not conf.get("cachito_api_url"):
         raise ConfigError('The configuration "cachito_api_url" must be set')
 
+    hoster_username = conf.get("cachito_nexus_hoster_username")
+    hoster_password = conf.get("cachito_nexus_hoster_password")
+    if (hoster_username or hoster_password) and not (hoster_username and hoster_password):
+        raise ConfigError(
+            'If "cachito_nexus_hoster_username" or "cachito_nexus_hoster_password" is set, '
+            "the other must also be set"
+        )
+
 
 def validate_nexus_config():
     """
@@ -152,8 +166,6 @@ def validate_nexus_config():
     conf = get_worker_config()
     for nexus_conf in (
         "cachito_nexus_password",
-        "cachito_nexus_unprivileged_password",
-        "cachito_nexus_unprivileged_username",
         "cachito_nexus_url",
         "cachito_nexus_username",
     ):
@@ -161,6 +173,21 @@ def validate_nexus_config():
             raise ConfigError(
                 f'The configuration "{nexus_conf}" must be set for this package manager'
             )
+
+
+def validate_npm_config():
+    """
+    Perform validation on the Celery configuration for the npm package manager.
+
+    :raise ConfigError: if the Celery configuration isn't configured for npm
+    """
+    validate_nexus_config()
+    conf = get_worker_config()
+    if not conf.get("cachito_nexus_npm_proxy_repo_url"):
+        raise ConfigError(
+            'The configuration "cachito_nexus_npm_proxy_repo_url" must be set for this package '
+            "manager"
+        )
 
 
 def get_worker_config():
