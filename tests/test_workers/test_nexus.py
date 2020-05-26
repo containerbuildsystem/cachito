@@ -25,10 +25,10 @@ def components_search_results():
                     {
                         "downloadUrl": (
                             "http://nexus/repository/cachito-js-hosted/rxjs/-/rxjs-7.0.0-beta.0"
-                            "-external-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+                            "-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
                         ),
                         "path": (
-                            "rxjs/-/rxjs-7.0.0-beta.0-external-"
+                            "rxjs/-/rxjs-7.0.0-beta.0-external-gitcommit-"
                             "dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
                         ),
                         "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6Mjk0YzYzMzJiNDlhNmQ0NTY3MmM5YmNhZDg0YWI2ZTM",
@@ -54,15 +54,16 @@ def components_search_results():
                 "format": "npm",
                 "group": "reactivex",
                 "name": "rxjs",
-                "version": "6.5.5-external-78032157f5c1655436829017bbda787565b48c30",
+                "version": "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
                 "assets": [
                     {
                         "downloadUrl": (
                             "http://nexus/repository/cachito-js-hosted/@reactivex/rxjs/-/"
-                            "rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz"
+                            "rxjs-6.5.5-external-gitcommit-"
+                            "78032157f5c1655436829017bbda787565b48c30.tgz"
                         ),
                         "path": (
-                            "@reactivex/rxjs/-/rxjs-6.5.5-external-"
+                            "@reactivex/rxjs/-/rxjs-6.5.5-external-gitcommit-"
                             "78032157f5c1655436829017bbda787565b48c30.tgz"
                         ),
                         "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6Yzc1NDU1NzlhN2ExNTM5MDI5YmRiOTI4YzdkNGFiZDQ",
@@ -267,7 +268,7 @@ def test_get_component_info_from_nexus(mock_search_components, components_search
     repository = "cachito-js-proxy"
     component_format = "npm"
     name = "rxjs"
-    version = "6.5.5-external-78032157f5c1655436829017bbda787565b48c30"
+    version = "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30"
     group = "reactive"
     components_search_results["items"].pop(0)
     mock_search_components.return_value = components_search_results["items"]

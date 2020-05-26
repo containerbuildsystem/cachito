@@ -186,10 +186,10 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
         "requires": {"tslib": "^1.9.0"},
     }
     nexus_hosted_info = {
-        "version": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+        "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
         "resolved": (
             "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-            "rxjs-6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+            "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
         ),
         "integrity": (
             "sha512-vvAdzoVTdbr5Lq7BI2+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8UX"
@@ -204,10 +204,10 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
         "requires": {"tslib": "^1.9.0"},
     }
     nexus_hosted_info_two = {
-        "version": "6.5.2-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+        "version": "6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
         "resolved": (
             "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-            "rxjs-6.5.2-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5.tgz"
+            "rxjs-6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5.tgz"
         ),
         "integrity": (
             "sha512-AvAdzoVTdVT5Lq7BI2+l5R3dM4Mw7305wNKLgij8rh7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8UX"
@@ -250,7 +250,9 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
                 "name": "rxjs",
                 "type": "npm",
                 "version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
-                "version_in_nexus": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+                "version_in_nexus": (
+                    "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"
+                ),
             },
             {
                 "bundled": False,
@@ -258,7 +260,9 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
                 "name": "rxjs",
                 "type": "npm",
                 "version": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-                "version_in_nexus": "6.5.2-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+                "version_in_nexus": (
+                    "6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"
+                ),
             },
         ],
         "tslib": [
@@ -273,7 +277,9 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
         ],
     }
     # Verify that only the top level replacements are returned
-    assert replacements == [("rxjs", "6.5.2-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5")]
+    assert replacements == [
+        ("rxjs", "6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5")
+    ]
     # Ensure the lock file was updated with the Nexus hosted dependency
     assert (
         package_lock_deps["@angular-devkit/architect"]["dependencies"]["rxjs"] == nexus_hosted_info
@@ -281,7 +287,7 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
     assert package_lock_deps["rxjs"] == nexus_hosted_info_two
     assert package_lock_deps["@angular-devkit/architect"]["requires"] == {
         "@angular-devkit/core": "8.3.26",
-        "rxjs": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+        "rxjs": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
     }
 
     assert mock_ctnh.call_count == 2
@@ -331,11 +337,11 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
                 "checksum": {"sha512": checksum},
                 "downloadUrl": (
                     "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-                    "rxjs-6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+                    "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
                 ),
             }
         ],
-        "version": "6.5.5-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+        "version": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
     }
     if exists:
         mock_gncifn.return_value = nexus_component_info
@@ -360,13 +366,13 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
         "requires": {"tslib": "^1.9.0"},
         "resolved": (
             "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/rxjs-6.5.5-"
-            "external-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+            "external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
         ),
-        "version": "6.5.5-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+        "version": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
     }
     if exists:
         mock_gncifn.assert_called_once_with(
-            "rxjs", "*-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5"
+            "rxjs", "*-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"
         )
         # Verify no upload occurs when the component already exists in Nexus
         mock_unrd.assert_not_called()
@@ -374,15 +380,17 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
         assert mock_gncifn.call_count == 2
         mock_gncifn.assert_has_calls(
             [
-                mock.call("rxjs", "*-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5"),
+                mock.call("rxjs", "*-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"),
                 mock.call(
-                    "rxjs", "*-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5", max_attempts=5
+                    "rxjs",
+                    "*-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+                    max_attempts=5,
                 ),
             ]
         )
         mock_unrd.assert_called_once_with(
             "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-            "-external-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+            "-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
         )
 
 
@@ -554,10 +562,10 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
 
     def _mock_get_deps(_deps):
         _deps["rxjs"] = {
-            "version": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+            "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
             "resolved": (
                 "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-                "rxjs-6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+                "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
             ),
             "integrity": (
                 "sha512-vvAdzoVTdbr5Lq7BI2+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8"
@@ -572,7 +580,9 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
                     "dev": False,
                     "name": "rxjs",
                     "version": "6.5.5",
-                    "version_in_nexus": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+                    "version_in_nexus": (
+                        "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"
+                    ),
                 },
             ],
             "tslib": [
@@ -585,7 +595,9 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
                 },
             ],
         }
-        replacements = [("rxjs", "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b")]
+        replacements = [
+            ("rxjs", "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b")
+        ]
 
         return name_to_deps, replacements
 
@@ -607,7 +619,9 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
                 "dev": False,
                 "name": "rxjs",
                 "version": "6.5.5",
-                "version_in_nexus": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+                "version_in_nexus": (
+                    "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"
+                ),
             },
             {
                 "bundled": False,
@@ -628,9 +642,9 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
                     "requires": {"tslib": "^1.9.0"},
                     "resolved": (
                         "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-                        "rxjs-6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+                        "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
                     ),
-                    "version": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+                    "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
                 },
                 "tslib": {
                     "integrity": (
@@ -648,7 +662,7 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
         "package.json": {
             "dependencies": {
                 # Verify that package.json was updated with the hosted version of rxjs
-                "rxjs": "6.5.5-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+                "rxjs": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
                 "tslib": {"version": "1.11.1"},
             }
         },

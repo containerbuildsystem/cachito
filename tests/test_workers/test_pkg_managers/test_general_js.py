@@ -27,7 +27,7 @@ def test_download_dependencies(mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mo
         """\
         angular-devkit-architect-0.803.26.tgz
         angular-animations-8.2.14.tgz
-        rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz
+        rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz
         """
     )
     deps = [
@@ -57,7 +57,7 @@ def test_download_dependencies(mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mo
             "dev": False,
             "name": "rxjs",
             "version": "github:ReactiveX/rxjs#78032157f5c1655436829017bbda787565b48c30",
-            "version_in_nexus": "6.5.5-external-78032157f5c1655436829017bbda787565b48c30",
+            "version_in_nexus": "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
         },
     ]
     request_id = 1
@@ -73,7 +73,7 @@ def test_download_dependencies(mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mo
         "pack",
         "@angular-devkit/architect@0.803.26",
         "@angular/animations@8.2.14",
-        "rxjs@6.5.5-external-78032157f5c1655436829017bbda787565b48c30",
+        "rxjs@6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
     ]
     assert mock_run_cmd.call_args[0][0] == expected_npm_pack
     run_cmd_env_vars = mock_run_cmd.call_args[0][1]["env"]
@@ -89,10 +89,11 @@ def test_download_dependencies(mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mo
         f"{npm_dir_path}/@angular/animations/angular-animations-8.2.14.tgz"
     )
     dep3_source_path = RequestBundleDir(
-        f"{npm_dir_path}/rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz"
+        f"{npm_dir_path}/rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz"
     )
     dep3_dest_path = RequestBundleDir(
-        f"{npm_dir_path}/rxjs/rxjs-6.5.5-external-78032157f5c1655436829017bbda787565b48c30.tgz"
+        f"{npm_dir_path}/rxjs/rxjs-6.5.5-external-gitcommit-"
+        "78032157f5c1655436829017bbda787565b48c30.tgz"
     )
     mock_move.assert_has_calls(
         [
@@ -220,12 +221,14 @@ def test_get_npm_component_info_from_nexus(mock_gcifn, group):
         "format": "npm",
         "group": group[1:] if group else None,
         "name": "rxjs",
-        "version": "6.5.5-external-78032157f5c1655436829017bbda787565b48c30",
+        "version": "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
     }
     mock_gcifn.return_value = component
 
     rv = general_js.get_npm_component_info_from_nexus(
-        identifier, "6.5.5-external-78032157f5c1655436829017bbda787565b48c30", max_attempts=3
+        identifier,
+        "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
+        max_attempts=3,
     )
 
     assert rv == component
@@ -234,7 +237,7 @@ def test_get_npm_component_info_from_nexus(mock_gcifn, group):
             "cachito-js-hosted",
             "npm",
             "rxjs",
-            "6.5.5-external-78032157f5c1655436829017bbda787565b48c30",
+            "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
             "reactive",
             3,
         )
@@ -243,7 +246,7 @@ def test_get_npm_component_info_from_nexus(mock_gcifn, group):
             "cachito-js-hosted",
             "npm",
             "rxjs",
-            "6.5.5-external-78032157f5c1655436829017bbda787565b48c30",
+            "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
             None,
             3,
         )
