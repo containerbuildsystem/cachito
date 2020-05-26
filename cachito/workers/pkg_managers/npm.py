@@ -176,8 +176,8 @@ def convert_to_nexus_hosted(dep_name, dep_info):
             log.error(msg)
             raise CachitoError(msg)
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
-        # of `<version>-external-<commit hash>`
-        version_suffix = f"-external-{commit_hash}"
+        # of `<version>-gitcommit-<commit hash>`
+        version_suffix = f"-external-gitcommit-{commit_hash}"
     elif any(dep_identifier.startswith(prefix) for prefix in http_prefixes):
         if "integrity" not in dep_info:
             msg = f"The dependency {dep_identifier} is missing the integrity value in the lock file"
