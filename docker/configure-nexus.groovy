@@ -1,9 +1,6 @@
 /*
 This script configures Nexus for the Cachito development environment in an idempotent manner.
 
-One exception is that the NpmToken realm must be enabled using the REST API instead of this script. This is because
-there is no Groovy/Java API to enable this.
-
 As part of the script, the following occurs:
 - Anonymous access is disabled
 - The "cachito-js" blob store is created
