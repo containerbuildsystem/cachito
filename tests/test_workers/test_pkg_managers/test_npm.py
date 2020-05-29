@@ -519,6 +519,18 @@ def test_get_deps_unsupported_non_registry_dep():
         npm._get_deps(package_lock_deps, {})
 
 
+def test_get_npm_proxy_repo_name():
+    assert npm.get_npm_proxy_repo_name(3) == "cachito-npm-3"
+
+
+def test_get_npm_proxy_repo_url():
+    assert npm.get_npm_proxy_repo_url(3).endswith("/repository/cachito-npm-3/")
+
+
+def test_get_npm_proxy_username():
+    assert npm.get_npm_proxy_username(3) == "cachito-npm-3"
+
+
 def test_get_package_and_deps(package_lock_deps, package_and_deps):
     package_lock = {"name": "han_solo", "version": "5.0.0", "dependencies": package_lock_deps}
     mock_open = mock.mock_open(read_data=json.dumps(package_lock))
@@ -701,7 +713,7 @@ def test_resolve_npm(mock_dd, mock_gpad, mock_exists, shrink_wrap, package_lock,
     mock_gpad.assert_called_once_with(package_json_path, lock_file_path)
     # We can't verify the actual correct deps value was passed in since the deps that were passed
     # in were mutated and mock does not keep a deepcopy of the function arguments.
-    mock_dd.assert_called_once_with(1, mock.ANY)
+    mock_dd.assert_called_once_with(1, mock.ANY, mock.ANY)
 
 
 @mock.patch("cachito.workers.pkg_managers.npm.os.path.exists")

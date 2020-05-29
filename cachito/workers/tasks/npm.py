@@ -15,12 +15,15 @@ from cachito.workers.pkg_managers.general import (
 )
 from cachito.workers.pkg_managers.general_js import (
     generate_npmrc_content,
-    get_js_proxy_repo_name,
-    get_js_proxy_username,
     finalize_nexus_for_js_request,
     prepare_nexus_for_js_request,
 )
-from cachito.workers.pkg_managers.npm import resolve_npm
+from cachito.workers.pkg_managers.npm import (
+    get_npm_proxy_repo_name,
+    get_npm_proxy_repo_url,
+    get_npm_proxy_username,
+    resolve_npm,
+)
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 
@@ -33,8 +36,8 @@ log = logging.getLogger(__name__)
 def cleanup_npm_request(request_id):
     """Clean up the Nexus npm content for the Cachito request."""
     payload = {
-        "repository_name": get_js_proxy_repo_name(request_id),
-        "username": get_js_proxy_username(request_id),
+        "repository_name": get_npm_proxy_repo_name(request_id),
+        "username": get_npm_proxy_username(request_id),
     }
     nexus.execute_script("js_cleanup", payload)
 
@@ -70,7 +73,8 @@ def fetch_npm_source(request_id):
 
     log.info("Configuring Nexus for npm for the request %d", request_id)
     set_request_state(request_id, "in_progress", "Configuring Nexus for npm")
-    prepare_nexus_for_js_request(request_id)
+    repo_name = get_npm_proxy_repo_name(request_id)
+    prepare_nexus_for_js_request(repo_name)
 
     log.info("Fetching the npm dependencies for request %d", request_id)
     request = set_request_state(request_id, "in_progress", "Fetching the npm dependencies")
@@ -82,7 +86,8 @@ def fetch_npm_source(request_id):
 
     log.info("Finalizing the Nexus configuration for npm for the request %d", request_id)
     set_request_state(request_id, "in_progress", "Finalizing the Nexus configuration for npm")
-    username, password = finalize_nexus_for_js_request(request_id)
+    username = get_npm_proxy_username(request_id)
+    password = finalize_nexus_for_js_request(username, repo_name)
 
     log.info("Generating the .npmrc file")
     ca_cert = nexus.get_ca_cert()
@@ -100,7 +105,10 @@ def fetch_npm_source(request_id):
         npm_config_files = []
         custom_ca_path = None
 
-    npm_rc = generate_npmrc_content(request_id, username, password, custom_ca_path=custom_ca_path)
+    proxy_repo_url = get_npm_proxy_repo_url(request_id)
+    npm_rc = generate_npmrc_content(
+        proxy_repo_url, username, password, custom_ca_path=custom_ca_path
+    )
     npm_config_files.append(
         {
             "content": base64.b64encode(npm_rc.encode("utf-8")).decode("utf-8"),

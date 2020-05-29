@@ -26,9 +26,6 @@ __all__ = [
     "generate_and_write_npmrc_file",
     "generate_npmrc_content",
     "get_js_hosted_repo_name",
-    "get_js_proxy_repo_name",
-    "get_js_proxy_repo_url",
-    "get_js_proxy_username",
     "get_npm_component_info_from_nexus",
     "prepare_nexus_for_js_request",
     "upload_non_registry_dependency",
@@ -37,7 +34,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-def download_dependencies(request_id, deps):
+def download_dependencies(request_id, deps, proxy_repo_url):
     """
     Download the list of npm dependencies using npm pack to the deps bundle directory.
 
@@ -50,6 +47,7 @@ def download_dependencies(request_id, deps):
     :param int request_id: the ID of the request these dependencies are being downloaded for
     :param list deps: a list of dependencies where each dependency has the keys: bundled, name,
         version, and version_in_nexus
+    :param str proxy_repo_url: the Nexus proxy repository URL to use as the registry
     :raises CachitoError: if any of the downloads fail
     """
     conf = get_worker_config()
@@ -62,7 +60,7 @@ def download_dependencies(request_id, deps):
         # The token must be privileged so that it has access to the cachito-js repository
         generate_and_write_npmrc_file(
             npm_rc_file,
-            request_id,
+            proxy_repo_url,
             conf.cachito_nexus_username,
             conf.cachito_nexus_password,
             custom_ca_path=nexus_ca,
@@ -125,22 +123,22 @@ def download_dependencies(request_id, deps):
                 shutil.move(bundle_dir.npm_deps_dir.joinpath(tarball), dep_dir.joinpath(tarball))
 
 
-def finalize_nexus_for_js_request(request_id):
+def finalize_nexus_for_js_request(repo_name, username):
     """
     Finalize the Nexus configuration so that the request's npm repository is ready for consumption.
 
-    :param int request_id: the ID of the request that Nexus should be configured for
-    :return: the username and password of the Nexus user that has access to the request's npm
-        repository
-    :rtype: (str, str)
+    :param str repo_name: the name of the repository for the request for this package manager
+    :param str username: the username of the user to be created for the request for this package
+        manager
+    :return: the password of the Nexus user that has access to the request's npm repository
+    :rtype: str
     :raise CachitoError: if the script execution fails
     """
-    username = get_js_proxy_username(request_id)
     # Generate a 24-32 character (each byte is two hex characters) password
     password = secrets.token_hex(random.randint(12, 16))
     payload = {
         "password": password,
-        "repository_name": get_js_proxy_repo_name(request_id),
+        "repository_name": repo_name,
         "username": username,
     }
     script_name = "js_after_content_staged"
@@ -152,7 +150,7 @@ def finalize_nexus_for_js_request(request_id):
             "Failed to configure Nexus to allow the request's npm repository to be ready for "
             "consumption"
         )
-    return username, password
+    return password
 
 
 def find_package_json(package_archive):
@@ -194,12 +192,14 @@ def find_package_json(package_archive):
                 return member.name
 
 
-def generate_and_write_npmrc_file(npm_rc_path, request_id, username, password, custom_ca_path=None):
+def generate_and_write_npmrc_file(
+    npm_rc_path, proxy_repo_url, username, password, custom_ca_path=None
+):
     """
     Generate a .npmrc file at the input location with the registry and authentication configured.
 
     :param str npm_rc_path: the path to create the .npmrc file
-    :param int request_id: the ID of the request to determine the npm registry URL
+    :param str proxy_repo_url: the npm registry URL
     :param str username: the username of the user to use for authenticating to the registry
     :param str password: the password of the user to use for authenticating to the registry
     :param str custom_ca_path: the path to set ``cafile`` to in the .npm rc file; if not provided,
@@ -208,15 +208,17 @@ def generate_and_write_npmrc_file(npm_rc_path, request_id, username, password, c
     log.debug("Generating a .npmrc file at %s", npm_rc_path)
     with open(npm_rc_path, "w") as f:
         f.write(
-            generate_npmrc_content(request_id, username, password, custom_ca_path=custom_ca_path)
+            generate_npmrc_content(
+                proxy_repo_url, username, password, custom_ca_path=custom_ca_path
+            )
         )
 
 
-def generate_npmrc_content(request_id, username, password, custom_ca_path=None):
+def generate_npmrc_content(proxy_repo_url, username, password, custom_ca_path=None):
     """
     Generate a .npmrc file with the registry and authentication configured.
 
-    :param int request_id: the ID of the request to determine the npm registry URL
+    :param str proxy_repo_url: the npm registry URL
     :param str username: the username of the user to use for authenticating to the registry
     :param str password: the password of the user to use for authenticating to the registry
     :param str custom_ca_path: the path to set ``cafile`` to in the .npm rc file; if not provided,
@@ -224,7 +226,6 @@ def generate_npmrc_content(request_id, username, password, custom_ca_path=None):
     :return: the contents of the .npmrc file
     :rtype: str
     """
-    proxy_repo_url = get_js_proxy_repo_url(request_id)
     # Instead of getting the token from Nexus, use basic authentication as supported by Nexus:
     # https://help.sonatype.com/repomanager3/formats/npm-registry#npmRegistry-AuthenticationUsingBasicAuth
     token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("utf-8")
@@ -260,42 +261,6 @@ def get_js_hosted_repo_name():
     return config.cachito_nexus_js_hosted_repo_name
 
 
-def get_js_proxy_repo_name(request_id):
-    """
-    Get the name of npm proxy repository for the request.
-
-    :param int request_id: the ID of the request this repository is for
-    :return: the name of npm proxy repository for the request
-    :rtype: str
-    """
-    config = get_worker_config()
-    return f"{config.cachito_nexus_request_repo_prefix}js-{request_id}"
-
-
-def get_js_proxy_repo_url(request_id):
-    """
-    Get the URL for the Nexus npm proxy repository for the request.
-
-    :param int request_id: the ID of the request this repository is for
-    :return: the URL for the Nexus npm proxy repository for the request
-    :rtype: str
-    """
-    config = get_worker_config()
-    repo_name = get_js_proxy_repo_name(request_id)
-    return f"{config.cachito_nexus_url.rstrip('/')}/repository/{repo_name}/"
-
-
-def get_js_proxy_username(request_id):
-    """
-    Get the username that has read access on the npm proxy repository for the request.
-
-    :param int request_id: the ID of the request this repository is for
-    :return: the username
-    :rtype: str
-    """
-    return f"cachito-js-{request_id}"
-
-
 def get_npm_component_info_from_nexus(name, version, max_attempts=1):
     """
     Get the NPM component information from the NPM hosted repository using Nexus' REST API.
@@ -322,11 +287,11 @@ def get_npm_component_info_from_nexus(name, version, max_attempts=1):
     )
 
 
-def prepare_nexus_for_js_request(request_id):
+def prepare_nexus_for_js_request(repo_name):
     """
     Prepare Nexus so that Cachito can stage JavaScript content.
 
-    :param int request_id: the ID of the request that Nexus should be configured for
+    :param str repo_name: the name of the repository for the request for this package manager
     :raise CachitoError: if the script execution fails
     """
     config = get_worker_config()
@@ -334,7 +299,7 @@ def prepare_nexus_for_js_request(request_id):
     # the new Nexus npm proxy repository will use to connect to the "cachito-js" Nexus group
     # repository
     payload = {
-        "repository_name": get_js_proxy_repo_name(request_id),
+        "repository_name": repo_name,
         "http_password": config.cachito_nexus_proxy_password,
         "http_username": config.cachito_nexus_proxy_username,
         "npm_proxy_url": config.cachito_nexus_npm_proxy_repo_url,
