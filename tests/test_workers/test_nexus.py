@@ -273,7 +273,7 @@ def test_execute_script(mock_requests):
     mock_requests.post.return_value.ok = True
 
     nexus.execute_script(
-        "js_cleanup", {"repository_name": "cachito-js-1", "username": "cachito-js-1"}
+        "js_cleanup", {"repository_name": "cachito-npm-1", "username": "cachito-npm-1"}
     )
 
     mock_requests.post.assert_called_once()
@@ -287,7 +287,7 @@ def test_execute_script_connection_error(mock_requests):
     expected = "Could not connect to the Nexus instance to execute the script js_cleanup"
     with pytest.raises(NexusScriptError, match=expected):
         nexus.execute_script(
-            "js_cleanup", {"repository_name": "cachito-js-1", "username": "cachito-js-1"}
+            "js_cleanup", {"repository_name": "cachito-npm-1", "username": "cachito-npm-1"}
         )
 
     mock_requests.post.assert_called_once()
@@ -301,7 +301,7 @@ def test_execute_script_failed(mock_requests):
     expected = "The Nexus script js_cleanup failed with: some error"
     with pytest.raises(NexusScriptError, match=expected):
         nexus.execute_script(
-            "js_cleanup", {"repository_name": "cachito-js-1", "username": "cachito-js-1"}
+            "js_cleanup", {"repository_name": "cachito-npm-1", "username": "cachito-npm-1"}
         )
 
     mock_requests.post.assert_called_once()

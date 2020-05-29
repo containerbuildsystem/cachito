@@ -166,7 +166,7 @@ Custom configuration for the Celery workers are listed below:
   hosts the main Cachito repositories has anonymous access disabled. This is the case if Cachito
   utilizes just a single Nexus instance.
 * `cachito_nexus_request_repo_prefix` - the prefix of Nexus proxy repositories made for each
-  request for applicable package managers (e.g. `cachito-js-1`). This defaults to `cachito-`.
+  request for applicable package managers (e.g. `cachito-npm-1`). This defaults to `cachito-`.
 * `cachito_nexus_timeout` - the timeout when making a Nexus API request. The default is `60`
   seconds.
 * `cachito_nexus_url` - the base URL to the Nexus Repository Manager 3 instance used by Cachito.

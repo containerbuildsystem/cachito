@@ -10,7 +10,7 @@ import pytest
 
 from cachito.errors import CachitoError
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.pkg_managers import general_js
+from cachito.workers.pkg_managers import general_js, npm
 from cachito.workers.paths import RequestBundleDir
 
 
@@ -76,19 +76,24 @@ def test_download_dependencies(
     request_id = 1
     request_bundle_dir = bundles_dir.mkdir("temp").mkdir(str(request_id))
     npm_dir_path = os.path.join(request_bundle_dir, "deps/npm")
-    general_js.download_dependencies(request_id, deps)
+    proxy_repo_url = npm.get_npm_proxy_repo_url(request_id)
+    general_js.download_dependencies(request_id, deps, proxy_repo_url)
 
     if nexus_ca_cert_exists:
         mock_gawnf.assert_called_once_with(
             "/tmp/cachito-agfdsk/.npmrc",
-            1,
+            "http://nexus:8081/repository/cachito-npm-1/",
             "cachito",
             "cachito",
             custom_ca_path="/etc/cachito/nexus_ca.pem",
         )
     else:
         mock_gawnf.assert_called_once_with(
-            "/tmp/cachito-agfdsk/.npmrc", 1, "cachito", "cachito", custom_ca_path=None
+            "/tmp/cachito-agfdsk/.npmrc",
+            "http://nexus:8081/repository/cachito-npm-1/",
+            "cachito",
+            "cachito",
+            custom_ca_path=None,
         )
     mock_run_cmd.assert_called_once()
     # This ensures that the bundled dependency is skipped
@@ -130,15 +135,16 @@ def test_download_dependencies(
 
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.execute_script")
 def test_finalize_nexus_for_js_request(mock_exec_script):
-    _, password = general_js.finalize_nexus_for_js_request(1)
+    password = general_js.finalize_nexus_for_js_request("cachito-npm-1", "cachito-npm-1")
 
     mock_exec_script.assert_called_once()
     assert mock_exec_script.call_args[0][0] == "js_after_content_staged"
     payload = mock_exec_script.call_args[0][1]
     assert len(payload["password"]) >= 24
+    assert payload["password"] == password
     assert payload.keys() == {"password", "repository_name", "username"}
-    assert payload["repository_name"] == "cachito-js-1"
-    assert payload["username"] == "cachito-js-1"
+    assert payload["repository_name"] == "cachito-npm-1"
+    assert payload["username"] == "cachito-npm-1"
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.execute_script")
@@ -150,7 +156,7 @@ def test_finalize_nexus_for_js_request_failed(mock_exec_script):
         "consumption"
     )
     with pytest.raises(CachitoError, match=expected):
-        _, password = general_js.finalize_nexus_for_js_request(1)
+        general_js.finalize_nexus_for_js_request("cachito-npm-1", "cachito-npm-1")
 
 
 def test_find_package_json(tmpdir):
@@ -180,12 +186,15 @@ def test_find_package_json_no_package_json(tmpdir):
 @pytest.mark.parametrize("custom_ca_path", (None, "./registry-ca.pem"))
 def test_generate_npmrc_content(custom_ca_path):
     npm_rc = general_js.generate_npmrc_content(
-        1, "admin", "admin123", custom_ca_path=custom_ca_path
+        "http://nexus:8081/repository/cachito-npm-1/",
+        "admin",
+        "admin123",
+        custom_ca_path=custom_ca_path,
     )
 
     expected = textwrap.dedent(
         f"""\
-        registry=http://nexus:8081/repository/cachito-js-1/
+        registry=http://nexus:8081/repository/cachito-npm-1/
         email=noreply@domain.local
         always-auth=true
         _auth=YWRtaW46YWRtaW4xMjM=
@@ -203,13 +212,15 @@ def test_generate_npmrc_content(custom_ca_path):
 
 @mock.patch("cachito.workers.pkg_managers.general_js.generate_npmrc_content")
 def test_generate_and_write_npmrc_file(mock_gen_npmrc):
-    npmrc_content = "registry=http://nexus:8081/repository/cachito-js-1/"
+    npmrc_content = "registry=http://nexus:8081/repository/cachito-npm-1/"
     mock_gen_npmrc.return_value = npmrc_content
     mock_open = mock.mock_open()
 
     npm_rc_path = "/tmp/cachito-hgfsd/.npmrc"
     with mock.patch("cachito.workers.pkg_managers.general_js.open", mock_open):
-        general_js.generate_and_write_npmrc_file(npm_rc_path, 1, "admin", "admin123")
+        general_js.generate_and_write_npmrc_file(
+            npm_rc_path, "http://nexus:8081/repository/cachito-npm-1/", 1, "admin", "admin123"
+        )
 
     mock_open.assert_called_once_with(npm_rc_path, "w")
     mock_open().write.assert_called_once_with(npmrc_content)
@@ -217,18 +228,6 @@ def test_generate_and_write_npmrc_file(mock_gen_npmrc):
 
 def test_get_js_hosted_repo_name():
     assert general_js.get_js_hosted_repo_name() == "cachito-js-hosted"
-
-
-def test_get_js_proxy_repo_name():
-    assert general_js.get_js_proxy_repo_name(3) == "cachito-js-3"
-
-
-def test_get_js_proxy_repo_url():
-    assert general_js.get_js_proxy_repo_url(3).endswith("/repository/cachito-js-3/")
-
-
-def test_get_js_proxy_username():
-    assert general_js.get_js_proxy_username(3) == "cachito-js-3"
 
 
 @pytest.mark.parametrize("group", ("@reactive", None))
@@ -278,13 +277,13 @@ def test_get_npm_component_info_from_nexus(mock_gcifn, group):
 
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.execute_script")
 def test_prepare_nexus_for_js_request(mock_exec_script):
-    general_js.prepare_nexus_for_js_request(1)
+    general_js.prepare_nexus_for_js_request("cachito-npm-1")
 
     mock_exec_script.assert_called_once()
     assert mock_exec_script.call_args[0][0] == "js_before_content_staged"
     payload = mock_exec_script.call_args[0][1]
     assert payload == {
-        "repository_name": "cachito-js-1",
+        "repository_name": "cachito-npm-1",
         "http_password": "cachito_unprivileged",
         "http_username": "cachito_unprivileged",
         "npm_proxy_url": "http://localhost:8081/repository/cachito-js/",

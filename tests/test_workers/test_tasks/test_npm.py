@@ -11,7 +11,7 @@ from cachito.workers.tasks import npm
 def test_cleanup_npm_request(mock_exec_script):
     npm.cleanup_npm_request(3)
 
-    expected_payload = {"repository_name": "cachito-js-3", "username": "cachito-js-3"}
+    expected_payload = {"repository_name": "cachito-npm-3", "username": "cachito-npm-3"}
     mock_exec_script.assert_called_once_with("js_cleanup", expected_payload)
 
 
@@ -66,24 +66,29 @@ def test_fetch_npm_source(
         "package": package,
         "package.json": package_json,
     }
-    username = f"cachito-js-{request_id}"
+    username = f"cachito-npm-{request_id}"
     password = "asjfhjsdfkwe"
-    mock_fnfjr.return_value = (username, password)
+    mock_fnfjr.return_value = password
     mock_gcc.return_value = ca_file
     mock_gnc.return_value = "some npmrc"
 
     npm.fetch_npm_source(request_id)
 
     assert mock_srs.call_count == 3
-    mock_pnfjr.assert_called_once_with(request_id)
+    mock_pnfjr.assert_called_once_with("cachito-npm-6")
     lock_file_path = str(mock_rbd().source_dir)
     mock_rn.assert_called_once_with(lock_file_path, request)
     if ca_file:
         mock_gnc.assert_called_once_with(
-            request_id, username, password, custom_ca_path="./registry-ca.pem"
+            "http://nexus:8081/repository/cachito-npm-6/",
+            username,
+            password,
+            custom_ca_path="./registry-ca.pem",
         )
     else:
-        mock_gnc.assert_called_once_with(request_id, username, password, custom_ca_path=None)
+        mock_gnc.assert_called_once_with(
+            "http://nexus:8081/repository/cachito-npm-6/", username, password, custom_ca_path=None
+        )
 
     expected_config_files = []
     if ca_file:
@@ -181,4 +186,4 @@ def test_fetch_npm_source_resolve_fails(mock_rn, mock_pnfjr, mock_srs, mock_rbd)
         npm.fetch_npm_source(request_id)
 
     assert mock_srs.call_count == 2
-    mock_pnfjr.assert_called_once_with(request_id)
+    mock_pnfjr.assert_called_once_with("cachito-npm-6")

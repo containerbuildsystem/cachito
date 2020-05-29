@@ -6,6 +6,7 @@ import logging
 import os
 
 from cachito.errors import CachitoError
+from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general_js import (
     download_dependencies,
     get_npm_component_info_from_nexus,
@@ -16,6 +17,9 @@ __all__ = [
     "convert_hex_sha512_to_npm",
     "convert_integrity_to_hex_checksum",
     "convert_to_nexus_hosted",
+    "get_npm_proxy_repo_name",
+    "get_npm_proxy_repo_url",
+    "get_npm_proxy_username",
     "get_package_and_deps",
     "resolve_npm",
 ]
@@ -217,6 +221,42 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     return converted_dep_info
 
 
+def get_npm_proxy_repo_name(request_id):
+    """
+    Get the name of npm proxy repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the name of npm proxy repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    return f"{config.cachito_nexus_request_repo_prefix}npm-{request_id}"
+
+
+def get_npm_proxy_repo_url(request_id):
+    """
+    Get the URL for the Nexus npm proxy repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the URL for the Nexus npm proxy repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    repo_name = get_npm_proxy_repo_name(request_id)
+    return f"{config.cachito_nexus_url.rstrip('/')}/repository/{repo_name}/"
+
+
+def get_npm_proxy_username(request_id):
+    """
+    Get the username that has read access on the npm proxy repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the username
+    :rtype: str
+    """
+    return f"cachito-npm-{request_id}"
+
+
 def get_package_and_deps(package_json_path, package_lock_path):
     """
     Get the main package and dependencies based on the lock file.
@@ -316,7 +356,8 @@ def resolve_npm(app_source_path, request):
 
     # By downloading the dependencies, it stores the tarballs in the bundle and also stages the
     # content in the npm repository for the request
-    download_dependencies(request["id"], package_and_deps_info["deps"])
+    proxy_repo_url = get_npm_proxy_repo_url(request["id"])
+    download_dependencies(request["id"], package_and_deps_info["deps"], proxy_repo_url)
 
     # Remove all the "bundled" keys since that is an implementation detail that should not be
     # exposed outside of this function
