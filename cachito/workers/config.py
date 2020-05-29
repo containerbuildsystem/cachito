@@ -27,9 +27,11 @@ class Config(object):
     cachito_nexus_hoster_password = None
     cachito_nexus_hoster_url = None
     cachito_nexus_hoster_username = None
+    cachito_nexus_js_hosted_repo_name = "cachito-js-hosted"
     cachito_nexus_npm_proxy_repo_url = "http://localhost:8081/repository/cachito-js/"
     cachito_nexus_proxy_password = None
     cachito_nexus_proxy_username = None
+    cachito_nexus_request_repo_prefix = "cachito-"
     cachito_nexus_timeout = 60
     cachito_nexus_username = "cachito"
     cachito_request_lifetime = 1

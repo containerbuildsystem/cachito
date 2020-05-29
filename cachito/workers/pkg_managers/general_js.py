@@ -243,7 +243,8 @@ def get_js_hosted_repo_name():
     :return: the name of NPM hosted repository
     :rtype: str
     """
-    return "cachito-js-hosted"
+    config = get_worker_config()
+    return config.cachito_nexus_js_hosted_repo_name
 
 
 def get_js_proxy_repo_name(request_id):
@@ -254,7 +255,8 @@ def get_js_proxy_repo_name(request_id):
     :return: the name of npm proxy repository for the request
     :rtype: str
     """
-    return f"cachito-js-{request_id}"
+    config = get_worker_config()
+    return f"{config.cachito_nexus_request_repo_prefix}js-{request_id}"
 
 
 def get_js_proxy_repo_url(request_id):

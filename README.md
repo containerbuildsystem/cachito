@@ -145,6 +145,8 @@ Custom configuration for the Celery workers are listed below:
   `cachito_nexus_username` for uploading content if you are using the two Nexus instance approach as
   described in the "Nexus For npm" section. If this is set, `cachito_nexus_hoster_password` must
   also be set.
+* `cachito_nexus_js_hosted_repo_name` - the name of the Nexus hosted repository for JavaScript
+  package managers. This defaults to `cachito-js-hosted`.
 * `cachito_nexus_npm_proxy_repo_url` - the URL to the `cachito-js` repository which is a Nexus group
   that points to the `cachito-js-hosted` hosted repository and the `cachito-js-proxy` proxy
   repository. This defaults to `http://localhost:8081/repository/cachito-js/`. This only needs to
@@ -159,6 +161,8 @@ Custom configuration for the Celery workers are listed below:
   to the main Cachito repositories (e.g. `cachito-js`). This is needed if the Nexus instance that
   hosts the main Cachito repositories has anonymous access disabled. This is the case if Cachito
   utilizes just a single Nexus instance.
+* `cachito_nexus_request_repo_prefix` - the prefix of Nexus proxy repositories made for each
+  request for applicable package managers (e.g. `cachito-js-1`). This defaults to `cachito-`.
 * `cachito_nexus_timeout` - the timeout when making a Nexus API request. The default is `60`
   seconds.
 * `cachito_nexus_url` - the base URL to the Nexus Repository Manager 3 instance used by Cachito.
