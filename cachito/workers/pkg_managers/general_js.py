@@ -60,6 +60,11 @@ def download_dependencies(request_id, deps):
             npm_rc_file, request_id, conf.cachito_nexus_username, conf.cachito_nexus_password
         )
         env = {
+            # This is set since the home directory must be determined by the HOME environment
+            # variable or by looking at the /etc/passwd file. The latter does not always work
+            # since some deployments (e.g. OpenShift) don't have an entry for the running user
+            # in /etc/passwd.
+            "HOME": os.environ.get("HOME", ""),
             "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
             "NPM_CONFIG_USERCONFIG": npm_rc_file,
             "PATH": os.environ.get("PATH", ""),
@@ -345,6 +350,11 @@ def upload_non_registry_dependency(dep_identifier, version_suffix):
     """
     with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
         env = {
+            # This is set since the home directory must be determined by the HOME environment
+            # variable or by looking at the /etc/passwd file. The latter does not always work
+            # since some deployments (e.g. OpenShift) don't have an entry for the running user
+            # in /etc/passwd.
+            "HOME": os.environ.get("HOME", ""),
             "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
             "PATH": os.environ.get("PATH", ""),
         }
