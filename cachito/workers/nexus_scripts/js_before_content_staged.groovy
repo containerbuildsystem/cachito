@@ -94,16 +94,14 @@ def createRequestRepo(String repositoryName, String npmProxyUrl, String httpUser
     }
 
     // This is the authentication required for this proxy to access the cachito-js NPM repository group
-    def authentication = httpclient.child('authentication')
     if (httpUsername && httpPassword) {
+      def authentication = httpclient.child('authentication')
       authentication.set('type', 'username')
       authentication.set('username', httpUsername)
       authentication.set('password', httpPassword)
     }
     else {
-      authentication.set('type', null)
-      authentication.set('username', null)
-      authentication.set('password', null)
+      httpclient.set('authentication', null)
     }
 
     if(exists) {
