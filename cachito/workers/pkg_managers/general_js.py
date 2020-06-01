@@ -55,9 +55,17 @@ def download_dependencies(request_id, deps):
     conf = get_worker_config()
     with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
         npm_rc_file = os.path.join(temp_dir, ".npmrc")
+        if conf.cachito_nexus_ca_cert and os.path.exists(conf.cachito_nexus_ca_cert):
+            nexus_ca = conf.cachito_nexus_ca_cert
+        else:
+            nexus_ca = None
         # The token must be privileged so that it has access to the cachito-js repository
         generate_and_write_npmrc_file(
-            npm_rc_file, request_id, conf.cachito_nexus_username, conf.cachito_nexus_password
+            npm_rc_file,
+            request_id,
+            conf.cachito_nexus_username,
+            conf.cachito_nexus_password,
+            custom_ca_path=nexus_ca,
         )
         env = {
             # This is set since the home directory must be determined by the HOME environment
