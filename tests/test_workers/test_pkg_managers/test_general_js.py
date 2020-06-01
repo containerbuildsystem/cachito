@@ -14,15 +14,28 @@ from cachito.workers.pkg_managers import general_js
 from cachito.workers.paths import RequestBundleDir
 
 
+@pytest.mark.parametrize("nexus_ca_cert_exists", (True, False))
 @mock.patch("tempfile.TemporaryDirectory")
+@mock.patch("os.path.exists")
 @mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
 @mock.patch("shutil.move")
 @mock.patch("cachito.workers.paths.get_worker_config")
-def test_download_dependencies(mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mock_td, tmpdir):
+def test_download_dependencies(
+    mock_gwc,
+    mock_move,
+    mock_run_cmd,
+    mock_gawnf,
+    mock_exists,
+    mock_td,
+    nexus_ca_cert_exists,
+    tmpdir,
+):
     bundles_dir = tmpdir.mkdir("bundles")
     mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
+    mock_gwc.return_value.cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
     mock_td.return_value.__enter__.return_value = "/tmp/cachito-agfdsk"
+    mock_exists.return_value = nexus_ca_cert_exists
     mock_run_cmd.return_value = textwrap.dedent(
         """\
         angular-devkit-architect-0.803.26.tgz
@@ -65,7 +78,18 @@ def test_download_dependencies(mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mo
     npm_dir_path = os.path.join(request_bundle_dir, "deps/npm")
     general_js.download_dependencies(request_id, deps)
 
-    mock_gawnf.assert_called_once()
+    if nexus_ca_cert_exists:
+        mock_gawnf.assert_called_once_with(
+            "/tmp/cachito-agfdsk/.npmrc",
+            1,
+            "cachito",
+            "cachito",
+            custom_ca_path="/etc/cachito/nexus_ca.pem",
+        )
+    else:
+        mock_gawnf.assert_called_once_with(
+            "/tmp/cachito-agfdsk/.npmrc", 1, "cachito", "cachito", custom_ca_path=None
+        )
     mock_run_cmd.assert_called_once()
     # This ensures that the bundled dependency is skipped
     expected_npm_pack = [
