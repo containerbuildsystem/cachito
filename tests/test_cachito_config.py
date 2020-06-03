@@ -20,6 +20,7 @@ def test_validate_cachito_config_success(mock_isdir, app):
     "variable_name",
     (
         "CACHITO_BUNDLES_DIR",
+        "CACHITO_DEFAULT_PACKAGE_MANAGERS",
         "CACHITO_LOG_LEVEL",
         "CACHITO_MAX_PER_PAGE",
         "CACHITO_LOG_FORMAT",

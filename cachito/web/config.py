@@ -12,6 +12,7 @@ class Config(object):
 
     # Additional loggers to set to the level defined in CACHITO_LOG_LEVEL
     CACHITO_ADDITIONAL_LOGGERS = []
+    CACHITO_DEFAULT_PACKAGE_MANAGERS = ["gomod"]
     # This sets the level of the "flask.app" logger, which is accessed from current_app.logger
     CACHITO_LOG_LEVEL = "INFO"
     CACHITO_LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s %(message)s"
@@ -75,6 +76,7 @@ def validate_cachito_config(config, cli=False):
     """
     # Validate the required config variables
     for config_var in (
+        "CACHITO_DEFAULT_PACKAGE_MANAGERS",
         "CACHITO_LOG_LEVEL",
         "CACHITO_MAX_PER_PAGE",
         "CACHITO_LOG_FORMAT",
