@@ -473,6 +473,13 @@ components:
           items:
             type: string
             example: gomod
+          description: >
+            The list of package managers to use on the request. If this is not set, Cachito will
+            use the configured default package managers. In most deployments, this will be
+            ["gomod"]. To explicitly disable the use of any package managers, just provide an
+            empty array.
+          example:
+          - gomod
         ref:
           type: string
           example: "a7ac8d4c0b7fe90d51fb911511cbf6939655c877"

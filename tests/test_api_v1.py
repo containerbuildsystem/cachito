@@ -26,15 +26,14 @@ from cachito.workers.tasks import (
 
 
 @pytest.mark.parametrize(
-    "dependency_replacements, pkg_managers, user, enabled_pkg_managers, expected_pkg_managers",
+    "dependency_replacements, pkg_managers, user, expected_pkg_managers",
     (
-        ([], [], None, ["gomod", "npm"], ["gomod", "npm"]),
-        ([], ["gomod"], None, ["gomod", "npm"], ["gomod"]),
+        ([], [], None, []),
+        ([], ["gomod"], None, ["gomod"]),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             ["gomod"],
             None,
-            ["gomod", "npm"],
             ["gomod"],
         ),
         (
@@ -49,11 +48,9 @@ from cachito.workers.tasks import (
             ["gomod"],
             None,
             ["gomod"],
-            ["gomod"],
         ),
-        ([], [], "tom_hanks@DOMAIN.LOCAL", ["gomod", "npm"], ["gomod", "npm"]),
-        ([], ["npm"], None, ["gomod", "npm"], ["npm"]),
-        ([], [], None, ["gomod"], ["gomod"]),
+        ([], [], "tom_hanks@DOMAIN.LOCAL", []),
+        ([], ["npm"], None, ["npm"]),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -62,14 +59,12 @@ def test_create_and_fetch_request(
     dependency_replacements,
     pkg_managers,
     user,
-    enabled_pkg_managers,
     expected_pkg_managers,
     app,
     auth_env,
     client,
     db,
 ):
-    app.config["CACHITO_PACKAGE_MANAGERS"] = enabled_pkg_managers
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -85,12 +80,10 @@ def test_create_and_fetch_request(
     assert rv.status_code == 201
     created_request = rv.json
 
-    for key, expected_value in data.items():
-        # dependency_replacements aren't directly shown in the REST API
-        if key == "dependency_replacements":
-            continue
-        else:
-            assert expected_value == created_request[key]
+    for key in data.keys() - {"dependency_replacements", "pkg_managers"}:
+        assert data[key] == created_request[key]
+
+    created_request["pkg_managers"] == expected_pkg_managers
 
     if user:
         assert created_request["user"] == "tom_hanks@DOMAIN.LOCAL"
@@ -100,7 +93,6 @@ def test_create_and_fetch_request(
         assert created_request["submitted_by"] is None
 
     error_callback = failed_request_callback.s(1)
-    auto_detect = len(pkg_managers) == 0
     expected = [
         fetch_app_source.s(
             "https://github.com/release-engineering/retrodep.git",
@@ -109,11 +101,9 @@ def test_create_and_fetch_request(
         ).on_error(error_callback)
     ]
     if "gomod" in expected_pkg_managers:
-        expected.append(
-            fetch_gomod_source.si(1, auto_detect, dependency_replacements).on_error(error_callback)
-        )
+        expected.append(fetch_gomod_source.si(1, dependency_replacements).on_error(error_callback))
     if "npm" in expected_pkg_managers:
-        expected.append(fetch_npm_source.si(1, auto_detect).on_error(error_callback))
+        expected.append(fetch_npm_source.si(1).on_error(error_callback))
     expected.extend(
         [
             create_bundle_archive.si(1).on_error(error_callback),
@@ -176,7 +166,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
                 "c50b93a32df1c9d700e3e80996845bc2e13be848",
                 1,
             ).on_error(error_callback),
-            fetch_gomod_source.si(1, False, []).on_error(error_callback),
+            fetch_gomod_source.si(1, []).on_error(error_callback),
             create_bundle_archive.si(1).on_error(error_callback),
             set_request_state.si(1, "complete", "Completed successfully"),
         ]
@@ -371,16 +361,24 @@ def test_create_request_invalid_ref(invalid_ref, auth_env, client, db):
     assert_request_is_not_created(ref=invalid_ref)
 
 
-def test_create_request_invalid_pkg_manager(auth_env, client, db):
+@pytest.mark.parametrize(
+    "pkg_managers, expected",
+    (
+        (["something_wrong"], "The following package managers are invalid: something_wrong"),
+        ("gomod", 'The "pkg_managers" value must be an array of strings'),
+        ([True], 'The "pkg_managers" value must be an array of strings'),
+    ),
+)
+def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, client, db):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["something_wrong"],
+        "pkg_managers": pkg_managers,
     }
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == "The following package managers are invalid: something_wrong"
+    assert rv.json["error"] == expected
 
 
 @pytest.mark.parametrize(
@@ -405,6 +403,7 @@ def test_create_request_invalid_dependency_replacement(
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "dependency_replacements": dependency_replacements,
+        "pkg_managers": ["npm"],
     }
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)

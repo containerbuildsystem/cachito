@@ -40,12 +40,11 @@ def cleanup_npm_request(request_id):
 
 
 @app.task
-def fetch_npm_source(request_id, auto_detect=False):
+def fetch_npm_source(request_id):
     """
     Resolve and fetch npm dependencies for a given request.
 
     :param int request_id: the Cachito request ID this is for
-    :param bool auto_detect: automatically detect if the archive uses npm
     :raise CachitoError: if the task fails
     """
     validate_npm_config()
@@ -56,10 +55,6 @@ def fetch_npm_source(request_id, auto_detect=False):
         if lock_file.exists():
             break
     else:
-        if auto_detect:
-            log.info("The application source does not use npm")
-            return
-
         raise CachitoError(
             "The npm-shrinkwrap.json or package-lock.json file must be present for the npm "
             "package manager"

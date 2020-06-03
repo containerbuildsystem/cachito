@@ -509,10 +509,16 @@ class Request(db.Model):
 
         # Validate package managers are correctly provided
         pkg_managers_names = request_kwargs.pop("pkg_managers", None)
-        # If no package managers are specified, then Cachito will detect them automatically
-        if pkg_managers_names:
-            pkg_managers = PackageManager.get_pkg_managers(pkg_managers_names)
-            request_kwargs["pkg_managers"] = pkg_managers
+        # Default to the default package managers
+        if pkg_managers_names is None:
+            flask.current_app.logger.debug(
+                "Using the default package manager(s) (%s) on the request",
+                ", ".join(flask.current_app.config["CACHITO_DEFAULT_PACKAGE_MANAGERS"]),
+            )
+            pkg_managers_names = flask.current_app.config["CACHITO_DEFAULT_PACKAGE_MANAGERS"]
+
+        pkg_managers = PackageManager.get_pkg_managers(pkg_managers_names)
+        request_kwargs["pkg_managers"] = pkg_managers
 
         flag_names = request_kwargs.pop("flags", None)
         if flag_names:
@@ -626,6 +632,12 @@ class PackageManager(db.Model):
         :rtype: list
         :raise ValidationError: if one of the input package managers is invalid
         """
+        if not isinstance(pkg_managers, list) or any(not isinstance(v, str) for v in pkg_managers):
+            raise ValidationError('The "pkg_managers" value must be an array of strings')
+
+        if not pkg_managers:
+            return []
+
         pkg_managers = set(pkg_managers)
         found_pkg_managers = cls.query.filter(PackageManager.name.in_(pkg_managers)).all()
         if len(pkg_managers) != len(found_pkg_managers):

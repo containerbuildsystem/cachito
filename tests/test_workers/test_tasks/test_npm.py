@@ -161,17 +161,6 @@ def test_fetch_npm_source_node_modules_exists(mock_rbd):
 
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
-def test_fetch_npm_source_no_lock_auto_detect(mock_srs, mock_rbd):
-    mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = False
-    mock_rbd.return_value.npm_package_lock_file.exists.return_value = False
-
-    npm.fetch_npm_source(6, auto_detect=True)
-
-    mock_srs.assert_not_called()
-
-
-@mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
-@mock.patch("cachito.workers.tasks.npm.set_request_state")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
 def test_fetch_npm_source_resolve_fails(mock_rn, mock_pnfjr, mock_srs, mock_rbd):

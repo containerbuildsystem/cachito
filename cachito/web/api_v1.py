@@ -160,12 +160,6 @@ def create_request():
         flask.current_app.logger.info("An anonymous user submitted request %d", request.id)
 
     pkg_manager_names = set(pkg_manager.name for pkg_manager in request.pkg_managers)
-    auto_detect = len(pkg_manager_names) == 0
-    if auto_detect:
-        flask.current_app.logger.info(
-            'Automatic detection will be used since "pkg_managers" was empty'
-        )
-
     supported_pkg_managers = set(flask.current_app.config["CACHITO_PACKAGE_MANAGERS"])
     unsupported_pkg_managers = pkg_manager_names - supported_pkg_managers
     if unsupported_pkg_managers:
@@ -188,21 +182,19 @@ def create_request():
         pkg_manager_to_dep_replacements.setdefault(type_, [])
         pkg_manager_to_dep_replacements[type_].append(dependency_replacement)
 
-    if "gomod" in pkg_manager_names or (auto_detect and "gomod" in supported_pkg_managers):
+    if "gomod" in pkg_manager_names:
         chain_tasks.append(
             tasks.fetch_gomod_source.si(
-                request.id, auto_detect, pkg_manager_to_dep_replacements.get("gomod", [])
+                request.id, pkg_manager_to_dep_replacements.get("gomod", [])
             ).on_error(error_callback)
         )
-    if "npm" in pkg_manager_names or (auto_detect and "npm" in supported_pkg_managers):
+    if "npm" in pkg_manager_names:
         if pkg_manager_to_dep_replacements.get("npm"):
             raise ValidationError(
                 "Dependency replacements are not yet supported for the npm package manager"
             )
 
-        chain_tasks.append(
-            tasks.fetch_npm_source.si(request.id, auto_detect).on_error(error_callback)
-        )
+        chain_tasks.append(tasks.fetch_npm_source.si(request.id).on_error(error_callback))
 
     chain_tasks.extend(
         [
