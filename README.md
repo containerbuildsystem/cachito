@@ -184,9 +184,9 @@ environment variable to the path of the keytab. Additional Kerberos configuratio
 
 Custom configuration for the API:
 
-* `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
 * `CACHITO_BUNDLES_DIR` - the root of the bundles directory that is also accessible by the
   workers. This is used to download the bundle archives created by the workers.
+* `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
 * `CACHITO_PACKAGE_MANAGERS` - the list of enabled package managers. This defaults to `["gomod"]`.
 * `CACHITO_USER_REPRESENTATIVES` - the list of usernames that are allowed to submit requests on
   behalf of other users.
