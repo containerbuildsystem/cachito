@@ -43,6 +43,7 @@ def test_validate_celery_config(mock_isdir):
     celery_app = celery.Celery()
     celery_app.conf.cachito_api_url = "http://cachito-api/api/v1/"
     celery_app.conf.cachito_bundles_dir = "/tmp/some-path/bundles"
+    celery_app.conf.cachito_default_environment_variables = {}
     celery_app.conf.cachito_sources_dir = "/tmp/some-path/sources"
     celery_app.conf.cachito_nexus_hoster_username = "cachito"
     celery_app.conf.cachito_nexus_hoster_password = "cachito-password"
@@ -66,6 +67,36 @@ def test_validate_celery_config_failure(mock_isdir, bundles_dir, sources_dir):
 
     setattr(celery_app.conf, dir_name, None)
     expected = f'The configuration "{dir_name}" must be set to an existing directory'
+    with pytest.raises(ConfigError, match=expected):
+        validate_celery_config(celery_app.conf)
+
+
+@patch("os.path.isdir", return_value=True)
+@pytest.mark.parametrize(
+    "default_env_vars, expected,",
+    (
+        (None, 'The configuration "cachito_default_environment_variables" must be a dictionary'),
+        (
+            {"npm": None},
+            'The configuration "cachito_default_environment_variables" must be a dictionary of '
+            "dictionaries",
+        ),
+        (
+            {"gomod": {"GOCACHE": "invalid"}},
+            'The configuration "cachito_default_environment_variables.gomod" cannot overwrite the '
+            "following environment variables: GOCACHE",
+        ),
+    ),
+)
+def test_validate_celery_config_failure_default_env_vars(mock_isdir, default_env_vars, expected):
+    celery_app = celery.Celery()
+    celery_app.conf.cachito_api_url = "http://cachito-api/api/v1/"
+    celery_app.conf.cachito_bundles_dir = "/tmp/some-path/bundles"
+    celery_app.conf.cachito_default_environment_variables = default_env_vars
+    celery_app.conf.cachito_sources_dir = "/tmp/some-path/sources"
+    celery_app.conf.cachito_nexus_hoster_username = "cachito"
+    celery_app.conf.cachito_nexus_hoster_password = "cachito-password"
+
     with pytest.raises(ConfigError, match=expected):
         validate_celery_config(celery_app.conf)
 
