@@ -19,6 +19,15 @@ class Config(object):
     # Refer to README.md for information on all the Cachito configuration options
     cachito_api_timeout = 60
     cachito_auth_type = None
+    cachito_default_environment_variables = {
+        "gomod": {},
+        "npm": {
+            "CHROMEDRIVER_SKIP_DOWNLOAD": "true",
+            "CYPRESS_INSTALL_BINARY": "0",
+            "GECKODRIVER_SKIP_DOWNLOAD": "true",
+            "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true",
+        },
+    }
     cachito_deps_patch_batch_size = 50
     cachito_download_timeout = 120
     cachito_log_level = "INFO"
@@ -96,6 +105,10 @@ class TestingConfig(DevelopmentConfig):
     """The testing Cachito Celery configuration."""
 
     cachito_api_url = "http://cachito.domain.local/api/v1/"
+    cachito_default_environment_variables = {
+        "gomod": {"GO111MODULE": "on"},
+        "npm": {"CHROMEDRIVER_SKIP_DOWNLOAD": "true", "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true"},
+    }
 
 
 def configure_celery(celery_app):
@@ -156,6 +169,26 @@ def validate_celery_config(conf, **kwargs):
         raise ConfigError(
             'If "cachito_nexus_hoster_username" or "cachito_nexus_hoster_password" is set, '
             "the other must also be set"
+        )
+
+    if not isinstance(conf.get("cachito_default_environment_variables"), dict):
+        raise ConfigError(
+            'The configuration "cachito_default_environment_variables" must be a dictionary'
+        )
+
+    default_env_vars = conf.cachito_default_environment_variables
+    for value in default_env_vars.values():
+        if not isinstance(value, dict):
+            raise ConfigError(
+                'The configuration "cachito_default_environment_variables" must be a '
+                "dictionary of dictionaries"
+            )
+
+    invalid_gomod_env_vars = default_env_vars.get("gomod", {}).keys() & {"GOCACHE", "GOPATH"}
+    if invalid_gomod_env_vars:
+        raise ConfigError(
+            'The configuration "cachito_default_environment_variables.gomod" cannot overwrite the '
+            f"following environment variables: {', '.join(invalid_gomod_env_vars)}"
         )
 
 

@@ -2,6 +2,7 @@
 import logging
 
 from cachito.errors import CachitoError
+from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general import (
     update_request_with_deps,
     update_request_with_packages,
@@ -33,5 +34,6 @@ def fetch_gomod_source(request_id, dep_replacements=None):
         raise
 
     env_vars = {"GOCACHE": "deps/gomod", "GOPATH": "deps/gomod"}
+    env_vars.update(get_worker_config().cachito_default_environment_variables.get("gomod", {}))
     update_request_with_packages(request_id, [module], "gomod", env_vars)
     update_request_with_deps(request_id, deps)

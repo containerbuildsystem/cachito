@@ -123,6 +123,10 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_bundles_dir` - the directory for storing bundle archives which include the source archive
   and dependencies. This configuration is required, and the directory must already exist and be
   writeable.
+* `cachito_default_environment_variables` - a dictionary where the keys are names of package
+  managers. The values are dictionaries where the keys are default environment variables to
+  set for that package manager and the values are the environment variable values. Check
+  `cachito/workers/config.py::Config` for the default value of this configuration.
 * `cachito_download_timeout` - the timeout when downloading application source archives from sources
   such as GitHub. The default is `120` seconds.
 * `cachito_js_download_batch_size` - the number of JavaScript dependencies to download at once using

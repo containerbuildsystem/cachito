@@ -31,6 +31,8 @@ def test_fetch_gomod_source(
     sample_package,
     sample_env_vars,
 ):
+    # Add the default environment variable from the configuration
+    sample_env_vars["GO111MODULE"] = "on"
     mock_request = mock.Mock()
     mock_set_request_state.return_value = mock_request
     mock_resolve_gomod.return_value = sample_package, sample_deps_replace
