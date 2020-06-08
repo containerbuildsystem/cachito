@@ -122,6 +122,28 @@ def test_validate_celery_config_invalid_nexus_hoster_config(
         validate_celery_config(celery_app.conf)
 
 
+@pytest.mark.parametrize("auth_type", ("cert", "kerberos", None))
+@pytest.mark.parametrize("has_cert", (False, True))
+@pytest.mark.parametrize("auth_cert", ("/some/path", None))
+@patch("os.path.isdir", return_value=True)
+def test_validate_celery_config_missing_cert(mock_isdir, auth_type, has_cert, auth_cert):
+    celery_app = celery.Celery()
+    celery_app.conf.cachito_api_url = "http://cachito-api/api/v1/"
+    celery_app.conf.cachito_default_environment_variables = {}
+    celery_app.conf.cachito_bundles_dir = "/tmp/some-path/bundles"
+    celery_app.conf.cachito_sources_dir = "/tmp/some-path/sources"
+    celery_app.conf.cachito_auth_type = auth_type
+    if has_cert:
+        celery_app.conf.cachito_auth_cert = auth_cert
+
+    if (has_cert and auth_cert) or auth_type != "cert":
+        validate_celery_config(celery_app.conf)
+    else:
+        expected = 'cachito_auth_cert configuration must be set for "cert" authentication'
+        with pytest.raises(ConfigError, match=expected):
+            validate_celery_config(celery_app.conf)
+
+
 @pytest.mark.parametrize(
     "missing_config", ("cachito_nexus_password", "cachito_nexus_url", "cachito_nexus_username"),
 )
