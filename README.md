@@ -117,9 +117,13 @@ Custom configuration for the Celery workers are listed below:
   seconds.
 * `cachito_athens_url` - the URL to the Athens instance to use for caching gomod dependencies. This
   is only necessary for workers that process gomod requests.
+* `cachito_auth_cert` - the SSL certificate to be used for authentication. See
+  https://requests.readthedocs.io/en/master/user/advanced/#client-side-certificates for reference on
+  how to provide this certificate.
 * `cachito_auth_type` - the authentication type to use when accessing protected Cachito API
   endpoints. If this value is `None`, authentication will not be used. This defaults to `kerberos`
-  in production.
+  in production. The `cert` value is also valid and would use an SSL certificate for authentication.
+  This requires `cachito_auth_cert` to be provided.
 * `cachito_bundles_dir` - the directory for storing bundle archives which include the source archive
   and dependencies. This configuration is required, and the directory must already exist and be
   writeable.

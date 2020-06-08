@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import logging
+
 import requests
 from requests.packages.urllib3.util.retry import Retry
 import requests_kerberos
 
 from cachito.workers.config import get_worker_config
+
+log = logging.getLogger(__name__)
 
 
 def get_requests_session(auth=False):
@@ -16,10 +20,14 @@ def get_requests_session(auth=False):
     """
     config = get_worker_config()
     session = requests.Session()
-    if auth and config.cachito_auth_type == "kerberos":
-        session.auth = requests_kerberos.HTTPKerberosAuth(
-            mutual_authentication=requests_kerberos.OPTIONAL
-        )
+    if auth:
+        if config.cachito_auth_type == "kerberos":
+            session.auth = requests_kerberos.HTTPKerberosAuth(
+                mutual_authentication=requests_kerberos.OPTIONAL
+            )
+        elif config.cachito_auth_type == "cert":
+            session.cert = config.cachito_auth_cert
+
     retry = Retry(
         total=3, read=3, connect=3, backoff_factor=1, status_forcelist=(500, 502, 503, 504)
     )

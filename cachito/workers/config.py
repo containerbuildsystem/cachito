@@ -171,6 +171,9 @@ def validate_celery_config(conf, **kwargs):
             "the other must also be set"
         )
 
+    if conf.get("cachito_auth_type") == "cert" and conf.get("cachito_auth_cert") is None:
+        raise ConfigError('cachito_auth_cert configuration must be set for "cert" authentication')
+
     if not isinstance(conf.get("cachito_default_environment_variables"), dict):
         raise ConfigError(
             'The configuration "cachito_default_environment_variables" must be a dictionary'
