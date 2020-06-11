@@ -71,3 +71,7 @@ http_get_all:
 downloaded_output:
   # Package managers of cached dependencies
   pkg_managers: ["gomod"]
+# Test data for the Run application from bundle test
+run_app:
+  # Name of the applicaiton that is downloaded via bundle
+  app_name: retrodep
