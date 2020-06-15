@@ -16,10 +16,12 @@ internal storage.
 ## Coding Standards
 
 The codebase conforms to the style enforced by `flake8` with the following exceptions:
+
 * The maximum line length allowed is 100 characters instead of 80 characters
 
 In addition to `flake8`, docstrings are also enforced by the plugin `flake8-docstrings` with
 the following exceptions:
+
 * D100: Missing docstring in public module
 * D104: Missing docstring in public package
 * D105: Missing docstring in magic method
@@ -27,7 +29,8 @@ the following exceptions:
 The format of the docstrings should be in the
 [reStructuredText](https://docs.python-guide.org/writing/documentation/#restructuredtext-ref) style
 such as:
-```
+
+```python
 Set the state of the request using the Cachito API.
 
 :param int request_id: the ID of the Cachito request
@@ -46,29 +49,32 @@ To verify that your code meets these standards, you may run `tox -e black,flake8
 
 Run the application locally (requires [docker-compose](https://docs.docker.com/compose/)):
 
-    make run
+```bash
+make run
+```
 
 Verify in the browser at [http://localhost:8080/](http://localhost:8080/)
 
 Use curl to make requests:
 
-    # List all requests
-    curl http://localhost:8080/api/v1/requests
+```bash
+# List all requests
+curl http://localhost:8080/api/v1/requests
 
-    # Create a new request
-    curl -X POST -H "Content-Type: application/json" http://localhost:8080/api/v1/requests -d \
-        '{
-           "repo": "https://github.com/release-engineering/retrodep.git",
-           "ref": "e1be527f39ec31323f0454f7d1422c6260b00580",
-           "pkg_managers": ["gomod"]
-         }'
+# Create a new request
+curl -X POST -H "Content-Type: application/json" http://localhost:8080/api/v1/requests -d \
+    '{
+        "repo": "https://github.com/release-engineering/retrodep.git",
+        "ref": "e1be527f39ec31323f0454f7d1422c6260b00580",
+        "pkg_managers": ["gomod"]
+      }'
 
-    # Check the status of a request
-    curl http://localhost:8080/api/v1/requests/1
+# Check the status of a request
+curl http://localhost:8080/api/v1/requests/1
 
-    # Download the source archive for a completed request
-    curl http://localhost:8080/api/v1/requests/1/download -o source.tar.gz
-
+# Download the source archive for a completed request
+curl http://localhost:8080/api/v1/requests/1/download -o source.tar.gz
+```
 
 ## Pre-built Container Images
 
@@ -88,21 +94,23 @@ This is built to be used with Python 3.
 Some Flask dependencies are compiled during installation, so `gcc` and Python header files need to be present.
 For example, on Fedora:
 
-    dnf install gcc python3-devel
+```bash
+dnf install gcc python3-devel
+```
 
 ## Development environment and release process
 
-- create virtualenv with Flask and cachito installed into it (latter is installed in
+* create virtualenv with Flask and cachito installed into it (latter is installed in
   [develop mode](http://setuptools.readthedocs.io/en/latest/setuptools.html#development-mode) which allows
   modifying source code directly without a need to re-install the app): `make venv`
 
-- run development server in debug mode: `make run`; Flask will restart if source code is modified
+* run development server in debug mode: `make run`; Flask will restart if source code is modified
 
-- run tests: `make test` (see also: [Testing Flask Applications](http://flask.pocoo.org/docs/0.12/testing/))
+* run tests: `make test` (see also: [Testing Flask Applications](http://flask.pocoo.org/docs/0.12/testing/))
 
-- to remove virtualenv, built distributions, and clean up local deployment: `make clean`
+* to remove virtualenv, built distributions, and clean up local deployment: `make clean`
 
-- to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`
+* to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`
 
 ## API Documentation
 
