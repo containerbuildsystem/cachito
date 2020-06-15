@@ -236,6 +236,9 @@ Custom configuration for the Celery workers are listed below:
   script. This defaults to `1`.
 * `cachito_sources_dir` - the directory for long-term storage of app source archives. This
   configuration is required, and the directory must already exist and be writeable.
+* `cachito_gomod_strict_vendor` - the bool to disable/enable the strict vendor mode. This defaults
+  to `False`. For a repo that has gomod dependencies, if the `vendor` directory exists and this config
+  option is set to `True`, Cachito will fail the request.
 
 To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
 environment variable to the path of the keytab. Additional Kerberos configuration can be made in
@@ -266,6 +269,11 @@ If you are planning to deploy Cachito with authentication enabled, you'll need t
 a web server that supplies the `REMOTE_USER` environment variable when the user is
 properly authenticated. A common deployment option is using httpd (Apache web server)
 with the `mod_auth_gssapi` module.
+
+## Flags
+
+* `gomod-vendor` - the flag to indicate the vendoring requirement for gomod dependencies. If present in the
+  Cachito request, Cachito will run `go mod vendor` instead of `go mod download` to gather dependencies.
 
 ## Nexus
 

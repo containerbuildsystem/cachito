@@ -127,6 +127,73 @@ def test_resolve_gomod(
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
+@mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
+def test_resolve_gomod_vendor_dependencies(
+    mock_bundle_dir, mock_run, mock_temp_dir, mock_golang_version, tmpdir, sample_package
+):
+    # Mock the tempfile.TemporaryDirectory context manager
+    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+
+    # Mock the "subprocess.run" calls
+    mock_run.side_effect = [
+        # go mod vendor
+        mock.Mock(returncode=0, stdout=None),
+        # go list -m all
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
+    ]
+    mock_golang_version.return_value = "v2.1.1"
+
+    archive_path = "/this/is/path/to/archive.tar.gz"
+    request = {
+        "id": 3,
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "flags": ["gomod-vendor"],
+    }
+    module, resolved_deps = resolve_gomod(archive_path, request)
+
+    assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
+    assert module == sample_package
+    assert not resolved_deps
+
+    # Ensure an empty directory is created at bundle_dir.gomod_download_dir
+    mock_bundle_dir.return_value.gomod_download_dir.mkdir.assert_called_once_with(
+        exist_ok=True, parents=True
+    )
+
+
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
+@mock.patch("subprocess.run")
+@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
+@mock.patch("os.path.isdir")
+def test_resolve_gomod_strict_mode_raise_error(
+    mock_isdir, mock_gwc, mock_run, mock_temp_dir, tmpdir
+):
+    mock_isdir.return_value = True
+    # Mock the get_worker_config
+    mock_config = mock.Mock()
+    mock_config.cachito_gomod_strict_vendor = True
+    mock_config.cachito_athens_url = "http://athens:3000"
+    mock_gwc.return_value = mock_config
+    # Mock the tempfile.TemporaryDirectory context manager
+    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+
+    # Mock the "subprocess.run" call
+    mock_run.return_value = mock.Mock(returncode=0, stdout=None)  # go mod edit -replace
+
+    archive_path = "/this/is/path/to/archive.tar.gz"
+    request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
+    expected_error = (
+        'The "gomod-vendor" flag must be set when your repository has vendored dependencies.'
+    )
+    with pytest.raises(CachitoError, match=expected_error):
+        resolve_gomod(
+            archive_path, request, [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}]
+        )
+
+
+@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
+@mock.patch("subprocess.run")
 @mock.patch("os.makedirs")
 @mock.patch("os.path.exists")
 @mock.patch("shutil.copytree")
@@ -179,6 +246,7 @@ def test_resolve_gomod_no_deps(
 def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+    request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
@@ -191,7 +259,9 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
     expected_error = "The following gomod dependency replacements don't apply: pizza"
     with pytest.raises(CachitoError, match=expected_error):
         resolve_gomod(
-            "/path/archive.tar.gz", 3, [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}]
+            "/path/archive.tar.gz",
+            request,
+            [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}],
         )
 
 
@@ -200,6 +270,8 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
 @mock.patch("subprocess.run")
 def test_go_list_cmd_failure(mock_run, mock_temp_dir, tmpdir, go_mod_rc, go_list_rc):
     archive_path = "/this/is/path/to/archive.tar.gz"
+    request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
+
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
 
@@ -210,7 +282,7 @@ def test_go_list_cmd_failure(mock_run, mock_temp_dir, tmpdir, go_mod_rc, go_list
     ]
 
     with pytest.raises(CachitoError) as exc_info:
-        resolve_gomod(archive_path, 1)
+        resolve_gomod(archive_path, request)
     assert str(exc_info.value) == "Processing gomod dependencies failed"
 
 

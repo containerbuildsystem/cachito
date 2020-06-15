@@ -80,9 +80,21 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
             run_gomod_cmd(
                 ("go", "mod", "edit", "-replace", f"{name}={new_name}@{version}"), run_params
             )
-
-        log.info("Downloading the gomod dependencies")
-        run_gomod_cmd(("go", "mod", "download"), run_params)
+        # Vendor dependencies if the gomod-vendor flag is set
+        flags = request.get("flags", [])
+        if "gomod-vendor" in flags:
+            log.info("Vendoring the gomod dependencies")
+            run_gomod_cmd(("go", "mod", "vendor"), run_params)
+        elif worker_config.cachito_gomod_strict_vendor and os.path.isdir(
+            os.path.join(app_source_path, "vendor")
+        ):
+            raise CachitoError(
+                'The "gomod-vendor" flag must be set when your repository has vendored'
+                " dependencies."
+            )
+        else:
+            log.info("Downloading the gomod dependencies")
+            run_gomod_cmd(("go", "mod", "download"), run_params)
         if dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
         go_list_output = run_gomod_cmd(
@@ -156,17 +168,24 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
 
         bundle_dir = RequestBundleDir(request["id"])
 
-        # Add the gomod cache to the bundle the user will later download
-        tmp_download_cache_dir = os.path.join(temp_dir, RequestBundleDir.go_mod_cache_download_part)
-        if not os.path.exists(tmp_download_cache_dir):
-            os.makedirs(tmp_download_cache_dir, exist_ok=True)
+        if "gomod-vendor" in flags:
+            # Create an empty gomod cache in the bundle directory so that any Cachito
+            # user does not have to guard against this directory not existing
+            bundle_dir.gomod_download_dir.mkdir(exist_ok=True, parents=True)
+        else:
+            # Add the gomod cache to the bundle the user will later download
+            tmp_download_cache_dir = os.path.join(
+                temp_dir, RequestBundleDir.go_mod_cache_download_part
+            )
+            if not os.path.exists(tmp_download_cache_dir):
+                os.makedirs(tmp_download_cache_dir, exist_ok=True)
 
-        log.debug(
-            "Adding dependencies from %s to %s",
-            tmp_download_cache_dir,
-            bundle_dir.gomod_download_dir,
-        )
-        shutil.copytree(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
+            log.debug(
+                "Adding dependencies from %s to %s",
+                tmp_download_cache_dir,
+                bundle_dir.gomod_download_dir,
+            )
+            shutil.copytree(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
         return module, deps
 
