@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import urllib
 from collections import namedtuple
 import time
 
@@ -54,6 +55,42 @@ class Client:
         )
         resp.raise_for_status()
         return Response(resp.json(), resp.json()["id"], resp.status_code)
+
+    def fetch_all_requests(self, page=None, per_page=None, state=None, verbose=None):
+        """
+        Fetch a list of requests from the Cachito API.
+
+        :return: Object that contains response from the Cachito API
+        :rtype: list
+        """
+        page_tuple = ("page", page)
+        per_page_tuple = ("per_page", per_page)
+        state_tuple = ("state", state)
+        verbose_tuple = ("verbose", verbose)
+        url_values = urllib.parse.urlencode(
+            {
+                k: v
+                for k, v in [page_tuple, per_page_tuple, state_tuple, verbose_tuple]
+                if v is not None
+            }
+        )
+        result_url = f"{self._cachito_api_url}/requests?{url_values}"
+        resp = requests.get(result_url)
+        resp.raise_for_status()
+
+        if all(parameter is None for parameter in [page, per_page]):
+            all_items = resp.json()["items"]
+            while True:
+                next_page = resp.json()["meta"]["next"]
+                if next_page is None:
+                    break
+
+                resp = requests.get(next_page)
+                resp.raise_for_status()
+                all_items += resp.json()["items"]
+            return Response({"items": all_items}, None, resp.status_code)
+
+        return Response(resp.json(), None, resp.status_code)
 
     def download_bundle(self, request_id, file_name_tar):
         """

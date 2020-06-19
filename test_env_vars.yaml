@@ -56,3 +56,21 @@ cached_dependenices:
     https_url: "https://github.com/user/cachito_test_repo.git"
     # Package managers
     pkg_managers: ["gomod"]
+# Test data for the HTTP GET_ALL test
+http_get_all:
+  requests_amount: 2
+  params_verbose_false: {
+    dependencies: "size",
+    environment_variables: "full",
+    flags: "full",
+    id: "full",
+    packages: "size",
+    pkg_managers: "full",
+    ref: "full",
+    repo: "full",
+    state: "full",
+    state_reason: "full",
+    submitted_by: "full",
+    updated: "full",
+    user: "full"
+  }
