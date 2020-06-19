@@ -1,6 +1,17 @@
 # cachito
 
-Caching service for source code
+Cachito is a service to store (and serve) source code for applications. Upon a request, Cachito
+will fetch a specific revision of a given repository from the Internet and store it permanently in
+its internal storage. Namely, it stores the source code for a specific git commit from a given git
+repository, which could be from a forge such as [GitHub](https://github.com) or
+[GitLab](https://gitlab.com). This way, even if that repository (or that revision) is deleted, it
+is still possible to track the pristine source code for the original sources. In fact, if the
+sources have already been previously fetched, Cachito will simply serve the cached content.
+
+Cachito also supports caching dependencies for certain package managers, currently
+[gomod](https://github.com/golang/go/wiki/Modules) and [npm](https://www.npmjs.com/). Like the
+source code from a git forge, these dependencies are always permanently cached in Cachito's
+internal storage.
 
 ## Coding Standards
 
