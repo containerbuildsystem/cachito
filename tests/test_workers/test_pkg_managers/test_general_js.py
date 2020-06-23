@@ -72,6 +72,13 @@ def test_download_dependencies(
             "version": "github:ReactiveX/rxjs#78032157f5c1655436829017bbda787565b48c30",
             "version_in_nexus": "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
         },
+        {
+            "bundled": False,
+            "dev": False,
+            "name": "jsplumb",
+            "version": "file:../jsplumb-2.10.2.tgz",
+            "version_in_nexus": None,
+        },
     ]
     request_id = 1
     request_bundle_dir = bundles_dir.mkdir("temp").mkdir(str(request_id))

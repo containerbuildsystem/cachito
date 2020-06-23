@@ -243,6 +243,9 @@ Custom configuration for the Celery workers are listed below:
   following privileges are required: `nx-repository-admin-*-*-*`, `nx-repository-view-npm-*-*`,
   `nx-roles-all`, `nx-script-*-*`, `nx-users-all` and `nx-userschangepw`. This defaults to
   `cachito`.
+* `cachito_npm_file_deps_allowlist` - the npm "file" dependencies that are allowed in the lock file
+  for the "npm" package manager. This configuration is a dictionary with the keys as package names
+  and the values as lists of dependency names. This defaults to `{}`.
 * `cachito_request_lifetime` - the number of days before a request that is in the `complete` state
   or that is stuck in the `in_progress` state will be marked as stale by the `cachito-cleanup`
   script. This defaults to `1`.
