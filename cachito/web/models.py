@@ -2,6 +2,7 @@
 from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
+import json
 import re
 
 import flask
@@ -166,6 +167,19 @@ class Package(db.Model):
 
         return package_object
 
+    def to_purl(self):
+        """
+        Generate the PURL representation of the package.
+
+        :return: the PURL string of the Package object
+        :rtype: string
+        """
+        if self.type == "go-package" or "gomod":
+            purl_name = self.name.replace("/", "%2F")
+            return f"pkg:golang/{purl_name}@{self.version}"
+        else:
+            raise ValueError(f"PURL spec not defined for {self.type} packages")
+
 
 class Dependency(Package):
     """
@@ -318,6 +332,7 @@ class Request(db.Model):
     """A Cachito user request."""
 
     id = db.Column(db.Integer, primary_key=True)
+    content_manifest_id = db.Column(db.Integer, db.ForeignKey("content_manifest.id"))
     repo = db.Column(db.String, nullable=False)
     ref = db.Column(db.String, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -349,6 +364,9 @@ class Request(db.Model):
     )
     config_files_base64 = db.relationship(
         "ConfigFileBase64", secondary=request_config_file_base64_table, backref="requests"
+    )
+    content_manifest = db.relationship(
+        "ContentManifest", backref="requests", uselist=False, foreign_keys=[content_manifest_id]
     )
 
     def __repr__(self):
@@ -451,6 +469,9 @@ class Request(db.Model):
         if verbose:
             rv["configuration_files"] = flask.url_for(
                 "api_v1.get_request_config_files", request_id=self.id, _external=True
+            )
+            rv["content_manifest"] = flask.url_for(
+                "api_v1.get_request_content_manifest", request_id=self.id, _external=True
             )
             # Use this list comprehension instead of a RequestState.to_json method to avoid
             # including redundant information about the request itself
@@ -867,3 +888,55 @@ class ConfigFileBase64(ConfigFileBase, db.Model):
             raise ValidationError(
                 f'The {cls.type_name} configuration file key of "content" must be a string'
             )
+
+
+class ContentManifest(db.Model):
+    """A content manifest associated with the request."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    json_data = db.Column(db.String, index=True, nullable=False)
+
+    def to_json(self):
+        """
+        Generate the JSON representation of the content manifest.
+
+        :return: the JSON form of the ContentManifest object
+        :rtype: dict
+        """
+        return json.loads(self.json_data)
+
+    @classmethod
+    def from_json(cls, contents):
+        """
+        Create a ContentManifest object from JSON.
+
+        :param list contents: list contents: contents list. elements are lists with packages,
+                              dependencies and source dependencies
+        :return: the ContentManifest object
+        :rtype: ContentManifest
+        """
+        top_level_packages = []
+        flask.current_app.logger.debug("contents %s", contents)
+        for pkg, deps, sources in contents:
+            for p in [pkg] + deps + sources:
+                p.pop("from_module", None)
+                p.pop("replaces", None)
+
+            entry = {
+                "purl": Package.from_json(pkg).to_purl(),
+                "dependencies": [{"purl": Package.from_json(d).to_purl()} for d in deps],
+                "sources": [{"purl": Package.from_json(s).to_purl()} for s in sources],
+            }
+            top_level_packages.append(entry)
+
+        icm = {
+            "metadata": {
+                "icm_version": 1,
+                "icm_spec": "https://some-url.example.com",
+                "image_layer_index": -1,  # cannot be determined
+            },
+            "image_contents": top_level_packages,
+        }
+
+        icm_json = json.dumps(icm)
+        return cls(json_data=icm_json)

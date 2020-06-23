@@ -14,6 +14,7 @@ from cachito.workers import tasks
         (False, [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}]),
     ),
 )
+@mock.patch("cachito.workers.tasks.gomod.update_request_with_content_manifest")
 @mock.patch("cachito.workers.tasks.gomod.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.gomod.update_request_with_packages")
 @mock.patch("cachito.workers.tasks.gomod.update_request_with_deps")
@@ -25,17 +26,25 @@ def test_fetch_gomod_source(
     mock_update_request_with_deps,
     mock_update_request_with_packages,
     mock_bundle_dir,
+    mock_update_request_with_content_manifest,
     dep_replacements,
     expect_state_update,
     sample_deps_replace,
     sample_package,
+    sample_pkg_deps,
+    sample_pkg_lvl_pkg,
     sample_env_vars,
 ):
     # Add the default environment variable from the configuration
     sample_env_vars["GO111MODULE"] = "on"
     mock_request = mock.Mock()
     mock_set_request_state.return_value = mock_request
-    mock_resolve_gomod.return_value = sample_package, sample_deps_replace
+    mock_resolve_gomod.return_value = (
+        sample_package,
+        sample_deps_replace,
+        sample_pkg_lvl_pkg,
+        sample_pkg_deps,
+    )
     tasks.fetch_gomod_source(1, dep_replacements)
 
     if expect_state_update:
@@ -46,6 +55,9 @@ def test_fetch_gomod_source(
             1, [sample_package], "gomod", sample_env_vars
         )
         mock_update_request_with_deps.assert_called_once_with(1, sample_deps_replace)
+        mock_update_request_with_content_manifest.assert_called_once_with(
+            1, [(sample_pkg_lvl_pkg, sample_pkg_deps, sample_deps_replace)]
+        )
 
     mock_resolve_gomod.assert_called_once_with(
         str(mock_bundle_dir().source_dir), mock_request, dep_replacements

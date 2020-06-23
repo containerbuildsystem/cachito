@@ -48,8 +48,9 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
     :param dict request: the Cachito request this is for
     :param list dep_replacements: dependency replacements with the keys "name" and "version"; this
         results in a series of `go mod edit -replace` commands
-    :return: a tuple of the Go module itself and the list of dictionaries representing the
-        dependencies
+    :return: a tuple of the Go module itself, the list of dictionaries representing the
+        dependencies, the top package level dependency, and a list of dictionaries representing
+        the package level dependencies
     :rtype: (dict, list)
     :raises CachitoError: if fetching dependencies fails
     """
@@ -85,11 +86,12 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
         run_gomod_cmd(("go", "mod", "download"), run_params)
         if dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
+        # module level dependencies
         go_list_output = run_gomod_cmd(
             ("go", "list", "-m", "-f", "{{.Path}} {{.Version}} {{.Replace}}", "all"), run_params
         )
 
-        deps = []
+        module_level_deps = []
         module_name = None
         # Keep track of which dependency replacements were actually applied to verify they were all
         # used later
@@ -132,7 +134,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
                 parts = parts[2:]
 
             if len(parts) == 2:
-                deps.append(
+                module_level_deps.append(
                     {"name": parts[0], "replaces": replaces, "type": "gomod", "version": parts[1]}
                 )
             else:
@@ -168,7 +170,47 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
         )
         shutil.copytree(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
-        return module, deps
+        # package level dependencies
+        go_list_deps_output = run_gomod_cmd(
+            ("go", "list", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}} {{.Module}}{{end}}"),
+            run_params,
+        )
+
+        pkg_level_deps = []
+        for line in go_list_deps_output.splitlines():
+            # line example: pkg.io/foo/bar pkg.io/foo/var v1.0.0 => pkg.io/foo/bar v1.0.1
+            parts = [part for part in line.split(" ") if part not in ("")]
+            replaces = None
+
+            name = parts[0]
+            parent_module = parts[1]
+            if len(parts) > 2:
+                version = parts[2]
+            else:
+                # use requested module version
+                version = module_version
+
+            if len(parts) > 3:
+                # parts[3] is just an arrow "=>" pointing to the replacements
+                replaces = {"type": "gomod", "name": parent_module, "version": version}
+                parent_module = parts[4]
+                version = parts[5]
+
+            pkg = {
+                "name": name,
+                "from_module": parent_module,
+                "replaces": replaces,
+                "type": "go-package",
+                "version": version,
+            }
+
+            pkg_level_deps.append(pkg)
+
+        # The last item on `go list -deps` is the main package being evaluated
+        package = pkg_level_deps.pop()
+        package.pop("replaces")
+
+        return module, module_level_deps, package, pkg_level_deps
 
 
 def _get_golang_pseudo_version(commit, tag=None, module_major_version=None):

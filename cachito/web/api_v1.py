@@ -12,6 +12,7 @@ from cachito.errors import CachitoError, ValidationError
 from cachito.web import db
 from cachito.web.models import (
     ConfigFileBase64,
+    ContentManifest,
     Dependency,
     EnvironmentVariable,
     Package,
@@ -92,6 +93,24 @@ def get_request_config_files(request_id):
     config_files_json = [config_file.to_json() for config_file in config_files]
     config_files_json = sorted(config_files_json, key=lambda c: c["path"])
     return flask.jsonify(config_files_json)
+
+
+@api_v1.route("/requests/<int:request_id>/content-manifest", methods=["GET"])
+def get_request_content_manifest(request_id):
+    """
+    Retrieve the content manifest associated with the given request.
+
+    :param int request_id: the value of the request ID
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    """
+    content_manifest = Request.query.get_or_404(request_id).content_manifest
+    content_manifest_json = {}
+    if content_manifest:
+        content_manifest_json = content_manifest.to_json()
+
+    return flask.jsonify(content_manifest_json)
 
 
 @api_v1.route("/requests/<int:request_id>/download", methods=["GET"])
@@ -437,6 +456,42 @@ def add_request_config_files(request_id):
     else:
         flask.current_app.logger.info(
             "An anonymous user added %d configuration files to request %d", len(payload), request.id
+        )
+
+    db.session.commit()
+    return "", 204
+
+
+@api_v1.route("/requests/<int:request_id>/content-manifest", methods=["POST"])
+@login_required
+@worker_required
+def add_request_content_manifest(request_id):
+    """
+    Add the content manifest associated with the given request.
+
+    :param int request_id: the value of the request ID
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    :raise ValidationError: if the JSON is invalid
+    """
+    payload = flask.request.get_json()
+    if not isinstance(payload, list):
+        raise ValidationError("The input data must be a JSON array")
+
+    request = Request.query.get_or_404(request_id)
+    flask.current_app.logger.info("Adding content manifest to the request %d", request.id)
+
+    content_manifest = ContentManifest.from_json(payload)
+    request.content_manifest = content_manifest
+
+    if current_user.is_authenticated:
+        flask.current_app.logger.info(
+            "The user %s added a content manifest to request %d", current_user.username, request.id,
+        )
+    else:
+        flask.current_app.logger.info(
+            "An anonymous user added a content manifest to request %d", request.id
         )
 
     db.session.commit()

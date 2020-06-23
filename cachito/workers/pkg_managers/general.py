@@ -63,6 +63,42 @@ def update_request_with_config_files(request_id, config_files):
         raise CachitoError(f"Adding configuration files on request {request_id} failed")
 
 
+def update_request_with_content_manifest(request_id, contents):
+    """
+    Update the Cachito request with a content manifest.
+
+    :param int request_id: the ID of the Cachito request
+    :param list contents: contents list. elements are lists with packages, dependencies and source
+                          dependencies
+    :raise CachitoError: if the request to the Cachito API fails
+    """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_auth_session
+
+    config = get_worker_config()
+    log.info("Adding content manifest to the request %d", request_id)
+    request_url = _get_request_url(request_id) + "/content-manifest"
+
+    try:
+        rv = requests_auth_session.post(
+            request_url, json=contents, timeout=config.cachito_api_timeout
+        )
+    except requests.RequestException:
+        msg = f"The connection failed when adding a content manifest to the request {request_id}"
+        log.exception(msg)
+        raise CachitoError(msg)
+
+    if not rv.ok:
+        log.error(
+            "The worker failed to add  a content manifest to the request %d. The status was %d. "
+            "The text was:\n%s",
+            request_id,
+            rv.status_code,
+            rv.text,
+        )
+        raise CachitoError(f"Adding a content manifest on request {request_id} failed")
+
+
 def update_request_with_deps(request_id, deps):
     """
     Update the Cachito request with the resolved dependencies.

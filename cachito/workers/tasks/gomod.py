@@ -6,6 +6,7 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general import (
     update_request_with_deps,
     update_request_with_packages,
+    update_request_with_content_manifest,
 )
 from cachito.workers.pkg_managers.gomod import resolve_gomod
 from cachito.workers.tasks.celery import app
@@ -27,8 +28,9 @@ def fetch_gomod_source(request_id, dep_replacements=None):
     bundle_dir = RequestBundleDir(request_id)
     log.info("Fetching gomod dependencies for request %d", request_id)
     request = set_request_state(request_id, "in_progress", "Fetching the gomod dependencies")
+    source_path = str(bundle_dir.source_dir)
     try:
-        module, deps = resolve_gomod(str(bundle_dir.source_dir), request, dep_replacements)
+        module, module_deps, pkg, pkg_deps = resolve_gomod(source_path, request, dep_replacements)
     except CachitoError:
         log.exception("Failed to fetch gomod dependencies for request %d", request_id)
         raise
@@ -36,4 +38,5 @@ def fetch_gomod_source(request_id, dep_replacements=None):
     env_vars = {"GOCACHE": "deps/gomod", "GOPATH": "deps/gomod"}
     env_vars.update(get_worker_config().cachito_default_environment_variables.get("gomod", {}))
     update_request_with_packages(request_id, [module], "gomod", env_vars)
-    update_request_with_deps(request_id, deps)
+    update_request_with_deps(request_id, module_deps)
+    update_request_with_content_manifest(request_id, [(pkg, pkg_deps, module_deps)])
