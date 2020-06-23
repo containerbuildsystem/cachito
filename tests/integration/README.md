@@ -7,7 +7,7 @@ This directory stores the integration tests for Cachito.
 Input data for tests should be configured in the file `test_env_vars.yaml`. The file should be placed in top-level 
 directory of this repository. The path can be changed by setting `CACHITO_TEST_CONFIG` to a different path.
 
-See `tests/integration/example_test_env_vars.yaml` for a complete list of configuration options and examples.
+See `test_env_vars.yaml` for a complete list of configuration options and examples at the top-level directory of this repo.
 
 ## Running the tests
 
