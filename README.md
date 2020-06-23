@@ -1,4 +1,4 @@
-# cachito
+# Cachito
 
 Cachito is a service to store (and serve) source code for applications. Upon a request, Cachito
 will fetch a specific revision of a given repository from the Internet and store it permanently in
