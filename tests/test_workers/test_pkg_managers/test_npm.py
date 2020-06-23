@@ -122,7 +122,7 @@ def package_and_deps():
 
 
 def test_get_deps(package_lock_deps):
-    name_to_deps, replacements = npm._get_deps(package_lock_deps)
+    name_to_deps, replacements = npm._get_deps(package_lock_deps, set())
 
     assert name_to_deps == {
         "@angular-devkit/architect": [
@@ -220,7 +220,7 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
     # correct
     mock_ctnh.side_effect = [copy.deepcopy(nexus_hosted_info), copy.deepcopy(nexus_hosted_info_two)]
 
-    name_to_deps, replacements = npm._get_deps(package_lock_deps)
+    name_to_deps, replacements = npm._get_deps(package_lock_deps, set())
 
     assert name_to_deps == {
         "@angular-devkit/architect": [
@@ -291,6 +291,52 @@ def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
     }
 
     assert mock_ctnh.call_count == 2
+
+
+def test_get_deps_allowlisted_file_dep():
+    package_lock_deps = {
+        "jsplumb": {
+            "version": "file:jsplumb-2.10.2.tgz",
+            "integrity": (
+                "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rLq8ynuC7dN4CKtihxybAvqv"
+                "k+FrsLau3fOA=="
+            ),
+        },
+        "rxjs": {
+            "version": "6.5.5",
+            "resolved": "https://registry.npmjs.org/rxjs/-/rxjs-6.5.5.tgz",
+            "integrity": (
+                "sha512-WfQI+1gohdf0Dai/Bbmk5L5ItH5tYqm3ki2c5GdWhKjalzjg93N3avFjVStyZZz+A2Em+Z"
+                "xKH5bNghw9UeylGQ=="
+            ),
+            "requires": {"tslib": "^1.9.0"},
+        },
+    }
+    name_to_deps, replacements = npm._get_deps(package_lock_deps, {"jsplumb"})
+
+    assert name_to_deps == {
+        "jsplumb": [
+            {
+                "bundled": False,
+                "dev": False,
+                "name": "jsplumb",
+                "type": "npm",
+                "version": "file:jsplumb-2.10.2.tgz",
+                "version_in_nexus": None,
+            }
+        ],
+        "rxjs": [
+            {
+                "bundled": False,
+                "dev": False,
+                "name": "rxjs",
+                "type": "npm",
+                "version": "6.5.5",
+                "version_in_nexus": None,
+            },
+        ],
+    }
+    assert replacements == []
 
 
 def test_convert_hex_sha512_to_npm():
@@ -516,7 +562,7 @@ def test_get_deps_unsupported_non_registry_dep():
     }
     expected = "The dependency file:tslib.tar.gz is hosted in an unsupported location"
     with pytest.raises(CachitoError, match=expected):
-        npm._get_deps(package_lock_deps, {})
+        npm._get_deps(package_lock_deps, set(), {})
 
 
 def test_get_npm_proxy_repo_name():
@@ -532,6 +578,26 @@ def test_get_npm_proxy_username():
 
 
 def test_get_package_and_deps(package_lock_deps, package_and_deps):
+    package_lock_deps["millennium-falcon"] = {
+        "version": "file:millennium-falcon-1.0.0.tgz",
+        "integrity": (
+            "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rLq8ynuC7dN4CKtihxybAvqvk+Fr"
+            "sLau3fOA=="
+        ),
+    }
+    package_and_deps["deps"].insert(
+        3,
+        {
+            "bundled": False,
+            "dev": False,
+            "name": "millennium-falcon",
+            "type": "npm",
+            "version": "file:millennium-falcon-1.0.0.tgz",
+            "version_in_nexus": None,
+        },
+    )
+    package_and_deps["deps"].sort(key=operator.itemgetter("name", "version"))
+
     package_lock = {"name": "han_solo", "version": "5.0.0", "dependencies": package_lock_deps}
     mock_open = mock.mock_open(read_data=json.dumps(package_lock))
     with mock.patch("cachito.workers.pkg_managers.npm.open", mock_open):
@@ -572,7 +638,7 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
         }
     }
 
-    def _mock_get_deps(_deps):
+    def _mock_get_deps(_deps, file_deps_allowlist):
         _deps["rxjs"] = {
             "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
             "resolved": (

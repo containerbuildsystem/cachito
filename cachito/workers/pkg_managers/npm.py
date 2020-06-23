@@ -27,7 +27,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-def _get_deps(package_lock_deps, _name_to_deps=None):
+def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None):
     """
     Get a mapping of dependencies to all versions of the dependency.
 
@@ -46,6 +46,8 @@ def _get_deps(package_lock_deps, _name_to_deps=None):
     dependency.
 
     :param dict package_lock_deps: the value of a "dependencies" key in a package-lock.json file
+    :param set file_deps_allowlist: an allow list of dependencies that are allowed to be "file"
+        dependencies and should be ignored since they are implementation details
     :param dict _name_to_deps: the current mapping of dependencies; this is not meant to be set
         by the caller
     :return: a tuple with the first item as the mapping of dependencies where each key is a
@@ -62,9 +64,15 @@ def _get_deps(package_lock_deps, _name_to_deps=None):
     for name, info in package_lock_deps.items():
         nexus_replacement = None
         version_in_nexus = None
+
+        # If the file dependency is in the allow list, then it'll be allowed since
+        # convert_to_nexus_hosted won't run which would cause an exception. The code that uses the
+        # output of this function to download the dependencies will ignore this dependency.
+        if info["version"].startswith("file:") and name in file_deps_allowlist:
+            log.info("The dependency %r is an allowed exception", info)
         # Note that a bundled dependency will not have the "resolved" key, but those are supported
         # since they are properly cached in the parent dependency in Nexus
-        if not info.get("bundled", False) and "resolved" not in info:
+        elif not info.get("bundled", False) and "resolved" not in info:
             log.info("The dependency %r is not from the npm registry", info)
             # If the non-registry isn't supported, convert_to_nexus_hosted will raise a
             # CachitoError exception
@@ -102,7 +110,9 @@ def _get_deps(package_lock_deps, _name_to_deps=None):
             _name_to_deps[name].append(dep)
 
         if "dependencies" in info:
-            _, returned_nexus_replacements = _get_deps(info["dependencies"], _name_to_deps)
+            _, returned_nexus_replacements = _get_deps(
+                info["dependencies"], file_deps_allowlist, _name_to_deps
+            )
             # If any of the dependencies were non-registry dependencies, replace the requires to be
             # the version in Nexus
             for name, version in returned_nexus_replacements:
@@ -276,10 +286,15 @@ def get_package_and_deps(package_json_path, package_lock_path):
         package_lock = json.load(f)
 
     package_lock_original = copy.deepcopy(package_lock)
-    name_to_deps, top_level_replacements = _get_deps(package_lock.get("dependencies", {}))
+    package = {"name": package_lock["name"], "type": "npm", "version": package_lock["version"]}
+    file_deps_allowlist = set(
+        get_worker_config().cachito_npm_file_deps_allowlist.get(package["name"], [])
+    )
+    name_to_deps, top_level_replacements = _get_deps(
+        package_lock.get("dependencies", {}), file_deps_allowlist
+    )
     # Convert the name_to_deps mapping to a list now that it's fully populated
     deps = [dep_info for deps_info in name_to_deps.values() for dep_info in deps_info]
-    package = {"name": package_lock["name"], "type": "npm", "version": package_lock["version"]}
 
     rv = {
         "deps": deps,

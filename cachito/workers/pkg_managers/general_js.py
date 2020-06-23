@@ -99,6 +99,9 @@ def download_dependencies(request_id, deps, proxy_repo_url):
             if dep["bundled"]:
                 log.debug("Not downloading %s since it is a bundled dependency", dep_identifier)
                 continue
+            elif dep["version"].startswith("file:"):
+                log.debug("Not downloading %s since it is a file dependency", dep_identifier)
+                continue
 
             if counter % batch_size == 0:
                 deps_batches.append([])

@@ -45,6 +45,7 @@ class Config(object):
     cachito_nexus_request_repo_prefix = "cachito-"
     cachito_nexus_timeout = 60
     cachito_nexus_username = "cachito"
+    cachito_npm_file_deps_allowlist = {}
     cachito_request_lifetime = 1
     include = [
         "cachito.workers.tasks.general",
@@ -108,6 +109,7 @@ class TestingConfig(DevelopmentConfig):
         "gomod": {"GO111MODULE": "on"},
         "npm": {"CHROMEDRIVER_SKIP_DOWNLOAD": "true", "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true"},
     }
+    cachito_npm_file_deps_allowlist = {"han_solo": ["millennium-falcon"]}
 
 
 def configure_celery(celery_app):
