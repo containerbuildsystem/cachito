@@ -112,6 +112,14 @@ dnf install gcc python3-devel
 
 * to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`
 
+### Accessing Private Repositories
+
+If your Cachito worker needs to access private repositories in your development environment, you
+may mount a
+[.netrc](https://www.gnu.org/software/inetutils/manual/html_node/The-_002enetrc-file.html) file
+by adding the volume mount `- /path/to/.netrc:/root/.netrc:ro,z` in your `docker-compose.yml`
+file under the `cachito-worker` container.
+
 ## Database Migrations
 
 Follow the steps below for database data and/or schema migrations:
