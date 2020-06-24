@@ -67,10 +67,7 @@ class Config(object):
     # Route gomod tasks and npm tasks to separate queues. This is useful if workers are dedicated
     # to specific package managers.
     task_routes = {
-        "cachito.workers.tasks.gomod.*": {
-            "queue": "cachito_gomod",
-            "routing_key": "cachito.gomod",
-        },
+        "cachito.workers.tasks.gomod.*": {"queue": "cachito_gomod", "routing_key": "cachito.gomod"},
         "cachito.workers.tasks.npm.*": {"queue": "cachito_npm", "routing_key": "cachito.npm"},
     }
     # Only allow a single process so the concurrency is only based on the number of instances of the
@@ -203,11 +200,7 @@ def validate_nexus_config():
     :raise ConfigError: if the Celery configuration isn't configured for Nexus
     """
     conf = get_worker_config()
-    for nexus_conf in (
-        "cachito_nexus_password",
-        "cachito_nexus_url",
-        "cachito_nexus_username",
-    ):
+    for nexus_conf in ("cachito_nexus_password", "cachito_nexus_url", "cachito_nexus_username"):
         if not conf.get(nexus_conf):
             raise ConfigError(
                 f'The configuration "{nexus_conf}" must be set for this package manager'
