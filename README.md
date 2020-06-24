@@ -112,6 +112,40 @@ dnf install gcc python3-devel
 
 * to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`
 
+## Database Migrations
+
+Follow the steps below for database data and/or schema migrations:
+
+* Checkout the master branch and ensure no schema changes are present in `cachito/web/models.py`
+* Set `SQLALCHEMY_DATABASE_URI` to `sqlite:///cachito-migration.db` in `cachito/web/config.py`
+  under the `Config` class
+* Run `cachito db upgrade` which will create an empty database in the root of your Git repository
+  called `cachito-migration.db` with the current schema applied
+* Checkout a new branch where the changes are to be made
+* In case of schema changes,
+  * Apply any schema changes to `cachito/web/models.py`
+  * Run `cachito db migrate` which will autogenerate a migration script in
+    `cachito/web/migrations/versions`
+* In case of no schema changes,
+  * Run `cachito db revision` to create an empty migration script file
+* Rename the migration script so that the suffix has a description of the change
+* Modify the docstring of the migration script
+* For data migrations, define the schema of any tables you will be modifying. This is so that it
+  captures the schema of the time of the migration and not necessarily what is in models.py since
+  that reflects the latest schema.
+* Modify the `upgrade` function to make the adjustments as necessary
+* Modify the `downgrade` function to reverse the changes that were made in the `upgrade` function
+* Make any adjustments to the migration script as necessary
+* To test the migration script,
+  * Populate the database with some dummy data as per the requirement
+  * Run `cachito db upgrade`
+  * Also test the downgrade by running `cachito db downgrade <previous revision>`
+    (where previous revision is the revision ID of the previous migration script)
+* Remove the configuration of `SQLALCHEMY_DATABASE_URI` that you set earlier
+* Remove `cachito-migration.db`
+* Commit your changes
+* Check "615c19a1cee1_add_npm.py" as an example that does a schema change and a data migration
+
 ## API Documentation
 
 The documentation is generated from the [API specification](cachito/web/static/api_v1.yaml)
