@@ -15,7 +15,6 @@ from cachito.web.models import (
     Dependency,
     EnvironmentVariable,
     Package,
-    PackageManager,
     Request,
     RequestState,
     RequestStateMapping,
@@ -259,7 +258,6 @@ def patch_request(request_id):
         "dependencies",
         "environment_variables",
         "packages",
-        "pkg_managers",
         "state",
         "state_reason",
     }
@@ -270,7 +268,7 @@ def patch_request(request_id):
         )
 
     for key, value in payload.items():
-        if key in ("dependencies", "packages", "pkg_managers") and not isinstance(value, list):
+        if key in ("dependencies", "packages") and not isinstance(value, list):
             raise ValidationError(f'The value for "{key}" must be an array')
 
         if key == "dependencies":
@@ -279,12 +277,6 @@ def patch_request(request_id):
         elif key == "packages":
             for dep in value:
                 Package.validate_json(dep)
-        elif key == "pkg_managers":
-            for pkg_manager in value:
-                if not isinstance(pkg_manager, str):
-                    raise ValidationError(
-                        'The value for "pkg_managers" must be an array of strings'
-                    )
         elif key == "environment_variables":
             if not isinstance(value, dict):
                 raise ValidationError('The value for "{}" must be an object'.format(key))
@@ -332,12 +324,6 @@ def patch_request(request_id):
         package_object = Package.get_or_create(package)
         if package_object not in request.packages:
             request.packages.append(package_object)
-
-    if "pkg_managers" in payload:
-        pkg_managers = PackageManager.get_pkg_managers(payload["pkg_managers"])
-        for pkg_manager in pkg_managers:
-            if pkg_manager not in request.pkg_managers:
-                request.pkg_managers.append(pkg_manager)
 
     for name, value in payload.get("environment_variables", {}).items():
         env_var_obj = EnvironmentVariable.query.filter_by(name=name, value=value).first()

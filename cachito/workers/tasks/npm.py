@@ -139,5 +139,5 @@ def fetch_npm_source(request_id):
 
     update_request_with_config_files(request_id, npm_config_files)
     env_vars = get_worker_config().cachito_default_environment_variables.get("npm", {})
-    update_request_with_packages(request_id, [package_and_deps_info["package"]], "npm", env_vars)
+    update_request_with_packages(request_id, [package_and_deps_info["package"]], env_vars)
     update_request_with_deps(request_id, package_and_deps_info["deps"])

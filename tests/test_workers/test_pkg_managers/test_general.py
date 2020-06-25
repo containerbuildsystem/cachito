@@ -33,14 +33,12 @@ def test_update_request_with_packages(mock_requests):
     packages = [
         {"name": "helloworld", "type": "gomod", "version": "v0.0.0-20200324130456-8aedc0ec8bb5"}
     ]
-    pkg_manager = "gomod"
     env_vars = {"GOCACHE": "deps/gomod", "GOPATH": "deps/gomod"}
     expected_json = {
         "environment_variables": env_vars,
         "packages": packages,
-        "pkg_managers": [pkg_manager],
     }
-    update_request_with_packages(1, packages, pkg_manager, env_vars)
+    update_request_with_packages(1, packages, env_vars)
     mock_requests.patch.assert_called_once_with(
         "http://cachito.domain.local/api/v1/requests/1", json=expected_json, timeout=60
     )
