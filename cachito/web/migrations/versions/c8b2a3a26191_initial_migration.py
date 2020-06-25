@@ -84,7 +84,9 @@ def upgrade():
         sa.ForeignKeyConstraint(
             ["request_id"], ["request.id"], "request_dependency_dependency_id_fkey"
         ),
-        sa.UniqueConstraint("request_id", "dependency_id"),
+        sa.UniqueConstraint(
+            "request_id", "dependency_id", name="request_dependency_request_id_dependency_id_key"
+        ),
     )
 
 
