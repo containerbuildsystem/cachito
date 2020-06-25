@@ -106,21 +106,16 @@ def update_request_with_deps(request_id, deps):
             raise CachitoError(f"Setting the dependencies on request {request_id} failed")
 
 
-def update_request_with_packages(request_id, packages, pkg_manager=None, env_vars=None):
+def update_request_with_packages(request_id, packages, env_vars=None):
     """
     Update the request with the resolved packages and corresponding metadata.
 
     :param list packages: the list of packages that were resolved
     :param dict env_vars: mapping of environment variables to record
-    :param str pkg_manager: a package manager to add to the request if auto-detection was used
     :raise CachitoError: if the request to the Cachito API fails
     """
     log.info('Adding the packages "%r" to the request %d', packages, request_id)
     payload = {"packages": packages}
-
-    if pkg_manager:
-        log.info('Also adding the package manager "%s" to the request %d', pkg_manager, request_id)
-        payload["pkg_managers"] = [pkg_manager]
 
     if env_vars:
         log.info("Also adding environment variables to the request %d: %s", request_id, env_vars)

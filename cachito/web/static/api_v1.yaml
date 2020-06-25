@@ -508,11 +508,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Package"
-        pkg_managers:
-          type: array
-          items:
-            type: string
-            example: gomod
         state:
           type: string
           example: complete

@@ -643,26 +643,6 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     mock_rmtree.assert_called_once_with(str(RequestBundleDir(request_id)))
 
 
-def test_set_pkg_managers(app, client, db, worker_auth_env):
-    data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-    }
-    # flask_login.current_user is used in Request.from_json, which requires a request context
-    with app.test_request_context(environ_base=worker_auth_env):
-        request = Request.from_json(data)
-    db.session.add(request)
-    db.session.commit()
-
-    payload = {"pkg_managers": ["gomod"]}
-    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    assert patch_rv.status_code == 200
-
-    get_rv = client.get("/api/v1/requests/1")
-    assert get_rv.status_code == 200
-    assert get_rv.json["pkg_managers"] == ["gomod"]
-
-
 @pytest.mark.parametrize("bundle_exists", (True, False))
 @pytest.mark.parametrize("pkg_managers", (["gomod"], ["npm"], ["gomod", "npm"]))
 @mock.patch("pathlib.Path.exists")
@@ -953,13 +933,6 @@ def test_set_state_not_logged_in(client, db):
         (1, "some string", 400, "The input data must be a JSON object"),
         (1, {"dependencies": "test"}, 400, 'The value for "dependencies" must be an array'),
         (1, {"packages": "test"}, 400, 'The value for "packages" must be an array'),
-        (1, {"pkg_managers": "test"}, 400, 'The value for "pkg_managers" must be an array'),
-        (
-            1,
-            {"pkg_managers": [1, 3]},
-            400,
-            'The value for "pkg_managers" must be an array of strings',
-        ),
         (
             1,
             {"dependencies": ["test"]},

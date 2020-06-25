@@ -43,7 +43,7 @@ def test_fetch_gomod_source(
             1, "in_progress", "Fetching the gomod dependencies"
         )
         mock_update_request_with_packages.assert_called_once_with(
-            1, [sample_package], "gomod", sample_env_vars
+            1, [sample_package], sample_env_vars
         )
         mock_update_request_with_deps.assert_called_once_with(1, sample_deps_replace)
 
