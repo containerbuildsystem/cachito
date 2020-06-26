@@ -11,7 +11,7 @@ __all__ = [
     "run_cmd",
     "update_request_with_config_files",
     "update_request_with_deps",
-    "update_request_with_packages",
+    "update_request_with_package",
 ]
 
 log = logging.getLogger(__name__)
@@ -63,11 +63,12 @@ def update_request_with_config_files(request_id, config_files):
         raise CachitoError(f"Adding configuration files on request {request_id} failed")
 
 
-def update_request_with_deps(request_id, deps):
+def update_request_with_deps(request_id, package, deps):
     """
     Update the Cachito request with the resolved dependencies.
 
     :param int request_id: the ID of the Cachito request
+    :param dict package: the package these dependencies are associated with
     :param list deps: the list of dependency dictionaries to record
     :raise CachitoError: if the request to the Cachito API fails
     """
@@ -80,7 +81,7 @@ def update_request_with_deps(request_id, deps):
     log.info("Adding %d dependencies to request %d", len(deps), request_id)
     for index in range(0, len(deps), config.cachito_deps_patch_batch_size):
         batch_upper_limit = index + config.cachito_deps_patch_batch_size
-        payload = {"dependencies": deps[index:batch_upper_limit]}
+        payload = {"dependencies": deps[index:batch_upper_limit], "package": package}
         try:
             log.info(
                 "Patching deps {} through {} out of {}".format(
@@ -106,16 +107,16 @@ def update_request_with_deps(request_id, deps):
             raise CachitoError(f"Setting the dependencies on request {request_id} failed")
 
 
-def update_request_with_packages(request_id, packages, env_vars=None):
+def update_request_with_package(request_id, package, env_vars=None):
     """
     Update the request with the resolved packages and corresponding metadata.
 
-    :param list packages: the list of packages that were resolved
+    :param dict package: the package that was resolved
     :param dict env_vars: mapping of environment variables to record
     :raise CachitoError: if the request to the Cachito API fails
     """
-    log.info('Adding the packages "%r" to the request %d', packages, request_id)
-    payload = {"packages": packages}
+    log.info('Adding the package "%r" to the request %d', package, request_id)
+    payload = {"package": package}
 
     if env_vars:
         log.info("Also adding environment variables to the request %d: %s", request_id, env_vars)
@@ -132,19 +133,19 @@ def update_request_with_packages(request_id, packages, env_vars=None):
             request_url, json=payload, timeout=config.cachito_api_timeout
         )
     except requests.RequestException:
-        msg = f"The connection failed when adding packages to the request {request_id}"
+        msg = f"The connection failed when adding a package to the request {request_id}"
         log.exception(msg)
         raise CachitoError(msg)
 
     if not rv.ok:
         log.error(
-            "The worker failed to add packages to the request %d. The status was %d. "
+            "The worker failed to add a package to the request %d. The status was %d. "
             "The text was:\n%s",
             request_id,
             rv.status_code,
             rv.text,
         )
-        raise CachitoError(f"Setting the packages on request {request_id} failed")
+        raise CachitoError(f"Setting a package on request {request_id} failed")
 
 
 def run_cmd(cmd, params, exc_msg=None):

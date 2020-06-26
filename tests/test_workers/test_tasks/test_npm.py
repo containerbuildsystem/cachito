@@ -28,7 +28,7 @@ def test_cleanup_npm_request(mock_exec_script):
 @mock.patch("cachito.workers.tasks.npm.nexus.get_ca_cert")
 @mock.patch("cachito.workers.tasks.npm.generate_npmrc_content")
 @mock.patch("cachito.workers.tasks.npm.update_request_with_config_files")
-@mock.patch("cachito.workers.tasks.npm.update_request_with_packages")
+@mock.patch("cachito.workers.tasks.npm.update_request_with_package")
 @mock.patch("cachito.workers.tasks.npm.update_request_with_deps")
 def test_fetch_npm_source(
     mock_urwd,
@@ -125,10 +125,10 @@ def test_fetch_npm_source(
     mock_urwcf.assert_called_once_with(request_id, expected_config_files)
     mock_urwp.assert_called_once_with(
         request_id,
-        [package],
+        package,
         {"CHROMEDRIVER_SKIP_DOWNLOAD": "true", "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true"},
     )
-    mock_urwd.assert_called_once_with(request_id, deps)
+    mock_urwd.assert_called_once_with(request_id, package, deps)
 
 
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")

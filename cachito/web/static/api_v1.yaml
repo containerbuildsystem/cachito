@@ -570,10 +570,8 @@ components:
             $ref: "#/components/schemas/PackageWithReplaces"
         environment_variables:
           $ref: "#/components/schemas/EnvironmentVariable"
-        packages:
-          type: array
-          items:
-            $ref: "#/components/schemas/Package"
+        package:
+          $ref: "#/components/schemas/Package"
         state:
           type: string
           example: complete
@@ -595,7 +593,14 @@ components:
           packages:
             type: array
             items:
-              $ref: "#/components/schemas/Package"
+              allOf:
+              - $ref: "#/components/schemas/Package"
+              - type: object
+                properties:
+                  dependencies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PackageWithReplaces"
           state_history:
             type: array
             items:
