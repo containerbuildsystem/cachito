@@ -2,7 +2,7 @@
 # Cachito API endpoint
 api_url: http://localhost:8080/api/v1
 # Authentication type, user either null for no authentication or kerberos
-api_auth_type: kerberos
+api_auth_type: null
 # Package that will be used for testing
 package:
   # The URL for the upstream git repository
