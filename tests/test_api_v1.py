@@ -767,8 +767,7 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     assert len(get_rv.json["state_history"]) == 2
 
 
-@pytest.mark.parametrize("env_vars", ({}, {"spam": "maps"}))
-def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_vars):
+def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -782,14 +781,9 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_var
 
     # Test a dependency with no "replaces" key
     sample_deps_replace.insert(0, {"name": "all_systems_go", "type": "gomod", "version": "v1.0.0"})
-    payload = {"dependencies": sample_deps_replace, "environment_variables": env_vars}
+    payload = {"dependencies": sample_deps_replace}
     patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
-
-    len(EnvironmentVariable.query.all()) == len(env_vars.items())
-    for name, value in env_vars.items():
-        env_var_obj = EnvironmentVariable.query.filter_by(name=name, value=value).first()
-        assert env_var_obj
 
     get_rv = client.get("/api/v1/requests/1")
     assert get_rv.status_code == 200
@@ -798,7 +792,6 @@ def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, env_var
     # Add a null "replaces" key to match the API output
     sample_deps_replace[0]["replaces"] = None
     assert fetched_request["dependencies"] == sample_deps_replace
-    assert fetched_request["environment_variables"] == env_vars
 
 
 def test_set_deps_with_dev(app, client, db, worker_auth_env):
@@ -1002,13 +995,44 @@ def test_set_state_not_logged_in(client, db):
             1,
             {"environment_variables": {"spam": None}},
             400,
-            "The value of environment variables must be a string",
+            "The info of environment variables must be an object",
         ),
         (
             1,
             {"environment_variables": {"spam": ["maps"]}},
             400,
+            "The info of environment variables must be an object",
+        ),
+        (
+            1,
+            {"environment_variables": {"spam": {}}},
+            400,
+            "The following attributes must be set in the info of the environment variables: "
+            "kind, value",
+        ),
+        (
+            1,
+            {"environment_variables": {"spam": {"value": "maps", "kind": "string", "x": "ham"}}},
+            400,
+            "The following attributes are not allowed in the info of the environment variables: x",
+        ),
+        (
+            1,
+            {"environment_variables": {"spam": {"value": 101, "kind": "string"}}},
+            400,
             "The value of environment variables must be a string",
+        ),
+        (
+            1,
+            {"environment_variables": {"spam": {"value": "maps", "kind": 101}}},
+            400,
+            "The kind of environment variables must be a string",
+        ),
+        (
+            1,
+            {"environment_variables": {"spam": {"value": "maps", "kind": "ham"}}},
+            400,
+            "The environment variable kind, ham, is not supported",
         ),
         (
             1,
@@ -1172,3 +1196,54 @@ def test_request_config_post_not_authorized(auth_env, client, db):
     rv = client.post("/api/v1/requests/1/configuration-files", json={}, environ_base=auth_env)
     assert rv.status_code == 403
     assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
+
+
+@pytest.mark.parametrize(
+    "env_vars",
+    (
+        None,
+        {},
+        {"spam": {"value": "maps", "kind": "string"}, "ham": {"value": "mah", "kind": "path"}},
+    ),
+)
+def test_get_environment_variables(app, client, db, worker_auth_env, env_vars):
+    data = {
+        "repo": "https://github.com/release-engineering/retrodep.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["gomod"],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    # If env_vars is None skip the PATCH request to verify information about environment variables
+    # are available prior to being set.
+    if env_vars is not None:
+        payload = {"environment_variables": env_vars}
+        patch_rv = client.patch(
+            f"/api/v1/requests/{request.id}", json=payload, environ_base=worker_auth_env
+        )
+        assert patch_rv.status_code == 200
+
+    env_vars_expected = env_vars or {}
+
+    len(EnvironmentVariable.query.all()) == len(env_vars_expected.items())
+    for name, info in env_vars_expected.items():
+        env_var_obj = EnvironmentVariable.query.filter_by(name=name, **info).first()
+        assert env_var_obj
+
+    get_rv = client.get(f"/api/v1/requests/{request.id}")
+    assert get_rv.status_code == 200
+    fetched_request = get_rv.json
+    assert fetched_request["environment_variables"] == {
+        name: info["value"] for name, info in env_vars_expected.items()
+    }
+    assert fetched_request["environment_variables_info"].endswith(
+        f"/api/v1/requests/{request.id}/environment-variables"
+    )
+
+    get_env_vars_rv = client.get(f"/api/v1/requests/{request.id}/environment-variables")
+    assert get_env_vars_rv.status_code == 200
+    assert get_env_vars_rv.json == env_vars_expected

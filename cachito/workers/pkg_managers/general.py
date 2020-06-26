@@ -111,7 +111,9 @@ def update_request_with_packages(request_id, packages, env_vars=None):
     Update the request with the resolved packages and corresponding metadata.
 
     :param list packages: the list of packages that were resolved
-    :param dict env_vars: mapping of environment variables to record
+    :param dict env_vars: mapping of environment variables to record. Attributes represent
+        the environment variable name, and its value should be another map wth the "value" and
+        "kind" attributes, e.g. {"NAME": {"value": "VALUE", "kind": "KIND"}}.
     :raise CachitoError: if the request to the Cachito API fails
     """
     log.info('Adding the packages "%r" to the request %d', packages, request_id)

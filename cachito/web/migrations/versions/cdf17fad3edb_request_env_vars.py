@@ -23,7 +23,7 @@ def upgrade():
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("value", sa.String(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name", "value"),
+        sa.UniqueConstraint("name", "value", name="uq_environmet_variable_name_value"),
     )
     op.create_table(
         "request_environment_variable",

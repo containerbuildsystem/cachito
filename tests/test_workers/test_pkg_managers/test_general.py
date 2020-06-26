@@ -33,7 +33,10 @@ def test_update_request_with_packages(mock_requests):
     packages = [
         {"name": "helloworld", "type": "gomod", "version": "v0.0.0-20200324130456-8aedc0ec8bb5"}
     ]
-    env_vars = {"GOCACHE": "deps/gomod", "GOPATH": "deps/gomod"}
+    env_vars = {
+        "GOCACHE": {"value": "deps/gomod", "kind": "path"},
+        "GOPATH": {"value": "deps/gomod", "kind": "path"},
+    }
     expected_json = {
         "environment_variables": env_vars,
         "packages": packages,
