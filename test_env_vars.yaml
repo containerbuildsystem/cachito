@@ -44,7 +44,7 @@ dep_replacement:
     type: gomod
     version: v1.4.0
 # Test data for the Using cached dependencies test
-cached_dependenices:
+cached_dependencies:
   # The upstream git repository
   seed_repo:
     https_url: "https://github.com/release-engineering/retrodep.git"
