@@ -162,14 +162,19 @@ class Package(db.Model):
         cls.validate_json(package)
         return cls(**package)
 
-    def to_json(self):
+    def to_json(self, dependencies=None):
         """
         Generate the JSON representation of the package.
 
+        :param list dependencies: the JSON representation of the dependencies associated with this
+            package
         :return: the JSON form of the Package object
         :rtype: dict
         """
-        return {"name": self.name, "type": self.type, "version": self.version}
+        rv = {"name": self.name, "type": self.type, "version": self.version}
+        if dependencies is not None:
+            rv["dependencies"] = dependencies
+        return rv
 
     @classmethod
     def get_or_create(cls, package):
@@ -326,15 +331,19 @@ class RequestDependency(db.Model):
     dependency_id = db.Column(
         db.Integer, db.ForeignKey("package.id"), autoincrement=False, index=True, primary_key=True
     )
+    package_id = db.Column(
+        db.Integer, db.ForeignKey("package.id"), autoincrement=False, index=True, primary_key=True
+    )
     replaced_dependency_id = db.Column(db.Integer, db.ForeignKey("package.id"), index=True)
 
     request = db.relationship("Request", backref="request_dependencies")
     dependency = db.relationship("Dependency", foreign_keys=[dependency_id], lazy="joined")
+    package = db.relationship("Package", foreign_keys=[package_id], lazy="joined")
     replaced_dependency = db.relationship(
         "Dependency", foreign_keys=[replaced_dependency_id], lazy="joined"
     )
 
-    __table_args__ = (db.UniqueConstraint("request_id", "dependency_id"),)
+    __table_args__ = (db.UniqueConstraint("request_id", "dependency_id", "package_id"),)
 
 
 class Request(db.Model):
@@ -381,7 +390,7 @@ class Request(db.Model):
     def __repr__(self):
         return "<Request {0!r}>".format(self.id)
 
-    def add_dependency(self, dependency, replaced_dependency=None):
+    def add_dependency(self, package, dependency, replaced_dependency=None):
         """
         Associate a dependency with this request if the association doesn't exist.
 
@@ -390,13 +399,16 @@ class Request(db.Model):
 
         Note that the association is added to the database session but not committed.
 
+        :param Package pacakge: a Package object that this dependency is associated with
         :param Dependency dependency: a Dependency object
         :param Dependency replaced_dependency: an optional Dependency object to mark as being
             replaced by the input dependency for this request
         :raises ValidationError: if the dependency is already associated with the request, but
             replaced_dependency is different than what is already associated
         """
-        mapping = RequestDependency.query.filter_by(request=self, dependency=dependency).first()
+        mapping = RequestDependency.query.filter_by(
+            request=self, package=package, dependency=dependency
+        ).first()
 
         if mapping:
             if mapping.replaced_dependency_id != getattr(replaced_dependency, "id", None):
@@ -407,7 +419,10 @@ class Request(db.Model):
 
         db.session.add(
             RequestDependency(
-                request=self, dependency=dependency, replaced_dependency=replaced_dependency
+                request=self,
+                package=package,
+                dependency=dependency,
+                replaced_dependency=replaced_dependency,
             )
         )
 
@@ -486,14 +501,20 @@ class Request(db.Model):
             states = list(reversed(states))
             latest_state = states[0]
             rv["state_history"] = states
-            rv["dependencies"] = [
-                req_dep.dependency.to_json(
+
+            package_to_deps = {}
+            rv["dependencies"] = []
+            for req_dep in self.request_dependencies:
+                dep_json = req_dep.dependency.to_json(
                     req_dep.replaced_dependency.to_json() if req_dep.replaced_dependency else None,
                     force_replaces=True,
                 )
-                for req_dep in self.request_dependencies
+                rv["dependencies"].append(dep_json)
+                package_to_deps.setdefault(req_dep.package.id, []).append(dep_json)
+
+            rv["packages"] = [
+                package.to_json(package_to_deps.get(package.id, [])) for package in self.packages
             ]
-            rv["packages"] = [package.to_json() for package in self.packages]
         else:
             latest_state = _state_to_json(self.state)
             rv["dependencies"] = self.dependencies_count

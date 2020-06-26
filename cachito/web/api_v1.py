@@ -268,7 +268,7 @@ def patch_request(request_id):
     valid_keys = {
         "dependencies",
         "environment_variables",
-        "packages",
+        "package",
         "state",
         "state_reason",
     }
@@ -279,15 +279,18 @@ def patch_request(request_id):
         )
 
     for key, value in payload.items():
-        if key in ("dependencies", "packages") and not isinstance(value, list):
-            raise ValidationError(f'The value for "{key}" must be an array')
-
         if key == "dependencies":
+            if not isinstance(value, list):
+                raise ValidationError('The value for "dependencies" must be an array')
+            if "package" not in payload:
+                raise ValidationError(
+                    'The "package" object must also be provided if the "dependencies" array is '
+                    "provided"
+                )
             for dep in value:
                 Dependency.validate_json(dep, for_update=True)
-        elif key == "packages":
-            for dep in value:
-                Package.validate_json(dep)
+        elif key == "package":
+            Package.validate_json(value)
         elif key == "environment_variables":
             if not isinstance(value, dict):
                 raise ValidationError('The value for "{}" must be an object'.format(key))
@@ -320,21 +323,21 @@ def patch_request(request_id):
         else:
             request.add_state(new_state, new_state_reason)
 
-    if "dependencies" in payload:
-        for dep_and_replaces in payload["dependencies"]:
-            dep = copy.deepcopy(dep_and_replaces)
-            replaces = dep.pop("replaces", None)
-
-            dep_object = Dependency.get_or_create(dep)
-            replaces_object = None
-            if replaces:
-                replaces_object = Dependency.get_or_create(replaces)
-            request.add_dependency(dep_object, replaces_object)
-
-    for package in payload.get("packages", []):
-        package_object = Package.get_or_create(package)
+    package_object = None
+    if "package" in payload:
+        package_object = Package.get_or_create(payload["package"])
         if package_object not in request.packages:
             request.packages.append(package_object)
+
+    for dep_and_replaces in payload.get("dependencies", []):
+        dep = copy.deepcopy(dep_and_replaces)
+        replaces = dep.pop("replaces", None)
+
+        dep_object = Dependency.get_or_create(dep)
+        replaces_object = None
+        if replaces:
+            replaces_object = Dependency.get_or_create(replaces)
+        request.add_dependency(package_object, dep_object, replaces_object)
 
     for name, value in payload.get("environment_variables", {}).items():
         env_var_obj = EnvironmentVariable.query.filter_by(name=name, value=value).first()

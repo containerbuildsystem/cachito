@@ -16,7 +16,7 @@ from cachito.workers import tasks
     ),
 )
 @mock.patch("cachito.workers.tasks.gomod.RequestBundleDir")
-@mock.patch("cachito.workers.tasks.gomod.update_request_with_packages")
+@mock.patch("cachito.workers.tasks.gomod.update_request_with_package")
 @mock.patch("cachito.workers.tasks.gomod.update_request_with_deps")
 @mock.patch("cachito.workers.tasks.gomod.set_request_state")
 @mock.patch("cachito.workers.tasks.gomod.resolve_gomod")
@@ -24,7 +24,7 @@ def test_fetch_gomod_source(
     mock_resolve_gomod,
     mock_set_request_state,
     mock_update_request_with_deps,
-    mock_update_request_with_packages,
+    mock_update_request_with_package,
     mock_bundle_dir,
     dep_replacements,
     expect_state_update,
@@ -43,10 +43,10 @@ def test_fetch_gomod_source(
         mock_set_request_state.assert_called_once_with(
             1, "in_progress", "Fetching the gomod dependencies"
         )
-        mock_update_request_with_packages.assert_called_once_with(
-            1, [sample_package], sample_env_vars
+        mock_update_request_with_package.assert_called_once_with(1, sample_package, sample_env_vars)
+        mock_update_request_with_deps.assert_called_once_with(
+            1, sample_package, sample_deps_replace
         )
-        mock_update_request_with_deps.assert_called_once_with(1, sample_deps_replace)
 
     mock_resolve_gomod.assert_called_once_with(
         str(mock_bundle_dir().source_dir), mock_request, dep_replacements
