@@ -23,8 +23,18 @@ def fetch_gomod_source(request_id, dep_replacements=None):
 
     :param int request_id: the Cachito request ID this is for
     :param list dep_replacements: dependency replacements with the keys "name" and "version"
+    :raises CachitoError: if the dependencies could not be retrieved
     """
+    config = get_worker_config()
     bundle_dir = RequestBundleDir(request_id)
+
+    if not bundle_dir.go_mod_file.exists():
+        if config.cachito_gomod_ignore_missing_gomod_file:
+            log.warning("The go.mod file is missing for request %d", request_id)
+            return
+
+        raise CachitoError("The go.mod file is missing")
+
     log.info("Fetching gomod dependencies for request %d", request_id)
     request = set_request_state(request_id, "in_progress", "Fetching the gomod dependencies")
     try:
@@ -34,6 +44,6 @@ def fetch_gomod_source(request_id, dep_replacements=None):
         raise
 
     env_vars = {"GOCACHE": "deps/gomod", "GOPATH": "deps/gomod"}
-    env_vars.update(get_worker_config().cachito_default_environment_variables.get("gomod", {}))
+    env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
     update_request_with_packages(request_id, [module], env_vars)
     update_request_with_deps(request_id, deps)

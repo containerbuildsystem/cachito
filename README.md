@@ -197,6 +197,10 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_js_download_batch_size` - the number of JavaScript dependencies to download at once using
   `npm pack`. If this value is too high, Nexus will return the error "Header is too large". This
   defaults to `30`.
+* `cachito_gomod_ignore_missing_gomod_file` - if `True` and the request specifies the `gomod`
+  package manager but there is no `go.mod` file present in the repository, Cachito will skip
+  the `gomod` package manager for the request. If `False`, the request will fail if the `go.mod`
+  file is missing. This defaults to `False`.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
 * `cachito_nexus_ca_cert` - the CA certificate that signed the SSL certificate used by the Nexus
   instance. This defaults to `/etc/cachito/nexus_ca.pem`. If this file does not exist, Cachito will
