@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 
+from cachito.errors import CachitoError
 from cachito.workers import tasks
 
 
@@ -50,3 +51,25 @@ def test_fetch_gomod_source(
     mock_resolve_gomod.assert_called_once_with(
         str(mock_bundle_dir().source_dir), mock_request, dep_replacements
     )
+
+
+@pytest.mark.parametrize(
+    "ignore_missing_gomod_file, exc_expected", ((True, False), (False, True)),
+)
+@mock.patch("cachito.workers.tasks.gomod.get_worker_config")
+@mock.patch("cachito.workers.tasks.gomod.RequestBundleDir")
+@mock.patch("cachito.workers.tasks.gomod.resolve_gomod")
+def test_fetch_gomod_source_no_go_mod_file(
+    mock_resolve_gomod, mock_bundle_dir, mock_gwc, ignore_missing_gomod_file, exc_expected,
+):
+    mock_config = mock.Mock()
+    mock_config.cachito_gomod_ignore_missing_gomod_file = ignore_missing_gomod_file
+    mock_gwc.return_value = mock_config
+    mock_bundle_dir.return_value.go_mod_file.exists.return_value = False
+    if exc_expected:
+        with pytest.raises(CachitoError, match="The go.mod file is missing"):
+            tasks.fetch_gomod_source(1)
+    else:
+        tasks.fetch_gomod_source(1)
+
+    mock_resolve_gomod.assert_not_called()
