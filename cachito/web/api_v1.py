@@ -93,6 +93,21 @@ def get_request_config_files(request_id):
     return flask.jsonify(config_files_json)
 
 
+@api_v1.route("/requests/<int:request_id>/content-manifest", methods=["GET"])
+def get_request_content_manifest(request_id):
+    """
+    Retrieve the content manifest associated with the given request.
+
+    :param int request_id: the value of the request ID
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    """
+    content_manifest = Request.query.get_or_404(request_id).content_manifest
+    content_manifest_json = content_manifest.to_json()
+    return flask.jsonify(content_manifest_json)
+
+
 @api_v1.route("/requests/<int:request_id>/download", methods=["GET"])
 def download_archive(request_id):
     """

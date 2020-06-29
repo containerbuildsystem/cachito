@@ -62,6 +62,29 @@ request_config_file_base64_table = db.Table(
 )
 
 
+class ContentManifest:
+    """A content manifest associated with the request."""
+
+    version = 1
+    json_schema_url = (
+        "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
+        "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
+    )
+    unknown_layer_index = -1
+
+    empty_icm = {
+        "metadata": {
+            "icm_version": version,
+            "icm_spec": json_schema_url,
+            "image_layer_index": unknown_layer_index,
+        },
+    }
+
+    def to_json(self):
+        """Generate the JSON representation of the content manifest."""
+        return self.empty_icm
+
+
 class RequestStateMapping(Enum):
     """An Enum that represents the request states."""
 
@@ -350,6 +373,10 @@ class Request(db.Model):
     config_files_base64 = db.relationship(
         "ConfigFileBase64", secondary=request_config_file_base64_table, backref="requests"
     )
+
+    # This is an empty content manifest which should be returned for all requests whose package
+    # manager does not implement content manifest creation
+    content_manifest = ContentManifest()
 
     def __repr__(self):
         return "<Request {0!r}>".format(self.id)

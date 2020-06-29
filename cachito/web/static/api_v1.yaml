@@ -277,6 +277,69 @@ paths:
                 $ref: "#/components/schemas/RequestConfiguration"
       security:
       - "Kerberos Authentication": []
+  "/requests/{id}/content-manifest":
+    get:
+      description: Return the content manifest of a request
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The ID of the Cachito request to retrieve the content manifest for
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: The content manifest of the Cachito request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metadata:
+                    type: object
+                    properties:
+                      icm_version:
+                        type: integer
+                        example: 1
+                      icm_spec:
+                        type: string
+                        example: "https://raw.githubusercontent.com/containerbuildsystem/\
+                                  atomic-reactor/f4abcfdaf8247a6b074f94fa84f3846f82d781c6/\
+                                  atomic_reactor/schemas/content_manifest.json"
+                      image_layer_index:
+                        type: integer
+                        example: -1
+                  image_contents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        purl:
+                          $ref: "#/components/schemas/Purl"
+                        dependencies:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              purl:
+                                $ref: "#/components/schemas/Purl"
+                        sources:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              purl:
+                                $ref: "#/components/schemas/Purl"
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
   "/requests/{id}/download":
     get:
       description: Download a Cachito request bundle
@@ -387,6 +450,9 @@ components:
         total:
           type: integer
           example: 45
+    Purl:
+      type: string
+      example: "pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2@v2.0.2"
     RequestBase:
       type: object
       properties:
