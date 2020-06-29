@@ -1172,3 +1172,34 @@ def test_request_config_post_not_authorized(auth_env, client, db):
     rv = client.post("/api/v1/requests/1/configuration-files", json={}, environ_base=auth_env)
     assert rv.status_code == 403
     assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
+
+
+def test_fetch_request_content_manifest_empty(app, client, db, worker_auth_env):
+    json_schema_url = (
+        "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
+        "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
+    )
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    rv = client.get("/api/v1/requests/1/content-manifest")
+
+    expected = {
+        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
+    }
+
+    assert rv.json == expected
+
+
+def test_request_fetch_request_content_manifest_invalid(client, worker_auth_env):
+    rv = client.get("/api/v1/requests/2/content-manifest")
+
+    assert rv.status_code == 404
+    assert rv.json == {"error": "The requested resource was not found"}
