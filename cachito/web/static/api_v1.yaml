@@ -340,6 +340,43 @@ paths:
                   error:
                     type: string
                     example: The requested resource was not found
+  "/requests/{id}/environment-variables":
+    get:
+      description: Return information about the environment variables of a request
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The ID of the Cachito request to retrieve the environment variables for
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: The environment variables of the Cachito request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  NAME:
+                    $ref: "#/components/schemas/EnvironmentVariableInfo"
+              example:
+                GOCACHE:
+                  value: deps/gomod
+                  kind: path
+                GOPATH:
+                  value: deps/gomod
+                  kind: path
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
   "/requests/{id}/download":
     get:
       description: Download a Cachito request bundle
@@ -423,6 +460,21 @@ components:
       example:
         GOCACHE: deps/gomod
         GOPATH: deps/gomod
+    EnvironmentVariableInfo:
+      type: object
+      properties:
+        value:
+          type: string
+          description: The value of the environment variable
+        kind:
+          type: string
+          description: The kind of the environment variable, e.g. "path" or "literal"
+      required:
+      - kind
+      - value
+    example:
+      value: deps/gomod
+      kind: path
     Pagination:
       type: object
       properties:
@@ -586,6 +638,10 @@ components:
             type: string
             description: The URL to the API endpoint with the configuration files
             example: "https://cachito.domain.local/api/v1/requests/1/configuration-files"
+          environment_variables_info:
+            type: string
+            description: The URL to the API endpoint with the environment variables information
+            example: "https://cachito.domain.local/api/v1/requests/1/environment-variables"
           dependencies:
             type: array
             items:

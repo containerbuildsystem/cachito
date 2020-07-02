@@ -126,7 +126,10 @@ def test_fetch_npm_source(
     mock_urwp.assert_called_once_with(
         request_id,
         package,
-        {"CHROMEDRIVER_SKIP_DOWNLOAD": "true", "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true"},
+        {
+            "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
+            "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"value": "true", "kind": "literal"},
+        },
     )
     mock_urwd.assert_called_once_with(request_id, package, deps)
 

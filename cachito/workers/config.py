@@ -22,10 +22,10 @@ class Config(object):
     cachito_default_environment_variables = {
         "gomod": {},
         "npm": {
-            "CHROMEDRIVER_SKIP_DOWNLOAD": "true",
-            "CYPRESS_INSTALL_BINARY": "0",
-            "GECKODRIVER_SKIP_DOWNLOAD": "true",
-            "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true",
+            "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
+            "CYPRESS_INSTALL_BINARY": {"value": "0", "kind": "literal"},
+            "GECKODRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
+            "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"value": "true", "kind": "literal"},
         },
     }
     cachito_deps_patch_batch_size = 50
@@ -106,8 +106,11 @@ class TestingConfig(DevelopmentConfig):
 
     cachito_api_url = "http://cachito.domain.local/api/v1/"
     cachito_default_environment_variables = {
-        "gomod": {"GO111MODULE": "on"},
-        "npm": {"CHROMEDRIVER_SKIP_DOWNLOAD": "true", "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true"},
+        "gomod": {"GO111MODULE": {"value": "on", "kind": "literal"}},
+        "npm": {
+            "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
+            "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"value": "true", "kind": "literal"},
+        },
     }
     cachito_npm_file_deps_allowlist = {"han_solo": ["millennium-falcon"]}
 
@@ -181,12 +184,23 @@ def validate_celery_config(conf, **kwargs):
         )
 
     default_env_vars = conf.cachito_default_environment_variables
-    for value in default_env_vars.values():
-        if not isinstance(value, dict):
+    for pkg_manager_value in default_env_vars.values():
+        if not isinstance(pkg_manager_value, dict):
             raise ConfigError(
                 'The configuration "cachito_default_environment_variables" must be a '
                 "dictionary of dictionaries"
             )
+        for env_var_info in pkg_manager_value.values():
+            if not isinstance(env_var_info, dict):
+                raise ConfigError(
+                    'The configuration "cachito_default_environment_variables" must be a '
+                    "dictionary of dictionaries of dictionaries!"
+                )
+            if set(env_var_info.keys()) != {"value", "kind"}:
+                raise ConfigError(
+                    'Each environment variable in the "cachito_default_environment_variables" '
+                    'configuration must contain the "value" and "kind" keys'
+                )
 
     invalid_gomod_env_vars = default_env_vars.get("gomod", {}).keys() & {"GOCACHE", "GOPATH"}
     if invalid_gomod_env_vars:

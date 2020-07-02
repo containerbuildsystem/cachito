@@ -190,7 +190,9 @@ Custom configuration for the Celery workers are listed below:
   writeable.
 * `cachito_default_environment_variables` - a dictionary where the keys are names of package
   managers. The values are dictionaries where the keys are default environment variables to
-  set for that package manager and the values are the environment variable values. Check
+  set for that package manager and the values are dictionaries with the keys `value` and `kind`. The
+  `value` must be a string which specifies the value of the environment variable. The `kind` must
+  also be a string which specifies the type of value, either `"path"` or `"literal"`. Check
   `cachito/workers/config.py::Config` for the default value of this configuration.
 * `cachito_download_timeout` - the timeout when downloading application source archives from sources
   such as GitHub. The default is `120` seconds.
