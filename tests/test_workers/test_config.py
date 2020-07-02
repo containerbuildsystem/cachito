@@ -82,7 +82,22 @@ def test_validate_celery_config_failure(mock_isdir, bundles_dir, sources_dir):
             "dictionaries",
         ),
         (
-            {"gomod": {"GOCACHE": "invalid"}},
+            {"npm": {"spam": "not a dict"}},
+            'The configuration "cachito_default_environment_variables" must be a dictionary of '
+            "dictionaries of dictionaries!",
+        ),
+        (
+            {"npm": {"spam": {"extra": "not-allowed"}}},
+            'Each environment variable in the "cachito_default_environment_variables" '
+            'configuration must contain the "value" and "kind" keys',
+        ),
+        (
+            {"npm": {"spam": {"value": "the-value", "kind": "the-kind", "extra": "not-allowed"}}},
+            'Each environment variable in the "cachito_default_environment_variables" '
+            'configuration must contain the "value" and "kind" keys',
+        ),
+        (
+            {"gomod": {"GOCACHE": {"value": "invalid", "kind": "literal"}}},
             'The configuration "cachito_default_environment_variables.gomod" cannot overwrite the '
             "following environment variables: GOCACHE",
         ),

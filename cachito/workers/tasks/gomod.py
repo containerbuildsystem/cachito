@@ -43,7 +43,10 @@ def fetch_gomod_source(request_id, dep_replacements=None):
         log.exception("Failed to fetch gomod dependencies for request %d", request_id)
         raise
 
-    env_vars = {"GOCACHE": "deps/gomod", "GOPATH": "deps/gomod"}
+    env_vars = {
+        "GOCACHE": {"value": "deps/gomod", "kind": "path"},
+        "GOPATH": {"value": "deps/gomod", "kind": "path"},
+    }
     env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
     update_request_with_package(request_id, module, env_vars)
     update_request_with_deps(request_id, module, deps)

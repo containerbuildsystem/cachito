@@ -171,7 +171,7 @@ def sample_package():
 @pytest.fixture()
 def sample_env_vars():
     sample = {}
-    sample["GOPATH"] = sample["GOCACHE"] = "deps/gomod"
+    sample["GOPATH"] = sample["GOCACHE"] = {"value": "deps/gomod", "kind": "path"}
     return sample
 
 

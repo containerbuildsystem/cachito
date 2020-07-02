@@ -468,7 +468,9 @@ class Request(db.Model):
         if self.user:
             user = self.user.username
 
-        env_vars_json = OrderedDict(env_var.to_json() for env_var in self.environment_variables)
+        env_vars_json = OrderedDict()
+        for env_var in self.environment_variables:
+            env_vars_json[env_var.name] = env_var.value
         rv = {
             "id": self.id,
             "repo": self.repo,
@@ -493,6 +495,9 @@ class Request(db.Model):
         if verbose:
             rv["configuration_files"] = flask.url_for(
                 "api_v1.get_request_config_files", request_id=self.id, _external=True
+            )
+            rv["environment_variables_info"] = flask.url_for(
+                "api_v1.get_request_environment_variables", request_id=self.id, _external=True
             )
             # Use this list comprehension instead of a RequestState.to_json method to avoid
             # including redundant information about the request itself
@@ -725,45 +730,65 @@ class RequestState(db.Model):
 class EnvironmentVariable(db.Model):
     """An environment variable that the consumer of the request should set."""
 
+    VALID_KINDS = ("path", "literal")
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     value = db.Column(db.String, nullable=False)
+    kind = db.Column(db.String, nullable=False)
 
-    __table_args__ = (db.UniqueConstraint("name", "value"),)
+    __table_args__ = (db.UniqueConstraint("name", "value", "kind"),)
 
     @classmethod
-    def validate_json(cls, name, value):
+    def validate_json(cls, name, info):
         """
         Validate the input environment variable.
 
-        :param str name: the environment variable name
-        :param str value: the environment variable value
+        :param str name: the name of the environment variable
+        :param dict info: the description of the environment variable. Must include "value" and
+            "kind" attributes
         :raises ValidationError: if the environment variable is invalid
         """
-        if not isinstance(value, str):
+        if not isinstance(name, str):
+            raise ValidationError("The name of environment variables must be a string")
+        if not isinstance(info, dict):
+            raise ValidationError("The info of environment variables must be an object")
+
+        required_keys = {"value", "kind"}
+        missing_keys = required_keys - info.keys()
+        if missing_keys:
+            raise ValidationError(
+                "The following keys must be set in the info of the environment variables: "
+                f"{', '.join(sorted(missing_keys))}"
+            )
+
+        invalid_keys = info.keys() - required_keys
+        if invalid_keys:
+            raise ValidationError(
+                "The following keys are not allowed in the info of the environment "
+                f"variables: {', '.join(sorted(invalid_keys))}"
+            )
+
+        if not isinstance(info["value"], str):
             raise ValidationError("The value of environment variables must be a string")
+        kind = info.get("kind")
+        if not isinstance(kind, str):
+            raise ValidationError("The kind of environment variables must be a string")
+        if kind not in cls.VALID_KINDS:
+            raise ValidationError(f"The environment variable kind, {kind}, is not supported")
 
     @classmethod
-    def from_json(cls, name, value):
+    def from_json(cls, name, info):
         """
         Create an EnvironmentVariable object from JSON.
 
-        :param str name: the environment variable name
-        :param str value: the environment variable value
+        :param str name: the name of the environment variable
+        :param dict info: the description of the environment variable
         :return: the EnvironmentVariable object
         :rtype: EnvironmentVariable
         """
-        cls.validate_json(name, value)
-        return cls(name=name, value=value)
-
-    def to_json(self):
-        """
-        Generate the JSON representation of the environment variable.
-
-        :return: the JSON representation of the environment variable.
-        :rtype: tuple
-        """
-        return self.name, self.value
+        cls.validate_json(name, info)
+        return cls(name=name, **info)
 
 
 class User(db.Model, UserMixin):

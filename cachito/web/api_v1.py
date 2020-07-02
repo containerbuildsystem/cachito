@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from collections import OrderedDict
 import copy
 import functools
 
@@ -106,6 +107,23 @@ def get_request_content_manifest(request_id):
     content_manifest = Request.query.get_or_404(request_id).content_manifest
     content_manifest_json = content_manifest.to_json()
     return flask.jsonify(content_manifest_json)
+
+
+@api_v1.route("/requests/<int:request_id>/environment-variables", methods=["GET"])
+def get_request_environment_variables(request_id):
+    """
+    Retrieve the environment variables associated with the given request.
+
+    :param int request_id: the value of the request ID
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    """
+    env_vars = Request.query.get_or_404(request_id).environment_variables
+    env_vars_json = OrderedDict()
+    for env_var in env_vars:
+        env_vars_json[env_var.name] = {"value": env_var.value, "kind": env_var.kind}
+    return flask.jsonify(env_vars_json)
 
 
 @api_v1.route("/requests/<int:request_id>/download", methods=["GET"])
@@ -294,8 +312,8 @@ def patch_request(request_id):
         elif key == "environment_variables":
             if not isinstance(value, dict):
                 raise ValidationError('The value for "{}" must be an object'.format(key))
-            for env_var_name, env_var_value in value.items():
-                EnvironmentVariable.validate_json(env_var_name, env_var_value)
+            for env_var_name, env_var_info in value.items():
+                EnvironmentVariable.validate_json(env_var_name, env_var_info)
         elif not isinstance(value, str):
             raise ValidationError('The value for "{}" must be a string'.format(key))
 
@@ -339,10 +357,10 @@ def patch_request(request_id):
             replaces_object = Dependency.get_or_create(replaces)
         request.add_dependency(package_object, dep_object, replaces_object)
 
-    for name, value in payload.get("environment_variables", {}).items():
-        env_var_obj = EnvironmentVariable.query.filter_by(name=name, value=value).first()
+    for env_var_name, env_var_info in payload.get("environment_variables", {}).items():
+        env_var_obj = EnvironmentVariable.query.filter_by(name=env_var_name, **env_var_info).first()
         if not env_var_obj:
-            env_var_obj = EnvironmentVariable.from_json(name, value)
+            env_var_obj = EnvironmentVariable.from_json(env_var_name, env_var_info)
             db.session.add(env_var_obj)
 
         if env_var_obj not in request.environment_variables:
