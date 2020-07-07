@@ -14,6 +14,26 @@ url = "https://github.com/release-engineering/retrodep.git"
 ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
 archive_path = f"/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz"
 
+mock_pkg_deps = dedent(
+    f"""\
+    github.com/op/go-logging github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
+    github.com/Masterminds/semver github.com/Masterminds/semver v1.4.2
+    github.com/pkg/errors github.com/pkg/errors v0.8.1
+    gopkg.in/yaml.v2 gopkg.in/yaml.v2 v2.2.2
+    github.com/release-engineering/retrodep/v2/retrodep/glide \
+            github.com/release-engineering/retrodep/v2
+    golang.org/x/tools/go/vcs golang.org/x/tools v0.0.0-20190325161752-5a8dccf5b48a
+    github.com/release-engineering/retrodep/v2/retrodep github.com/release-engineering/retrodep/v2
+    github.com/release-engineering/retrodep/v2 github.com/release-engineering/retrodep/v2
+    github.com/markbates/inflect github.com/markbates/inflect v1.0.0 => \
+            github.com/markbates/inflect v1.0.1
+    """
+)
+
+pkg_lvl_stdout = (
+    "github.com/release-engineering/retrodep/v2 github.com/release-engineering/retrodep/v2"
+)
+
 
 def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
     return dedent(
@@ -88,6 +108,7 @@ def test_resolve_gomod(
     if dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_cmd_output))  # go list -m all
+    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_deps))  # go list -deps
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v2.1.1"
@@ -95,10 +116,10 @@ def test_resolve_gomod(
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
     if dep_replacement is None:
-        module, resolved_deps = resolve_gomod(archive_path, request)
+        gomod = resolve_gomod(archive_path, request)
         expected_deps = sample_deps
     else:
-        module, resolved_deps = resolve_gomod(archive_path, request, [dep_replacement])
+        gomod = resolve_gomod(archive_path, request, [dep_replacement])
         if dep_replacement.get("new_name"):
             expected_deps = sample_deps_replace_new_name
         else:
@@ -115,8 +136,8 @@ def test_resolve_gomod(
         if dep_replacement:
             assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
 
-    assert module == sample_package
-    assert resolved_deps == expected_deps
+    assert gomod["module"] == sample_package
+    assert gomod["module_deps"] == expected_deps
 
     mock_copytree.assert_called_once_with(
         os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
@@ -140,6 +161,8 @@ def test_resolve_gomod_vendor_dependencies(
         mock.Mock(returncode=0, stdout=None),
         # go list -m all
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
+        # go list -deps
+        mock.Mock(returncode=0, stdout=pkg_lvl_stdout),
     ]
     mock_golang_version.return_value = "v2.1.1"
 
@@ -149,11 +172,11 @@ def test_resolve_gomod_vendor_dependencies(
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "flags": ["gomod-vendor"],
     }
-    module, resolved_deps = resolve_gomod(archive_path, request)
+    gomod = resolve_gomod(archive_path, request)
 
     assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
-    assert module == sample_package
-    assert not resolved_deps
+    assert gomod["module"] == sample_package
+    assert not gomod["module_deps"]
 
     # Ensure an empty directory is created at bundle_dir.gomod_download_dir
     mock_bundle_dir.return_value.gomod_download_dir.mkdir.assert_called_once_with(
@@ -206,6 +229,7 @@ def test_resolve_gomod_no_deps(
     mock_golang_version,
     tmpdir,
     sample_package,
+    sample_pkg_lvl_pkg,
 ):
     # Ensure to create the gomod download cache directory
     mock_exists.return_value = False
@@ -219,15 +243,19 @@ def test_resolve_gomod_no_deps(
         mock.Mock(returncode=0, stdout=None),
         # go list -m all
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
+        # go list -deps
+        mock.Mock(returncode=0, stdout=pkg_lvl_stdout),
     ]
     mock_golang_version.return_value = "v2.1.1"
 
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
-    module, resolved_deps = resolve_gomod(archive_path, request)
+    gomod = resolve_gomod(archive_path, request)
 
-    assert module == sample_package
-    assert not resolved_deps
+    assert gomod["module"] == sample_package
+    assert not gomod["module_deps"]
+    assert gomod["pkg"] == sample_pkg_lvl_pkg
+    assert not gomod["pkg_deps"]
 
     # The second one ensures the source cache directory exists
     mock_makedirs.assert_called_once_with(

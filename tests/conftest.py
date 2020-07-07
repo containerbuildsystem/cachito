@@ -135,6 +135,58 @@ def sample_deps():
 
 
 @pytest.fixture()
+def sample_pkg_lvl_pkg():
+    return {
+        "name": "github.com/release-engineering/retrodep/v2",
+        "type": "go-package",
+        "version": "v2.1.1",
+    }
+
+
+@pytest.fixture()
+def sample_pkg_deps():
+    return [
+        {
+            "name": "github.com/release-engineering/retrodep/v2/retrodep/glide",
+            "type": "go-package",
+            "replaces": None,
+            "version": "v2.1.1",
+        },
+        {
+            "name": "github.com/release-engineering/retrodep/v2/retrodep",
+            "type": "go-package",
+            "replaces": None,
+            "version": "v2.1.1",
+        },
+        {
+            "name": "github.com/Masterminds/semver",
+            "type": "go-package",
+            "replaces": None,
+            "version": "v1.4.2",
+        },
+        {
+            "name": "github.com/op/go-logging",
+            "type": "go-package",
+            "replaces": None,
+            "version": "v0.0.0-20160315200505-970db520ece7",
+        },
+        {
+            "name": "github.com/pkg/errors",
+            "type": "go-package",
+            "replaces": None,
+            "version": "v1.0.0",
+        },
+        {"name": "gopkg.in/yaml.v2", "type": "go-package", "replaces": None, "version": "v2.2.2"},
+        {
+            "name": "golang.org/x/tools/go/vcs",
+            "type": "go-package",
+            "replaces": None,
+            "version": "v0.0.0-20190325161752-5a8dccf5b48a",
+        },
+    ]
+
+
+@pytest.fixture()
 def sample_deps_replace(sample_deps):
     # Use a copy in case a test uses both this fixture and the sample_deps fixture
     sample_deps_with_replace = copy.deepcopy(sample_deps)

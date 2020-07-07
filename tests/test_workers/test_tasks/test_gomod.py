@@ -30,13 +30,20 @@ def test_fetch_gomod_source(
     expect_state_update,
     sample_deps_replace,
     sample_package,
+    sample_pkg_deps,
+    sample_pkg_lvl_pkg,
     sample_env_vars,
 ):
     # Add the default environment variable from the configuration
     sample_env_vars["GO111MODULE"] = {"value": "on", "kind": "literal"}
     mock_request = mock.Mock()
     mock_set_request_state.return_value = mock_request
-    mock_resolve_gomod.return_value = sample_package, sample_deps_replace
+    mock_resolve_gomod.return_value = {
+        "module": sample_package,
+        "module_deps": sample_deps_replace,
+        "pkg": sample_pkg_lvl_pkg,
+        "pkg_deps": sample_pkg_deps,
+    }
     tasks.fetch_gomod_source(1, dep_replacements)
 
     if expect_state_update:
@@ -44,9 +51,13 @@ def test_fetch_gomod_source(
             1, "in_progress", "Fetching the gomod dependencies"
         )
         mock_update_request_with_package.assert_called_once_with(1, sample_package, sample_env_vars)
-        mock_update_request_with_deps.assert_called_once_with(
-            1, sample_package, sample_deps_replace
-        )
+
+        dep_calls = [
+            mock.call(1, sample_package, sample_deps_replace),
+            mock.call(1, sample_pkg_lvl_pkg, sample_pkg_deps),
+        ]
+        mock_update_request_with_deps.assert_has_calls(dep_calls)
+        assert mock_update_request_with_deps.call_count == 2
 
     mock_resolve_gomod.assert_called_once_with(
         str(mock_bundle_dir().source_dir), mock_request, dep_replacements
