@@ -116,6 +116,18 @@ class Client:
 
         return Response({"items": all_items}, None, resp.status_code)
 
+    def fetch_content_manifest(self, request_id):
+        """
+        Fetch a contest manifest by request_id from the Cachito API.
+
+        :param int request_id: The ID of the Cachito request
+        :return: An object that contains the response from the Cachito API
+        :rtype: Response
+        """
+        resp = requests.get(f"{self._cachito_api_url}/requests/{request_id}/content-manifest")
+        resp.raise_for_status()
+        return Response(resp.json(), resp.json()["id"], resp.status_code)
+
 
 def escape_path_go(dependency):
     """
