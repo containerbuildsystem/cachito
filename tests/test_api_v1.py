@@ -11,6 +11,7 @@ from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
     Flag,
+    Package,
     Request,
     RequestStateMapping,
 )
@@ -1404,6 +1405,7 @@ def test_fetch_request_content_manifest_empty(app, client, db, worker_auth_env):
 
     expected = {
         "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
+        "image_contents": [],
     }
 
     assert rv.json == expected
@@ -1414,6 +1416,116 @@ def test_request_fetch_request_content_manifest_invalid(client, worker_auth_env)
 
     assert rv.status_code == 404
     assert rv.json == {"error": "The requested resource was not found"}
+
+
+def test_fetch_request_content_manifest(
+    app,
+    client,
+    db,
+    worker_auth_env,
+    sample_package,
+    sample_deps,
+    sample_pkg_lvl_pkg,
+    sample_pkg_deps,
+):
+    json_schema_url = (
+        "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
+        "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
+    )
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["gomod"],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    # set expectations
+    main_pkg = Package.from_json(sample_pkg_lvl_pkg).to_purl()
+    image_content = {"purl": main_pkg, "dependencies": [], "sources": []}
+
+    for d in sample_deps:
+        d.pop("replaces")
+        p = Package.from_json(d).to_purl()
+        image_content["sources"].append({"purl": p})
+    for d in sample_pkg_deps:
+        d.pop("replaces")
+        p = Package.from_json(d).to_purl()
+        image_content["dependencies"].append({"purl": p})
+
+    expected = {
+        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
+        "image_contents": [image_content],
+    }
+
+    # emulate worker
+    payload = {"dependencies": sample_deps, "package": sample_package}
+    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    payload = {"dependencies": sample_pkg_deps, "package": sample_pkg_lvl_pkg}
+    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
+    rv = client.get("/api/v1/requests/1")
+    assert rv.status_code == 200
+    response = rv.json
+    assert response["content_manifest"].endswith("/api/v1/requests/1/content-manifest")
+
+    rv = client.get("/api/v1/requests/1/content-manifest")
+    assert rv.json == expected
+
+
+@pytest.mark.parametrize("pkg_type", ["npm", "unknown", "gomod"])
+def test_fetch_request_content_manifest_non_implemented_type(
+    app, client, db, worker_auth_env, sample_package, sample_deps, pkg_type
+):
+    json_schema_url = (
+        "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
+        "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
+    )
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["gomod"],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    for p in sample_deps + [sample_package]:
+        p["type"] = pkg_type
+
+    image_contents = []
+    if pkg_type == "gomod":
+        # gomod is a special case where pre-icm requests will have ICMs with
+        # module level dependencies (sources) only.
+        main_pkg = Package.from_json(sample_package).to_purl()
+        image_content = {"purl": main_pkg, "dependencies": [], "sources": []}
+        for d in sample_deps:
+            d.pop("replaces")
+            p = Package.from_json(d).to_purl()
+            image_content["sources"].append({"purl": p})
+        image_contents.append(image_content)
+
+    expected = {
+        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
+        "image_contents": image_contents,
+    }
+
+    # emulate worker
+    payload = {"dependencies": sample_deps, "package": sample_package}
+    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
+    rv = client.get("/api/v1/requests/1")
+    assert rv.status_code == 200
+    response = rv.json
+    assert response["content_manifest"].endswith("/api/v1/requests/1/content-manifest")
+
+    rv = client.get("/api/v1/requests/1/content-manifest")
+    assert rv.json == expected
 
 
 @pytest.mark.parametrize(

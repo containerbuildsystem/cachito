@@ -11,6 +11,7 @@ import sqlalchemy
 import sqlalchemy.sql
 from werkzeug.exceptions import Forbidden
 
+from cachito.web import content_manifest
 from cachito.errors import ValidationError
 from cachito.web import db
 
@@ -61,29 +62,6 @@ request_config_file_base64_table = db.Table(
     ),
     db.UniqueConstraint("request_id", "config_file_base64_id"),
 )
-
-
-class ContentManifest:
-    """A content manifest associated with the request."""
-
-    version = 1
-    json_schema_url = (
-        "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
-        "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
-    )
-    unknown_layer_index = -1
-
-    empty_icm = {
-        "metadata": {
-            "icm_version": version,
-            "icm_spec": json_schema_url,
-            "image_layer_index": unknown_layer_index,
-        },
-    }
-
-    def to_json(self):
-        """Generate the JSON representation of the content manifest."""
-        return self.empty_icm
 
 
 class RequestStateMapping(Enum):
@@ -194,6 +172,22 @@ class Package(db.Model):
             db.session.add(package_object)
 
         return package_object
+
+    def to_purl(self):
+        """
+        Generate the PURL representation of the package.
+
+        :return: the PURL string of the Package object
+        :rtype: str
+        :raise ValueError: if the there is no implementation for the package type
+        """
+        if self.type in ("go-package", "gomod"):
+            # Use only the PURL "name" field to avoid ambiguity for Go modules/packages
+            # see https://github.com/package-url/purl-spec/issues/63 for further reference
+            purl_name = self.name.replace("/", "%2F")
+            return f"pkg:golang/{purl_name}@{self.version}"
+        else:
+            raise ValueError(f"The PURL spec is not defined for {self.type} packages")
 
 
 class Dependency(Package):
@@ -443,10 +437,6 @@ class Request(db.Model):
         "ConfigFileBase64", secondary=request_config_file_base64_table, backref="requests"
     )
 
-    # This is an empty content manifest which should be returned for all requests whose package
-    # manager does not implement content manifest creation
-    content_manifest = ContentManifest()
-
     def __repr__(self):
         return "<Request {0!r}>".format(self.id)
 
@@ -485,6 +475,16 @@ class Request(db.Model):
                 replaced_dependency=replaced_dependency,
             )
         )
+
+    @property
+    def content_manifest(self):
+        """
+        Get the Image Content Manifest for a request.
+
+        :return: the ContentManifest object for the request
+        :rtype: ContentManifest
+        """
+        return content_manifest.ContentManifest(self)
 
     @property
     def dependencies_count(self):
@@ -557,6 +557,9 @@ class Request(db.Model):
         if verbose:
             rv["configuration_files"] = flask.url_for(
                 "api_v1.get_request_config_files", request_id=self.id, _external=True
+            )
+            rv["content_manifest"] = flask.url_for(
+                "api_v1.get_request_content_manifest", request_id=self.id, _external=True
             )
             rv["environment_variables_info"] = flask.url_for(
                 "api_v1.get_request_environment_variables", request_id=self.id, _external=True
