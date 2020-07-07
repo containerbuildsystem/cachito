@@ -93,6 +93,29 @@ class Client:
 
         return response
 
+    def fetch_all_requests(self, query_params=None, all_pages=True):
+        """
+        Fetch a list of requests from the Cachito API.
+
+        :param dict query_params: Request parameters and values (page, per_page, status, verbose)
+        :param bool all_pages: Flag to get all pages from the Cachito API
+        :return: Object that contains response from the Cachito API
+        :rtype: list
+        """
+        if not query_params:
+            query_params = {}
+        request_url = f"{self._cachito_api_url}/requests"
+        all_items = []
+        while request_url:
+            resp = requests.get(request_url, params=query_params, timeout=15)
+            resp.raise_for_status()
+            all_items += resp.json()["items"]
+            if not all_pages:
+                break
+            request_url = resp.json()["meta"]["next"]
+
+        return Response({"items": all_items}, None, resp.status_code)
+
 
 def escape_path_go(dependency):
     """
