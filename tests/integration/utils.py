@@ -3,6 +3,7 @@
 from collections import namedtuple
 import time
 
+import jsonschema
 import requests
 from requests_kerberos import HTTPKerberosAuth
 
@@ -150,3 +151,18 @@ def escape_path_go(dependency):
         return package_name
     else:
         return dependency
+
+
+def validate_json(json_schema, json_data):
+    """
+    Validate JSON data according to JSON schema.
+
+    :param str json_schema: Expected JSON schema for validation
+    :param str json_data: Data to be validated
+    :rtype: bool
+    """
+    try:
+        jsonschema.validate(instance=json_data, schema=json_schema)
+    except jsonschema.exceptions.ValidationError:
+        return False
+    return True
