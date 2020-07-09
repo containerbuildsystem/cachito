@@ -34,7 +34,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-def download_dependencies(request_id, deps, proxy_repo_url):
+def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
     """
     Download the list of npm dependencies using npm pack to the deps bundle directory.
 
@@ -48,8 +48,15 @@ def download_dependencies(request_id, deps, proxy_repo_url):
     :param list deps: a list of dependencies where each dependency has the keys: bundled, name,
         version, and version_in_nexus
     :param str proxy_repo_url: the Nexus proxy repository URL to use as the registry
+    :param set skip_deps: a set of dependency identifiers to not download because they've already
+        been downloaded for this request
+    :return: a set of dependency identifiers that were downloaded
+    :rtype: set
     :raises CachitoError: if any of the downloads fail
     """
+    if skip_deps is None:
+        skip_deps = set()
+
     conf = get_worker_config()
     with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
         npm_rc_file = os.path.join(temp_dir, ".npmrc")
@@ -84,6 +91,7 @@ def download_dependencies(request_id, deps, proxy_repo_url):
         run_params = {"env": env, "cwd": str(bundle_dir.npm_deps_dir)}
 
         log.info("Processing %d npm dependencies to stage in Nexus", len(deps))
+        downloaded_deps = set()
         # This must be done in batches to prevent Nexus from erroring with "Header is too large"
         deps_batches = []
         counter = 0
@@ -102,10 +110,16 @@ def download_dependencies(request_id, deps, proxy_repo_url):
             elif dep["version"].startswith("file:"):
                 log.debug("Not downloading %s since it is a file dependency", dep_identifier)
                 continue
+            elif dep_identifier in skip_deps:
+                log.debug(
+                    "Not downloading %s since it was already downloaded previously", dep_identifier
+                )
+                continue
 
             if counter % batch_size == 0:
                 deps_batches.append([])
             deps_batches[-1].append(dep_identifier)
+            downloaded_deps.add(dep_identifier)
             counter += 1
 
         for dep_batch in deps_batches:
@@ -124,6 +138,8 @@ def download_dependencies(request_id, deps, proxy_repo_url):
                 dep_dir.mkdir(exist_ok=True, parents=True)
                 # Move the dependency into the target directory
                 shutil.move(bundle_dir.npm_deps_dir.joinpath(tarball), dep_dir.joinpath(tarball))
+
+        return downloaded_deps
 
 
 def finalize_nexus_for_js_request(repo_name, username):

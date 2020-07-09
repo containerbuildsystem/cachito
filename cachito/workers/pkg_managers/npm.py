@@ -332,16 +332,22 @@ def get_package_and_deps(package_json_path, package_lock_path):
     return rv
 
 
-def resolve_npm(app_source_path, request):
+def resolve_npm(app_source_path, request, skip_deps=None):
     """
     Resolve and fetch npm dependencies for the given app source archive.
 
     :param str app_source_path: the full path to the application source code
     :param dict request: the Cachito request this is for
-    :return: a dictionary that has the keys "deps" which is the list of dependencies,
-        "lock_file" which is the lock file if it was modified, "package" which is the
-        dictionary describing the main package, and "package.json" which is the package.json file if
-        it was modified.
+    :param set skip_deps: a set of dependency identifiers to not download because they've already
+        been downloaded for this request
+    :return: a dictionary that has the following keys:
+        ``deps`` which is the list of dependencies,
+        ``downloaded_deps`` which is a set of the dependency identifiers of the dependencies that
+        were downloaded as part of this function's execution,
+        ``lock_file`` which is the lock file if it was modified,
+        ``lock_file_name`` is the name of the lock file that was used,
+        ``package`` which is the dictionary describing the main package, and
+        ``package.json`` which is the package.json file if it was modified.
     :rtype: dict
     :raises CachitoError: if fetching the dependencies fails or required files are missing
     """
@@ -369,10 +375,13 @@ def resolve_npm(app_source_path, request):
         log.exception(msg)
         raise CachitoError(msg)
 
+    package_and_deps_info["lock_file_name"] = lock_file
     # By downloading the dependencies, it stores the tarballs in the bundle and also stages the
     # content in the npm repository for the request
     proxy_repo_url = get_npm_proxy_repo_url(request["id"])
-    download_dependencies(request["id"], package_and_deps_info["deps"], proxy_repo_url)
+    package_and_deps_info["downloaded_deps"] = download_dependencies(
+        request["id"], package_and_deps_info["deps"], proxy_repo_url, skip_deps
+    )
 
     # Remove all the "bundled" keys since that is an implementation detail that should not be
     # exposed outside of this function

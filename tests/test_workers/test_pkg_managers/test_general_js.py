@@ -142,6 +142,63 @@ def test_download_dependencies(
     )
 
 
+@mock.patch("tempfile.TemporaryDirectory")
+@mock.patch("os.path.exists")
+@mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
+@mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
+@mock.patch("shutil.move")
+@mock.patch("cachito.workers.paths.get_worker_config")
+def test_download_dependencies_skip_deps(
+    mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mock_exists, mock_td, tmpdir,
+):
+    bundles_dir = tmpdir.mkdir("bundles")
+    mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
+    mock_td.return_value.__enter__.return_value = str(tmpdir.mkdir("cachito-agfdsk"))
+    mock_exists.return_value = False
+    mock_run_cmd.return_value = textwrap.dedent(
+        """\
+        angular-devkit-architect-0.803.26.tgz
+        rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz
+        """
+    )
+    deps = [
+        {
+            "bundled": False,
+            "dev": True,
+            "name": "@angular-devkit/architect",
+            "version": "0.803.26",
+            "version_in_nexus": None,
+        },
+        {
+            "bundled": False,
+            "dev": False,
+            "name": "@angular/animations",
+            "version": "8.2.14",
+            "version_in_nexus": None,
+        },
+        {
+            "bundled": False,
+            "dev": False,
+            "name": "rxjs",
+            "version": "github:ReactiveX/rxjs#78032157f5c1655436829017bbda787565b48c30",
+            "version_in_nexus": "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
+        },
+    ]
+    proxy_repo_url = npm.get_npm_proxy_repo_url(1)
+    general_js.download_dependencies(1, deps, proxy_repo_url, {"@angular/animations@8.2.14"})
+
+    mock_run_cmd.assert_called_once()
+    # This ensures that the skipped dependency is not downloaded
+    expected_npm_pack = [
+        "npm",
+        "pack",
+        "@angular-devkit/architect@0.803.26",
+        "rxjs@6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
+    ]
+
+    assert mock_run_cmd.call_args[0][0] == expected_npm_pack
+
+
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.execute_script")
 def test_finalize_nexus_for_js_request(mock_exec_script):
     password = general_js.finalize_nexus_for_js_request("cachito-npm-1", "cachito-npm-1")

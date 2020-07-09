@@ -2,6 +2,7 @@
 from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
+import os
 import re
 
 import flask
@@ -346,6 +347,65 @@ class RequestDependency(db.Model):
     __table_args__ = (db.UniqueConstraint("request_id", "dependency_id", "package_id"),)
 
 
+def _validate_request_package_configs(request_kwargs, pkg_managers_names):
+    """
+    Validate the "packages" parameter in a new request.
+
+    :param dict request_kwargs: the JSON parameters of the new request
+    :param list pkg_managers_names: the list of valid package manager names for the request
+    :raises ValidationError: if the "packages" parameter is invalid
+    """
+    # Validate the custom packages configuration. For example:
+    # {"packages": {"npm": [{"path": "client"}]}}
+    packages_configs = request_kwargs.get("packages", {})
+    if not isinstance(packages_configs, dict):
+        raise ValidationError('The "packages" parameter must be an object')
+
+    invalid_package_managers = packages_configs.keys() - set(pkg_managers_names)
+    if invalid_package_managers:
+        raise ValidationError(
+            'The following package managers in the "packages" object do not apply: '
+            + ", ".join(invalid_package_managers)
+        )
+
+    supported_packages_configs = {"npm"}
+    unsupported_packages_managers = packages_configs.keys() - supported_packages_configs
+    if unsupported_packages_managers:
+        raise ValidationError(
+            'The following package managers in the "packages" object are unsupported: '
+            + ", ".join(unsupported_packages_managers)
+        )
+
+    # Validate the values for each package manager configuration (e.g. packages.npm)
+    valid_package_config_keys = {"path"}
+    for pkg_manager, packages_config in packages_configs.items():
+        invalid_format_error = (
+            f'The value of "packages.{pkg_manager}" must be an array of objects with the following '
+            f'keys: {", ".join(valid_package_config_keys)}'
+        )
+        if not isinstance(packages_config, list):
+            raise ValidationError(invalid_format_error)
+
+        for package_config in packages_config:
+            if not isinstance(package_config, dict) or not package_config:
+                raise ValidationError(invalid_format_error)
+
+            invalid_keys = package_config.keys() - valid_package_config_keys
+            if invalid_keys:
+                raise ValidationError(invalid_format_error)
+
+            if not (
+                isinstance(package_config["path"], str)
+                and package_config["path"]
+                and not os.path.isabs(package_config["path"])
+                and os.pardir not in os.path.normpath(package_config["path"])
+            ):
+                raise ValidationError(
+                    f'The "path" values in the "packages.{pkg_manager}" value must be to a '
+                    "relative path in the source repository"
+                )
+
+
 class Request(db.Model):
     """A Cachito user request."""
 
@@ -435,7 +495,9 @@ class Request(db.Model):
         :rtype: int
         """
         return (
-            db.session.query(sqlalchemy.func.count(RequestDependency.dependency_id))
+            db.session.query(
+                sqlalchemy.func.count(sqlalchemy.distinct(RequestDependency.dependency_id))
+            )
             .filter(RequestDependency.request_id == self.id)
             .scalar()
         )
@@ -508,13 +570,21 @@ class Request(db.Model):
             rv["state_history"] = states
 
             package_to_deps = {}
+            # This is used to quickly see if a dependency has been added to the root "dependencies"
+            # array in the returned JSON. This uses a set instead of iterating through the
+            # "dependencies" array to avoid an O(n) operation for every dependency.
+            seen_dependencies = set()
             rv["dependencies"] = []
             for req_dep in self.request_dependencies:
                 dep_json = req_dep.dependency.to_json(
                     req_dep.replaced_dependency.to_json() if req_dep.replaced_dependency else None,
                     force_replaces=True,
                 )
-                rv["dependencies"].append(dep_json)
+                # Avoid duplicate dependencies in the root "dependencies" array
+                if req_dep.dependency.id not in seen_dependencies:
+                    rv["dependencies"].append(dep_json)
+                    seen_dependencies.add(req_dep.dependency.id)
+
                 package_to_deps.setdefault(req_dep.package.id, []).append(dep_json)
 
             rv["packages"] = [
@@ -540,7 +610,7 @@ class Request(db.Model):
         """
         # Validate all required parameters are present
         required_params = {"repo", "ref"}
-        optional_params = {"dependency_replacements", "flags", "pkg_managers", "user"}
+        optional_params = {"dependency_replacements", "flags", "packages", "pkg_managers", "user"}
 
         missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
@@ -572,6 +642,11 @@ class Request(db.Model):
 
         pkg_managers = PackageManager.get_pkg_managers(pkg_managers_names)
         request_kwargs["pkg_managers"] = pkg_managers
+
+        _validate_request_package_configs(request_kwargs, pkg_managers_names or [])
+        # Remove this from the request kwargs since it's not used as part of the creation of
+        # the request object
+        request_kwargs.pop("packages", None)
 
         flag_names = request_kwargs.pop("flags", None)
         if flag_names:
