@@ -40,6 +40,7 @@ package_table = sa.Table(
     sa.Column("id", sa.Integer(), primary_key=True),
     sa.Column("name", sa.String()),
     sa.Column("type", sa.String()),
+    sa.Column("version", sa.String()),
 )
 
 
@@ -70,6 +71,8 @@ def upgrade():
 def _upgrade_data():
     connection = op.get_bind()
     last_request_id = None
+    dummy_package_name = "cachito-migration-placeholder"
+    dummy_package_version = "0.0.0"
     for request_dep in connection.execute(
         request_dependency_table.select().order_by(request_dependency_table.c.request_id)
     ).fetchall():
@@ -95,11 +98,37 @@ def _upgrade_data():
         ).fetchone()
 
         if not package:
-            raise RuntimeError(
-                f"Couldn't find a package associated with the request {request_dep.request_id} and "
-                f"type {dependency.type}",
+            log.warning(
+                "Couldn't find a package associated with the request %d and type %s. Associating a "
+                "dummy package with the dependency.",
+                request_dep.request_id,
+                dependency.type,
             )
-            continue
+
+            package = connection.execute(
+                package_table.select()
+                .where(package_table.c.name == dummy_package_name)
+                .where(package_table.c.type == dependency.type)
+                .where(package_table.c.version == dummy_package_version)
+            ).fetchone()
+            if not package:
+                connection.execute(
+                    package_table.insert().values(
+                        name=dummy_package_name, type=dependency.type, version=dummy_package_version
+                    )
+                )
+                package = connection.execute(
+                    package_table.select()
+                    .where(package_table.c.name == dummy_package_name)
+                    .where(package_table.c.type == dependency.type)
+                    .where(package_table.c.version == dummy_package_version)
+                ).fetchone()
+
+            connection.execute(
+                request_package_table.insert().values(
+                    request_id=request_dep.request_id, package_id=package.id
+                )
+            )
 
         connection.execute(
             request_dependency_table.update()
