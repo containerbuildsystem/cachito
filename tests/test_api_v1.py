@@ -191,9 +191,8 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     )
 
 
-@mock.patch("cachito.web.api_v1.chain")
 def test_fetch_paginated_requests(
-    mock_chain, app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env
+    app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env
 ):
     sample_requests_count = 50
     repo_template = "https://github.com/release-engineering/retrodep{}.git"
