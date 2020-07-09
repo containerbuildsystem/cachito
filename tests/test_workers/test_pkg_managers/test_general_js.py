@@ -34,7 +34,8 @@ def test_download_dependencies(
     bundles_dir = tmpdir.mkdir("bundles")
     mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
     mock_gwc.return_value.cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
-    mock_td.return_value.__enter__.return_value = "/tmp/cachito-agfdsk"
+    mock_td_path = tmpdir.mkdir("cachito-agfdsk")
+    mock_td.return_value.__enter__.return_value = str(mock_td_path)
     mock_exists.return_value = nexus_ca_cert_exists
     mock_run_cmd.return_value = textwrap.dedent(
         """\
@@ -86,9 +87,10 @@ def test_download_dependencies(
     proxy_repo_url = npm.get_npm_proxy_repo_url(request_id)
     general_js.download_dependencies(request_id, deps, proxy_repo_url)
 
+    mock_npm_rc_path = str(mock_td_path.join(".npmrc"))
     if nexus_ca_cert_exists:
         mock_gawnf.assert_called_once_with(
-            "/tmp/cachito-agfdsk/.npmrc",
+            mock_npm_rc_path,
             "http://nexus:8081/repository/cachito-npm-1/",
             "cachito",
             "cachito",
@@ -96,7 +98,7 @@ def test_download_dependencies(
         )
     else:
         mock_gawnf.assert_called_once_with(
-            "/tmp/cachito-agfdsk/.npmrc",
+            mock_npm_rc_path,
             "http://nexus:8081/repository/cachito-npm-1/",
             "cachito",
             "cachito",
@@ -113,8 +115,8 @@ def test_download_dependencies(
     ]
     assert mock_run_cmd.call_args[0][0] == expected_npm_pack
     run_cmd_env_vars = mock_run_cmd.call_args[0][1]["env"]
-    assert run_cmd_env_vars["NPM_CONFIG_CACHE"] == "/tmp/cachito-agfdsk/cache"
-    assert run_cmd_env_vars["NPM_CONFIG_USERCONFIG"] == "/tmp/cachito-agfdsk/.npmrc"
+    assert run_cmd_env_vars["NPM_CONFIG_CACHE"] == str(mock_td_path.join("cache"))
+    assert run_cmd_env_vars["NPM_CONFIG_USERCONFIG"] == mock_npm_rc_path
     assert mock_run_cmd.call_args[0][1]["cwd"] == f"{npm_dir_path}"
     dep1_source_path = RequestBundleDir(f"{npm_dir_path}/angular-devkit-architect-0.803.26.tgz")
     dep1_dest_path = RequestBundleDir(
