@@ -95,9 +95,10 @@ def _upgrade_data():
         ).fetchone()
 
         if not package:
-            raise RuntimeError(
-                f"Couldn't find a package associated with the request {request_dep.request_id} and "
-                f"type {dependency.type}",
+            log.warning(
+                "Couldn't find a package associated with the request %d and type %s",
+                request_dep.request_id,
+                dependency.type,
             )
             continue
 
