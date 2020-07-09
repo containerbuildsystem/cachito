@@ -92,7 +92,7 @@ def test_create_and_fetch_request(
         assert created_request["user"] == "tbrady@DOMAIN.LOCAL"
         assert created_request["submitted_by"] is None
 
-    error_callback = failed_request_callback.s(1)
+    error_callback = failed_request_callback.s(created_request["id"])
     expected = [
         fetch_app_source.s(
             "https://github.com/release-engineering/retrodep.git",
@@ -101,13 +101,17 @@ def test_create_and_fetch_request(
         ).on_error(error_callback)
     ]
     if "gomod" in expected_pkg_managers:
-        expected.append(fetch_gomod_source.si(1, dependency_replacements).on_error(error_callback))
+        expected.append(
+            fetch_gomod_source.si(created_request["id"], dependency_replacements).on_error(
+                error_callback
+            )
+        )
     if "npm" in expected_pkg_managers:
-        expected.append(fetch_npm_source.si(1).on_error(error_callback))
+        expected.append(fetch_npm_source.si(created_request["id"], {}).on_error(error_callback))
     expected.extend(
         [
-            create_bundle_archive.si(1).on_error(error_callback),
-            set_request_state.si(1, "complete", "Completed successfully"),
+            create_bundle_archive.si(created_request["id"]).on_error(error_callback),
+            set_request_state.si(created_request["id"], "complete", "Completed successfully"),
         ]
     )
     mock_chain.assert_called_once_with(expected)
@@ -120,6 +124,35 @@ def test_create_and_fetch_request(
     assert created_request == fetched_request
     assert fetched_request["state"] == "in_progress"
     assert fetched_request["state_reason"] == "The request was initiated"
+
+
+@mock.patch("cachito.web.api_v1.chain")
+def test_create_and_fetch_request_package_configs(
+    mock_chain, app, auth_env, client, db,
+):
+    package_value = {"npm": [{"path": "client"}, {"path": "proxy"}]}
+    data = {
+        "repo": "https://github.com/release-engineering/web-terminal.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "packages": package_value,
+        "pkg_managers": ["npm"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 201
+
+    error_callback = failed_request_callback.s(1)
+    expected = [
+        fetch_app_source.s(
+            "https://github.com/release-engineering/web-terminal.git",
+            "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            1,
+        ).on_error(error_callback),
+        fetch_npm_source.si(1, package_value["npm"]).on_error(error_callback),
+        create_bundle_archive.si(1).on_error(error_callback),
+        set_request_state.si(1, "complete", "Completed successfully"),
+    ]
+    mock_chain.assert_called_once_with(expected)
 
 
 @mock.patch("cachito.web.api_v1.chain")
@@ -247,6 +280,55 @@ def test_fetch_paginated_requests(
     assert len(fetched_requests[0]["dependencies"]) == 14
     assert len(fetched_requests[0]["packages"]) == 1
     assert type(fetched_requests[0]["dependencies"]) == list
+
+
+def test_fetch_request_multiple_packages(app, auth_env, client, db, worker_auth_env):
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=auth_env):
+        data = {
+            "repo": "https://github.com/release-engineering/console-ui.git",
+            "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            "pkg_managers": ["npm"],
+        }
+        request = Request.from_json(data)
+        db.session.add(request)
+    db.session.commit()
+
+    payload = {
+        "dependencies": [
+            {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
+            {
+                "dev": True,
+                "name": "safe-regex",
+                "replaces": None,
+                "type": "npm",
+                "version": "1.1.0",
+            },
+        ],
+        "package": {"name": "client", "type": "npm", "version": "1.0.0"},
+    }
+    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    payload = {
+        "dependencies": [
+            {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
+            {"dev": False, "name": "react", "replaces": None, "type": "npm", "version": "16.13.1"},
+        ],
+        "package": {"name": "proxy", "type": "npm", "version": "1.0.0"},
+    }
+    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
+    # Test the request in the non-verbose format
+    rv = client.get("/api/v1/requests")
+    assert rv.status_code == 200
+    assert rv.json["items"][0]["dependencies"] == 3
+    assert rv.json["items"][0]["packages"] == 2
+
+    # Test the request in the verbose format
+    rv = client.get("/api/v1/requests/1")
+    assert rv.status_code == 200
+    assert len(rv.json["dependencies"]) == 3
+    assert len(rv.json["packages"][0]["dependencies"]) == 2
+    assert len(rv.json["packages"][1]["dependencies"]) == 2
 
 
 def test_create_request_filter_state(app, auth_env, client, db):
@@ -403,6 +485,82 @@ def test_create_request_invalid_dependency_replacement(
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "dependency_replacements": dependency_replacements,
         "pkg_managers": ["npm"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 400
+    assert rv.json["error"] == error_msg
+
+
+@pytest.mark.parametrize(
+    "packages, pkg_managers, error_msg",
+    (
+        (["npm"], ["npm"], 'The "packages" parameter must be an object'),
+        (
+            {"gomod": [{"path": "client"}]},
+            ["npm"],
+            'The following package managers in the "packages" object do not apply: gomod',
+        ),
+        (
+            {"gomod": [{"path": "client"}]},
+            ["gomod"],
+            'The following package managers in the "packages" object are unsupported: gomod',
+        ),
+        (
+            {"npm": {"path": "client"}},
+            ["npm"],
+            'The value of "packages.npm" must be an array of objects with the following keys: path',
+        ),
+        (
+            {"npm": ["path"]},
+            ["npm"],
+            'The value of "packages.npm" must be an array of objects with the following keys: path',
+        ),
+        (
+            {"npm": [{}]},
+            ["npm"],
+            'The value of "packages.npm" must be an array of objects with the following keys: path',
+        ),
+        (
+            {"npm": [{"path": 1}]},
+            ["npm"],
+            (
+                'The "path" values in the "packages.npm" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"npm": [{"path": ""}]},
+            ["npm"],
+            (
+                'The "path" values in the "packages.npm" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"npm": [{"path": "/etc/httpd"}]},
+            ["npm"],
+            (
+                'The "path" values in the "packages.npm" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"npm": [{"path": "../../../../etc/httpd"}]},
+            ["npm"],
+            (
+                'The "path" values in the "packages.npm" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+    ),
+)
+def test_create_request_invalid_packages(packages, pkg_managers, error_msg, auth_env, client, db):
+    data = {
+        "repo": "https://github.com/release-engineering/web-terminal.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "packages": packages,
+        "pkg_managers": pkg_managers,
     }
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)

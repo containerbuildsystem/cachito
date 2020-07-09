@@ -586,6 +586,16 @@ components:
           items:
             type: string
             example: some_flag
+        packages:
+          type: object
+          items:
+            type: array
+            items:
+              type: object
+          example:
+            npm:
+            - path: client
+            - path: legacy/client
         pkg_managers:
           type: array
           items:

@@ -753,14 +753,30 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
 @mock.patch("cachito.workers.pkg_managers.npm.download_dependencies")
 def test_resolve_npm(mock_dd, mock_gpad, mock_exists, shrink_wrap, package_lock, package_and_deps):
     package_json = True
-    if shrink_wrap:
-        mock_exists.side_effect = [shrink_wrap, package_json]
-    else:
-        mock_exists.side_effect = [shrink_wrap, package_lock, package_json]
-    mock_gpad.return_value = package_and_deps
+    mock_dd.return_value = {
+        "@angular-devkit/architect@0.803.26",
+        "@angular/animations@8.2.14",
+        "rxjs@6.4.0",
+        "rxjs@6.5.5",
+        "tslib@1.11.1",
+    }
     # Note that the dictionary returned by the get_package_and_deps function is modified as part of
     # the resolve_npm function. This is why a deep copy is necessary.
     expected_deps_info = copy.deepcopy(package_and_deps)
+    expected_deps_info["downloaded_deps"] = {
+        "@angular-devkit/architect@0.803.26",
+        "@angular/animations@8.2.14",
+        "rxjs@6.4.0",
+        "rxjs@6.5.5",
+        "tslib@1.11.1",
+    }
+    if shrink_wrap:
+        expected_deps_info["lock_file_name"] = "npm-shrinkwrap.json"
+        mock_exists.side_effect = [shrink_wrap, package_json]
+    else:
+        expected_deps_info["lock_file_name"] = "package-lock.json"
+        mock_exists.side_effect = [shrink_wrap, package_lock, package_json]
+    mock_gpad.return_value = package_and_deps
     # Remove the "bundled" key as does the resolve_npm function to get expected returned
     # dependencies
     for dep in expected_deps_info["deps"]:
@@ -779,7 +795,7 @@ def test_resolve_npm(mock_dd, mock_gpad, mock_exists, shrink_wrap, package_lock,
     mock_gpad.assert_called_once_with(package_json_path, lock_file_path)
     # We can't verify the actual correct deps value was passed in since the deps that were passed
     # in were mutated and mock does not keep a deepcopy of the function arguments.
-    mock_dd.assert_called_once_with(1, mock.ANY, mock.ANY)
+    mock_dd.assert_called_once_with(1, mock.ANY, mock.ANY, mock.ANY)
 
 
 @mock.patch("cachito.workers.pkg_managers.npm.os.path.exists")

@@ -4,7 +4,52 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
+from cachito.paths import RequestBundleDir
 from cachito.workers.tasks import npm
+
+
+def test_verify_npm_files(tmpdir):
+    app_dir = tmpdir.mkdir("temp").mkdir("1").mkdir("app")
+    app_dir.join("package.json").write(b"{}")
+    app_dir.join("package-lock.json").write(b"{}")
+    bundle_dir = RequestBundleDir(1, str(tmpdir))
+
+    npm._verify_npm_files(bundle_dir, ["."])
+
+
+def test_verify_npm_files_no_lock_file(tmpdir):
+    app_dir = tmpdir.mkdir("temp").mkdir("1").mkdir("app").mkdir("client")
+    app_dir.join("package.json").write(b"{}")
+    bundle_dir = RequestBundleDir(1, str(tmpdir))
+
+    expected = (
+        "The client/npm-shrinkwrap.json or client/package-lock.json file must be present for the "
+        "npm package manager"
+    )
+    with pytest.raises(CachitoError, match=expected):
+        npm._verify_npm_files(bundle_dir, ["client"])
+
+
+def test_verify_npm_files_no_package_json(tmpdir):
+    app_dir = tmpdir.mkdir("temp").mkdir("1").mkdir("app").mkdir("client")
+    app_dir.join("package-lock.json").write(b"{}")
+    bundle_dir = RequestBundleDir(1, str(tmpdir))
+
+    expected = "The client/package.json file must be present for the npm package manager"
+    with pytest.raises(CachitoError, match=expected):
+        npm._verify_npm_files(bundle_dir, ["client"])
+
+
+def test_verify_npm_files_node_modules(tmpdir):
+    app_dir = tmpdir.mkdir("temp").mkdir("1").mkdir("app").mkdir("client")
+    app_dir.join("package.json").write(b"{}")
+    app_dir.join("package-lock.json").write(b"{}")
+    app_dir.mkdir("node_modules")
+    bundle_dir = RequestBundleDir(1, str(tmpdir))
+
+    expected = "The client/node_modules directory cannot be present in the source repository"
+    with pytest.raises(CachitoError, match=expected):
+        npm._verify_npm_files(bundle_dir, ["client"])
 
 
 @mock.patch("cachito.workers.tasks.npm.nexus.execute_script")
@@ -21,6 +66,7 @@ def test_cleanup_npm_request(mock_exec_script):
 @pytest.mark.parametrize("lock_file", (None, {"dependencies": []}))
 @pytest.mark.parametrize("ca_file", (None, "some CA file contents"))
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
+@mock.patch("cachito.workers.tasks.npm._verify_npm_files")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
@@ -40,18 +86,12 @@ def test_fetch_npm_source(
     mock_rn,
     mock_pnfjr,
     mock_srs,
+    mock_vnf,
     mock_rbd,
     ca_file,
     lock_file,
     package_json,
 ):
-    mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = False
-    mock_rbd.return_value.npm_package_lock_file.exists.return_value = True
-    # The mock package-lock.json Path object must act like one for os.path functions
-    mock_rbd.return_value.npm_package_lock_file.__str__.return_value = "/path/to/package-lock.json"
-    mock_rbd.return_value.npm_package_file.exists.return_value = True
-    # The node_modules directory doesn't exist
-    mock_rbd.return_value.npm_deps_dir.joinpath.return_value.exists.return_value = False
     request_id = 6
     request = {"id": request_id}
     mock_srs.return_value = request
@@ -62,7 +102,9 @@ def test_fetch_npm_source(
     ]
     mock_rn.return_value = {
         "deps": deps,
+        "downloaded_deps": {"@angular/animations@8.2.14", "tslib@1.11.1"},
         "lock_file": lock_file,
+        "lock_file_name": "package-lock.json",
         "package": package,
         "package.json": package_json,
     }
@@ -74,16 +116,17 @@ def test_fetch_npm_source(
 
     npm.fetch_npm_source(request_id)
 
+    mock_vnf.assert_called_once_with(mock_rbd.return_value, ["."])
     assert mock_srs.call_count == 3
     mock_pnfjr.assert_called_once_with("cachito-npm-6")
-    lock_file_path = str(mock_rbd().source_dir)
-    mock_rn.assert_called_once_with(lock_file_path, request)
+    lock_file_path = str(mock_rbd().app_subpath(".").source_dir)
+    mock_rn.assert_called_once_with(lock_file_path, request, skip_deps=set())
     if ca_file:
         mock_gnc.assert_called_once_with(
             "http://nexus:8081/repository/cachito-npm-6/",
             username,
             password,
-            custom_ca_path="./registry-ca.pem",
+            custom_ca_path="registry-ca.pem",
         )
     else:
         mock_gnc.assert_called_once_with(
@@ -91,19 +134,6 @@ def test_fetch_npm_source(
         )
 
     expected_config_files = []
-    if ca_file:
-        expected_config_files.append(
-            {
-                "content": "c29tZSBDQSBmaWxlIGNvbnRlbnRz",
-                "path": "app/registry-ca.pem",
-                "type": "base64",
-            }
-        )
-
-    expected_config_files.append(
-        {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"}
-    )
-
     if package_json:
         expected_config_files.append(
             {
@@ -122,6 +152,18 @@ def test_fetch_npm_source(
             }
         )
 
+    if ca_file:
+        expected_config_files.append(
+            {
+                "content": "c29tZSBDQSBmaWxlIGNvbnRlbnRz",
+                "path": "app/registry-ca.pem",
+                "type": "base64",
+            }
+        )
+
+    expected_config_files.append(
+        {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"}
+    )
     mock_urwcf.assert_called_once_with(request_id, expected_config_files)
     mock_urwp.assert_called_once_with(
         request_id,
@@ -135,50 +177,140 @@ def test_fetch_npm_source(
 
 
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
-def test_fetch_npm_source_no_lock(mock_rbd):
-    mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = False
-    mock_rbd.return_value.npm_package_lock_file.exists.return_value = False
-
-    expected = (
-        "The npm-shrinkwrap.json or package-lock.json file must be present for the npm package "
-        "manager"
-    )
-    with pytest.raises(CachitoError, match=expected):
-        npm.fetch_npm_source(6)
-
-
-@mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
-def test_fetch_npm_source_no_package_json(mock_rbd):
-    mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = True
-    mock_rbd.return_value.npm_package_lock_file.exists.return_value = True
-    # The node_modules directory doesn't exist
-    mock_rbd.return_value.npm_deps_dir.joinpath.return_value.exists.return_value = False
-    mock_rbd.return_value.npm_package_file.exists.return_value = False
-
-    expected = "The package.json file is not present in the source repository"
-    with pytest.raises(CachitoError, match=expected):
-        npm.fetch_npm_source(6)
-
-
-@mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
-def test_fetch_npm_source_node_modules_exists(mock_rbd):
-    mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = False
-    mock_rbd.return_value.npm_package_lock_file.exists.return_value = True
-    mock_rbd.return_value.npm_deps_dir.joinpath.return_value.exists.return_value = True
-
-    expected = "The node_modules directory cannot be present in the source repository"
-    with pytest.raises(CachitoError, match=expected):
-        npm.fetch_npm_source(6)
-
-
-@mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
+@mock.patch("cachito.workers.tasks.npm._verify_npm_files")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
-def test_fetch_npm_source_resolve_fails(mock_rn, mock_pnfjr, mock_srs, mock_rbd):
-    mock_rbd.return_value.npm_shrinkwrap_file.exists.return_value = False
-    mock_rbd.return_value.npm_package_lock_file.exists.return_value = True
-    mock_rbd.return_value.npm_deps_dir.joinpath.return_value.exists.return_value = False
+@mock.patch("cachito.workers.tasks.npm.finalize_nexus_for_js_request")
+@mock.patch("cachito.workers.tasks.npm.nexus.get_ca_cert")
+@mock.patch("cachito.workers.tasks.npm.generate_npmrc_content")
+@mock.patch("cachito.workers.tasks.npm.update_request_with_config_files")
+@mock.patch("cachito.workers.tasks.npm.update_request_with_package")
+@mock.patch("cachito.workers.tasks.npm.update_request_with_deps")
+def test_fetch_npm_source_multiple_paths(
+    mock_urwd,
+    mock_urwp,
+    mock_urwcf,
+    mock_gnc,
+    mock_gcc,
+    mock_fnfjr,
+    mock_rn,
+    mock_pnfjr,
+    mock_srs,
+    mock_vnf,
+    mock_rbd,
+):
+    request_id = 6
+    request = {"id": request_id}
+    mock_srs.return_value = request
+    package = {"name": "han-solo", "type": "npm", "version": "5.0.0"}
+    package_two = {"name": "han-solo", "type": "npm", "version": "6.0.0"}
+    deps = [
+        {"dev": False, "name": "@angular/animations", "type": "npm", "version": "8.2.14"},
+        {"dev": False, "name": "tslib", "type": "npm", "version": "1.11.1"},
+    ]
+    # The package.json and package-lock.json mock values are not actually valid,
+    # they just need to be valid JSON
+    mock_rn.side_effect = [
+        {
+            "deps": deps,
+            "downloaded_deps": {"@angular/animations@8.2.14", "tslib@1.11.1"},
+            "lock_file": {"dependencies": []},
+            "lock_file_name": "package-lock.json",
+            "package": package,
+            "package.json": {"name": "han-solo", "version": "5.0.0"},
+        },
+        {
+            "deps": deps,
+            "downloaded_deps": {"@angular/animations@8.2.14", "tslib@1.11.1"},
+            "lock_file": {"dependencies": []},
+            "lock_file_name": "package-lock.json",
+            "package": package_two,
+            "package.json": {"name": "han-solo", "version": "6.0.0"},
+        },
+    ]
+    ca_file = "some CA file contents"
+    mock_gcc.return_value = ca_file
+    mock_gnc.return_value = "some npmrc"
+
+    npm.fetch_npm_source(request_id, [{"path": "old-client"}, {"path": "new-client/client"}])
+
+    mock_vnf.assert_called_once_with(mock_rbd.return_value, ["old-client", "new-client/client"])
+    mock_pnfjr.assert_called_once()
+    mock_rn.assert_has_calls(
+        (
+            mock.call(
+                str(mock_rbd().app_subpath("old-client").source_dir), request, skip_deps=set()
+            ),
+            mock.call(
+                str(mock_rbd().app_subpath("new-client/client").source_dir),
+                request,
+                skip_deps={"@angular/animations@8.2.14", "tslib@1.11.1"},
+            ),
+        )
+    )
+    mock_gnc.assert_has_calls(
+        (
+            mock.call(mock.ANY, mock.ANY, mock.ANY, custom_ca_path="../registry-ca.pem"),
+            mock.call(mock.ANY, mock.ANY, mock.ANY, custom_ca_path="../../registry-ca.pem"),
+        )
+    )
+
+    expected_config_files = [
+        {
+            "content": "ewogICJuYW1lIjogImhhbi1zb2xvIiwKICAidmVyc2lvbiI6ICI1LjAuMCIKfQ==",
+            "path": "app/old-client/package.json",
+            "type": "base64",
+        },
+        {
+            "content": "ewogICJkZXBlbmRlbmNpZXMiOiBbXQp9",
+            "path": "app/old-client/package-lock.json",
+            "type": "base64",
+        },
+        {
+            "content": "ewogICJuYW1lIjogImhhbi1zb2xvIiwKICAidmVyc2lvbiI6ICI2LjAuMCIKfQ==",
+            "path": "app/new-client/client/package.json",
+            "type": "base64",
+        },
+        {
+            "content": "ewogICJkZXBlbmRlbmNpZXMiOiBbXQp9",
+            "path": "app/new-client/client/package-lock.json",
+            "type": "base64",
+        },
+        {
+            "content": "c29tZSBDQSBmaWxlIGNvbnRlbnRz",
+            "path": "app/registry-ca.pem",
+            "type": "base64",
+        },
+        {"content": "c29tZSBucG1yYw==", "path": "app/old-client/.npmrc", "type": "base64"},
+        {"content": "c29tZSBucG1yYw==", "path": "app/new-client/client/.npmrc", "type": "base64"},
+    ]
+
+    mock_urwcf.assert_called_once_with(request_id, expected_config_files)
+    mock_urwp.assert_has_calls(
+        (
+            mock.call(
+                request_id,
+                package,
+                {
+                    "CHROMEDRIVER_SKIP_DOWNLOAD": {"kind": "literal", "value": "true"},
+                    "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"kind": "literal", "value": "true"},
+                },
+            ),
+            mock.call(request_id, package_two, None),
+        )
+    )
+    mock_urwd.assert_has_calls(
+        (mock.call(request_id, package, deps), mock.call(request_id, package_two, deps))
+    )
+
+
+@mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
+@mock.patch("cachito.workers.tasks.npm._verify_npm_files")
+@mock.patch("cachito.workers.tasks.npm.set_request_state")
+@mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
+@mock.patch("cachito.workers.tasks.npm.resolve_npm")
+def test_fetch_npm_source_resolve_fails(mock_rn, mock_pnfjr, mock_srs, mock_vnf, mock_rbd):
     request_id = 6
     request = {"id": request_id}
     mock_srs.return_value = request

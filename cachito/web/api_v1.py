@@ -210,6 +210,7 @@ def create_request():
         pkg_manager_to_dep_replacements.setdefault(type_, [])
         pkg_manager_to_dep_replacements[type_].append(dependency_replacement)
 
+    package_configs = payload.get("packages", {})
     if "gomod" in pkg_manager_names:
         chain_tasks.append(
             tasks.fetch_gomod_source.si(
@@ -222,7 +223,10 @@ def create_request():
                 "Dependency replacements are not yet supported for the npm package manager"
             )
 
-        chain_tasks.append(tasks.fetch_npm_source.si(request.id).on_error(error_callback))
+        npm_package_configs = package_configs.get("npm", {})
+        chain_tasks.append(
+            tasks.fetch_npm_source.si(request.id, npm_package_configs).on_error(error_callback)
+        )
 
     chain_tasks.extend(
         [
