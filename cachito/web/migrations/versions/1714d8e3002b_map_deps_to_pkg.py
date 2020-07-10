@@ -68,74 +68,95 @@ def upgrade():
         )
 
 
+def _update_request_deps(connection, request_id, pkg_id_to_dep_ids):
+    for pkg_id, dep_ids in pkg_id_to_dep_ids.items():
+        connection.execute(
+            request_dependency_table.update()
+            .where(request_dependency_table.c.request_id == request_id)
+            .where(request_dependency_table.c.dependency_id.in_(dep_ids))
+            .values(package_id=pkg_id)
+        )
+
+
 def _upgrade_data():
     connection = op.get_bind()
     last_request_id = None
     dummy_package_name = "cachito-migration-placeholder"
     dummy_package_version = "0.0.0"
+    pkg_type_to_pkg = {}
+    pkg_id_to_dep_ids = {}
     for request_dep in connection.execute(
         request_dependency_table.select().order_by(request_dependency_table.c.request_id)
     ).fetchall():
         if last_request_id != request_dep.request_id:
+            if last_request_id is not None:
+                # When we get to the next request, update the entries of the previous request
+                _update_request_deps(connection, last_request_id, pkg_id_to_dep_ids)
             last_request_id = request_dep.request_id
+            pkg_type_to_pkg = {}
+            pkg_id_to_dep_ids = {}
             log.info(
                 "Associating packages with the dependencies for request %d", request_dep.request_id
             )
 
         # Note that a package can be a top-level package or dependency
-        dependency = connection.execute(
-            package_table.select().where(package_table.c.id == request_dep.dependency_id)
-        ).fetchone()
-        package = connection.execute(
-            package_table.select()
-            .select_from(
-                package_table.join(
-                    request_package_table, package_table.c.id == request_package_table.c.package_id
+        dependency_type = connection.execute(
+            sa.select([package_table.c.type]).where(package_table.c.id == request_dep.dependency_id)
+        ).scalar()
+        package = pkg_type_to_pkg.get(dependency_type)
+
+        if not package:
+            package = connection.execute(
+                package_table.select()
+                .select_from(
+                    package_table.join(
+                        request_package_table,
+                        package_table.c.id == request_package_table.c.package_id,
+                    )
                 )
-            )
-            .where(request_package_table.c.request_id == request_dep.request_id)
-            .where(package_table.c.type == dependency.type)
-        ).fetchone()
+                .where(request_package_table.c.request_id == request_dep.request_id)
+                .where(package_table.c.type == dependency_type)
+            ).fetchone()
+            pkg_type_to_pkg[dependency_type] = package
 
         if not package:
             log.warning(
                 "Couldn't find a package associated with the request %d and type %s. Associating a "
-                "dummy package with the dependency.",
+                "dummy package with the request.",
                 request_dep.request_id,
-                dependency.type,
+                dependency_type,
             )
 
             package = connection.execute(
                 package_table.select()
                 .where(package_table.c.name == dummy_package_name)
-                .where(package_table.c.type == dependency.type)
+                .where(package_table.c.type == dependency_type)
                 .where(package_table.c.version == dummy_package_version)
             ).fetchone()
             if not package:
                 connection.execute(
                     package_table.insert().values(
-                        name=dummy_package_name, type=dependency.type, version=dummy_package_version
+                        name=dummy_package_name, type=dependency_type, version=dummy_package_version
                     )
                 )
                 package = connection.execute(
                     package_table.select()
                     .where(package_table.c.name == dummy_package_name)
-                    .where(package_table.c.type == dependency.type)
+                    .where(package_table.c.type == dependency_type)
                     .where(package_table.c.version == dummy_package_version)
                 ).fetchone()
 
+            pkg_type_to_pkg[dependency_type] = package
             connection.execute(
                 request_package_table.insert().values(
                     request_id=request_dep.request_id, package_id=package.id
                 )
             )
 
-        connection.execute(
-            request_dependency_table.update()
-            .where(request_dependency_table.c.request_id == request_dep.request_id)
-            .where(request_dependency_table.c.dependency_id == request_dep.dependency_id)
-            .values(package_id=package.id)
-        )
+        pkg_id_to_dep_ids.setdefault(package.id, set()).add(request_dep.dependency_id)
+
+    # Update the entries of the last request
+    _update_request_deps(connection, last_request_id, pkg_id_to_dep_ids)
 
 
 def downgrade():
