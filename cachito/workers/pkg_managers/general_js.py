@@ -155,11 +155,7 @@ def finalize_nexus_for_js_request(repo_name, username):
     """
     # Generate a 24-32 character (each byte is two hex characters) password
     password = secrets.token_hex(random.randint(12, 16))
-    payload = {
-        "password": password,
-        "repository_name": repo_name,
-        "username": username,
-    }
+    payload = {"password": password, "repository_name": repo_name, "username": username}
     script_name = "js_after_content_staged"
     try:
         nexus.execute_script(script_name, payload)
