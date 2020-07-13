@@ -97,8 +97,10 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
         counter = 0
         batch_size = get_worker_config().cachito_js_download_batch_size
         for dep in deps:
+            external_dep_version = None
             if dep.get("version_in_nexus"):
                 version = dep["version_in_nexus"]
+                external_dep_version = dep["version"]
             else:
                 version = dep["version"]
 
@@ -118,21 +120,44 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
 
             if counter % batch_size == 0:
                 deps_batches.append([])
-            deps_batches[-1].append(dep_identifier)
+            deps_batches[-1].append((dep_identifier, external_dep_version))
             downloaded_deps.add(dep_identifier)
             counter += 1
 
         for dep_batch in deps_batches:
-            log.debug(f"Downloading the following npm dependencies: {', '.join(dep_batch)}")
-            npm_pack_args = ["npm", "pack"] + dep_batch
+            # Create a list of dependencies to be downloaded. Excluding 'external_dep_version'
+            # from the list of tuples
+            dep_batch_download = [i[0] for i in dep_batch]
+            log.debug(
+                f"Downloading the following npm dependencies: {', '.join(dep_batch_download)}"
+            )
+            npm_pack_args = ["npm", "pack"] + dep_batch_download
             output = run_cmd(npm_pack_args, run_params, "Failed to download the npm dependencies")
 
             # Move dependencies to their respective folders
             # Iterate through the tuples made of dependency tarball and dep_identifier
-            # e.g. ('angular-animations-8.2.0.tgz', '@angular/animations@8.2.0')
+            # e.g. ('ab-2.10.2-external-sha512-ab.tar.gz', ('ab@2.10.2-external-sha512-ab',
+            # 'https://github.com/ab/2.10.2.tar.gz'))
             for dep_pair in list(zip(output.split("\n"), dep_batch)):
-                tarball = dep_pair[0]  # e.g. angular-animations-8.2.0.tgz
-                dir_path = dep_pair[1].rsplit("@", 1)[0]  # e.g. @angular/animations
+                tarball = dep_pair[0]  # e.g. ab-2.10.2-external-sha512-ab.tar.gz
+                dep_indentifer = dep_pair[1][0]  # ab@2.10.2-external-sha512-ab
+                dir_path = dep_indentifer.rsplit("@", 1)[0]  # ab
+                external_dep_version = dep_pair[1][1]  # https://github.com/ab/2.10.2.tar.gz
+
+                # In case of external dependencies, create additional intermediate
+                # parent e.g. github/<org>/<repo> or external-<repo>
+                if external_dep_version:
+                    known_git_host_match = re.match(
+                        r"^(?P<host>.+)(?::)(?!//)(?P<repo_path>.+)(?:#.+)$", external_dep_version
+                    )
+                    if known_git_host_match:
+                        # This means external_dep_version is in the format of
+                        # <git-host>:<namespace>/<repo>#<commit>
+                        groups = known_git_host_match.groupdict()
+                        dir_path = os.path.join(groups["host"], *groups["repo_path"].split("/"))
+                    else:
+                        dir_path = f"external-{dir_path}"
+
                 # Create the target directory for the dependency
                 dep_dir = bundle_dir.npm_deps_dir.joinpath(*dir_path.split("/", 1))
                 dep_dir.mkdir(exist_ok=True, parents=True)
