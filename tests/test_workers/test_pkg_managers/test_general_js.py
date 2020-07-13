@@ -42,6 +42,7 @@ def test_download_dependencies(
         angular-devkit-architect-0.803.26.tgz
         angular-animations-8.2.14.tgz
         rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz
+        exsp-2.10.2-external-sha512-abcdefg.tar.gz
         """
     )
     deps = [
@@ -80,6 +81,13 @@ def test_download_dependencies(
             "version": "file:../jsplumb-2.10.2.tgz",
             "version_in_nexus": None,
         },
+        {
+            "bundled": False,
+            "dev": False,
+            "name": "exsp",
+            "version": "https://github.com/exsp/exsp/archive/2.10.2.tar.gz",
+            "version_in_nexus": "2.10.2-external-sha512-abcdefg",
+        },
     ]
     request_id = 1
     request_bundle_dir = bundles_dir.mkdir("temp").mkdir(str(request_id))
@@ -112,6 +120,7 @@ def test_download_dependencies(
         "@angular-devkit/architect@0.803.26",
         "@angular/animations@8.2.14",
         "rxjs@6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
+        "exsp@2.10.2-external-sha512-abcdefg",
     ]
     assert mock_run_cmd.call_args[0][0] == expected_npm_pack
     run_cmd_env_vars = mock_run_cmd.call_args[0][1]["env"]
@@ -130,14 +139,21 @@ def test_download_dependencies(
         f"{npm_dir_path}/rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz"
     )
     dep3_dest_path = RequestBundleDir(
-        f"{npm_dir_path}/rxjs/rxjs-6.5.5-external-gitcommit-"
+        f"{npm_dir_path}/github/ReactiveX/rxjs/rxjs-6.5.5-external-gitcommit-"
         "78032157f5c1655436829017bbda787565b48c30.tgz"
+    )
+    dep4_source_path = RequestBundleDir(
+        f"{npm_dir_path}/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
+    )
+    dep4_dest_path = RequestBundleDir(
+        f"{npm_dir_path}/external-exsp/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
     )
     mock_move.assert_has_calls(
         [
             mock.call(dep1_source_path, dep1_dest_path),
             mock.call(dep2_source_path, dep2_dest_path),
             mock.call(dep3_source_path, dep3_dest_path),
+            mock.call(dep4_source_path, dep4_dest_path),
         ]
     )
 
