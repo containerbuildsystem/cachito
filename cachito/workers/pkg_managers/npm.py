@@ -300,12 +300,7 @@ def get_package_and_deps(package_json_path, package_lock_path):
     # Convert the name_to_deps mapping to a list now that it's fully populated
     deps = [dep_info for deps_info in name_to_deps.values() for dep_info in deps_info]
 
-    rv = {
-        "deps": deps,
-        "lock_file": None,
-        "package": package,
-        "package.json": None,
-    }
+    rv = {"deps": deps, "lock_file": None, "package": package, "package.json": None}
 
     # If top level replacements are returned, the package.json may need to be updated to use
     # the replaced dependencies in the lock file. If these updates don't occur, running
