@@ -437,12 +437,15 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
         mock_unrd.assert_called_once_with(
             "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
             "-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+            True,
         )
 
 
+@pytest.mark.parametrize("exists", (False, True))
 @mock.patch("cachito.workers.pkg_managers.npm.get_npm_component_info_from_nexus")
 @mock.patch("cachito.workers.pkg_managers.npm.convert_hex_sha512_to_npm")
-def test_convert_to_nexus_hosted_http(mock_chstn, mock_gncifn):
+@mock.patch("cachito.workers.pkg_managers.npm.upload_non_registry_dependency")
+def test_convert_to_nexus_hosted_http(mock_unrd, mock_chstn, mock_gncifn, exists):
     checksum = (
         "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bfaac8e48f344"
         "dc650c8df0f8182c0271ed9fa233aa32c329839"
@@ -463,7 +466,10 @@ def test_convert_to_nexus_hosted_http(mock_chstn, mock_gncifn):
             "b5507481408832bfaac8e48f344"
         ),
     }
-    mock_gncifn.return_value = nexus_component_info
+    if exists:
+        mock_gncifn.return_value = nexus_component_info
+    else:
+        mock_gncifn.side_effect = [None, nexus_component_info]
 
     dep_name = "rxjs"
     dep_info = {
@@ -492,15 +498,27 @@ def test_convert_to_nexus_hosted_http(mock_chstn, mock_gncifn):
             "aa8342b5507481408832bfaac8e48f344"
         ),
     }
-    mock_gncifn.assert_called_once_with(
-        "rxjs",
-        (
-            "*-external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507"
-            "481408832bfaac8e48f344dc650c8df0f8182c0271ed9fa233aa32c329839"
-        ),
+
+    suffix = (
+        "-external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5"
+        "507481408832bfaac8e48f344dc650c8df0f8182c0271ed9fa233aa32c329839"
     )
     # The hash should not have been recomputed for an HTTP dependency
     mock_chstn.assert_not_called()
+
+    suffix_search = f"*{suffix}"
+    if exists:
+        mock_gncifn.assert_called_once_with("rxjs", suffix_search)
+        # Verify no upload occurs when the component already exists in Nexus
+        mock_unrd.assert_not_called()
+    else:
+        assert mock_gncifn.call_count == 2
+        mock_gncifn.assert_has_calls(
+            [mock.call("rxjs", suffix_search), mock.call("rxjs", suffix_search, max_attempts=5)]
+        )
+        mock_unrd.assert_called_once_with(
+            "https://github.com/ReactiveX/rxjs/archive/6.5.5.tar.gz", suffix, False,
+        )
 
 
 def test_convert_to_nexus_hosted_http_integrity_missing():

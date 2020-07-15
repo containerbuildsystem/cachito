@@ -181,6 +181,7 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     #   https://github.com/jsplumb/jsplumb/archive/2.10.2.tar.gz
     dep_identifier = dep_info["version"]
     integrity = None
+    verify_scripts = False
     if any(dep_identifier.startswith(prefix) for prefix in git_prefixes):
         try:
             _, commit_hash = dep_identifier.rsplit("#", 1)
@@ -193,6 +194,10 @@ def convert_to_nexus_hosted(dep_name, dep_info):
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
         # of `<version>-gitcommit-<commit hash>`
         version_suffix = f"-external-gitcommit-{commit_hash}"
+        # Dangerous scripts might be required to be executed by `npm pack` since this is a Git
+        # dependency. If those scripts are present, Cachito will fail the request since it will not
+        # execute those scripts when packing the dependency.
+        verify_scripts = True
     elif any(dep_identifier.startswith(prefix) for prefix in http_prefixes):
         if "integrity" not in dep_info:
             msg = f"The dependency {dep_identifier} is missing the integrity value in the lock file"
@@ -209,7 +214,7 @@ def convert_to_nexus_hosted(dep_name, dep_info):
 
     component_info = get_npm_component_info_from_nexus(dep_name, f"*{version_suffix}")
     if not component_info:
-        upload_non_registry_dependency(dep_identifier, version_suffix)
+        upload_non_registry_dependency(dep_identifier, version_suffix, verify_scripts)
         component_info = get_npm_component_info_from_nexus(
             dep_name, f"*{version_suffix}", max_attempts=5
         )
