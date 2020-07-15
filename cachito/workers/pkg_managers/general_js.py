@@ -81,9 +81,6 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
             "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
             "NPM_CONFIG_USERCONFIG": npm_rc_file,
             "PATH": os.environ.get("PATH", ""),
-            # Have `npm pack` fail without a prompt if the SSH key from a protected source such
-            # as a private GitHub repo is not trusted
-            "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=yes",
         }
         bundle_dir = RequestBundleDir(request_id)
         bundle_dir.npm_deps_dir.mkdir(exist_ok=True)
@@ -370,6 +367,9 @@ def upload_non_registry_dependency(dep_identifier, version_suffix):
             "HOME": os.environ.get("HOME", ""),
             "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
             "PATH": os.environ.get("PATH", ""),
+            # Have `npm pack` fail without a prompt if the SSH key from a protected source such
+            # as a private GitHub repo is not trusted
+            "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=yes",
         }
         run_params = {"env": env, "cwd": temp_dir}
         npm_pack_args = ["npm", "pack", dep_identifier]
