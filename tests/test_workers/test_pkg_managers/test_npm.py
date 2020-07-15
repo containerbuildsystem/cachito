@@ -441,7 +441,8 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
 
 
 @mock.patch("cachito.workers.pkg_managers.npm.get_npm_component_info_from_nexus")
-def test_convert_to_nexus_hosted_http(mock_gncifn):
+@mock.patch("cachito.workers.pkg_managers.npm.convert_hex_sha512_to_npm")
+def test_convert_to_nexus_hosted_http(mock_chstn, mock_gncifn):
     checksum = (
         "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bfaac8e48f344"
         "dc650c8df0f8182c0271ed9fa233aa32c329839"
@@ -498,6 +499,8 @@ def test_convert_to_nexus_hosted_http(mock_gncifn):
             "481408832bfaac8e48f344dc650c8df0f8182c0271ed9fa233aa32c329839"
         ),
     )
+    # The hash should not have been recomputed for an HTTP dependency
+    mock_chstn.assert_not_called()
 
 
 def test_convert_to_nexus_hosted_http_integrity_missing():
