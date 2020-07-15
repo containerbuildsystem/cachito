@@ -127,7 +127,7 @@ class Client:
         """
         resp = requests.get(f"{self._cachito_api_url}/requests/{request_id}/content-manifest")
         resp.raise_for_status()
-        return Response(resp.json(), resp.json()["id"], resp.status_code)
+        return Response(resp.json(), request_id, resp.status_code)
 
 
 def escape_path_go(dependency):
