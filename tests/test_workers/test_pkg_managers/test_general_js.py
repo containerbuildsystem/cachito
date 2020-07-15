@@ -421,6 +421,38 @@ def test_upload_non_registry_dependency(mock_ua, mock_fpj, mock_run_cmd, mock_td
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
 @mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
+def test_upload_non_registry_dependency_invalid_prepare_script(
+    mock_fpj, mock_run_cmd, mock_td, tmpdir
+):
+    tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
+    with tarfile.open(tarfile_path, "x:gz") as archive:
+        tar_info = tarfile.TarInfo("package/fair-warning.html")
+        content = "<h1>Je vais te détruire monsieur Solo!</h1>".encode("utf-8")
+        tar_info.size = len(content)
+        archive.addfile(tar_info, io.BytesIO(content))
+
+        tar_info = tarfile.TarInfo("package/package.json")
+        content = b'{"version": "5.0.0", "scripts": {"prepare": "rm -rf /"}}'
+        tar_info.size = len(content)
+        archive.addfile(tar_info, io.BytesIO(content))
+
+    mock_td.return_value.__enter__.return_value = str(tmpdir)
+    mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
+    mock_fpj.return_value = "package/package.json"
+
+    expected = (
+        "The dependency star-wars@5.0.0 is not supported because Cachito cannot execute the "
+        "following required scripts of Git dependencies: prepack, prepare"
+    )
+    with pytest.raises(CachitoError, match=expected):
+        general_js.upload_non_registry_dependency(
+            "star-wars@5.0.0", "-the-empire-strikes-back", verify_scripts=True
+        )
+
+
+@mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
+@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 def test_upload_non_registry_dependency_no_package_json(mock_fpj, mock_run_cmd, mock_td, tmpdir):
     mock_td.return_value.__enter__.return_value = str(tmpdir)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"

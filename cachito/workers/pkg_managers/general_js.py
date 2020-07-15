@@ -79,6 +79,9 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
             # in /etc/passwd.
             "HOME": os.environ.get("HOME", ""),
             "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
+            # This should not be necessary since all the dependencies come from Nexus, but it's an
+            # extra precaution
+            "NPM_CONFIG_IGNORE_SCRIPTS": "true",
             "NPM_CONFIG_USERCONFIG": npm_rc_file,
             "PATH": os.environ.get("PATH", ""),
         }
@@ -349,15 +352,20 @@ def prepare_nexus_for_js_request(repo_name):
         raise CachitoError("Failed to prepare Nexus for Cachito to stage JavaScript content")
 
 
-def upload_non_registry_dependency(dep_identifier, version_suffix):
+def upload_non_registry_dependency(dep_identifier, version_suffix, verify_scripts=False):
     """
     Upload the non-registry npm dependency to the Nexus hosted repository with a custom version.
 
     :param str dep_identifier: the identifier of the dependency to download
     :param str version_suffix: the suffix to append to the dependency's version in its package.json
         file
+    :param bool verify_scripts: if ``True``, raise an exception if dangerous scripts are present in
+        the ``package.json`` file and would have been executed by ``npm pack`` if ``ignore-scripts``
+        was set to ``false``
     :raise CachitoError: if the dependency cannot be download, uploaded, or is invalid
     """
+    # These are the scripts that should not be present if verify_scripts is True
+    dangerous_scripts = {"prepare", "prepack"}
     with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
         env = {
             # This is set since the home directory must be determined by the HOME environment
@@ -366,6 +374,8 @@ def upload_non_registry_dependency(dep_identifier, version_suffix):
             # in /etc/passwd.
             "HOME": os.environ.get("HOME", ""),
             "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
+            # This is important to avoid executing any dangerous scripts if it's a Git dependency
+            "NPM_CONFIG_IGNORE_SCRIPTS": "true",
             "PATH": os.environ.get("PATH", ""),
             # Have `npm pack` fail without a prompt if the SSH key from a protected source such
             # as a private GitHub repo is not trusted
@@ -410,6 +420,21 @@ def upload_non_registry_dependency(dep_identifier, version_suffix):
                         )
                         log.exception(msg)
                         raise CachitoError(msg)
+
+                    if verify_scripts:
+                        log.info(
+                            "Checking for dangerous scripts in the package.json of %s",
+                            dep_identifier,
+                        )
+                        scripts = package_json.get("scripts", {})
+                        if dangerous_scripts & scripts.keys():
+                            msg = (
+                                f"The dependency {dep_identifier} is not supported because Cachito "
+                                "cannot execute the following required scripts of Git "
+                                f"dependencies: {', '.join(sorted(dangerous_scripts))}"
+                            )
+                            log.error(msg)
+                            raise CachitoError(msg)
 
                     new_version = f"{package_json['version']}{version_suffix}"
                     log.debug(
