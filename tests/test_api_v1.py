@@ -1398,6 +1398,7 @@ def test_fetch_request_content_manifest_empty(app, client, db, worker_auth_env):
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
         request = Request.from_json(data)
+    request.add_state("complete", "Completed successfully")
     db.session.add(request)
     db.session.commit()
 
@@ -1418,6 +1419,7 @@ def test_request_fetch_request_content_manifest_invalid(client, worker_auth_env)
     assert rv.json == {"error": "The requested resource was not found"}
 
 
+@pytest.mark.parametrize("state", ["complete", "stale", "in_progress", "failed"])
 def test_fetch_request_content_manifest(
     app,
     client,
@@ -1427,6 +1429,7 @@ def test_fetch_request_content_manifest(
     sample_deps,
     sample_pkg_lvl_pkg,
     sample_pkg_deps,
+    state,
 ):
     json_schema_url = (
         "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
@@ -1440,6 +1443,7 @@ def test_fetch_request_content_manifest(
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
         request = Request.from_json(data)
+    request.add_state(state, "Some state")
     db.session.add(request)
     db.session.commit()
 
@@ -1473,7 +1477,15 @@ def test_fetch_request_content_manifest(
     assert response["content_manifest"].endswith("/api/v1/requests/1/content-manifest")
 
     rv = client.get("/api/v1/requests/1/content-manifest")
-    assert rv.json == expected
+    if state in ("complete", "stale"):
+        assert rv.status_code == 200
+        assert rv.json == expected
+    else:
+        assert rv.status_code == 400
+        err_msg = (
+            'Content manifests are only available for requests in the "complete" or "stale" states'
+        )
+        assert rv.json == {"error": err_msg}
 
 
 @pytest.mark.parametrize("pkg_type", ["npm", "unknown", "gomod"])
@@ -1492,6 +1504,7 @@ def test_fetch_request_content_manifest_non_implemented_type(
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
         request = Request.from_json(data)
+    request.add_state("complete", "Completed successfully")
     db.session.add(request)
     db.session.commit()
 

@@ -103,8 +103,14 @@ def get_request_content_manifest(request_id):
     :return: a Flask JSON response
     :rtype: flask.Response
     :raise NotFound: if the request is not found
+    :raise ValidationError: if the request is not in the "complete" or "stale" state
     """
-    content_manifest = Request.query.get_or_404(request_id).content_manifest
+    request = Request.query.get_or_404(request_id)
+    if request.state.state_name not in ("complete", "stale"):
+        raise ValidationError(
+            'Content manifests are only available for requests in the "complete" or "stale" states'
+        )
+    content_manifest = request.content_manifest
     content_manifest_json = content_manifest.to_json()
     return flask.jsonify(content_manifest_json)
 
