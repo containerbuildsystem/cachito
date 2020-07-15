@@ -340,6 +340,16 @@ paths:
                   error:
                     type: string
                     example: The requested resource was not found
+        "400":
+          description: The input is invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Content manifests are only available for requests in the \"complete\" or \"stale\" states"
   "/requests/{id}/environment-variables":
     get:
       description: Return information about the environment variables of a request
