@@ -129,7 +129,7 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
             # from the list of tuples
             dep_batch_download = [i[0] for i in dep_batch]
             log.debug(
-                f"Downloading the following npm dependencies: {', '.join(dep_batch_download)}"
+                "Downloading the following npm dependencies: %s", ", ".join(dep_batch_download)
             )
             npm_pack_args = ["npm", "pack"] + dep_batch_download
             output = run_cmd(npm_pack_args, run_params, "Failed to download the npm dependencies")
