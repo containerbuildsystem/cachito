@@ -1420,7 +1420,7 @@ def test_request_fetch_request_content_manifest_invalid(client, worker_auth_env)
 
 
 @pytest.mark.parametrize("state", ["complete", "stale", "in_progress", "failed"])
-def test_fetch_request_content_manifest(
+def test_fetch_request_content_manifest_go(
     app,
     client,
     db,
@@ -1488,7 +1488,86 @@ def test_fetch_request_content_manifest(
         assert rv.json == {"error": err_msg}
 
 
-@pytest.mark.parametrize("pkg_type", ["npm", "unknown", "gomod"])
+@pytest.mark.parametrize("state", ["complete", "stale", "in_progress", "failed"])
+def test_fetch_request_content_manifest_npm(app, client, db, auth_env, worker_auth_env, state):
+    data = {
+        "repo": "https://github.com/release-engineering/console-ui.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=auth_env):
+        request = Request.from_json(data)
+    request.add_state(state, "Some state")
+    db.session.add(request)
+    db.session.commit()
+
+    npm_pkgs = [
+        {"name": "client", "type": "npm", "version": "1.0.0"},
+        {"name": "proxy", "type": "npm", "version": "1.0.0"},
+    ]
+    npm_deps = [
+        {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
+        {"dev": True, "name": "safe-regex", "replaces": None, "type": "npm", "version": "1.1.0"},
+        {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
+        {"dev": False, "name": "react", "replaces": None, "type": "npm", "version": "16.13.1"},
+    ]
+    payload = {
+        "dependencies": npm_deps[:2],
+        "package": npm_pkgs[0],
+    }
+    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    payload = {
+        "dependencies": npm_deps[2:],
+        "package": npm_pkgs[1],
+    }
+    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
+    rv = client.get("/api/v1/requests/1")
+    assert rv.status_code == 200
+
+    # set expectations
+    json_schema_url = (
+        "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
+        "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
+    )
+
+    image_contents = [
+        {
+            "purl": "pkg:npm/client@1.0.0",
+            "dependencies": [],
+            "sources": [{"purl": "pkg:npm/rxjs@6.5.5"}, {"purl": "pkg:npm/safe-regex@1.1.0"}],
+        },
+        {
+            "purl": "pkg:npm/proxy@1.0.0",
+            "dependencies": [{"purl": "pkg:npm/react@16.13.1"}],
+            "sources": [{"purl": "pkg:npm/rxjs@6.5.5"}, {"purl": "pkg:npm/react@16.13.1"}],
+        },
+    ]
+
+    expected = {
+        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
+        "image_contents": image_contents,
+    }
+
+    rv = client.get("/api/v1/requests/1")
+    assert rv.status_code == 200
+    response = rv.json
+    assert response["content_manifest"].endswith("/api/v1/requests/1/content-manifest")
+
+    rv = client.get("/api/v1/requests/1/content-manifest")
+    if state in ("complete", "stale"):
+        assert rv.status_code == 200
+        assert rv.json == expected
+    else:
+        assert rv.status_code == 400
+        err_msg = (
+            'Content manifests are only available for requests in the "complete" or "stale" states'
+        )
+        assert rv.json == {"error": err_msg}
+
+
+@pytest.mark.parametrize("pkg_type", ["unknown", "gomod"])
 def test_fetch_request_content_manifest_non_implemented_type(
     app, client, db, worker_auth_env, sample_package, sample_deps, pkg_type
 ):

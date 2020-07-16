@@ -433,7 +433,7 @@ The table below shows the supported package managers and their support level in 
 | Package Manager | Baseline | Content Manifest | Dependency Replacements | Dev Dependencies | External Dependencies | Multiple Paths | Nested Dependencies | Offline Installations |
 | --------------- | -------- | ---------------- | ----------------------- | ---------------- | --------------------- | -------------- | ------------------- | --------------------- |
 | gomod           | ✓        | ✓                | ✓                       |  ✓               | N/A                   | x              | ✓                   | ✓                     |
-| npm             | ✓        | x                | x                       |  ✓               | ✓                     | ✓              | ✓                   | x                     |
+| npm             | ✓        | ✓                | x                       |  ✓               | ✓                     | ✓              | ✓                   | x                     |
 
 #### Feature Definitions
 

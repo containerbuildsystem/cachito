@@ -4,6 +4,7 @@ from copy import deepcopy
 from enum import Enum
 import os
 import re
+import urllib.parse
 
 import flask
 from flask_login import UserMixin, current_user
@@ -184,8 +185,37 @@ class Package(db.Model):
         if self.type in ("go-package", "gomod"):
             # Use only the PURL "name" field to avoid ambiguity for Go modules/packages
             # see https://github.com/package-url/purl-spec/issues/63 for further reference
-            purl_name = self.name.replace("/", "%2F")
+            purl_name = urllib.parse.quote(self.name, safe="")
             return f"pkg:golang/{purl_name}@{self.version}"
+
+        elif self.type == "npm":
+            purl_name = urllib.parse.quote(self.name)
+            match = re.match(
+                r"(?P<protocol>[^:]+):(?P<has_authority>//)?(?P<suffix>.+)", self.version
+            )
+            if not match:
+                return f"pkg:npm/{purl_name}@{self.version}"
+            protocol = match.group("protocol")
+            suffix = match.group("suffix")
+            has_authority = match.group("has_authority")
+            if not has_authority:
+                # github:namespace/name#ref or gitlab:ns1/ns2/name#ref
+                match_forge = re.match(
+                    r"(?P<namespace>.+)/(?P<name>[^#/]+)#(?P<version>.+)$", suffix
+                )
+                if not match_forge:
+                    raise ValueError(f"Could not convert version {self.version} to purl")
+                forge = match_forge.groupdict()
+                return f"pkg:{protocol}/{forge['namespace']}/{forge['name']}@{forge['version']}"
+            elif protocol in ("git", "git+http", "git+https", "git+ssh"):
+                qualifier = urllib.parse.quote(self.version, safe="")
+                return f"pkg:generic/{purl_name}?vcs_url={qualifier}"
+            elif protocol in ("http", "https"):
+                qualifier = urllib.parse.quote(self.version, safe="")
+                return f"pkg:generic/{purl_name}?download_url={qualifier}"
+            else:
+                raise ValueError(f"Unknown protocol in npm package version: {self.version}")
+
         else:
             raise ValueError(f"The PURL spec is not defined for {self.type} packages")
 

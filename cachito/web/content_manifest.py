@@ -23,6 +23,8 @@ class ContentManifest:
         self._gopkg_data = {}
         # dict to store go module level purl dependencies. Module names are used as keys
         self._gomod_data = {}
+        # dict to store npm package data; uses the package purl as key to identify a package
+        self._npm_data = {}
 
     def process_gomod(self, package, dependency):
         """
@@ -42,8 +44,8 @@ class ContentManifest:
         :param Package package: the go-package package to process
         :param Dependency dependency: the go-package package dependency to process
         """
-        purl = package.to_purl()
         if dependency.type == "go-package":
+            purl = package.to_purl()
             icm_dependency = {"purl": dependency.to_purl()}
             self._gopkg_data[purl]["dependencies"].append(icm_dependency)
 
@@ -71,6 +73,20 @@ class ContentManifest:
                     flask.current_app.logger.warning("Could not find a Go module for %s", purl)
             pkg_data.pop("name")
 
+    def process_npm_package(self, package, dependency):
+        """
+        Process npm package.
+
+        :param Package package: the npm package to process
+        :param Dependency dependency: the npm package dependency to process
+        """
+        if dependency.type == "npm":
+            purl = package.to_purl()
+            icm_dependency = {"purl": dependency.to_purl()}
+            self._npm_data[purl]["sources"].append(icm_dependency)
+            if not dependency.dev:
+                self._npm_data[purl]["dependencies"].append(icm_dependency)
+
     def to_json(self):
         """
         Generate the JSON representation of the content manifest.
@@ -80,6 +96,7 @@ class ContentManifest:
         """
         self._gopkg_data = {}
         self._gomod_data = {}
+        self._npm_data = {}
 
         # Address the possibility of packages having no dependencies
         for package in self.request.packages:
@@ -90,6 +107,9 @@ class ContentManifest:
                 )
             elif package.type == "gomod":
                 self._gomod_data.setdefault(package.name, [])
+            elif package.type == "npm":
+                purl = package.to_purl()
+                self._npm_data.setdefault(purl, {"purl": purl, "dependencies": [], "sources": []})
             else:
                 flask.current_app.logger.debug(
                     "No ICM implementation for '%s' packages", package.type
@@ -98,13 +118,15 @@ class ContentManifest:
         for req_dep in self.request.request_dependencies:
             if req_dep.package.type == "go-package":
                 self.process_go_package(req_dep.package, req_dep.dependency)
-            if req_dep.package.type == "gomod":
+            elif req_dep.package.type == "gomod":
                 self.process_gomod(req_dep.package, req_dep.dependency)
+            elif req_dep.package.type == "npm":
+                self.process_npm_package(req_dep.package, req_dep.dependency)
 
         # Adjust source level dependencies for go packages
         self.set_go_package_sources()
 
-        top_level_packages = list(self._gopkg_data.values())
+        top_level_packages = list(self._gopkg_data.values()) + list(self._npm_data.values())
         return self.generate_icm(top_level_packages)
 
     def generate_icm(self, image_contents=None):
