@@ -443,9 +443,8 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
 
 @pytest.mark.parametrize("exists", (False, True))
 @mock.patch("cachito.workers.pkg_managers.npm.get_npm_component_info_from_nexus")
-@mock.patch("cachito.workers.pkg_managers.npm.convert_hex_sha512_to_npm")
 @mock.patch("cachito.workers.pkg_managers.npm.upload_non_registry_dependency")
-def test_convert_to_nexus_hosted_http(mock_unrd, mock_chstn, mock_gncifn, exists):
+def test_convert_to_nexus_hosted_http(mock_unrd, mock_gncifn, exists):
     checksum = (
         "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bfaac8e48f344"
         "dc650c8df0f8182c0271ed9fa233aa32c329839"
@@ -503,8 +502,6 @@ def test_convert_to_nexus_hosted_http(mock_unrd, mock_chstn, mock_gncifn, exists
         "-external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5"
         "507481408832bfaac8e48f344dc650c8df0f8182c0271ed9fa233aa32c329839"
     )
-    # The hash should not have been recomputed for an HTTP dependency
-    mock_chstn.assert_not_called()
 
     suffix_search = f"*{suffix}"
     if exists:
