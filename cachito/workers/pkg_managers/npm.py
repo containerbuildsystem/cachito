@@ -180,7 +180,6 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     #   github:ReactiveX/rxjs#78032157f5c1655436829017bbda787565b48c30
     #   https://github.com/jsplumb/jsplumb/archive/2.10.2.tar.gz
     dep_identifier = dep_info["version"]
-    integrity = None
     verify_scripts = False
     if any(dep_identifier.startswith(prefix) for prefix in git_prefixes):
         try:
@@ -204,8 +203,7 @@ def convert_to_nexus_hosted(dep_name, dep_info):
             log.error(msg)
             raise CachitoError(msg)
 
-        integrity = dep_info["integrity"]
-        algorithm, checksum = convert_integrity_to_hex_checksum(integrity)
+        algorithm, checksum = convert_integrity_to_hex_checksum(dep_info["integrity"])
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
         # of `<version>-external-<checksum algorithm>-<hex checksum>`
         version_suffix = f"-external-{algorithm}-{checksum}"
@@ -226,13 +224,11 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     converted_dep_info = copy.deepcopy(dep_info)
     # The "from" value is the original value from package.json for some locations
     converted_dep_info.pop("from", None)
-    # If this was an HTTP dependency, reuse the supplied integrity as it should be the same
-    integrity = integrity or convert_hex_sha512_to_npm(
-        component_info["assets"][0]["checksum"]["sha512"]
-    )
     converted_dep_info.update(
         {
-            "integrity": integrity,
+            "integrity": convert_hex_sha512_to_npm(
+                component_info["assets"][0]["checksum"]["sha512"]
+            ),
             "resolved": component_info["assets"][0]["downloadUrl"],
             "version": component_info["version"],
         }
