@@ -17,22 +17,30 @@ get:
   # Every package is defined by name, type and version.
   packages:
     - ["github.com/release-engineering/retrodep/v2", "gomod", "v2.1.1"]
+    - ["github.com/release-engineering/retrodep/v2", "go-package", "v2.1.1"]
   # The list of fetched dependencies
   # Every dependency is defined by name, type and version.
   dependencies:
   - ["github.com/Masterminds/semver", "gomod", "v1.4.2"]
+  - ["github.com/Masterminds/semver", "go-package", "v1.4.2"]
   - ["github.com/kr/pretty", "gomod", "v0.1.0"]
   - ["github.com/kr/pty", "gomod", "v1.1.1"]
   - ["github.com/kr/text", "gomod", "v0.1.0"]
   - ["github.com/op/go-logging", "gomod", "v0.0.0-20160315200505-970db520ece7"]
+  - ["github.com/op/go-logging", "go-package", "v0.0.0-20160315200505-970db520ece7"]
   - ["github.com/pkg/errors", "gomod", "v0.8.1"]
+  - ["github.com/pkg/errors", "go-package", "v0.8.1"]
+  - ["github.com/release-engineering/retrodep/v2/retrodep", "go-package", "v2.1.1"]
+  - ["github.com/release-engineering/retrodep/v2/retrodep/glide", "go-package", "v2.1.1"]
   - ["golang.org/x/crypto", "gomod", "v0.0.0-20190308221718-c2843e01d9a2"]
   - ["golang.org/x/net", "gomod", "v0.0.0-20190311183353-d8887717615a"]
   - ["golang.org/x/sys", "gomod", "v0.0.0-20190215142949-d0b11bdaac8a"]
   - ["golang.org/x/text", "gomod", "v0.3.0"]
   - ["golang.org/x/tools", "gomod", "v0.0.0-20190325161752-5a8dccf5b48a"]
+  - ["golang.org/x/tools/go/vcs", "go-package", "v0.0.0-20190325161752-5a8dccf5b48a"]
   - ["gopkg.in/check.v1", "gomod", "v1.0.0-20180628173108-788fd7840127"]
   - ["gopkg.in/yaml.v2", "gomod", "v2.2.2"]
+  - ["gopkg.in/yaml.v2", "go-package", "v2.2.2"]
 # Test data for the Dependency replacement test
 dep_replacement:
   # The list of dependencies that are replaced with specific versions
