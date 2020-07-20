@@ -38,8 +38,9 @@ def test_check_downloaded_output(test_env, default_request, tmpdir):
     with tarfile.open(file_name_tar, "r:gz") as tar:
         tar.extractall(file_name)
 
+    pkg_managers = test_env["downloaded_output"]["pkg_managers"]
     dependencies_path = path.join("deps", "gomod", "pkg", "mod", "cache", "download")
-    names = [i["name"] for i in response.data["dependencies"]]
+    names = [i["name"] for i in response.data["dependencies"] if i["type"] in pkg_managers]
     for dependency in names:
         package_name = utils.escape_path_go(dependency)
         dependency_path = path.join(file_name, dependencies_path, package_name)
@@ -53,7 +54,10 @@ def test_check_downloaded_output(test_env, default_request, tmpdir):
             if line.startswith("module "):
                 module_names.append(line.split()[-1])
                 break
-        assert module_names == [i["name"] for i in response.data["packages"]]
+        expected_packages = [
+            i["name"] for i in response.data["packages"] if i["type"] in pkg_managers
+        ]
+        assert module_names == expected_packages
 
     list_go_files = []
     for app_path in Path(path.join(file_name, "app")).rglob("*.go"):

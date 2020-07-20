@@ -67,3 +67,7 @@ cached_dependencies:
 # Test data for the HTTP GET_ALL test
 http_get_all:
   requests_amount: 2
+# Test data for the check downloaded output test
+downloaded_output:
+  # Package managers of cached dependencies
+  pkg_managers: ["gomod"]
