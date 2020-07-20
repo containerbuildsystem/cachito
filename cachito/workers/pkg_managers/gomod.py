@@ -191,50 +191,66 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
             shutil.copytree(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
         log.info("Retrieving the list of package level dependencies")
-        go_list_deps_output = run_gomod_cmd(
-            ("go", "list", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}} {{.Module}}{{end}}"),
-            run_params,
-        )
+        list_pkgs_cmd = ("go", "list", "-find", "./...")
+        go_list_pkgs_output = run_gomod_cmd(list_pkgs_cmd, run_params)
+        packages = []
+        processed_pkg_deps = set()
+        for package in go_list_pkgs_output.splitlines():
+            if package in processed_pkg_deps:
+                # Go searches for packages in directories through a top-down approach. If a toplevel
+                # package is already listed as a dependency, we do not list it here, since its
+                # dependencies would also be listed in the parent package
+                log.debug(
+                    "Package %s is already listed as a package dependency. Skipping...", package
+                )
+                continue
 
-        pkg_level_deps = []
-        for line in go_list_deps_output.splitlines():
-            # line example: pkg.io/foo/bar pkg.io/foo/var v1.0.0 => pkg.io/foo/bar v1.0.1
-            parts = [part for part in line.split(" ")]
+            list_deps_cmd = (
+                "go",
+                "list",
+                "-deps",
+                "-f",
+                "{{if not .Standard}}{{.ImportPath}} {{.Module}}{{end}}",
+                package,
+            )
+            go_list_deps_output = run_gomod_cmd(list_deps_cmd, run_params)
 
-            name = parts[0]
-            # parts[1] is the module owning the package and parts[2] is it's version
-            if len(parts) > 2:
-                version = parts[2]
-            else:
-                # This package belongs to the requested module,
-                # let's use the requested module version
-                version = module_version
+            pkg_level_deps = []
+            for line in go_list_deps_output.splitlines():
+                # line example: pkg.io/foo/bar pkg.io/foo/var v1.0.0 => pkg.io/foo/bar v1.0.1
+                parts = [part for part in line.split(" ")]
 
-            if len(parts) > 3:
-                # parts[3] is just an arrow "=>" pointing to the replacements
-                # parts[4] is the module being replaced
-                # we do not add a "replacements" field to the packages though
-                # since the concept of replacements are tied to the modules
-                # Instead, we just set the proper version
-                version = parts[5]
+                name = parts[0]
+                # parts[1] is the module owning the package and parts[2] is it's version
+                if len(parts) > 2:
+                    version = parts[2]
+                else:
+                    # This package belongs to the requested module,
+                    # let's use the requested module version
+                    version = module_version
 
-            pkg = {
-                "name": name,
-                "type": "go-package",
-                "version": version,
-            }
+                if len(parts) > 3:
+                    # parts[3] is just an arrow "=>" pointing to the replacements
+                    # parts[4] is the module being replaced
+                    # we do not add a "replacements" field to the packages though
+                    # since the concept of replacements are tied to the modules
+                    # Instead, we just set the proper version
+                    version = parts[5]
 
-            pkg_level_deps.append(pkg)
+                pkg = {
+                    "name": name,
+                    "type": "go-package",
+                    "version": version,
+                }
 
-        # The last item on `go list -deps` is the main package being evaluated
-        package = pkg_level_deps.pop()
+                processed_pkg_deps.add(name)
+                pkg_level_deps.append(pkg)
 
-        return {
-            "module": module,
-            "module_deps": module_level_deps,
-            "pkg": package,
-            "pkg_deps": pkg_level_deps,
-        }
+            # The last item on `go list -deps` is the main package being evaluated
+            pkg = pkg_level_deps.pop()
+            packages.append({"pkg": pkg, "pkg_deps": pkg_level_deps})
+
+        return {"module": module, "module_deps": module_level_deps, "packages": packages}
 
 
 def _get_golang_pseudo_version(commit, tag=None, module_major_version=None):

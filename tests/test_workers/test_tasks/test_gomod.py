@@ -41,8 +41,7 @@ def test_fetch_gomod_source(
     mock_resolve_gomod.return_value = {
         "module": sample_package,
         "module_deps": sample_deps_replace,
-        "pkg": sample_pkg_lvl_pkg,
-        "pkg_deps": sample_pkg_deps,
+        "packages": [{"pkg": sample_pkg_lvl_pkg, "pkg_deps": sample_pkg_deps}],
     }
     tasks.fetch_gomod_source(1, dep_replacements)
 
