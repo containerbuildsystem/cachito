@@ -1512,16 +1512,6 @@ def test_fetch_request_content_manifest_non_implemented_type(
         p["type"] = pkg_type
 
     image_contents = []
-    if pkg_type == "gomod":
-        # gomod is a special case where pre-icm requests will have ICMs with
-        # module level dependencies (sources) only.
-        main_pkg = Package.from_json(sample_package).to_purl()
-        image_content = {"purl": main_pkg, "dependencies": [], "sources": []}
-        for d in sample_deps:
-            d.pop("replaces")
-            p = Package.from_json(d).to_purl()
-            image_content["sources"].append({"purl": p})
-        image_contents.append(image_content)
 
     expected = {
         "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},

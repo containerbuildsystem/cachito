@@ -14,6 +14,13 @@ url = "https://github.com/release-engineering/retrodep.git"
 ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
 archive_path = f"/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz"
 
+mock_pkg_list = dedent(
+    f"""\
+    github.com/release-engineering/retrodep/v2
+    github.com/release-engineering/retrodep/v2/retrodep
+    github.com/release-engineering/retrodep/v2/retrodep/glide
+    """
+)
 mock_pkg_deps = dedent(
     f"""\
     github.com/op/go-logging github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
@@ -108,6 +115,7 @@ def test_resolve_gomod(
     if dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_cmd_output))  # go list -m all
+    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_list))  # go list -find ./...
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_deps))  # go list -deps
     mock_run.side_effect = run_side_effects
 
@@ -160,6 +168,8 @@ def test_resolve_gomod_vendor_dependencies(
         # go mod vendor
         mock.Mock(returncode=0, stdout=None),
         # go list -m all
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
+        # go list -find ./...
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
         # go list -deps
         mock.Mock(returncode=0, stdout=pkg_lvl_stdout),
@@ -243,6 +253,8 @@ def test_resolve_gomod_no_deps(
         mock.Mock(returncode=0, stdout=None),
         # go list -m all
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
+        # go list -find ./...
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
         # go list -deps
         mock.Mock(returncode=0, stdout=pkg_lvl_stdout),
     ]
@@ -254,8 +266,9 @@ def test_resolve_gomod_no_deps(
 
     assert gomod["module"] == sample_package
     assert not gomod["module_deps"]
-    assert gomod["pkg"] == sample_pkg_lvl_pkg
-    assert not gomod["pkg_deps"]
+    assert len(gomod["packages"]) == 1
+    assert gomod["packages"][0]["pkg"] == sample_pkg_lvl_pkg
+    assert not gomod["packages"][0]["pkg_deps"]
 
     # The second one ensures the source cache directory exists
     mock_makedirs.assert_called_once_with(
