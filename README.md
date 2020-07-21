@@ -2,16 +2,25 @@
 
 Cachito is a service to store (and serve) source code for applications. Upon a request, Cachito
 will fetch a specific revision of a given repository from the Internet and store it permanently in
-its internal storage. Namely, it stores the source code for a specific git commit from a given git
+its internal storage. Namely, it stores the source code for a specific Git commit from a given Git
 repository, which could be from a forge such as [GitHub](https://github.com) or
 [GitLab](https://gitlab.com). This way, even if that repository (or that revision) is deleted, it
 is still possible to track the pristine source code for the original sources. In fact, if the
-sources have already been previously fetched, Cachito will simply serve the cached content.
+sources have already been previously fetched, Cachito will simply serve the stored copy.
 
-Cachito also supports caching dependencies for certain package managers, currently
-[gomod](https://github.com/golang/go/wiki/Modules) and [npm](https://www.npmjs.com/). Like the
-source code from a git forge, these dependencies are always permanently cached in Cachito's
-internal storage.
+Cachito also supports identifying and permanently storing dependencies for certain package managers
+and making them available for building the application. Like it does for source code, future
+requests that utilize these same dependencies will be taken from Cachito's internal storage rather
+than be fetched from the Internet. See the [Package Manager Feature Support](#feature-support)
+section for the package managers that Cachito currently supports.
+
+Cachito will produce bundles as the output artifact of a request. The bundle is a tarball that
+contains the source code of the application and all the sources of its dependencies. For some
+package managers, these dependencies can be used directly for building the application. Other
+package managers will provide an alternative mechanism for this (e.g. a custom npm registry with
+the declared npm dependencies). Regardless of if the dependencies in the bundle are used for
+building the application, they are always present so that the source of these dependencies
+can be published alongside the application for license compliance.
 
 ## Coding Standards
 
