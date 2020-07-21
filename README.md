@@ -447,6 +447,22 @@ The table below shows the supported package managers and their support level in 
   bundle. This is true for the `gomod` package manager, however, the `npm` package manager relies
   on Nexus to be online and properly configured by Cachito.
 
+### gomod
+
+The gomod package manager works by parsing the `go.mod` file present in the source repository to
+determine which dependencies are required to build the application.
+
+Cachito then downloads the dependencies through [Athens](https://docs.gomods.io/) so that they
+are permanently stored and at the same time create a Go module cache to be stored in the request's
+bundle.
+
+Cachito will produce a bundle that is downloadable at `/api/v1/requests/<id>/download`. This
+bundle will contain the application source code in the `app` directory and Go module cache of all
+the dependencies in the `deps/gomod` directory.
+
+Cachito will provide environment variables in the REST API to set for the Go tooling to use this
+cache when building the application.
+
 ### npm
 
 The npm package manager works by parsing the `npm-shrinkwrap.json` or `package-lock.json` file
