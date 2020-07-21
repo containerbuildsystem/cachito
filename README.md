@@ -107,19 +107,92 @@ For example, on Fedora:
 dnf install gcc python3-devel
 ```
 
-## Development environment and release process
+## Development
 
-* create virtualenv with Flask and cachito installed into it (latter is installed in
-  [develop mode](http://setuptools.readthedocs.io/en/latest/setuptools.html#development-mode) which allows
-  modifying source code directly without a need to re-install the app): `make venv`
+### Virtualenv
 
-* run development server in debug mode: `make run`; Flask will restart if source code is modified
+You may create a virtualenv with Cachito and its dependencies installed with the following command:
 
-* run tests: `make test` (see also: [Testing Flask Applications](http://flask.pocoo.org/docs/0.12/testing/))
+```bash
+make venv
+```
 
-* to remove virtualenv, built distributions, and clean up local deployment: `make clean`
+This installs Cachito in
+[develop mode](http://setuptools.readthedocs.io/en/latest/setuptools.html#development-mode) which
+allows modifying the source code directly without needing to reinstall Cachito. This is really
+useful for syntax highlighting in your IDE, however, it's not practical to use as a development
+environment since Cachito has dependencies on other services.
 
-* to add more python dependencies: add to `requirements.txt` and `requirements-workers.txt`
+### docker-compose
+
+You may create and run the containerized development environment with
+[docker-compose](https://docs.docker.com/compose/) with the following command:
+
+```bash
+make run
+```
+
+The will automatically create and run the following containers:
+
+* **athens** - the [Athens](https://docs.gomods.io/) instance responsible for permanently storing
+  dependencies for the `gomod` package manager.
+* **cachito-api** - the Cachito REST API. This is accessible at
+  [http://localhost:8080](http://localhost:8080).
+* **cachito-worker** - the Cachito Celery worker. This container is also responsible for configuring
+  Nexus at startup.
+* **db** - the Postgresql database used by the Cachito REST API.
+* **nexus** - the [Sonatype Nexus Repository Manager](https://www.sonatype.com/nexus-repository-oss)
+  instance that is responsible for permanently storing dependencies for the `npm` package manager.
+  The management UI is accessible at [http://localhost:8082](http://localhost:8082). The username is
+  `admin` and the password is `admin`.
+* **rabbitmq** - the RabbitMQ instance for communicating between the API and the worker. The
+  management UI is accessible at [http://localhost:8081](http://localhost:8081). The username is
+  `cachito` and the password is `cachito`.
+
+The REST API and the worker will restart if the source code is modified. Please note that the REST
+API may stop restarting if there is a syntax error.
+
+### Unit Tests
+
+To run the unit tests with [tox](https://tox.readthedocs.io/en/latest/), you may run the following
+command:
+
+```bash
+make test
+```
+
+### Integration Tests
+
+To run the integration tests with [tox](https://tox.readthedocs.io/en/latest/), you may run the
+following command:
+
+```bash
+tox -e integration
+```
+
+By default, some tests will require custom configuration and will run against your local development
+environment. Read the [integration tests read me](tests/integration/README.md) for more information.
+
+### Clean Up
+
+To remove the virtualenv, built distributions, and the local development environment, you may run
+the following command:
+
+```bash
+make clean
+```
+
+### Adding Dependencies
+
+To add more Python dependencies, add them to the following files:
+
+* [requirements.txt](requirements.txt)
+* [requirements-web.txt](requirements-web.txt)
+
+Additionally, please install the corresponding RPMs in the container images at:
+
+* [Dockerfile-api](docker/Dockerfile-api)
+* [Dockerfile-workers](docker/Dockerfile-workers)
 
 ### Accessing Private Repositories
 
