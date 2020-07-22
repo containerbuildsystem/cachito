@@ -57,7 +57,7 @@ def test_check_downloaded_output(test_env, default_request, tmpdir):
         expected_packages = [
             i["name"] for i in response.data["packages"] if i["type"] in pkg_managers
         ]
-        assert module_names == expected_packages
+        assert set(module_names) == set(expected_packages)
 
     list_go_files = []
     for app_path in Path(path.join(file_name, "app")).rglob("*.go"):
