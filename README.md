@@ -22,6 +22,21 @@ the declared npm dependencies). Regardless of if the dependencies in the bundle 
 building the application, they are always present so that the source of these dependencies
 can be published alongside the application for license compliance.
 
+## Table of Contents
+
+* [Coding Standards](#coding-standards)
+* [Quick Start](#quick-start)
+* [Pre-built Container Images](#pre-built-container-images)
+* [Prerequisites](#prerequisites)
+* [Development](#development)
+* [Database Migrations](#database-migrations)
+* [API Documentation](#api-documentation)
+* [Configuring Workers](#configuring-workers)
+* [Configuring the API](#configuring-the-api)
+* [Flags](#flags)
+* [Nexus](#nexus)
+* [Package Managers](#package-managers)
+
 ## Coding Standards
 
 The codebase conforms to the style enforced by `flake8` with the following exceptions:
