@@ -22,7 +22,8 @@ def test_creating_new_request(test_env, default_request):
     response_specific_req = client.fetch_request(response_created_req.id)
     assert response_created_req.id == response_specific_req.id
 
-    assert test_env["package"]["pkg_managers"] == response_created_req.data["pkg_managers"]
+    response_pkg_managers = set(response_created_req.data["pkg_managers"])
+    assert set(test_env["package"]["pkg_managers"]) == response_pkg_managers
     assert test_env["package"]["ref"] == response_created_req.data["ref"]
     assert test_env["package"]["repo"] == response_created_req.data["repo"]
     assert test_env["package"]["ref"] == response_specific_req.data["ref"]

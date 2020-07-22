@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import operator
+from utils import make_list_of_packages_hashable
 
 
 def test_valid_data_in_request(test_env, default_request):
@@ -20,22 +20,10 @@ def test_valid_data_in_request(test_env, default_request):
     assert response.status == 200
     assert response.data["state"] == "complete"
 
-    response_dependencies = list_of_dict_to_list_of_name_type_version(response.data["dependencies"])
+    response_dependencies = make_list_of_packages_hashable(response.data["dependencies"])
     expected_dependencies = test_env["get"]["dependencies"]
-    assert response_dependencies == expected_dependencies
+    assert response_dependencies == sorted(expected_dependencies)
 
-    response_packages = list_of_dict_to_list_of_name_type_version(response.data["packages"])
+    response_packages = make_list_of_packages_hashable(response.data["packages"])
     expected_packages = test_env["get"]["packages"]
-    assert response_packages == expected_packages
-
-
-def list_of_dict_to_list_of_name_type_version(data):
-    """
-    Convert the list of dictionaries to a list of lists from the keys name, type, and version.
-
-    :param data: list of dictionaries containing keys name, type and version
-    :return: list of lists with values name, type and version in this order
-    """
-    sorted_packages = sorted(data, key=operator.itemgetter("name"))
-
-    return [[i["name"], i["type"], i["version"]] for i in sorted_packages]
+    assert response_packages == sorted(expected_packages)

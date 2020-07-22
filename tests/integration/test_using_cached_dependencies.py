@@ -75,6 +75,10 @@ def test_using_cached_dependencies(test_env, tmpdir):
 
     assert first_response.data["ref"] == second_response.data["ref"]
     assert first_response.data["repo"] == second_response.data["repo"]
-    assert first_response.data["pkg_managers"] == second_response.data["pkg_managers"]
-    assert first_response.data["packages"] == second_response.data["packages"]
-    assert first_response.data["dependencies"] == second_response.data["dependencies"]
+    assert set(first_response.data["pkg_managers"]) == set(second_response.data["pkg_managers"])
+    first_pkgs = utils.make_list_of_packages_hashable(first_response.data["packages"])
+    second_pkgs = utils.make_list_of_packages_hashable(second_response.data["packages"])
+    assert first_pkgs == second_pkgs
+    first_deps = utils.make_list_of_packages_hashable(first_response.data["dependencies"])
+    second_deps = utils.make_list_of_packages_hashable(second_response.data["dependencies"])
+    assert first_deps == second_deps

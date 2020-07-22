@@ -77,4 +77,6 @@ def test_dependency_replacement(test_env, tmpdir):
                 go_mod_replace.append(
                     {"name": line.split()[-2], "type": "gomod", "version": line.split()[-1]}
                 )
-        assert go_mod_replace == dependency_replacements
+        sorted_dep_replacements = utils.make_list_of_packages_hashable(dependency_replacements)
+        sorted_go_mod_replace = utils.make_list_of_packages_hashable(go_mod_replace)
+        assert sorted_go_mod_replace == sorted_dep_replacements
