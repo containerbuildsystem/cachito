@@ -353,6 +353,9 @@ Custom configuration for the Celery workers are listed below:
   script. This defaults to `1`.
 * `cachito_sources_dir` - the directory for long-term storage of app source archives. This
   configuration is required, and the directory must already exist and be writeable.
+* `cachito_task_log_format` - the log format that Celery displays when a task is executing. This
+  defaults to
+  `"[%(asctime)s #%(request_id)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"`.
 
 To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
 environment variable to the path of the keytab. Additional Kerberos configuration can be made in

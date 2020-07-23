@@ -47,6 +47,9 @@ class Config(object):
     cachito_nexus_username = "cachito"
     cachito_npm_file_deps_allowlist = {}
     cachito_request_lifetime = 1
+    cachito_task_log_format = (
+        "[%(asctime)s #%(request_id)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
+    )
     include = [
         "cachito.workers.tasks.general",
         "cachito.workers.tasks.gomod",
