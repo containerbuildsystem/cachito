@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from collections import namedtuple
-import operator
 import time
 
 import jsonschema
@@ -171,11 +170,9 @@ def validate_json(json_schema, json_data):
 
 def make_list_of_packages_hashable(data):
     """
-    Convert the list of dictionaries to a list of lists from the keys name, type, and version.
+    Convert and sort the list of dicts to a list of lists from the keys name, type, and version.
 
     :param data: list of dictionaries containing keys name, type and version
     :return: list of lists with values name, type and version in this order
     """
-    sorted_packages = sorted(data, key=operator.itemgetter("name"))
-
-    return [[i["name"], i["type"], i["version"]] for i in sorted_packages]
+    return sorted([[i["name"], i["type"], i["version"]] for i in data])
