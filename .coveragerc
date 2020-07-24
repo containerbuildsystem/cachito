@@ -1,0 +1,12 @@
+[report]
+show_missing = True
+fail_under = 90
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    def __repr__
+omit =
+    cachito/web/manage.py
+    cachito/web/wsgi.py
+    cachito/web/config.py
+    cachito/web/migrations*
