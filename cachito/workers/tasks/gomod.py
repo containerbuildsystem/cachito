@@ -53,4 +53,8 @@ def fetch_gomod_source(request_id, dep_replacements=None):
 
     # add package deps
     for package in gomod["packages"]:
-        update_request_with_deps(request_id, package["pkg"], package["pkg_deps"])
+        if package.get("pkg_deps"):
+            # This also adds the package to the request
+            update_request_with_deps(request_id, package["pkg"], package["pkg_deps"])
+        else:
+            update_request_with_package(request_id, package["pkg"])
