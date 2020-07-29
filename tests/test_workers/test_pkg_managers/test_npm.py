@@ -9,6 +9,7 @@ import pytest
 
 from cachito.errors import CachitoError
 from cachito.workers.pkg_managers import npm
+from cachito.workers.pkg_managers.general_js import ChecksumInfo
 
 
 @pytest.fixture()
@@ -438,6 +439,7 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
             "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
             "-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
             True,
+            None,
         )
 
 
@@ -514,7 +516,14 @@ def test_convert_to_nexus_hosted_http(mock_unrd, mock_gncifn, exists):
             [mock.call("rxjs", suffix_search), mock.call("rxjs", suffix_search, max_attempts=5)]
         )
         mock_unrd.assert_called_once_with(
-            "https://github.com/ReactiveX/rxjs/archive/6.5.5.tar.gz", suffix, False,
+            "https://github.com/ReactiveX/rxjs/archive/6.5.5.tar.gz",
+            suffix,
+            False,
+            ChecksumInfo(
+                "sha512",
+                "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bf"
+                "aac8e48f344dc650c8df0f8182c0271ed9fa233aa32c329839",
+            ),
         )
 
 
