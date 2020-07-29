@@ -8,6 +8,7 @@ import os
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general_js import (
+    ChecksumInfo,
     download_dependencies,
     get_npm_component_info_from_nexus,
     upload_non_registry_dependency,
@@ -149,7 +150,7 @@ def convert_integrity_to_hex_checksum(integrity):
     :rtype: (str, str)
     """
     algorithm, checksum = integrity.split("-", 1)
-    return algorithm, base64.b64decode(checksum).hex()
+    return ChecksumInfo(algorithm, base64.b64decode(checksum).hex())
 
 
 def convert_to_nexus_hosted(dep_name, dep_info):
@@ -181,6 +182,7 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     #   https://github.com/jsplumb/jsplumb/archive/2.10.2.tar.gz
     dep_identifier = dep_info["version"]
     verify_scripts = False
+    checksum_info = None
     if any(dep_identifier.startswith(prefix) for prefix in git_prefixes):
         try:
             _, commit_hash = dep_identifier.rsplit("#", 1)
@@ -203,16 +205,18 @@ def convert_to_nexus_hosted(dep_name, dep_info):
             log.error(msg)
             raise CachitoError(msg)
 
-        algorithm, checksum = convert_integrity_to_hex_checksum(dep_info["integrity"])
+        checksum_info = convert_integrity_to_hex_checksum(dep_info["integrity"])
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
         # of `<version>-external-<checksum algorithm>-<hex checksum>`
-        version_suffix = f"-external-{algorithm}-{checksum}"
+        version_suffix = f"-external-{checksum_info.algorithm}-{checksum_info.hexdigest}"
     else:
         raise CachitoError(f"The dependency {dep_identifier} is hosted in an unsupported location")
 
     component_info = get_npm_component_info_from_nexus(dep_name, f"*{version_suffix}")
     if not component_info:
-        upload_non_registry_dependency(dep_identifier, version_suffix, verify_scripts)
+        upload_non_registry_dependency(
+            dep_identifier, version_suffix, verify_scripts, checksum_info
+        )
         component_info = get_npm_component_info_from_nexus(
             dep_name, f"*{version_suffix}", max_attempts=5
         )

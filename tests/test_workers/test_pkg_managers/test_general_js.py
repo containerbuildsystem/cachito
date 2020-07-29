@@ -381,11 +381,15 @@ def test_prepare_nexus_for_js_request_failed(mock_exec_script):
         _, password = general_js.prepare_nexus_for_js_request(1)
 
 
+@mock.patch("cachito.workers.pkg_managers.general_js._verify_checksum")
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
 @mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_artifact")
-def test_upload_non_registry_dependency(mock_ua, mock_fpj, mock_run_cmd, mock_td, tmpdir):
+@pytest.mark.parametrize("checksum_info", [None, general_js.ChecksumInfo("sha512", "12345")])
+def test_upload_non_registry_dependency(
+    mock_ua, mock_fpj, mock_run_cmd, mock_td, mock_vc, checksum_info, tmpdir
+):
     tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
     with tarfile.open(tarfile_path, "x:gz") as archive:
         tar_info = tarfile.TarInfo("package/salutation.html")
@@ -402,7 +406,9 @@ def test_upload_non_registry_dependency(mock_ua, mock_fpj, mock_run_cmd, mock_td
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
     mock_fpj.return_value = "package/package.json"
 
-    general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
+    general_js.upload_non_registry_dependency(
+        "star-wars@5.0.0", "-the-empire-strikes-back", checksum_info=checksum_info
+    )
 
     modified_tarfile_path = os.path.join(tmpdir, "modified-star-wars-5.0.0.tgz")
     with tarfile.open(modified_tarfile_path, "r:*") as f:
@@ -416,6 +422,10 @@ def test_upload_non_registry_dependency(mock_ua, mock_fpj, mock_run_cmd, mock_td
     mock_run_cmd.assert_called_once_with(["npm", "pack", "star-wars@5.0.0"], mock.ANY, mock.ANY)
     mock_fpj.assert_called_once_with(tarfile_path)
     mock_ua.assert_called_once_with("cachito-js-hosted", "npm", modified_tarfile_path)
+    if not checksum_info:
+        mock_vc.assert_not_called()
+    else:
+        mock_vc.assert_called_once_with(tarfile_path, checksum_info)
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
@@ -484,3 +494,37 @@ def test_upload_non_registry_dependency_invalid_package_json(
     expected = "The dependency star-wars@5.0.0 does not have a valid package.json file"
     with pytest.raises(CachitoError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
+
+
+def test_verify_checksum(tmpdir):
+    file = tmpdir.join("spells.txt")
+    file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
+
+    expected = {
+        "sha512": (
+            "da518fe8b800b3325fe35ca680085fe37626414d0916937a01a25ef8f5d7aa769b7233073235fce85ee"
+            "c717e02bb9d72062656cf2d79223792a784910c267b54"
+        ),
+        "sha256": "ed1f8cd69bfacf0528744b6a7084f36e8841b6128de0217503e215612a0ee835",
+        "md5": "308764bc995153f7d853827a675e6731",
+    }
+    for algorithm, checksum in expected.items():
+        general_js._verify_checksum(str(file), general_js.ChecksumInfo(algorithm, checksum))
+
+
+def test_verify_checksum_invalid_hexdigest(tmpdir):
+    file = tmpdir.join("spells.txt")
+    file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
+
+    expected_error = "The file spells.txt has an unexpected checksum value"
+    with pytest.raises(CachitoError, match=expected_error):
+        general_js._verify_checksum(str(file), general_js.ChecksumInfo("sha512", "spam"))
+
+
+def test_verify_checksum_unsupported_algorithm(tmpdir):
+    file = tmpdir.join("spells.txt")
+    file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
+
+    expected_error = "Cannot perform checksum on the file spells.txt,.*bacon.*"
+    with pytest.raises(CachitoError, match=expected_error):
+        general_js._verify_checksum(str(file), general_js.ChecksumInfo("bacon", "spam"))
