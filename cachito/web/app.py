@@ -15,7 +15,7 @@ from cachito.web.docs import docs
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
 from cachito.web.errors import json_error
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import CachitoError, ContentManifestError, ValidationError
 
 
 def healthcheck():
@@ -100,6 +100,7 @@ def create_app(config_obj=None):
         app.register_error_handler(code, json_error)
     app.register_error_handler(CachitoError, json_error)
     app.register_error_handler(ValidationError, json_error)
+    app.register_error_handler(ContentManifestError, json_error)
 
     return app
 

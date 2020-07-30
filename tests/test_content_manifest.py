@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 
+from cachito.errors import ContentManifestError
 from cachito.web.content_manifest import ContentManifest
 from cachito.web.models import Package, Request
 
@@ -248,15 +249,14 @@ def test_purl_conversion(package, expected_purl, defined, known_protocol):
         msg = f"The PURL spec is not defined for {pkg.type} packages"
         if defined:
             msg = f"Unknown protocol in npm package version: {pkg.version}"
-        with pytest.raises(ValueError) as err:
+        with pytest.raises(ContentManifestError, match=msg):
             pkg.to_purl()
-        assert err.match(msg)
 
 
 def test_purl_conversion_bogus_forge():
     package = {"name": "odd", "type": "npm", "version": f"github:something/odd"}
     pkg = Package.from_json(package)
 
-    with pytest.raises(ValueError) as err:
+    msg = f"Could not convert version {pkg.version} to purl"
+    with pytest.raises(ContentManifestError, match=msg):
         pkg.to_purl()
-    assert err.match(f"Could not convert version {pkg.version} to purl")
