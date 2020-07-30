@@ -77,6 +77,36 @@ mock_in_progress = {
     },
 }
 
+mock_failed = {
+    "items": [
+        {
+            "dependencies": 309,
+            "environment_variables": {},
+            "flags": [],
+            "id": 52,
+            "pkg_managers": ["gomod"],
+            "ref": "a7ac8d4c0b7fe90d51fb911511cbf6939655c877",
+            "repo": "https://github.com/kubernetes/kubernetes.git",
+            "state": "failed",
+            "state_reason": "The request failed",
+            "updated": "2019-09-05T18:24:50.857861",
+            "user": "mprahl@redhat.com",
+        },
+    ],
+    "meta": {
+        "first": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
+        "?page=1&per_page=20&verbose=False&state=failed",
+        "last": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
+        "?page=1&per_page=20&verbose=False&state=failed",
+        "next": None,
+        "page": 1,
+        "pages": 1,
+        "per_page": 20,
+        "previous": None,
+        "total": 1,
+    },
+}
+
 
 @mock.patch("cachito.workers.config.Config.cachito_request_lifetime", 1)
 @mock.patch("cachito.workers.cleanup_job.datetime")
@@ -85,7 +115,7 @@ mock_in_progress = {
 def test_cleanup_job_success(mock_requests, mock_auth_requests, mock_dt):
     mock_dt.utcnow = mock.Mock(return_value=datetime(2019, 9, 7))
     mock_dt.strptime = mock.Mock(return_value=datetime(2019, 9, 5))
-    mock_requests.return_value.json.side_effect = [mock_complete, mock_in_progress]
+    mock_requests.return_value.json.side_effect = [mock_complete, mock_in_progress, mock_failed]
     mock_auth_requests.return_value.ok = True
     main()
     calls = [
@@ -99,9 +129,14 @@ def test_cleanup_job_success(mock_requests, mock_auth_requests, mock_dt):
             json={"state": "stale", "state_reason": "The request has expired"},
             timeout=60,
         ),
+        mock.call(
+            "http://cachito.domain.local/api/v1/requests/52",
+            json={"state": "stale", "state_reason": "The request has expired"},
+            timeout=60,
+        ),        
     ]
-    assert mock_requests.call_count == 2
-    assert mock_auth_requests.call_count == 2
+    assert mock_requests.call_count == 3
+    assert mock_auth_requests.call_count == 3
     mock_auth_requests.assert_has_calls(calls)
 
 
@@ -112,9 +147,9 @@ def test_cleanup_job_success(mock_requests, mock_auth_requests, mock_dt):
 def test_cleanup_job_request_not_stale(mock_requests, mock_mark_as_stale, mock_dt):
     mock_dt.utcnow = mock.Mock(return_value=datetime(2019, 9, 5))
     mock_dt.strptime = mock.Mock(return_value=datetime(2019, 9, 5))
-    mock_requests.return_value.json.side_effect = [mock_complete, mock_in_progress]
+    mock_requests.return_value.json.side_effect = [mock_complete, mock_in_progress, mock_failed]
     main()
-    assert mock_requests.call_count == 2
+    assert mock_requests.call_count == 3
     assert not mock_mark_as_stale.called
 
 

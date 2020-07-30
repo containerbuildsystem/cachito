@@ -22,7 +22,7 @@ payload = {"state": state, "state_reason": state_reason}
 
 def main():
     """Mark all end of life requests as stale using the REST API."""
-    for state in ("complete", "in_progress"):
+    for state in ("complete", "in_progress", "failed"):
         url = f"{config.cachito_api_url.rstrip('/')}/requests"
         while url:
             try:
@@ -58,7 +58,7 @@ def identify_and_mark_stale_requests(requests_json):
     """
     current_time = datetime.utcnow()
     for request in requests_json:
-        if request["state"] not in ("complete", "in_progress"):
+        if request["state"] not in ("complete", "in_progress", "failed"):
             continue
         date_time_obj = datetime.strptime(request["updated"], "%Y-%m-%dT%H:%M:%S.%f")
         if current_time - date_time_obj > timedelta(config.cachito_request_lifetime):
