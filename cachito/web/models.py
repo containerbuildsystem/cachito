@@ -13,7 +13,7 @@ import sqlalchemy.sql
 from werkzeug.exceptions import Forbidden
 
 from cachito.web import content_manifest
-from cachito.errors import ValidationError
+from cachito.errors import ContentManifestError, ValidationError
 from cachito.web import db
 
 
@@ -180,7 +180,7 @@ class Package(db.Model):
 
         :return: the PURL string of the Package object
         :rtype: str
-        :raise ValueError: if the there is no implementation for the package type
+        :raise ContentManifestError: if the there is no implementation for the package type
         """
         if self.type in ("go-package", "gomod"):
             # Use only the PURL "name" field to avoid ambiguity for Go modules/packages
@@ -204,7 +204,7 @@ class Package(db.Model):
                     r"(?P<namespace>.+)/(?P<name>[^#/]+)#(?P<version>.+)$", suffix
                 )
                 if not match_forge:
-                    raise ValueError(f"Could not convert version {self.version} to purl")
+                    raise ContentManifestError(f"Could not convert version {self.version} to purl")
                 forge = match_forge.groupdict()
                 return f"pkg:{protocol}/{forge['namespace']}/{forge['name']}@{forge['version']}"
             elif protocol in ("git", "git+http", "git+https", "git+ssh"):
@@ -214,10 +214,12 @@ class Package(db.Model):
                 qualifier = urllib.parse.quote(self.version, safe="")
                 return f"pkg:generic/{purl_name}?download_url={qualifier}"
             else:
-                raise ValueError(f"Unknown protocol in npm package version: {self.version}")
+                raise ContentManifestError(
+                    f"Unknown protocol in npm package version: {self.version}"
+                )
 
         else:
-            raise ValueError(f"The PURL spec is not defined for {self.type} packages")
+            raise ContentManifestError(f"The PURL spec is not defined for {self.type} packages")
 
 
 class Dependency(Package):
