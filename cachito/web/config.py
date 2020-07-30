@@ -15,9 +15,10 @@ class Config(object):
     CACHITO_DEFAULT_PACKAGE_MANAGERS = ["gomod"]
     # This sets the level of the "flask.app" logger, which is accessed from current_app.logger
     CACHITO_LOG_LEVEL = "INFO"
-    CACHITO_LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s %(message)s"
+    CACHITO_LOG_FORMAT = "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
     CACHITO_MAX_PER_PAGE = 100
     CACHITO_PACKAGE_MANAGERS = ["gomod"]
+    CACHITO_REQUEST_FILE_LOGS_DIR = None
     # Users that are allowed to use the "user" property when creating a request
     CACHITO_USER_REPRESENTATIVES = []
     CACHITO_WORKER_USERNAMES = []
@@ -35,6 +36,7 @@ class DevelopmentConfig(Config):
     CACHITO_BUNDLES_DIR = os.path.join(tempfile.gettempdir(), "cachito-archives", "bundles")
     CACHITO_LOG_LEVEL = "DEBUG"
     CACHITO_PACKAGE_MANAGERS = ["gomod", "npm"]
+    CACHITO_REQUEST_FILE_LOGS_DIR = "/var/log/cachito/requests"
     SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://cachito:cachito@db:5432/cachito"
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     LOGIN_DISABLED = True

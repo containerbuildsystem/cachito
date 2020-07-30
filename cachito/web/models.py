@@ -83,6 +83,16 @@ class RequestStateMapping(Enum):
         """
         return sorted([state.name for state in cls])
 
+    @staticmethod
+    def get_final_states():
+        """
+        Get the states that are considered final for a request.
+
+        :return: a list of states
+        :rtype: list<str>
+        """
+        return ["complete", "failed"]
+
 
 class Package(db.Model):
     """A package associated with the request."""
@@ -628,6 +638,12 @@ class Request(db.Model):
             rv["packages"] = [
                 package.to_json(package_to_deps.get(package.id, [])) for package in self.packages
             ]
+            if flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]:
+                rv["logs"] = {
+                    "url": flask.url_for(
+                        "api_v1.get_request_logs", request_id=self.id, _external=True
+                    )
+                }
         else:
             latest_state = _state_to_json(self.state)
             rv["dependencies"] = self.dependencies_count

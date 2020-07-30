@@ -90,13 +90,13 @@ mock_failed = {
             "state": "failed",
             "state_reason": "The request failed",
             "updated": "2019-09-05T18:24:50.857861",
-            "user": "mprahl@redhat.com",
+            "user": "tom.hanks@domain.local",
         },
     ],
     "meta": {
-        "first": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
+        "first": "https://cachito.domain.local/api/v1/requests"
         "?page=1&per_page=20&verbose=False&state=failed",
-        "last": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
+        "last": "https://cachito.domain.local/api/v1/requests"
         "?page=1&per_page=20&verbose=False&state=failed",
         "next": None,
         "page": 1,
@@ -133,7 +133,7 @@ def test_cleanup_job_success(mock_requests, mock_auth_requests, mock_dt):
             "http://cachito.domain.local/api/v1/requests/52",
             json={"state": "stale", "state_reason": "The request has expired"},
             timeout=60,
-        ),        
+        ),
     ]
     assert mock_requests.call_count == 3
     assert mock_auth_requests.call_count == 3

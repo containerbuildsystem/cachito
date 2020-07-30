@@ -422,6 +422,46 @@ paths:
                   error:
                     type: string
                     example: "The request must be in the \"complete\" state before downloading the archive"
+  "/requests/{id}/logs":
+    get:
+      description: Return the logs for a specific Cachito request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the Cachito request to retrieve the logs for
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The logs for the Cachito request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |-
+                Processing Cachito request 1...
+                Processing request...
+                Done processing Cachito request 1
+        '404':
+          description: Either logs for Cachito requests are not enabled in Cachito, Cachito can't find the request, or the log file is missing
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: The requested resource was not found
+        '410':
+          description: The logs for the Cachito request have been removed due to the request being in the stale state
+          application/json:
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: The logs for the Cachito request 1 no longer exist
+
 components:
   schemas:
     Package:
@@ -684,6 +724,12 @@ components:
           submitted_by:
             type: string
             example: osbs@DOMAIN.LOCAL
+          logs:
+            type: object
+            properties:
+              url:
+                type: string
+                description: URL to fetch the logs for the request
       - $ref: "#/components/schemas/RequestBase"
     StateHistory:
       type: object

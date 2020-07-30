@@ -223,6 +223,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     assert fetched_request["configuration_files"].endswith(
         f"/api/v1/requests/{request_id}/configuration-files"
     )
+    assert fetched_request["logs"]["url"] == "http://localhost/api/v1/requests/1/logs"
 
 
 def test_fetch_paginated_requests(
@@ -1664,3 +1665,80 @@ def test_get_environment_variables(app, client, db, worker_auth_env, env_vars):
     get_env_vars_rv = client.get(f"/api/v1/requests/{request.id}/environment-variables")
     assert get_env_vars_rv.status_code == 200
     assert get_env_vars_rv.json == env_vars_expected
+
+
+@pytest.mark.parametrize(
+    ("logs_content", "stale", "finalized", "expected"),
+    (
+        ("foobar", False, False, {"status": 200, "mimetype": "text/plain", "data": "foobar"}),
+        ("foobar", True, False, {"status": 200, "mimetype": "text/plain", "data": "foobar"}),
+        ("", False, False, {"status": 200, "mimetype": "text/plain", "data": ""}),
+        ("", True, False, {"status": 200, "mimetype": "text/plain", "data": ""}),
+        (None, False, False, {"status": 200, "mimetype": "text/plain", "data": ""}),
+        (
+            None,
+            True,
+            False,
+            {"status": 410, "mimetype": "application/json", "json": {"error": mock.ANY}},
+        ),
+        (
+            None,
+            False,
+            True,
+            {"status": 404, "mimetype": "application/json", "json": {"error": mock.ANY}},
+        ),
+    ),
+)
+def test_get_request_logs(
+    app, client, db, worker_auth_env, tmpdir, logs_content, stale, finalized, expected
+):
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["gomod"],
+    }
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    request.add_state("in_progress", "Starting things up!")
+    db.session.commit()
+
+    client.application.config["CACHITO_REQUEST_FILE_LOGS_DIR"] = str(tmpdir)
+    if finalized:
+        request.add_state("complete", "The request is complete")
+        db.session.commit()
+    if stale:
+        request.add_state("stale", "The request is stale")
+        db.session.commit()
+    request_id = request.id
+    if logs_content is not None:
+        tmpdir.join(f"{request_id}.log").write(logs_content)
+    rv = client.get(f"/api/v1/requests/{request_id}/logs")
+    assert rv.status_code == expected["status"]
+    assert rv.mimetype == expected["mimetype"]
+    if "data" in expected:
+        assert rv.data.decode("utf-8") == expected["data"]
+    if "json" in expected:
+        assert rv.json == expected["json"]
+
+
+def test_get_request_logs_not_configured(app, client, db, worker_auth_env):
+    data = {
+        "repo": "https://github.com/namespace/project.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["gomod"],
+    }
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    request.add_state("in_progress", "Starting things up!")
+    db.session.commit()
+
+    client.application.config["CACHITO_REQUEST_FILE_LOGS_DIR"] = None
+    request_id = request.id
+    rv = client.get(f"/api/v1/requests/{request_id}/logs")
+    assert rv.status_code == 404
+    assert rv.mimetype == "application/json"
+    assert rv.json == {"error": "The requested resource was not found"}
+
+    rv = client.get(f"/api/v1/requests/{request_id}")
+    assert rv.status_code == 200
+    assert "logs" not in rv.json
