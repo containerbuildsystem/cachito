@@ -46,6 +46,12 @@ class Config(object):
     cachito_nexus_timeout = 60
     cachito_nexus_username = "cachito"
     cachito_npm_file_deps_allowlist = {}
+    cachito_request_file_logs_dir = None
+    cachito_request_file_logs_format = (
+        "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
+    )
+    cachito_request_file_logs_level = "DEBUG"
+    cachito_request_file_logs_perm = 0o660
     cachito_request_lifetime = 1
     cachito_task_log_format = (
         "[%(asctime)s #%(request_id)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
@@ -101,6 +107,7 @@ class DevelopmentConfig(Config):
     cachito_nexus_proxy_password = "cachito_unprivileged"
     cachito_nexus_proxy_username = "cachito_unprivileged"
     cachito_nexus_url = "http://nexus:8081"
+    cachito_request_file_logs_dir = "/var/log/cachito/requests"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
 
 
@@ -116,6 +123,7 @@ class TestingConfig(DevelopmentConfig):
         },
     }
     cachito_npm_file_deps_allowlist = {"han_solo": ["millennium-falcon"]}
+    cachito_request_file_logs_dir = None
 
 
 def configure_celery(celery_app):
@@ -211,6 +219,18 @@ def validate_celery_config(conf, **kwargs):
             'The configuration "cachito_default_environment_variables.gomod" cannot overwrite the '
             f"following environment variables: {', '.join(invalid_gomod_env_vars)}"
         )
+
+    cachito_request_file_logs_dir = conf.get("cachito_request_file_logs_dir")
+    if cachito_request_file_logs_dir:
+        if not os.path.isdir(cachito_request_file_logs_dir):
+            raise ConfigError(
+                f"cachito_request_file_logs_dir, {cachito_request_file_logs_dir},"
+                " must exist and be a directory"
+            )
+        if not os.access(cachito_request_file_logs_dir, os.W_OK):
+            raise ConfigError(
+                f"cachito_request_file_logs_dir, {cachito_request_file_logs_dir}, is not writable!"
+            )
 
 
 def validate_nexus_config():

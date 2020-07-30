@@ -2,12 +2,14 @@
 from collections import OrderedDict
 import copy
 import functools
+import os
 
 from celery import chain
 import flask
+from flask import stream_with_context
 from flask_login import current_user, login_required
 import kombu.exceptions
-from werkzeug.exceptions import Forbidden, InternalServerError
+from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.web import db
@@ -340,13 +342,15 @@ def patch_request(request_id):
     delete_bundle = False
     delete_bundle_temp = False
     cleanup_nexus = False
+    delete_logs = False
     if "state" in payload and "state_reason" in payload:
         new_state = payload["state"]
-        delete_bundle = new_state == "stale"
+        delete_bundle = new_state == "stale" and request.state.state_name != "failed"
         cleanup_nexus = new_state in ("stale", "failed") and any(
             p.name == "npm" for p in request.pkg_managers
         )
         delete_bundle_temp = new_state in ("complete", "failed")
+        delete_logs = new_state == "stale"
         new_state_reason = payload["state_reason"]
         # This is to protect against a Celery task getting executed twice and setting the
         # state each time
@@ -405,6 +409,14 @@ def patch_request(request_id):
             flask.current_app.logger.exception(
                 "Failed to delete the temporary files at %s", bundle_dir
             )
+
+    if delete_logs:
+        request_log_dir = flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]
+        path_to_file = os.path.join(request_log_dir, f"{request_id}.log")
+        try:
+            os.remove(path_to_file)
+        except:  # noqa E722
+            flask.current_app.logger.exception("Failed to delete the log file %s", path_to_file)
 
     if cleanup_nexus:
         flask.current_app.logger.info(
@@ -473,3 +485,49 @@ def add_request_config_files(request_id):
 
     db.session.commit()
     return "", 204
+
+
+def generate_stream_response(text_file_path):
+    """
+    Generate response by streaming the content.
+
+    :param str text_file_path: file path to read content from
+    :return: streamed content for the given file
+    :rtype: Generator[str]
+    """
+    with open(text_file_path) as f:
+        while True:
+            data = f.read(1024)
+            if not data:
+                break
+            yield data
+
+
+@api_v1.route("/requests/<int:request_id>/logs")
+def get_request_logs(request_id):
+    """
+    Retrieve the logs for the Cachito request.
+
+    :param int request_id: the value of the request ID
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    :raise Gone: if the logs no longer exist
+    """
+    request_log_dir = flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]
+    if not request_log_dir:
+        raise NotFound()
+    request = Request.query.get_or_404(request_id)
+    log_file_path = os.path.join(request_log_dir, f"{request_id}.log")
+    if not os.path.exists(log_file_path):
+        if request.state.state_name == "stale":
+            raise Gone(f"The logs for the Cachito request {request_id} no longer exist")
+        finalized = request.state.state_name in RequestStateMapping.get_final_states()
+        if finalized:
+            raise NotFound()
+        # The request may not have been initiated yet. Return empty logs until it's processed.
+        return flask.Response("", mimetype="text/plain")
+
+    return flask.Response(
+        stream_with_context(generate_stream_response(log_file_path)), mimetype="text/plain"
+    )

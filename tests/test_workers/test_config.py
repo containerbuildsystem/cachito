@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from unittest.mock import patch
 from io import BytesIO
+import os
 
 import celery
 import pytest
@@ -185,3 +186,43 @@ def test_validate_npm_config(mock_vnc, mock_gwc):
     )
     with pytest.raises(ConfigError, match=expected):
         validate_npm_config()
+
+
+@pytest.mark.parametrize(
+    "file_type, access, error",
+    (
+        ("file", True, "cachito_request_file_logs_dir, {logs_dir}, must exist and be a directory"),
+        (None, True, "cachito_request_file_logs_dir, {logs_dir}, must exist and be a directory"),
+        ("dir", False, "cachito_request_file_logs_dir, {logs_dir}, is not writable!"),
+    ),
+)
+def test_validate_celery_config_request_logs_dir_misconfigured(file_type, access, error, tmpdir):
+    cachito_request_file_logs_dir = tmpdir.join("logs")
+    cachito_bundles_dir = tmpdir.join("bundles")
+    cachito_bundles_dir.mkdir()
+    cachito_sources_dir = tmpdir.join("sources")
+    cachito_sources_dir.mkdir()
+    if file_type == "file":
+        cachito_request_file_logs_dir.write("")
+    elif file_type == "dir":
+        cachito_request_file_logs_dir.mkdir()
+    elif file_type is None:
+        # Skip creating the file or directory altogether
+        pass
+    else:
+        raise ValueError(f"Bad file_type {file_type}")
+
+    if not access:
+        if os.getuid() == 0:
+            pytest.skip("Cannot restrict the root user from writing to any file")
+        cachito_request_file_logs_dir.chmod(mode=0o555)
+
+    celery_app = celery.Celery()
+    celery_app.conf.cachito_api_url = "http://localhost:8080/api/v1/"
+    celery_app.conf.cachito_bundles_dir = cachito_bundles_dir
+    celery_app.conf.cachito_sources_dir = cachito_sources_dir
+    celery_app.conf.cachito_default_environment_variables = {}
+    celery_app.conf.cachito_request_file_logs_dir = cachito_request_file_logs_dir
+    error = error.format(logs_dir=cachito_request_file_logs_dir)
+    with pytest.raises(ConfigError, match=error):
+        validate_celery_config(celery_app.conf)

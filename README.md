@@ -348,6 +348,14 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_npm_file_deps_allowlist` - the npm "file" dependencies that are allowed in the lock file
   for the "npm" package manager. This configuration is a dictionary with the keys as package names
   and the values as lists of dependency names. This defaults to `{}`.
+* `cachito_request_file_logs_dir` - the directory to write the request specific log files. If `None`, per
+  request log files are not created. This defaults to `None`.
+* `cachito_request_file_logs_format` - the format for the log messages of the request specific log files.
+  This defaults to `"[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"`.
+* `cachito_request_file_logs_level` - the log level for the request specific log files. This defaults to
+  `DEBUG`.
+* `cachito_request_file_logs_perm` - the log file permission for the request specific log files. This
+  defaults to `0o660`.
 * `cachito_request_lifetime` - the number of days before a request that is in the `complete` state
   or that is stuck in the `in_progress` state will be marked as stale by the `cachito-cleanup`
   script. This defaults to `1`.
@@ -371,6 +379,8 @@ Custom configuration for the API:
   are specified on a request. This defaults to `["gomod"]`.
 * `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
 * `CACHITO_PACKAGE_MANAGERS` - the list of enabled package managers. This defaults to `["gomod"]`.
+* `CACHITO_REQUEST_FILE_LOGS_DIR` - the directory to load the request specific log files. If `None`, per
+  request log files information will not appear in the API response. This defaults to `None`.
 * `CACHITO_USER_REPRESENTATIVES` - the list of usernames that are allowed to submit requests on
   behalf of other users.
 * `CACHITO_WORKER_USERNAMES` - the list of usernames that are allowed to use the `/requests/<id>`
