@@ -313,7 +313,7 @@ def test_fetch_request_multiple_packages(app, auth_env, client, db, worker_auth_
         ],
         "package": {"name": "client", "type": "npm", "version": "1.0.0"},
     }
-    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
     payload = {
         "dependencies": [
             {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
@@ -321,7 +321,7 @@ def test_fetch_request_multiple_packages(app, auth_env, client, db, worker_auth_
         ],
         "package": {"name": "proxy", "type": "npm", "version": "1.0.0"},
     }
-    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
 
     # Test the request in the non-verbose format
     rv = client.get("/api/v1/requests")
