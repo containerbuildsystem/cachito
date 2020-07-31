@@ -4,3 +4,4 @@ kombu<5 # A celery dependency but it's directly imported
 requests_kerberos
 requests
 semver
+setuptools

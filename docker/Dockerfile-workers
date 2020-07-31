@@ -16,6 +16,7 @@ RUN dnf -y install \
     python3-requests \
     python3-requests-kerberos \
     python3-semver \
+    python3-setuptools \
     && dnf clean all
 COPY . .
 RUN pip3 install . --no-deps
