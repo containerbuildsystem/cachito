@@ -21,6 +21,7 @@ RUN dnf -y install \
     python3-requests \
     python3-requests-kerberos \
     python3-semver \
+    python3-setuptools \
     && dnf clean all
 COPY . .
 COPY ./docker/cachito-httpd.conf /etc/httpd/conf/httpd.conf
