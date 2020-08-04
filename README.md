@@ -481,6 +481,18 @@ the dependencies in the `deps/gomod` directory.
 Cachito will provide environment variables in the REST API to set for the Go tooling to use this
 cache when building the application.
 
+#### Go package level dependencies and the go-package Cachito package type
+
+On top of finding the Go module and its dependencies, and providing their sources and the proper
+environment variables for a successful build from such sources, Cachito will also discover the top
+level Go packages in the source repository and their (package level) dependencies.
+
+These package level dependencies will be included in the Cachito API request response at the
+`/api/v1/requests/<id>` endpoint as packages with the `go-package` type.
+
+Finally, the package level dependencies will be used to compose the Content Manifests shipped at the
+`/api/v1/requests/<id>/content-manifest` API endpoint.
+
 ### npm
 
 The npm package manager works by parsing the `npm-shrinkwrap.json` or `package-lock.json` file
