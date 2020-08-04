@@ -4,8 +4,11 @@ This script configures Nexus for the Cachito development environment in an idemp
 As part of the script, the following occurs:
 - Anonymous access is disabled
 - The "cachito-js" blob store is created
+- The "cachito-pip" blob store is created
 - The "cachito-js-hosted" NPM hosted repository is created
 - The "cachito-js-proxy" NPM proxy repository is created
+- The "cachito-pip-raw" raw hosted repository is created
+- The "cachito-pip-proxy" PyPI proxy repository is created
 - The "cachito-js" NPM group repository is created which points to the "cachito-js-hosted" and "cachito-js-proxy" repositories
 - The "cachito" service account is created, which is used to manage the per-request proxy repositories, roles, and users
 - The "cachito_unprivileged" service account is created, which is used by the per-request proxy repositories to connect to the "cachito-js" repository
@@ -76,7 +79,7 @@ def createRole(String name, String description, List<String> privileges) {
 def createBlobStore(String name) {
     if (!blobStore.blobStoreManager.get(name)) {
         logger.info("Creating the blob store ${name}")
-        // Name the directory the same as the blobStoreName for where the blob store will be located.
+        // Name the directory the same as the 'name' for where the blob store will be located.
         // If an absolute path is not provided such as in this case, it will be located at $NEXUS_DATA/<blobStorePath>.
         String blobStorePath = name
         blobStore.createFileBlobStore(name, blobStorePath)
@@ -84,7 +87,7 @@ def createBlobStore(String name) {
 }
 
 
-def createHostedNpmRepo(String name, String blobStoreName) {
+def createHostedRepo(String name, String repoType, String blobStoreName) {
     WritePolicy writePolicy = WritePolicy.ALLOW_ONCE
     Boolean strictContentValidation = true
     // repository is an object that is injected by Nexus when the script is executed
@@ -97,13 +100,23 @@ def createHostedNpmRepo(String name, String blobStoreName) {
         repository.repositoryManager.update(hostedRepoConfig)
     }
     else {
-        logger.info("Creating the hosted repository ${name}")
-        repository.createNpmHosted(name, blobStoreName, strictContentValidation, writePolicy)
+        logger.info("Creating the hosted ${repoType} repository ${name}")
+        switch(repoType) {
+            case "raw":
+                repository.createRawHosted(name, blobStoreName, strictContentValidation, writePolicy)
+                break;
+            case "npm":
+                repository.createNpmHosted(name, blobStoreName, strictContentValidation, writePolicy)
+                break;
+            default:
+                logger.warn("Type ${repoType} not supported. repository ${name} not created.")
+                break;
+        }
     }
 }
 
 
-def createProxyNpmRepo(String name, String registry, String blobStoreName) {
+def createProxyRepo(String name, String proxyType, String registry, String blobStoreName) {
     /*
         Here are some of the properties that can be set:
           repositoryName: name,
@@ -153,7 +166,7 @@ def createProxyNpmRepo(String name, String registry, String blobStoreName) {
         logger.info("Creating the proxy repository ${name}")
         proxyRepoConfig = repository.repositoryManager.newConfiguration()
         proxyRepoConfig.repositoryName = name
-        proxyRepoConfig.recipeName = 'npm-proxy'
+        proxyRepoConfig.recipeName = proxyType
         proxyRepoConfig.attributes('storage').set('blobStoreName', blobStoreName)
     }
 
@@ -206,6 +219,10 @@ def createCachitoUser(String password) {
             'nx-repository-admin-*-*-*',
             // This is so that Cachito can use any NPM repository
             'nx-repository-view-npm-*-*',
+            // This is so that Cachito can use any PyPI repository
+            'nx-repository-view-pypi-*-*',
+            // This is so that Cachito can use any raw repository
+            'nx-repository-view-raw-*-*',
             // This is so that Cachito can create, read, update, and delete Nexus roles
             'nx-roles-all',
             // This is so that Cachito can create, read, update, and delete Nexus Groovy scripts
@@ -260,19 +277,34 @@ logger.info("Disabling anonymous access")
 // security is an object that is injected by Nexus when the script is executed
 security.setAnonymousAccess(false)
 
-String blobStoreName = 'cachito-js'
-createBlobStore(blobStoreName)
+String jsBlobStoreName = 'cachito-js'
+createBlobStore(jsBlobStoreName)
 
-String hostedRepoName = 'cachito-js-hosted'
-createHostedNpmRepo(hostedRepoName, blobStoreName)
+String jsHostedRepoName = 'cachito-js-hosted'
+String jsHostedType = 'npm'
+createHostedRepo(jsHostedRepoName, jsHostedType, jsBlobStoreName)
 
-String proxyRepoName = 'cachito-js-proxy'
-String registry = 'https://registry.npmjs.org'
-createProxyNpmRepo(proxyRepoName, registry, blobStoreName)
+String jsProxyRepoName = 'cachito-js-proxy'
+String jsRegistry = 'https://registry.npmjs.org'
+String jsProxyType = 'npm-proxy'
+createProxyRepo(jsProxyRepoName, jsProxyType, jsRegistry, jsBlobStoreName)
 
-String groupRepoName = 'cachito-js'
-List<String> groupMembers = [hostedRepoName, proxyRepoName]
-createGroupNpmRepo(groupRepoName, groupMembers, blobStoreName)
+String jsGroupRepoName = 'cachito-js'
+List<String> jsGroupMembers = [jsHostedRepoName, jsProxyRepoName]
+createGroupNpmRepo(jsGroupRepoName, jsGroupMembers, jsBlobStoreName)
+
+String pipBlobStoreName = 'cachito-pip'
+createBlobStore(pipBlobStoreName)
+
+String pipHostedRepoName = 'cachito-pip-raw'
+String pipHostedType = 'raw'
+createHostedRepo(pipHostedRepoName, pipHostedType, pipBlobStoreName)
+
+String pipProxyRepoName = 'cachito-pip-proxy'
+String pipRegistry = 'https://pypi.org/'
+String pipProxyType = 'pypi-proxy'
+createProxyRepo(pipProxyRepoName, pipProxyType, pipRegistry, pipBlobStoreName)
+
 
 createCachitoUser(request.cachito_password)
 createCachitoUnprivilegedUser(request.cachito_unprivileged_password)
