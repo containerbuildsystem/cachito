@@ -28,20 +28,24 @@ def test_env():
 @pytest.fixture(scope="session")
 def default_request(test_env):
     """
-    Create a new request in Cachito.
+    Create a new request for every package manager in Cachito.
 
     :param test_env: Test environment configuration
-    :return: a tuple that contains initial and completed response from the Cachito API
-    :rtype: tuple
+    :return: a dict of packages with initial and completed responses from the Cachito API
+    :rtype: dict
     """
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
-    initial_response = client.create_new_request(
-        payload={
-            "repo": test_env["package"]["repo"],
-            "ref": test_env["package"]["ref"],
-            "pkg_managers": test_env["package"]["pkg_managers"],
-        },
-    )
-    completed_response = client.wait_for_complete_request(initial_response)
+    default_requests = {}
+    packages = test_env["packages"]
+    for package_name in packages:
+        initial_response = client.create_new_request(
+            payload={
+                "repo": packages[package_name]["repo"],
+                "ref": packages[package_name]["ref"],
+                "pkg_managers": packages[package_name]["pkg_managers"],
+            },
+        )
+        completed_response = client.wait_for_complete_request(initial_response)
+        default_requests[package_name] = DefaultRequest(initial_response, completed_response)
 
-    return DefaultRequest(initial_response, completed_response)
+    return default_requests

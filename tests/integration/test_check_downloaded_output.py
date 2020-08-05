@@ -23,7 +23,7 @@ def test_check_downloaded_output(test_env, default_request, tmpdir):
     * Check that dir app/ contains application source code
     * Check that the same full path filename is not duplicated
     """
-    response = default_request.complete_response
+    response = default_request["gomod"].complete_response
     assert response.status == 200
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
     assert response.data["state"] == "complete"

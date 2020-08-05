@@ -4,13 +4,18 @@ api_url: http://localhost:8080/api/v1
 # Authentication type, user either null for no authentication or kerberos
 api_auth_type: null
 # Package that will be used for testing
-package:
-  # The URL for the upstream git repository
-  repo: https://github.com/release-engineering/retrodep.git
-  # A git reference at the given git repository
-  ref: e1be527f39ec31323f0454f7d1422c6260b00580
-  # Package managers
-  pkg_managers: ["gomod"]
+packages:
+  # repo: The URL for the upstream git repository
+  # ref: A git reference at the given git repository
+  # pkg_managers: Package managers
+  gomod:
+    repo: https://github.com/release-engineering/retrodep.git
+    ref: e1be527f39ec31323f0454f7d1422c6260b00580
+    pkg_managers: ["gomod"]
+  npm:
+    repo: https://github.com/ReactiveX/rxjs.git
+    ref: 743799394a8404dd5de1913592b63eeb4085b86d
+    pkg_managers: ["npm"]
 # Test data for the Valid data in request test
 get:
   # The list of fetched packages

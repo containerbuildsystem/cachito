@@ -16,7 +16,7 @@ def test_valid_data_in_request(test_env, default_request):
     * Check in the response that state is complete
     * Check that "packages" and "dependencies" keys have appropriate values
     """
-    response = default_request.complete_response
+    response = default_request["gomod"].complete_response
     assert response.status == 200
     assert response.data["state"] == "complete"
 

@@ -26,7 +26,7 @@ def test_run_app_from_bundle(test_env, default_request, tmpdir):
     * Check that the bundle is properly downloaded
     * Check that the application runs successfully
     """
-    response = default_request.complete_response
+    response = default_request["gomod"].complete_response
     assert response.status == 200
     assert response.data["state"] == "complete"
 
