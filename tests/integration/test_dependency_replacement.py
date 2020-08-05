@@ -25,9 +25,9 @@ def test_dependency_replacement(test_env, tmpdir):
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
     response_created_req = client.create_new_request(
         payload={
-            "repo": test_env["package"]["repo"],
-            "ref": test_env["package"]["ref"],
-            "pkg_managers": test_env["package"]["pkg_managers"],
+            "repo": test_env["packages"]["gomod"]["repo"],
+            "ref": test_env["packages"]["gomod"]["ref"],
+            "pkg_managers": test_env["packages"]["gomod"]["pkg_managers"],
             "dependency_replacements": dependency_replacements,
         },
     )

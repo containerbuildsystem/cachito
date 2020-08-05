@@ -31,7 +31,7 @@ def test_valid_content_manifest_request(test_env, default_request):
     """
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
 
-    initial_response = default_request.initial_response
+    initial_response = default_request["gomod"].initial_response
     content_manifest_response = client.fetch_content_manifest(initial_response.id)
     assert content_manifest_response.status == 200
 

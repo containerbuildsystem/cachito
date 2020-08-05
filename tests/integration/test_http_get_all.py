@@ -19,9 +19,9 @@ def test_http_get_all(test_env):
     requests_amount = test_env["http_get_all"]["requests_amount"]
     submitted_requests = []
     payload = {
-        "repo": test_env["package"]["repo"],
-        "ref": test_env["package"]["ref"],
-        "pkg_managers": test_env["package"]["pkg_managers"],
+        "repo": test_env["packages"]["gomod"]["repo"],
+        "ref": test_env["packages"]["gomod"]["ref"],
+        "pkg_managers": test_env["packages"]["gomod"]["pkg_managers"],
     }
     initial_responses = [client.create_new_request(payload) for _ in range(requests_amount)]
     for initial_response in initial_responses:
@@ -47,9 +47,9 @@ def test_get_all_verbose(test_env):
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
     initial_response = client.create_new_request(
         payload={
-            "repo": test_env["package"]["repo"],
-            "ref": test_env["package"]["ref"],
-            "pkg_managers": test_env["package"]["pkg_managers"],
+            "repo": test_env["packages"]["gomod"]["repo"],
+            "ref": test_env["packages"]["gomod"]["ref"],
+            "pkg_managers": test_env["packages"]["gomod"]["pkg_managers"],
         },
     )
     client.wait_for_complete_request(initial_response)

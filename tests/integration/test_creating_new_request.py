@@ -13,7 +13,7 @@ def test_creating_new_request(test_env, default_request):
         state_reason is: The request was initiated
     """
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
-    response_created_req = default_request.initial_response
+    response_created_req = default_request["gomod"].initial_response
     assert response_created_req.status == 201
 
     assert "id" in response_created_req.data
@@ -23,10 +23,10 @@ def test_creating_new_request(test_env, default_request):
     assert response_created_req.id == response_specific_req.id
 
     response_pkg_managers = set(response_created_req.data["pkg_managers"])
-    assert set(test_env["package"]["pkg_managers"]) == response_pkg_managers
-    assert test_env["package"]["ref"] == response_created_req.data["ref"]
-    assert test_env["package"]["repo"] == response_created_req.data["repo"]
-    assert test_env["package"]["ref"] == response_specific_req.data["ref"]
-    assert test_env["package"]["repo"] == response_specific_req.data["repo"]
+    assert set(test_env["packages"]["gomod"]["pkg_managers"]) == response_pkg_managers
+    assert test_env["packages"]["gomod"]["ref"] == response_created_req.data["ref"]
+    assert test_env["packages"]["gomod"]["repo"] == response_created_req.data["repo"]
+    assert test_env["packages"]["gomod"]["ref"] == response_specific_req.data["ref"]
+    assert test_env["packages"]["gomod"]["repo"] == response_specific_req.data["repo"]
 
     assert response_created_req.data["state_reason"] == "The request was initiated"
