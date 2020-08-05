@@ -3,6 +3,8 @@
 api_url: http://localhost:8080/api/v1
 # Authentication type, user either null for no authentication or kerberos
 api_auth_type: null
+# Time in minutes at which the request must be completed
+timeout: 15
 # Package that will be used for testing
 packages:
   # repo: The URL for the upstream git repository

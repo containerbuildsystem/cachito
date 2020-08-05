@@ -15,7 +15,7 @@ def test_http_get_all(test_env):
     * Check that response code is 200
     * Check that filtering parameters are working properly (page, per_page, and state)
     """
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     requests_amount = test_env["http_get_all"]["requests_amount"]
     submitted_requests = []
     payload = {
@@ -44,7 +44,7 @@ def test_get_all_verbose(test_env):
     * Check that response code is 200
     * Check that verbose is working properly
     """
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     initial_response = client.create_new_request(
         payload={
             "repo": test_env["packages"]["gomod"]["repo"],

@@ -12,7 +12,7 @@ def test_creating_new_request(test_env, default_request):
     * Check that response contains id number, same ref and repo as in request,
         state_reason is: The request was initiated
     """
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     response_created_req = default_request["gomod"].initial_response
     assert response_created_req.status == 201
 

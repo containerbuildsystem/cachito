@@ -13,7 +13,7 @@ def test_invalid_content_manifest_request(test_env):
     Checks:
     * Check that the response code is 404
     """
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
 
     with pytest.raises(requests.HTTPError) as e:
         client.fetch_content_manifest(request_id=0)
@@ -29,7 +29,7 @@ def test_valid_content_manifest_request(test_env, default_request):
     * Check that the response code is 200
     * Check validation of the response data with content manifest JSON schema
     """
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
 
     initial_response = default_request["gomod"].initial_response
     content_manifest_response = client.fetch_content_manifest(initial_response.id)

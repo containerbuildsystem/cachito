@@ -22,7 +22,7 @@ def test_dependency_replacement(test_env, tmpdir):
     * Check that app/go.mod file has replace directive for the specified package
     """
     dependency_replacements = test_env["dep_replacement"]["dependency_replacements"]
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     response_created_req = client.create_new_request(
         payload={
             "repo": test_env["packages"]["gomod"]["repo"],
