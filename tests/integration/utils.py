@@ -14,15 +14,17 @@ Response = namedtuple("Response", "data id status")
 class Client:
     """Simplifies access to the Cachito API."""
 
-    def __init__(self, cachito_api_url, cachito_api_auth_type):
+    def __init__(self, cachito_api_url, cachito_api_auth_type, timeout=15):
         """
         Initialize the Client class.
 
         :attribute str _cachito_api_url: URL of the Cachito API
         :attribute _cachito_api_auth_type: kind of authentication used
+        :attribute int _timeout: timeout for completing request
         """
         self._cachito_api_url = cachito_api_url
         self._cachito_api_auth_type = cachito_api_auth_type
+        self._timeout = timeout
 
     def fetch_request(self, request_id):
         """
@@ -82,13 +84,16 @@ class Client:
         :param Response response: Object that contains response from the Cachito API
         :return: Object that contains response from the Cachito API
         :rtype: Response
-        :raises TimeoutError: if the request would not complete within 5 minutes
+        :raises TimeoutError: if the request would not complete in time
         """
         start_time = time.time()
+        timeout_secs = self._timeout * 60
         while response.data["state"] == "in_progress":
-            # 300 seconds
-            if time.time() - start_time >= 300:
-                raise TimeoutError("The Cachito request did not complete within 5 minutes")
+            if time.time() - start_time >= timeout_secs:
+                raise TimeoutError(
+                    f"The Cachito request did not complete within {self._timeout} minutes"
+                )
+
             time.sleep(5)
             response = self.fetch_request(response.id)
 

@@ -25,7 +25,7 @@ def test_check_downloaded_output(test_env, default_request, tmpdir):
     """
     response = default_request["gomod"].complete_response
     assert response.status == 200
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     assert response.data["state"] == "complete"
 
     file_name = tmpdir.join(f"download_{str(response.id)}")

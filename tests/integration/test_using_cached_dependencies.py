@@ -43,7 +43,9 @@ def test_using_cached_dependencies(test_env, tmpdir):
         repo.git.push("-u", remote.name, branch_name)
         commit = repo.head.commit.hexsha
 
-        client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+        client = utils.Client(
+            test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout")
+        )
         response = client.create_new_request(
             payload={
                 "repo": test_env["cached_dependencies"]["test_repo"]["https_url"],

@@ -32,7 +32,7 @@ def test_run_app_from_bundle(test_env, default_request, tmpdir):
 
     file_name_tar = tmpdir.join(f"download_{str(response.id)}.tar.gz")
     bundle_dir = tmpdir.mkdir(f"download_{str(response.id)}")
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     resp = client.download_bundle(response.id, file_name_tar)
     assert resp.status == 200
     assert tarfile.is_tarfile(file_name_tar)

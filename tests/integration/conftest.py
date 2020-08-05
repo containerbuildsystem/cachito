@@ -34,7 +34,7 @@ def default_request(test_env):
     :return: a dict of packages with initial and completed responses from the Cachito API
     :rtype: dict
     """
-    client = utils.Client(test_env["api_url"], test_env["api_auth_type"])
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     default_requests = {}
     packages = test_env["packages"]
     for package_name in packages:
