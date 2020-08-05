@@ -21,14 +21,18 @@ mock_complete = {
             "state": "complete",
             "state_reason": "Completed successfully",
             "updated": "2019-09-05T18:24:50.857861",
-            "user": "mprahl@redhat.com",
+            "user": "tom.hanks@domain.local",
         },
     ],
     "meta": {
-        "first": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
-        "?page=1&per_page=20&verbose=False&state=complete",
-        "last": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
-        "?page=1&per_page=20&verbose=False&state=complete",
+        "first": (
+            "https://cachito.stage.domain.local/api/v1/requests"
+            "?page=1&per_page=20&verbose=False&state=complete"
+        ),
+        "last": (
+            "https://cachito.stage.domain.local/api/v1/requests"
+            "?page=1&per_page=20&verbose=False&state=complete"
+        ),
         "next": None,
         "page": 1,
         "pages": 1,
@@ -52,14 +56,18 @@ mock_in_progress = {
             "state": "in_progress",
             "state_reason": "The request was initiated",
             "updated": "2019-09-05T18:24:50.857861",
-            "user": "mprahl@redhat.com",
+            "user": "tom.hanks@domain.local",
         },
     ],
     "meta": {
-        "first": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
-        "?page=1&per_page=20&verbose=False&state=in_progress",
-        "last": "https://cachito.stage.engineering.redhat.com/api/v1/requests"
-        "?page=1&per_page=20&verbose=False&state=in_progress",
+        "first": (
+            "https://cachito.stage.domain.local/api/v1/requests"
+            "?page=1&per_page=20&verbose=False&state=in_progress"
+        ),
+        "last": (
+            "https://cachito.stage.domain.local/api/v1/requests"
+            "?page=1&per_page=20&verbose=False&state=in_progress"
+        ),
         "next": None,
         "page": 1,
         "pages": 1,
