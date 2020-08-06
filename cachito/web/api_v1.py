@@ -51,7 +51,11 @@ def get_requests():
         state_int = RequestStateMapping.__members__[state].value
         query = query.join(RequestState, Request.request_state_id == RequestState.id)
         query = query.filter(RequestState.state == state_int)
-    pagination_query = query.paginate(max_per_page=max_per_page)
+    try:
+        per_page = int(flask.request.args.get("per_page", 10))
+    except ValueError:
+        per_page = 10
+    pagination_query = query.paginate(per_page=per_page, max_per_page=max_per_page)
     requests = pagination_query.items
     query_params = {}
     if state:
