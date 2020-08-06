@@ -255,26 +255,31 @@ def test_fetch_paginated_requests(
     assert rv.status_code == 200
     response = rv.json
     fetched_requests = response["items"]
-    assert len(fetched_requests) == 20
+    assert len(fetched_requests) == 10
     for i, request in enumerate(fetched_requests, 1):
         assert request["repo"] == repo_template.format(sample_requests_count - i)
     assert response["meta"]["previous"] is None
     assert fetched_requests[0]["dependencies"] == 14
     assert fetched_requests[0]["packages"] == 1
 
+    # Invalid per_page defaults to 10
+    rv = client.get("/api/v1/requests?per_page=tom_hanks")
+    assert len(rv.json["items"]) == 10
+    assert response["meta"]["per_page"] == 10
+
     # per_page and page parameters are honored
-    rv = client.get("/api/v1/requests?page=2&per_page=10&verbose=True&state=in_progress")
+    rv = client.get("/api/v1/requests?page=3&per_page=5&verbose=True&state=in_progress")
     assert rv.status_code == 200
     response = rv.json
     fetched_requests = response["items"]
-    assert len(fetched_requests) == 10
-    # Start at 10 because each page contains 10 items and we're processing the second page
+    assert len(fetched_requests) == 5
+    # Start at 10 because each page contains 5 items and we're processing the third page
     for i, request in enumerate(fetched_requests, 1):
         assert request["repo"] == repo_template.format(sample_requests_count - 10 - i)
     pagination_metadata = response["meta"]
-    for page, page_num in [("next", 3), ("last", 5), ("previous", 1), ("first", 1)]:
+    for page, page_num in [("next", 4), ("last", 10), ("previous", 2), ("first", 1)]:
         assert f"page={page_num}" in pagination_metadata[page]
-        assert "per_page=10" in pagination_metadata[page]
+        assert "per_page=5" in pagination_metadata[page]
         assert "verbose=True" in pagination_metadata[page]
         assert "state=in_progress" in pagination_metadata[page]
     assert pagination_metadata["total"] == sample_requests_count
