@@ -77,6 +77,19 @@ Run the application locally (requires [docker-compose](https://docs.docker.com/c
 make run
 ```
 
+Alternatively, you could also run the application with
+[podman-compose](https://github.com/containers/podman-compose) by setting the
+`CACHITO_COMPOSE_ENGINE` variable (for now SELinux must be set to the
+**Permissive** mode before running the make command):
+
+> :warning: **Disabling SELinux or running it in Permissive mode may be
+> dangerous. Do it at your own risk and make sure you re-enable it after
+> running your integration tests.**
+
+```bash
+make run CACHITO_COMPOSE_ENGINE=podman-compose
+```
+
 Verify in the browser at [http://localhost:8080/](http://localhost:8080/)
 
 Use curl to make requests:
@@ -195,6 +208,12 @@ the following command:
 
 ```bash
 make clean
+```
+
+If you are using podman, do not forget to set the `CACHITO_COMPOSE_ENGINE` variable:
+
+```bash
+make clean CACHITO_COMPOSE_ENGINE=podman-compose
 ```
 
 ### Adding Dependencies
