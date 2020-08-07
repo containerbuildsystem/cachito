@@ -7,4 +7,6 @@
 build/
 dist/
 htmlcov/
+tmp/
+venv/
 *.egg-info/
