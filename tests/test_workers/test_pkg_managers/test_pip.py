@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
+import re
 from pathlib import Path
 from textwrap import dedent
 
@@ -1117,3 +1118,487 @@ class TestSetupPY:
             f"setup kwarg '{what}' is an unsupported expression: Call",
         ]
         self._test_get_value(tmpdir, caplog, script_content, None, expect_logs, what=what)
+
+
+class TestPipRequirementsFile:
+    """PipRequirementsFile tests."""
+
+    @pytest.mark.parametrize(
+        "file_contents, expected_requirements, expected_global_options",
+        (
+            # Dependency from pypi
+            ("aiowsgi", [{"package": "aiowsgi", "kind": "pypi", "download_line": "aiowsgi"}], [],),
+            # Dependency from pypi with pinned version
+            (
+                "aiowsgi==0.7",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi==0.7",
+                        "version_specs": [("==", "0.7")],
+                    },
+                ],
+                [],
+            ),
+            # Dependency from pypi with minimum version
+            (
+                "aiowsgi>=0.7",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi>=0.7",
+                        "version_specs": [(">=", "0.7")],
+                    },
+                ],
+                [],
+            ),
+            # Dependency from pypi with version range
+            (
+                "aiowsgi>=0.7,<1.0",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi>=0.7,<1.0",
+                        "version_specs": [(">=", "0.7"), ("<", "1.0")],
+                    },
+                ],
+                [],
+            ),
+            # Dependency from pypi with picky version
+            (
+                "aiowsgi>=0.7,<1.0,!=0.8",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi>=0.7,<1.0,!=0.8",
+                        "version_specs": [(">=", "0.7"), ("<", "1.0"), ("!=", "0.8")],
+                    },
+                ],
+                [],
+            ),
+            # Dependency from pypi with extras
+            (
+                "aiowsgi[spam,bacon]==0.7",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi[spam,bacon]==0.7",
+                        "version_specs": [("==", "0.7")],
+                        "extras": ["spam", "bacon"],
+                    },
+                ],
+                [],
+            ),
+            # Dependency from pypi with major version compatibility
+            (
+                "aiowsgi~=0.6",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi~=0.6",
+                        "version_specs": [("~=", "0.6")],
+                    },
+                ],
+                [],
+            ),
+            # Dependency from pypi with environment markers
+            (
+                'aiowsgi; python_version < "2.7"',
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": 'aiowsgi; python_version < "2.7"',
+                        "environment_marker": 'python_version < "2.7"',
+                    },
+                ],
+                [],
+            ),
+            # Dependency from pypi with hashes
+            (
+                dedent(
+                    """\
+                    amqp==2.5.2 \\
+                       --hash=sha256:6e649ca13a7df3faacdc8bbb280aa9a6602d22fd9d545 \\
+                       --hash=sha256:77f1aef9410698d20eaeac5b73a87817365f457a507d8
+                    """
+                ),
+                [
+                    {
+                        "package": "amqp",
+                        "kind": "pypi",
+                        "download_line": "amqp==2.5.2",
+                        "version_specs": [("==", "2.5.2")],
+                        "hashes": [
+                            "sha256:6e649ca13a7df3faacdc8bbb280aa9a6602d22fd9d545",
+                            "sha256:77f1aef9410698d20eaeac5b73a87817365f457a507d8",
+                        ],
+                    },
+                ],
+                [],
+            ),
+            # Dependency from URL with egg name
+            (
+                "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "url",
+                        "download_line": (
+                            "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                            "#egg=cnr_server"
+                        ),
+                        "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # Dependency from URL with package name
+            (
+                "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "url",
+                        "download_line": (
+                            "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                        ),
+                    },
+                ],
+                [],
+            ),
+            # Dependency from URL with both egg and package names
+            (
+                "ignored @ https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "url",
+                        "download_line": (
+                            "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                            "#egg=cnr_server"
+                        ),
+                        "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # Editable dependency from URL
+            (
+                "-e https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "url",
+                        "download_line": (
+                            "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                            "#egg=cnr_server"
+                        ),
+                        "options": ["-e"],
+                        "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # Dependency from URL with hashes
+            (
+                (
+                    "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server "
+                    "--hash=sh256:sha256:4fd9429bfbb796a48c0bde6bd301ff5b3cc02adb32189d91"
+                    "2c7f55ec2e6c70c8"
+                ),
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "url",
+                        "download_line": (
+                            "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                            "#egg=cnr_server"
+                        ),
+                        "hashes": [
+                            "sh256:sha256:4fd9429bfbb796a48c0bde6bd301ff5b3cc02adb32189d912c7f55"
+                            "ec2e6c70c8",
+                        ],
+                        "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # Dependency from VCS with egg name
+            (
+                "git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "vcs",
+                        "download_line": (
+                            "cnr_server @ git+https://github.com/quay/appr.git@58c88e49"
+                            "#egg=cnr_server"
+                        ),
+                        "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # Dependency from VCS with package name
+            (
+                "cnr_server @ git+https://github.com/quay/appr.git@58c88e49",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "vcs",
+                        "download_line": (
+                            "cnr_server @ git+https://github.com/quay/appr.git@58c88e49"
+                        ),
+                    },
+                ],
+                [],
+            ),
+            # Dependency from VCS with both egg and package names
+            (
+                "ignored @ git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "vcs",
+                        "download_line": (
+                            "cnr_server @ git+https://github.com/quay/appr.git@58c88e49"
+                            "#egg=cnr_server"
+                        ),
+                        "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # Editable dependency from VCS
+            (
+                "-e git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "vcs",
+                        "download_line": (
+                            "cnr_server @ git+https://github.com/quay/appr.git@58c88e49"
+                            "#egg=cnr_server"
+                        ),
+                        "options": ["-e"],
+                        "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # No dependencies
+            ("", [], []),
+            # Comments are ignored
+            (
+                dedent(
+                    """\
+                    aiowsgi==0.7 # inline comment
+                    # Line comment
+                    asn1crypto==1.3.0 # inline comment \
+                    with line continuation
+                    # Line comment \
+                    with line continuation
+                        # Line comment with multiple leading white spaces
+                    """
+                ),
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi==0.7",
+                        "version_specs": [("==", "0.7")],
+                    },
+                    {
+                        "package": "asn1crypto",
+                        "kind": "pypi",
+                        "download_line": "asn1crypto==1.3.0",
+                        "version_specs": [("==", "1.3.0")],
+                    },
+                ],
+                [],
+            ),
+            # Empty lines are ignored
+            (
+                dedent(
+                    """\
+                    aiowsgi==0.7
+                            \
+
+                    asn1crypto==1.3.0
+
+                    """
+                ),
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi==0.7",
+                        "version_specs": [("==", "0.7")],
+                    },
+                    {
+                        "package": "asn1crypto",
+                        "kind": "pypi",
+                        "download_line": "asn1crypto==1.3.0",
+                        "version_specs": [("==", "1.3.0")],
+                    },
+                ],
+                [],
+            ),
+            # Line continuation is honored
+            (
+                dedent(
+                    """\
+                    aiowsgi\\
+                    \\
+                    ==\\
+                    \\
+                    \\
+                    \\
+                    0.7\\
+                    """
+                ),
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi==0.7",
+                        "version_specs": [("==", "0.7")],
+                    },
+                ],
+                [],
+            ),
+            # Global options
+            ("--only-binary :all:", [], ["--only-binary", ":all:"],),
+            # Global options with a requirement
+            (
+                "aiowsgi==0.7 --only-binary :all:",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi==0.7",
+                        "version_specs": [("==", "0.7")],
+                    },
+                ],
+                ["--only-binary", ":all:"],
+            ),
+        ),
+    )
+    def test_parsing_of_valid_cases(
+        self, file_contents, expected_requirements, expected_global_options, tmpdir
+    ):
+        """Test the various valid use cases of requirements in a requirements file."""
+        requirements_file = tmpdir.join("requirements.txt")
+        requirements_file.write(file_contents)
+
+        pip_requirements = pip.PipRequirementsFile(requirements_file.strpath)
+
+        assert pip_requirements.options == expected_global_options
+        assert len(pip_requirements.requirements) == len(expected_requirements)
+        for pip_requirement, expected_requirement in zip(
+            pip_requirements.requirements, expected_requirements
+        ):
+            self._assert_pip_requirement(pip_requirement, expected_requirement)
+
+    @pytest.mark.parametrize(
+        "file_contents, expected_error",
+        (
+            ("--spam", "Unknown requirements file option '--spam'"),
+            (
+                "--prefer-binary=spam",
+                "Unexpected value for requirements file option '--prefer-binary=spam'",
+            ),
+            ("--only-binary", "Requirements file option '--only-binary' requires a value"),
+            ("aiowsgi --hash", "Requirements file option '--hash' requires a value"),
+            (
+                "-e",
+                re.escape(
+                    "Requirements file option(s) ['-e'] can only be applied to a requirement"
+                ),
+            ),
+            (
+                "pip @ file:///localbuilds/pip-1.3.1.zip",
+                "Direct references with 'file' scheme are not supported",
+            ),
+            (
+                "file:///localbuilds/pip-1.3.1.zip",
+                "Direct references with 'file' scheme are not supported",
+            ),
+            (
+                "file:///localbuilds/pip-1.3.1.zip",
+                "Direct references with 'file' scheme are not supported",
+            ),
+            (
+                "aiowsgi==0.7 asn1crypto==1.3.0",
+                "Unable to parse the requirement 'aiowsgi==0.7 asn1crypto==1.3.0'",
+            ),
+            (
+                "https://github.com/quay/appr/archive/58c88e49.tar.gz",
+                "Egg name could not be determined from the requirement",
+            ),
+            (
+                "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=",
+                "Egg name could not be determined from the requirement",
+            ),
+            (
+                "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg",
+                "Egg name could not be determined from the requirement",
+            ),
+            (
+                "cnr_server@foo@https://github.com/quay/appr/archive/58c88e49.tar.gz",
+                "Unable to extract scheme from direct access requirement",
+            ),
+        ),
+    )
+    def test_parsing_of_invalid_cases(self, file_contents, expected_error, tmpdir):
+        """Test the invalid use cases of requirements in a requirements file."""
+        requirements_file = tmpdir.join("requirements.txt")
+        requirements_file.write(file_contents)
+
+        pip_requirements = pip.PipRequirementsFile(requirements_file.strpath)
+        with pytest.raises(ValidationError, match=expected_error):
+            pip_requirements.requirements
+
+    def test_corner_cases_when_parsing_single_line(self):
+        """Test scenarios in PipRequirement that cannot be triggered via PipRequirementsFile."""
+        # Empty lines are ignored
+        assert pip.PipRequirement.from_line("     ", []) is None
+
+        with pytest.raises(
+            ValidationError, match="Multiple requirements per line are not supported"
+        ):
+            pip.PipRequirement.from_line("aiowsgi==0.7 \nasn1crypto==1.3.0", [])
+
+    def _assert_pip_requirement(self, pip_requirement, expected_requirement):
+
+        default_attributes = {
+            "download_line": None,
+            "environment_marker": None,
+            "extras": [],
+            "hashes": [],
+            "kind": None,
+            "options": [],
+            "package": None,
+            "qualifiers": {},
+            "version_specs": [],
+        }
+        for attr, default_value in default_attributes.items():
+            expected_requirement.setdefault(attr, default_value)
+
+        for attr, expected_value in expected_requirement.items():
+            if attr in ("version_specs", "extras"):
+                # Account for differences in order
+                assert set(getattr(pip_requirement, attr)) == set(
+                    expected_value
+                ), f"unexpected value for {attr!r}"
+            else:
+                assert (
+                    getattr(pip_requirement, attr) == expected_value
+                ), f"unexpected value for {attr!r}"

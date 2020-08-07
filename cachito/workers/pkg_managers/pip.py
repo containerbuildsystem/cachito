@@ -6,6 +6,7 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pkg_resources
 
@@ -635,3 +636,358 @@ class SetupPY(SetupFile):
 
         log.error("Variable %r not found along the setup call branch", var_name)
         return None
+
+
+class PipRequirementsFile:
+    """Parse requirements from a pip requirements file."""
+
+    # Comment lines start with optional leading spaces followed by "#"
+    LINE_COMMENT = re.compile(r"(^|\s)#.*$")
+
+    # Options allowed in a requirements file. The values represent whether or not the option
+    # requires a value.
+    # https://pip.pypa.io/en/stable/reference/pip_install/#requirements-file-format
+    OPTIONS = {
+        "--constraint": True,
+        "--editable": False,  # The required value is the requirement itself, not a parameter
+        "--extra-index-url": True,
+        "--find-links": True,
+        "--index-url": True,
+        "--no-binary": True,
+        "--no-index": False,
+        "--only-binary": True,
+        "--pre": False,
+        "--prefer-binary": False,
+        "--require-hashes": False,
+        "--requirement": True,
+        "--trusted-host": True,
+        "--use-feature": True,
+        "-c": True,
+        "-e": False,  # The required value is the requirement itself, not a parameter
+        "-f": True,
+        "--hash": True,
+        "-i": True,
+        "-r": True,
+    }
+
+    # Options that are specific to a single requirement in the requirements file. All other
+    # options apply to all the requirements.
+    REQUIREMENT_OPTIONS = {"-e", "--editable", "--hash"}
+
+    def __init__(self, file_path):
+        """Initialize a PipRequirementsFile.
+
+        :param str file_path: the full path to the requirements file
+        """
+        self.file_path = file_path
+        self.__parsed = NOTHING
+
+    @property
+    def requirements(self):
+        """Return a list of PipRequirement objects."""
+        return self._parsed["requirements"]
+
+    @property
+    def options(self):
+        """Return a list of options."""
+        return self._parsed["options"]
+
+    @property
+    def _parsed(self):
+        """Return the parsed requirements file.
+
+        :return: a dict with the keys ``requirements`` and ``options``
+        """
+        if self.__parsed is NOTHING:
+            parsed = {"requirements": [], "options": []}
+
+            for line in self._read_lines():
+                (
+                    global_options,
+                    requirement_options,
+                    requirement_line,
+                ) = self._split_options_and_requirement(line)
+                if global_options:
+                    parsed["options"].extend(global_options)
+
+                if requirement_line:
+                    parsed["requirements"].append(
+                        PipRequirement.from_line(requirement_line, requirement_options)
+                    )
+
+            self.__parsed = parsed
+
+        return self.__parsed
+
+    def _read_lines(self):
+        """Read and yield the lines from the requirements file.
+
+        Lines ending in the line continuation character are joined with the next line.
+        Comment lines are ignored.
+        """
+        buffered_line = []
+
+        with open(self.file_path) as f:
+            for line in f.read().splitlines():
+                if not line.endswith("\\"):
+                    buffered_line.append(line)
+                    new_line = "".join(buffered_line)
+                    new_line = self.LINE_COMMENT.sub("", new_line).strip()
+                    if new_line:
+                        yield new_line
+                    buffered_line = []
+                else:
+                    buffered_line.append(line.rstrip("\\"))
+
+        # Last line ends in "\"
+        if buffered_line:
+            yield "".join(buffered_line)
+
+    def _split_options_and_requirement(self, line):
+        """Split global and requirement options from the requirement line.
+
+        :param str line: requirement line from the requirements file
+        :return: three-item tuple where the first item is a list of global options, the
+            second item a list of requirement options, and the last item a str of the
+            requirement without any options.
+        """
+        global_options = []
+        requirement_options = []
+        requirement = []
+
+        # Indicates the option must be followed by a value
+        _require_value = False
+        # Reference to either global_options or requirement_options list
+        _context_options = None
+
+        for part in line.split():
+            if _require_value:
+                _context_options.append(part)
+                _require_value = False
+            elif part.startswith("-"):
+                option = None
+                value = None
+                if "=" in part:
+                    option, value = part.split("=", 1)
+                else:
+                    option = part
+
+                if option not in self.OPTIONS:
+                    raise ValidationError(f"Unknown requirements file option {part!r}")
+
+                _require_value = self.OPTIONS[option]
+
+                if option in self.REQUIREMENT_OPTIONS:
+                    _context_options = requirement_options
+                else:
+                    _context_options = global_options
+
+                if value and not _require_value:
+                    raise ValidationError(f"Unexpected value for requirements file option {part!r}")
+
+                _context_options.append(option)
+                if value:
+                    _context_options.append(value)
+                    _require_value = False
+            else:
+                requirement.append(part)
+
+        if _require_value:
+            raise ValidationError(
+                f"Requirements file option {_context_options[-1]!r} requires a value"
+            )
+
+        if requirement_options and not requirement:
+            raise ValidationError(
+                f"Requirements file option(s) {requirement_options!r} can only be applied to a "
+                "requirement"
+            )
+
+        return global_options, requirement_options, " ".join(requirement)
+
+
+class PipRequirement:
+    """Parse a requirement and its options from a requirement line."""
+
+    URL_SCHEMES = {"http", "https", "ftp"}
+
+    VCS_SCHEMES = {
+        "bzr",
+        "bzr+ftp",
+        "bzr+http",
+        "bzr+https",
+        "git",
+        "git+ftp",
+        "git+http",
+        "git+https",
+        "hg",
+        "hg+ftp",
+        "hg+http",
+        "hg+https",
+        "svn",
+        "svn+ftp",
+        "svn+http",
+        "svn+https",
+    }
+
+    # Regex used to determine if a direct access requirement specifies a
+    # package name, e.g. "name @ https://..."
+    HAS_NAME_IN_DIRECT_ACCESS_REQUIREMENT = re.compile(r"@.+://")
+
+    def __init__(self):
+        """Initialize a PipRequirement."""
+        self.package = None
+        self.extras = []
+        self.version_specs = []
+        self.environment_marker = None
+        self.hashes = []
+        self.qualifiers = {}
+
+        self.kind = None
+        self.download_line = None
+
+        self.options = []
+
+    @classmethod
+    def from_line(cls, line, options):
+        """Create an instance of PipRequirement from the given requirement and its options.
+
+        Only ``url`` and ``vcs`` direct access requirements are supported. ``file`` is not.
+
+        :param str line: the requirement line
+        :param str list: the options associated with the requirement
+        :return: PipRequirement instance
+        """
+        to_be_parsed = line
+        qualifiers = {}
+        requirement = cls()
+
+        direct_access_kind, is_direct_access = cls._assess_direct_access_requirement(line)
+        if is_direct_access:
+            if direct_access_kind in ["url", "vcs"]:
+                requirement.kind = direct_access_kind
+                to_be_parsed, qualifiers = cls._adjust_direct_access_requirement(to_be_parsed)
+            else:
+                raise ValidationError(
+                    f"Direct references with {direct_access_kind!r} scheme are not supported, "
+                    "{to_be_parsed!r}"
+                )
+        else:
+            requirement.kind = "pypi"
+
+        try:
+            parsed = list(pkg_resources.parse_requirements(to_be_parsed))
+        except pkg_resources.RequirementParseError as exc:
+            raise ValidationError(f"Unable to parse the requirement {to_be_parsed!r}: {exc}")
+
+        if not parsed:
+            return None
+        # parse_requirements is able to process a multi-line string, thus returning multiple
+        # parsed requirements. However, since it cannot handle the additional syntax from a
+        # requirements file, we parse each line individually. The conditional below should
+        # never be reached, but is left here to aid diagnosis in case this assumption is
+        # not correct.
+        if len(parsed) > 1:
+            raise ValidationError(f"Multiple requirements per line are not supported, {line!r}")
+        parsed = parsed[0]
+
+        hashes, options = cls._split_hashes_from_options(options)
+
+        requirement.download_line = to_be_parsed
+        requirement.options = options
+        requirement.package = parsed.project_name
+        requirement.version_specs = parsed.specs
+        requirement.extras = parsed.extras
+        requirement.environment_marker = str(parsed.marker) if parsed.marker else None
+        requirement.hashes = hashes
+        requirement.qualifiers = qualifiers
+
+        return requirement
+
+    @classmethod
+    def _assess_direct_access_requirement(cls, line):
+        """Determine if the line contains a direct access requirement.
+
+        :param str line: the requirement line
+        :return: two-item tuple where the first item is the kind of dicrect access requirement,
+            e.g. "vcs", and the second item is a bool indicating if the requirement is a
+            direct access requirement
+        """
+        direct_access_kind = None
+
+        if ":" not in line:
+            return None, False
+        # Extract the scheme from the line and strip off the package name if needed
+        # e.g. name @ https://...
+        scheme_parts = line.split(":", 1)[0].split("@")
+        if len(scheme_parts) > 2:
+            raise ValidationError(
+                f"Unable to extract scheme from direct access requirement {line!r}"
+            )
+        scheme = scheme_parts[-1].lower().strip()
+
+        if scheme in cls.URL_SCHEMES:
+            direct_access_kind = "url"
+        elif scheme in cls.VCS_SCHEMES:
+            direct_access_kind = "vcs"
+        else:
+            direct_access_kind = scheme
+
+        return direct_access_kind, True
+
+    @classmethod
+    def _adjust_direct_access_requirement(cls, line):
+        """Modify the requirement line so it can be parsed by pkg_resources and extract qualifiers.
+
+        :param str line: a direct access requirement line
+        :return: two-item tuple where the first item is a modified direct access requirement
+            line that can be parsed by pkg_resources, and the second item is a dict of the
+            qualifiers extracted from the direct access URL
+        """
+        package_name = None
+        qualifiers = {}
+        url = line
+
+        if cls.HAS_NAME_IN_DIRECT_ACCESS_REQUIREMENT.search(line):
+            package_name, url = line.split("@", 1)
+
+        parsed_url = urlparse(url)
+        if parsed_url.fragment:
+            for section in parsed_url.fragment.split("&"):
+                if "=" in section:
+                    attr, value = section.split("=", 1)
+                    qualifiers[attr] = value
+                    if attr == "egg":
+                        # Use the egg name as the package name to avoid ambiguity when both are
+                        # provided. This matches the behavior of "pip install".
+                        package_name = value
+                        break
+
+        if not package_name:
+            raise ValidationError(f"Egg name could not be determined from the requirement {line!r}")
+
+        return f"{package_name.strip()} @ {url.strip()}", qualifiers
+
+    @classmethod
+    def _split_hashes_from_options(cls, options):
+        """Separate the --hash options from the given options.
+
+        :param list options: requirement options
+        :return: two-item tuple where the first item is a list of hashes, and the second item
+            is a list of options without any ``--hash`` options
+        """
+        hashes = []
+        reduced_options = []
+        is_hash = False
+
+        for item in options:
+            if is_hash:
+                hashes.append(item)
+                is_hash = False
+                continue
+
+            is_hash = item == "--hash"
+            if not is_hash:
+                reduced_options.append(item)
+
+        return hashes, reduced_options
