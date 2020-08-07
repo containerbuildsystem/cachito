@@ -124,7 +124,7 @@ class SetupCFG(SetupFile):
         :rtype: str or None
         """
         name = self._get_option("metadata", "name")
-        if name is None:
+        if not name:
             log.debug("No metadata.name in setup.cfg")
             return None
 
@@ -144,13 +144,14 @@ class SetupCFG(SetupFile):
         :rtype: str or None
         """
         version = self._get_option("metadata", "version")
-        if version is None:
+        if not version:
             log.debug("No metadata.version in setup.cfg")
             return None
 
         log.debug("Resolving metadata.version in setup.cfg from %r", version)
         version = self._resolve_version(version)
-        if version is None:
+        if not version:
+            # Falsy values also count as "failed to resolve" (0, None, "", ...)
             log.debug("Failed to resolve metadata.version in setup.cfg")
             return None
 
