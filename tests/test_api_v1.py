@@ -20,7 +20,6 @@ from cachito.workers.tasks import (
     fetch_app_source,
     fetch_gomod_source,
     fetch_npm_source,
-    set_request_state,
     failed_request_callback,
     create_bundle_archive,
 )
@@ -109,12 +108,7 @@ def test_create_and_fetch_request(
         )
     if "npm" in expected_pkg_managers:
         expected.append(fetch_npm_source.si(created_request["id"], {}).on_error(error_callback))
-    expected.extend(
-        [
-            create_bundle_archive.si(created_request["id"]).on_error(error_callback),
-            set_request_state.si(created_request["id"], "complete", "Completed successfully"),
-        ]
-    )
+    expected.extend([create_bundle_archive.si(created_request["id"]).on_error(error_callback)])
     mock_chain.assert_called_once_with(expected)
 
     request_id = created_request["id"]
@@ -151,7 +145,6 @@ def test_create_and_fetch_request_package_configs(
         ).on_error(error_callback),
         fetch_npm_source.si(1, package_value["npm"]).on_error(error_callback),
         create_bundle_archive.si(1).on_error(error_callback),
-        set_request_state.si(1, "complete", "Completed successfully"),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -202,7 +195,6 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
             ).on_error(error_callback),
             fetch_gomod_source.si(1, []).on_error(error_callback),
             create_bundle_archive.si(1).on_error(error_callback),
-            set_request_state.si(1, "complete", "Completed successfully"),
         ]
     )
 
