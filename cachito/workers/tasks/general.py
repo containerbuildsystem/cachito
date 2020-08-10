@@ -141,3 +141,5 @@ def create_bundle_archive(request_id):
             bundle_archive.add(str(item), arc_name, filter=filter_git_dir)
         # Add the dependencies to the bundle
         bundle_archive.add(str(bundle_dir.deps_dir), "deps")
+
+    set_request_state(request_id, "complete", "Completed successfully")
