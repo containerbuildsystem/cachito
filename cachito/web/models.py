@@ -198,7 +198,10 @@ class Package(db.Model):
             protocol = match.group("protocol")
             suffix = match.group("suffix")
             has_authority = match.group("has_authority")
-            if not has_authority:
+            if protocol == "file":
+                qualifier = urllib.parse.quote(self.version, safe="")
+                return f"generic/{purl_name}?{qualifier}"
+            elif not has_authority:
                 # github:namespace/name#ref or gitlab:ns1/ns2/name#ref
                 match_forge = re.match(
                     r"(?P<namespace>.+)/(?P<name>[^#/]+)#(?P<version>.+)$", suffix

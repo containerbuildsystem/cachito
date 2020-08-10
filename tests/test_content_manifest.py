@@ -229,6 +229,12 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn):
             True,
         ],
         [
+            {"name": "fromfile", "type": "npm", "version": "file:client-default"},
+            "generic/fromfile?file%3Aclient-default",
+            True,
+            True,
+        ],
+        [
             {
                 "name": "fromunknown",
                 "type": "npm",
