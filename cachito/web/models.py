@@ -208,10 +208,14 @@ class Package(db.Model):
             protocol = match.group("protocol")
             suffix = match.group("suffix")
             has_authority = match.group("has_authority")
-            if protocol == "file":
-                qualifier = urllib.parse.quote(self.version, safe="")
-                return f"generic/{purl_name}?{qualifier}"
-            elif not has_authority:
+            if not has_authority:
+                if protocol == "file":
+                    path = self.version.split(":", 1)[1]
+                    safe_path = urllib.parse.quote(path, safe="")
+                    # this path is relative to the parent package's package.json path
+                    # let's mark this purl for later substitution
+                    marker = content_manifest.PARENT_PURL_PLACEHOLDER
+                    return f"pkg:generic/{purl_name}?download_url={marker}&file_name={safe_path}"
                 # github:namespace/name#ref or gitlab:ns1/ns2/name#ref
                 match_forge = re.match(
                     r"(?P<namespace>.+)/(?P<name>[^#/]+)#(?P<version>.+)$", suffix

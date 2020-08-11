@@ -89,6 +89,39 @@ def test_process_npm():
     assert cm._npm_data == expected_contents
 
 
+def test_process_npm_replacing_internal_package():
+    pkg = Package.from_json({"name": "grc-ui", "type": "npm", "version": "1.0.0"})
+    expected_purl = "pkg:npm/grc-ui@1.0.0"
+
+    dep = Package.from_json(
+        {"name": "security-middleware", "type": "npm", "version": f"file:some/path"}
+    )
+    parent_purl = "pkg%3Anpm%2Fgrc-ui%401.0.0"
+    expected_dep_purl = f"pkg:generic/{dep.name}?download_url={parent_purl}&file_name=some%2Fpath"
+    dep.dev = True
+
+    cm = ContentManifest()
+
+    # emulate to_json behavior to setup internal packages cache
+    cm._npm_data.setdefault(
+        expected_purl, {"purl": expected_purl, "dependencies": [], "sources": []}
+    )
+
+    cm.process_npm_package(pkg, dep)
+
+    expected_contents = {
+        expected_purl: {
+            "purl": expected_purl,
+            "dependencies": [],
+            "sources": [{"purl": expected_dep_purl}],
+        }
+    }
+
+    assert cm._npm_data
+    assert expected_purl in cm._npm_data
+    assert cm._npm_data == expected_contents
+
+
 @pytest.mark.parametrize(
     "package", [None, {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"}]
 )
@@ -230,7 +263,7 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn):
         ],
         [
             {"name": "fromfile", "type": "npm", "version": "file:client-default"},
-            "generic/fromfile?file%3Aclient-default",
+            "pkg:generic/fromfile?download_url=PARENT_PURL&file_name=client-default",
             True,
             True,
         ],

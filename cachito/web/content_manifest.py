@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import urllib.parse
+
 import flask
+
+
+PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
 
 
 class ContentManifest:
@@ -82,7 +87,9 @@ class ContentManifest:
         """
         if dependency.type == "npm":
             purl = package.to_purl()
-            icm_dependency = {"purl": dependency.to_purl()}
+            safe_parent_purl = urllib.parse.quote(purl, safe="")
+            dep_purl = dependency.to_purl().replace(PARENT_PURL_PLACEHOLDER, safe_parent_purl)
+            icm_dependency = {"purl": dep_purl}
             self._npm_data[purl]["sources"].append(icm_dependency)
             if not dependency.dev:
                 self._npm_data[purl]["dependencies"].append(icm_dependency)
