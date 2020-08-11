@@ -9,9 +9,9 @@ from cachito.errors import CachitoError
 from cachito.workers import celery_logging
 
 
-def test_cleanup_task_logging(tmpdir):
+def test_cleanup_task_logging(tmp_path):
     # Add a file handler first to test remove handler function
-    request_log_handler = logging.FileHandler("fake-path")
+    request_log_handler = logging.FileHandler(tmp_path / "fake-path")
     logger = logging.getLogger()
     logger.addHandler(request_log_handler)
 
