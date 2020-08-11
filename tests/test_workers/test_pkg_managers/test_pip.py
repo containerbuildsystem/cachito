@@ -35,6 +35,93 @@ def write_file_tree(tree_def, rooted_at):
             write_file_tree(value, entry_path)
 
 
+@pytest.mark.parametrize("py_exists", [True, False])
+@pytest.mark.parametrize("py_name", ["name_in_setup_py", None])
+@pytest.mark.parametrize("py_version", ["version_in_setup_py", None])
+@pytest.mark.parametrize("cfg_exists", [True, False])
+@pytest.mark.parametrize("cfg_name", ["name_in_setup_cfg", None])
+@pytest.mark.parametrize("cfg_version", ["version_in_setup_cfg", None])
+@mock.patch("cachito.workers.pkg_managers.pip.SetupCFG")
+@mock.patch("cachito.workers.pkg_managers.pip.SetupPY")
+def test_get_pip_metadata(
+    mock_setup_py,
+    mock_setup_cfg,
+    py_exists,
+    py_name,
+    py_version,
+    cfg_exists,
+    cfg_name,
+    cfg_version,
+    caplog,
+):
+    """
+    Test get_pip_metadata() function.
+
+    More thorough tests of setup.py and setup.cfg handling are in their respective classes.
+    """
+    if not py_exists:
+        py_name = None
+        py_version = None
+    if not cfg_exists:
+        cfg_name = None
+        cfg_version = None
+
+    setup_py = mock_setup_py.return_value
+    setup_py.exists.return_value = py_exists
+    setup_py.get_name.return_value = py_name
+    setup_py.get_version.return_value = py_version
+
+    setup_cfg = mock_setup_cfg.return_value
+    setup_cfg.exists.return_value = cfg_exists
+    setup_cfg.get_name.return_value = cfg_name
+    setup_cfg.get_version.return_value = cfg_version
+
+    expect_name = py_name or cfg_name
+    expect_version = py_version or cfg_version
+
+    if expect_name and expect_version:
+        name, version = pip.get_pip_metadata("/foo/package_dir")
+
+        assert name == expect_name
+        assert version == expect_version
+    else:
+        with pytest.raises(CachitoError) as exc_info:
+            pip.get_pip_metadata("/foo/package_dir")
+
+        if expect_name:
+            missing = "version"
+        elif expect_version:
+            missing = "name"
+        else:
+            missing = "name, version"
+
+        assert str(exc_info.value) == f"Could not resolve package metadata: {missing}"
+
+    assert setup_py.get_name.called == py_exists
+    assert setup_py.get_version.called == py_exists
+
+    assert setup_cfg.get_name.called == (py_name is None and cfg_exists)
+    assert setup_cfg.get_version.called == (py_version is None and cfg_exists)
+
+    if py_exists:
+        assert "Extracting metadata from setup.py" in caplog.text
+    else:
+        assert "No setup.py in directory, package is likely not Pip compatible" in caplog.text
+
+    if not (py_name and py_version) and cfg_exists:
+        assert "Filling in missing metadata from setup.cfg" in caplog.text
+
+    if expect_name:
+        assert f"Resolved package name: '{expect_name}'" in caplog.text
+    else:
+        assert "Could not resolve package name" in caplog.text
+
+    if expect_version:
+        assert f"Resolved package version: '{expect_version}'" in caplog.text
+    else:
+        assert "Could not resolve package version" in caplog.text
+
+
 class TestSetupCFG:
     """SetupCFG tests."""
 

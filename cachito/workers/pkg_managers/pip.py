@@ -20,6 +20,59 @@ log = logging.getLogger(__name__)
 NOTHING = object()  # A None replacement for cases where the distinction is needed
 
 
+def get_pip_metadata(package_dir):
+    """
+    Attempt to get the name and and version of a Pip package.
+
+    First, try to parse the setup.py script (if present) and extract name and version
+    from keyword arguments to the setuptools.setup() call. If either name or version
+    could not be resolved and there is a setup.cfg file, try to fill in the missing
+    values from metadata.name and metadata.version in the .cfg file.
+
+    If either name or version could not be resolved, raise an error.
+
+    :param str package_dir: Path to the root directory of a Pip package
+    :return: Tuple of strings (name, version)
+    :raises CachitoError: If either name or version could not be resolved
+    """
+    name = None
+    version = None
+
+    setup_py = SetupPY(package_dir)
+    setup_cfg = SetupCFG(package_dir)
+
+    if setup_py.exists():
+        log.info("Extracting metadata from setup.py")
+        name = setup_py.get_name()
+        version = setup_py.get_version()
+    else:
+        log.warning("No setup.py in directory, package is likely not Pip compatible")
+
+    if not (name and version) and setup_cfg.exists():
+        log.info("Filling in missing metadata from setup.cfg")
+        name = name or setup_cfg.get_name()
+        version = version or setup_cfg.get_version()
+
+    missing = []
+
+    if name:
+        log.info("Resolved package name: %r", name)
+    else:
+        log.error("Could not resolve package name")
+        missing.append("name")
+
+    if version:
+        log.info("Resolved package version: %r", version)
+    else:
+        log.error("Could not resolve package version")
+        missing.append("version")
+
+    if missing:
+        raise CachitoError(f"Could not resolve package metadata: {', '.join(missing)}")
+
+    return name, version
+
+
 def any_to_version(obj):
     """
     Convert any python object to a version string.
