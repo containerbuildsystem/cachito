@@ -92,3 +92,7 @@ downloaded_output:
 run_app:
   # Name of the applicaiton that is downloaded via bundle
   app_name: retrodep
+# Test data for valid content manifest test
+content_manifest:
+  # Package managers for testing
+  pkg_managers: ["gomod", "npm"]

@@ -31,12 +31,14 @@ def test_valid_content_manifest_request(test_env, default_requests):
     """
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
 
-    initial_response = default_requests["gomod"].initial_response
-    content_manifest_response = client.fetch_content_manifest(initial_response.id)
-    assert content_manifest_response.status == 200
+    pkg_managers = test_env["content_manifest"]["pkg_managers"]
+    for pkg_manager in pkg_managers:
+        initial_response = default_requests[pkg_manager].initial_response
+        content_manifest_response = client.fetch_content_manifest(initial_response.id)
+        assert content_manifest_response.status == 200
 
-    response_data = content_manifest_response.data
-    assert_content_manifest_schema(response_data)
+        response_data = content_manifest_response.data
+        assert_content_manifest_schema(response_data)
 
 
 def assert_content_manifest_schema(response_data):
