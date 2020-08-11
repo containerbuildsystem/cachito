@@ -26,7 +26,7 @@ def test_env():
 
 
 @pytest.fixture(scope="session")
-def default_request(test_env):
+def default_requests(test_env):
     """
     Create a new request for every package manager in Cachito.
 
@@ -35,7 +35,7 @@ def default_request(test_env):
     :rtype: dict
     """
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
-    default_requests = {}
+    result_requests = {}
     packages = test_env["packages"]
     for package_name in packages:
         initial_response = client.create_new_request(
@@ -46,6 +46,6 @@ def default_request(test_env):
             },
         )
         completed_response = client.wait_for_complete_request(initial_response)
-        default_requests[package_name] = DefaultRequest(initial_response, completed_response)
+        result_requests[package_name] = DefaultRequest(initial_response, completed_response)
 
-    return default_requests
+    return result_requests

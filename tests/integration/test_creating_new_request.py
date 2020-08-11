@@ -3,7 +3,7 @@
 import utils
 
 
-def test_creating_new_request(test_env, default_request):
+def test_creating_new_request(test_env, default_requests):
     """
     Send a new request to the Cachito API.
 
@@ -13,7 +13,7 @@ def test_creating_new_request(test_env, default_request):
         state_reason is: The request was initiated
     """
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
-    response_created_req = default_request["gomod"].initial_response
+    response_created_req = default_requests["gomod"].initial_response
     assert response_created_req.status == 201
 
     assert "id" in response_created_req.data

@@ -11,7 +11,7 @@ import utils
 
 
 @pytest.mark.skipif(not shutil.which("go"), reason="requires go to be installed")
-def test_run_app_from_bundle(test_env, default_request, tmpdir):
+def test_run_app_from_bundle(test_env, default_requests, tmpdir):
     """
     Check that downloaded bundle could be used to run the application.
 
@@ -26,7 +26,7 @@ def test_run_app_from_bundle(test_env, default_request, tmpdir):
     * Check that the bundle is properly downloaded
     * Check that the application runs successfully
     """
-    response = default_request["gomod"].complete_response
+    response = default_requests["gomod"].complete_response
     assert response.status == 200
     assert response.data["state"] == "complete"
 

@@ -3,7 +3,7 @@
 from utils import make_list_of_packages_hashable
 
 
-def test_valid_data_in_request(test_env, default_request):
+def test_valid_data_in_request(test_env, default_requests):
     """
     Validate data in the request.
 
@@ -16,7 +16,7 @@ def test_valid_data_in_request(test_env, default_request):
     * Check in the response that state is complete
     * Check that "packages" and "dependencies" keys have appropriate values
     """
-    response = default_request["gomod"].complete_response
+    response = default_requests["gomod"].complete_response
     assert response.status == 200
     assert response.data["state"] == "complete"
 
@@ -29,7 +29,7 @@ def test_valid_data_in_request(test_env, default_request):
     assert response_packages == sorted(expected_packages)
 
 
-def test_npm_basic(test_env, default_request):
+def test_npm_basic(test_env, default_requests):
     """
     A basic integration test for the npm package manager.
 
@@ -47,7 +47,7 @@ def test_npm_basic(test_env, default_request):
         "CYPRESS_INSTALL_BINARY": "0", "GECKODRIVER_SKIP_DOWNLOAD": "true",
         and "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true" are set.
     """
-    response = default_request["npm"].complete_response
+    response = default_requests["npm"].complete_response
     assert response.status == 200
     assert response.data["state"] == "complete"
 
