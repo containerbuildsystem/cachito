@@ -125,10 +125,10 @@ class SetupCFG(SetupFile):
         """
         name = self._get_option("metadata", "name")
         if not name:
-            log.debug("No metadata.name in setup.cfg")
+            log.info("No metadata.name in setup.cfg")
             return None
 
-        log.debug("Found metadata.name in setup.cfg: %r", name)
+        log.info("Found metadata.name in setup.cfg: %r", name)
         return name
 
     def get_version(self):
@@ -145,18 +145,18 @@ class SetupCFG(SetupFile):
         """
         version = self._get_option("metadata", "version")
         if not version:
-            log.debug("No metadata.version in setup.cfg")
+            log.info("No metadata.version in setup.cfg")
             return None
 
         log.debug("Resolving metadata.version in setup.cfg from %r", version)
         version = self._resolve_version(version)
         if not version:
             # Falsy values also count as "failed to resolve" (0, None, "", ...)
-            log.debug("Failed to resolve metadata.version in setup.cfg")
+            log.info("Failed to resolve metadata.version in setup.cfg")
             return None
 
         version = any_to_version(version)
-        log.debug("Found metadata.version in setup.cfg: %r", version)
+        log.info("Found metadata.version in setup.cfg: %r", version)
         return version
 
     @property
@@ -175,7 +175,7 @@ class SetupCFG(SetupFile):
                     parsed.read_file(f)
                     self.__parsed = parsed
                 except configparser.Error as e:
-                    log.debug("Failed to parse setup.cfg: %s", e)
+                    log.error("Failed to parse setup.cfg: %s", e)
                     self.__parsed = None  # Tried to parse file and failed
 
         return self.__parsed
@@ -207,7 +207,7 @@ class SetupCFG(SetupFile):
             log.debug("Read version from %r: %r", file_path, version)
             return version
         else:
-            log.debug("Version file %r does not exist or is not a file", file_path)
+            log.error("Version file %r does not exist or is not a file", file_path)
             return None
 
     def _ensure_local(self, path):
@@ -243,13 +243,13 @@ class SetupCFG(SetupFile):
         if module_file is not None:
             log.debug("Found module %r at %r", module_name, str(module_file))
         else:
-            log.debug("Module %r not found", module_name)
+            log.error("Module %r not found", module_name)
             return None
 
         try:
             module_ast = ast.parse(module_file.read_text(), module_file.name)
         except SyntaxError as e:
-            log.debug("Syntax error when parsing module: %s", e)
+            log.error("Syntax error when parsing module: %s", e)
             return None
 
         try:
@@ -257,7 +257,7 @@ class SetupCFG(SetupFile):
             log.debug("Found attribute %r in %r: %r", attr_name, module_name, version)
             return version
         except (AttributeError, ValueError) as e:
-            log.debug("Could not find attribute in %r: %s", module_name, e)
+            log.error("Could not find attribute in %r: %s", module_name, e)
             return None
 
     def _find_module(self, module_name, package_dir=None):
@@ -443,12 +443,12 @@ class SetupPY(SetupFile):
         """
         name = self._get_setup_kwarg("name")
         if not name or not isinstance(name, str):
-            log.debug(
+            log.info(
                 "Name in setup.py was either not found, or failed to resolve to a valid string"
             )
             return None
 
-        log.debug("Found name in setup.py: %r", name)
+        log.info("Found name in setup.py: %r", name)
         return name
 
     def get_version(self):
@@ -469,13 +469,13 @@ class SetupPY(SetupFile):
         version = self._get_setup_kwarg("version")
         if not version:
             # Only truthy values are valid, not any of (0, None, "", ...)
-            log.debug(
+            log.info(
                 "Version in setup.py was either not found, or failed to resolve to a valid value"
             )
             return None
 
         version = any_to_version(version)
-        log.debug("Found version in setup.py: %r", version)
+        log.info("Found version in setup.py: %r", version)
         return version
 
     @property
@@ -491,7 +491,7 @@ class SetupPY(SetupFile):
             try:
                 self.__ast = ast.parse(self._path.read_text(), self._path.name)
             except SyntaxError as e:
-                log.debug("Syntax error when parsing setup.py: %s", e)
+                log.error("Syntax error when parsing setup.py: %s", e)
                 self.__ast = None
 
         return self.__ast
@@ -514,7 +514,7 @@ class SetupPY(SetupFile):
             setup_call, setup_path = self._find_setup_call(self._ast)
 
             if setup_call is None:
-                log.debug("File does not seem to have a setup call")
+                log.error("File does not seem to have a setup call")
                 self.__setup_branch = None
             else:
                 setup_path.reverse()  # Path is in reverse order
@@ -609,7 +609,7 @@ class SetupPY(SetupFile):
                     return self._get_variable(kw.value.id)
 
                 expr_type = kw.value.__class__.__name__
-                log.debug("setup kwarg %r is an unsupported expression: %s", arg_name, expr_type)
+                log.error("setup kwarg %r is an unsupported expression: %s", arg_name, expr_type)
                 return None
 
         log.debug("setup kwarg %r not found", arg_name)
@@ -628,10 +628,10 @@ class SetupPY(SetupFile):
                 log.debug("Found variable %r: %r", var_name, value)
                 return value
             except ValueError as e:
-                log.debug("Variable cannot be resolved: %s", e)
+                log.error("Variable cannot be resolved: %s", e)
                 return None
             except AttributeError:
                 pass
 
-        log.debug("Variable %r not found along the setup call branch", var_name)
+        log.error("Variable %r not found along the setup call branch", var_name)
         return None
