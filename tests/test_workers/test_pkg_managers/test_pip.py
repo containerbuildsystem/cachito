@@ -1212,6 +1212,19 @@ class TestSetupPY:
 class TestPipRequirementsFile:
     """PipRequirementsFile tests."""
 
+    PIP_REQUIREMENT_ATTRS = {
+        "download_line": None,
+        "environment_marker": None,
+        "extras": [],
+        "hashes": [],
+        "kind": None,
+        "options": [],
+        "package": None,
+        "qualifiers": {},
+        "raw_package": None,
+        "version_specs": [],
+    }
+
     @pytest.mark.parametrize(
         "file_contents, expected_requirements, expected_global_options",
         (
@@ -1761,21 +1774,370 @@ class TestPipRequirementsFile:
         ):
             pip.PipRequirement.from_line("aiowsgi==0.7 \nasn1crypto==1.3.0", [])
 
-    def _assert_pip_requirement(self, pip_requirement, expected_requirement):
+    def test_replace_requirements(self, tmpdir):
+        """Test generating a new requirements file with replacements."""
+        original_file_path = tmpdir.join("original-requirements.txt")
+        new_file_path = tmpdir.join("new-requirements.txt")
 
-        default_attributes = {
-            "download_line": None,
-            "environment_marker": None,
-            "extras": [],
-            "hashes": [],
-            "kind": None,
-            "options": [],
-            "package": None,
-            "raw_package": None,
-            "qualifiers": {},
-            "version_specs": [],
+        original_file_path.write(
+            dedent(
+                """\
+                https://github.com/quay/appr/archive/58c88.tar.gz#egg=cnr_server --hash=sha256:123
+                -e spam @ git+https://github.com/monty/spam.git@123456
+                aiowsgi==0.7
+                asn1crypto==1.3.0
+                """
+            )
+        )
+
+        # Mapping of the new URL value to be used in modified requirements
+        new_urls = {
+            "cnr_server": "https://cachito/nexus/58c88.tar.gz",
+            "spam": "https://cachito/nexus/spam-123456.tar.gz",
+            "asn1crypto": "https://cachito/nexus/asn1crypto-1.3.0.tar.gz",
         }
-        for attr, default_value in default_attributes.items():
+
+        # Mapping of the new hash values to be used in modified requirements
+        new_hashes = {
+            "spam": ["sha256:45678"],
+            "aiowsgi": ["sha256:90123"],
+            "asn1crypto": ["sha256:01234"],
+        }
+
+        expected_new_file = dedent(
+            f"""\
+            cnr_server @ https://cachito/nexus/58c88.tar.gz#egg=cnr_server --hash=sha256:123
+            spam @ https://cachito/nexus/spam-123456.tar.gz --hash=sha256:45678
+            aiowsgi==0.7 --hash=sha256:90123
+            asn1crypto @ https://cachito/nexus/asn1crypto-1.3.0.tar.gz --hash=sha256:01234
+            """
+        )
+
+        expected_attr_changes = {
+            "cnr_server": {
+                "download_line": ("cnr_server @ https://cachito/nexus/58c88.tar.gz#egg=cnr_server"),
+            },
+            "spam": {
+                "hashes": ["sha256:45678"],
+                "options": [],
+                "kind": "url",
+                "download_line": "spam @ https://cachito/nexus/spam-123456.tar.gz",
+            },
+            "aiowsgi": {"hashes": ["sha256:90123"]},
+            "asn1crypto": {
+                "download_line": ("asn1crypto @ https://cachito/nexus/asn1crypto-1.3.0.tar.gz"),
+                "hashes": ["sha256:01234"],
+                "kind": "url",
+                "version_specs": [],
+            },
+        }
+
+        pip_requirements = pip.PipRequirementsFile(original_file_path.strpath)
+
+        new_requirements = []
+        for pip_requirement in pip_requirements.requirements:
+            url = new_urls.get(pip_requirement.raw_package)
+            hashes = new_hashes.get(pip_requirement.raw_package)
+            new_requirements.append(pip_requirement.copy(url=url, hashes=hashes))
+
+        # Verify a new PipRequirementsFile can be loaded in memory and written correctly to disk.
+        pip.PipRequirementsFile.from_requirements_and_options(
+            new_requirements, pip_requirements.options
+        ).write(new_file_path.strpath)
+        assert open(new_file_path.strpath).read() == expected_new_file
+
+        # Parse the newly generated requirements file to ensure it's parsed correctly.
+        new_pip_requirements = pip.PipRequirementsFile(new_file_path.strpath)
+
+        assert new_pip_requirements.options == pip_requirements.options
+        for new_pip_requirement, pip_requirement in zip(
+            new_pip_requirements.requirements, pip_requirements.requirements
+        ):
+            for attr in self.PIP_REQUIREMENT_ATTRS:
+                expected_value = expected_attr_changes.get(pip_requirement.raw_package, {}).get(
+                    attr, getattr(pip_requirement, attr)
+                )
+                assert (
+                    getattr(new_pip_requirement, attr) == expected_value
+                ), f"unexpected {attr!r} value for package {pip_requirement.raw_package!r}"
+
+    def test_write_requirements_file(self, tmpdir):
+        """Test PipRequirementsFile.write method."""
+        original_file_path = tmpdir.join("original-requirements.txt")
+        new_file_path = tmpdir.join("test-requirements.txt")
+
+        content = dedent(
+            """\
+            --only-binary :all:
+            aiowsgi==0.7
+            asn1crypto==1.3.0
+            """
+        )
+
+        original_file_path.write(content)
+        assert original_file_path.exists()
+        pip_requirements = pip.PipRequirementsFile(original_file_path.strpath)
+        assert pip_requirements.requirements
+        assert pip_requirements.options
+
+        # Verify file can be written to self.file_path
+        original_file_path.remove()
+        assert not original_file_path.exists()
+        pip_requirements.write()
+        assert original_file_path.exists()
+        assert open(original_file_path.strpath).read() == content
+
+        # Verify file can be written to an alternative location
+        original_file_path.remove()
+        assert not original_file_path.exists()
+        pip_requirements.write(new_file_path.strpath)
+        assert not original_file_path.exists()
+        assert new_file_path.exists()
+        assert open(new_file_path.strpath).read() == content
+
+    def test_write_requirements_file_unspecified_path(self):
+        """Test PipRequirementsFile.write method validation error."""
+        with pytest.raises(RuntimeError, match="Unspecified 'file_path' for the requirements file"):
+            pip.PipRequirementsFile(None).write()
+
+    @pytest.mark.parametrize(
+        "requirement_line, requirement_options, expected_str_line",
+        (
+            ("aiowsgi==1.2.3", [], "aiowsgi==1.2.3"),
+            ("aiowsgi>=0.7", [], "aiowsgi>=0.7"),
+            ('aiowsgi; python_version < "2.7"', [], 'aiowsgi; python_version < "2.7"'),
+            (
+                "amqp==2.5.2",
+                [
+                    "--hash",
+                    "sha256:6e649ca13a7df3faacdc8bbb280aa9a6602d22fd9d545",
+                    "--hash",
+                    "sha256:77f1aef9410698d20eaeac5b73a87817365f457a507d8",
+                ],
+                (
+                    "amqp==2.5.2 --hash=sha256:6e649ca13a7df3faacdc8bbb280aa9a6602d22fd9d545 "
+                    "--hash=sha256:77f1aef9410698d20eaeac5b73a87817365f457a507d8"
+                ),
+            ),
+            (
+                "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                [],
+                "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+            ),
+            (
+                "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz",
+                [],
+                "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz",
+            ),
+            (
+                "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                ["-e"],
+                (
+                    "-e cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                    "#egg=cnr_server"
+                ),
+            ),
+            (
+                "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                ["--hash", "sh256:sha256:4fd9429bfbb796a48c0bde6bd301ff5b3cc02adb32189d912c7f"],
+                (
+                    "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz#"
+                    "egg=cnr_server --hash=sh256:sha256:4fd9429bfbb796a48c0bde6bd301ff5b3cc02ad"
+                    "b32189d912c7f"
+                ),
+            ),
+            (
+                "git+https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                [],
+                (
+                    "cnr_server @ git+https://github.com/quay/appr/archive/58c88e49.tar.gz#"
+                    "egg=cnr_server"
+                ),
+            ),
+            (
+                "cnr_server @ git+https://github.com/quay/appr/archive/58c88e49.tar.gz",
+                [],
+                "cnr_server @ git+https://github.com/quay/appr/archive/58c88e49.tar.gz",
+            ),
+            (
+                "git+https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                ["-e"],
+                (
+                    "-e cnr_server @ git+https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                    "#egg=cnr_server"
+                ),
+            ),
+            (
+                "git+https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server",
+                ["--hash", "sh256:sha256:4fd9429bfbb796a48c0bde6bd301ff5b3cc02adb32189d912c7f"],
+                (
+                    "cnr_server @ git+https://github.com/quay/appr/archive/58c88e49.tar.gz#"
+                    "egg=cnr_server --hash=sh256:sha256:4fd9429bfbb796a48c0bde6bd301ff5b3cc02ad"
+                    "b32189d912c7f"
+                ),
+            ),
+        ),
+    )
+    def test_pip_requirement_to_str(self, requirement_line, requirement_options, expected_str_line):
+        """Test PipRequirement.__str__ method."""
+        assert (
+            str(pip.PipRequirement.from_line(requirement_line, requirement_options))
+            == expected_str_line
+        )
+
+    @pytest.mark.parametrize(
+        "requirement_line, requirement_options, new_values, expected_changes",
+        (
+            # Existing hashes are retained
+            ("spam", ["--hash", "sha256:123"], {}, {}),
+            # Existing hashes are replaced
+            (
+                "spam",
+                ["--hash", "sha256:123"],
+                {"hashes": ["sha256:234"]},
+                {"hashes": ["sha256:234"]},
+            ),
+            # Hashes are added
+            ("spam", [], {"hashes": ["sha256:234"]}, {"hashes": ["sha256:234"]}),
+            # pypi is modified to url
+            (
+                "spam",
+                [],
+                {"url": "https://cachito.example.com/nexus/spam-1.2.3.tar.gz"},
+                {
+                    "download_line": "spam @ https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
+                    "kind": "url",
+                },
+            ),
+            # url is modified to another url
+            (
+                "https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam",
+                [],
+                {"url": "https://cachito.example.com/nexus/spam-58c88.tar.gz"},
+                {
+                    "download_line": (
+                        "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam"
+                    ),
+                    "kind": "url",
+                },
+            ),
+            # vcs is modified to URL
+            (
+                "git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam",
+                [],
+                {"url": "https://cachito.example.com/nexus/spam-58c88.tar.gz"},
+                {
+                    "download_line": (
+                        "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam"
+                    ),
+                    "kind": "url",
+                },
+            ),
+            # Editable option, "-e", is dropped when setting url
+            (
+                "git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam",
+                ["-e"],
+                {"url": "https://cachito.example.com/nexus/spam-58c88.tar.gz"},
+                {
+                    "download_line": (
+                        "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam"
+                    ),
+                    "kind": "url",
+                    "options": [],
+                },
+            ),
+            # Editable option, "--e", is not dropped when url is not set
+            ("git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam", ["-e"], {}, {},),
+            # Editable option, "--editable", is dropped when setting url
+            (
+                "git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam",
+                ["--editable"],
+                {"url": "https://cachito.example.com/nexus/spam-58c88.tar.gz"},
+                {
+                    "download_line": (
+                        "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam"
+                    ),
+                    "kind": "url",
+                    "options": [],
+                },
+            ),
+            # Editable option, "--editable", is not dropped when url is not set
+            (
+                "git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam",
+                ["--editable"],
+                {},
+                {},
+            ),
+            # Environment markers persist
+            (
+                (
+                    "git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam"
+                    '; python_version < "2.7"'
+                ),
+                [],
+                {"url": "https://cachito.example.com/nexus/spam-58c88.tar.gz"},
+                {
+                    "download_line": (
+                        "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam "
+                        '; python_version < "2.7"'
+                    ),
+                    "kind": "url",
+                },
+            ),
+            # Extras are cleared when setting a new URL
+            (
+                "spam[SALTY]",
+                [],
+                {"url": "https://cachito.example.com/nexus/spam-1.2.3.tar.gz"},
+                {
+                    "download_line": "spam @ https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
+                    "kind": "url",
+                    "extras": [],
+                },
+            ),
+            # Extras are NOT cleared when a new URL is not set
+            ("spam[SALTY]", [], {}, {},),
+            # Version specs are cleared when setting a new URL
+            (
+                "spam==1.2.3",
+                [],
+                {"url": "https://cachito.example.com/nexus/spam-1.2.3.tar.gz"},
+                {
+                    "download_line": "spam @ https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
+                    "kind": "url",
+                    "version_specs": [],
+                },
+            ),
+            # Version specs are NOT cleared when a new URL is not set
+            ("spam==1.2.3", [], {}, {},),
+            # Qualifiers persists
+            (
+                "https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam&spam=maps",
+                [],
+                {"url": "https://cachito.example.com/nexus/spam-58c88.tar.gz"},
+                {
+                    "download_line": (
+                        "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#"
+                        "egg=spam&spam=maps"
+                    ),
+                },
+            ),
+        ),
+    )
+    def test_pip_requirement_copy(
+        self, requirement_line, requirement_options, new_values, expected_changes,
+    ):
+        """Test PipRequirement.copy method."""
+        original_requirement = pip.PipRequirement.from_line(requirement_line, requirement_options)
+        new_requirement = original_requirement.copy(**new_values)
+
+        for attr in self.PIP_REQUIREMENT_ATTRS:
+            expected_changes.setdefault(attr, getattr(original_requirement, attr))
+
+        self._assert_pip_requirement(new_requirement, expected_changes)
+
+    def _assert_pip_requirement(self, pip_requirement, expected_requirement):
+        for attr, default_value in self.PIP_REQUIREMENT_ATTRS.items():
             expected_requirement.setdefault(attr, default_value)
 
         for attr, expected_value in expected_requirement.items():
