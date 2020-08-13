@@ -240,7 +240,7 @@ def create_request():
             tasks.fetch_npm_source.si(request.id, npm_package_configs).on_error(error_callback)
         )
 
-    chain_tasks.extend([tasks.create_bundle_archive.si(request.id).on_error(error_callback)])
+    chain_tasks.append(tasks.create_bundle_archive.si(request.id).on_error(error_callback))
 
     try:
         chain(chain_tasks).delay()

@@ -108,7 +108,7 @@ def test_create_and_fetch_request(
         )
     if "npm" in expected_pkg_managers:
         expected.append(fetch_npm_source.si(created_request["id"], {}).on_error(error_callback))
-    expected.extend([create_bundle_archive.si(created_request["id"]).on_error(error_callback)])
+    expected.append(create_bundle_archive.si(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
 
     request_id = created_request["id"]
