@@ -739,6 +739,37 @@ class PipRequirementsFile:
         self.file_path = file_path
         self.__parsed = NOTHING
 
+    @classmethod
+    def from_requirements_and_options(cls, requirements, options):
+        """Create a new PipRequirementsFile instance from given parameters.
+
+        :param list requirements: list of PipRequirement instances
+        :param list options: list of strings of global options
+        :return: new instance of PipRequirementsFile
+        """
+        new_instance = cls(None)
+        new_instance.__parsed = {"requirements": list(requirements), "options": list(options)}
+        return new_instance
+
+    def write(self, file_path=None):
+        """Write the options and requirements to a file.
+
+        :param str file_path: the file path to write the new file. If not provided, the file
+            path used when initiating the class is used.
+        :raises ValidationError: if a file path cannot be determined
+        """
+        file_path = file_path or self.file_path
+        if not file_path:
+            raise RuntimeError("Unspecified 'file_path' for the requirements file")
+
+        with open(file_path, "w") as f:
+            if self.options:
+                f.write(" ".join(self.options))
+                f.write("\n")
+            for requirement in self.requirements:
+                f.write(str(requirement))
+                f.write("\n")
+
     @property
     def requirements(self):
         """Return a list of PipRequirement objects."""
@@ -908,6 +939,67 @@ class PipRequirement:
         self.download_line = None
 
         self.options = []
+
+    def __str__(self):
+        """Return the string representation of the PipRequirement."""
+        line = []
+        line.extend(self.options)
+        line.append(self.download_line)
+        line.extend(f"--hash={h}" for h in self.hashes)
+        return " ".join(line)
+
+    def copy(self, url=None, hashes=None):
+        """Duplicate this instance of PipRequirement.
+
+        :param str url: set a new direct access URL for the requirement. If provided, the
+            new requirement is always of ``url`` kind.
+        :param list hashes: overwrite hash values for the new requirement
+        :return: new PipRequirement instance
+        """
+        options = list(self.options)
+        download_line = self.download_line
+        if url:
+            download_line_parts = []
+            download_line_parts.append(self.raw_package)
+            download_line_parts.append("@")
+
+            qualifiers_line = "&".join(f"{key}={value}" for key, value in self.qualifiers.items())
+            if qualifiers_line:
+                download_line_parts.append(f"{url}#{qualifiers_line}")
+            else:
+                download_line_parts.append(url)
+
+            if self.environment_marker:
+                download_line_parts.append(";")
+                download_line_parts.append(self.environment_marker)
+
+            download_line = " ".join(download_line_parts)
+
+            # Pip does not support editable mode for requirements installed via an URL, only
+            # via VCS. Remove this option to avoid errors later on.
+            options = list(set(self.options) - {"-e", "--editable"})
+            if self.options != options:
+                log.warning(
+                    "Removed editable option when copying the requirement %r", self.raw_package
+                )
+
+        requirement = self.__class__()
+
+        requirement.package = self.package
+        requirement.raw_package = self.raw_package
+        # Extras are incorrectly treated as part of the URL itself. If we're setting
+        # the URL, clear them.
+        requirement.extras = [] if url else list(self.extras)
+        # Version specs are ignored by pip when applied to a URL, let's do the same.
+        requirement.version_specs = [] if url else list(self.version_specs)
+        requirement.environment_marker = self.environment_marker
+        requirement.hashes = list(hashes or self.hashes)
+        requirement.qualifiers = dict(self.qualifiers)
+        requirement.kind = "url" if url else self.kind
+        requirement.download_line = download_line
+        requirement.options = options
+
+        return requirement
 
     @classmethod
     def from_line(cls, line, options):
