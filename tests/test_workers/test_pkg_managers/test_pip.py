@@ -3,11 +3,13 @@ import logging
 import re
 from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
 import pytest
 
+from cachito.errors import CachitoError, ValidationError
+from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import pip
-from cachito.errors import ValidationError
 
 
 def setup_module():
@@ -1602,3 +1604,29 @@ class TestPipRequirementsFile:
                 assert (
                     getattr(pip_requirement, attr) == expected_value
                 ), f"unexpected value for {attr!r}"
+
+
+class TestNexus:
+    """Nexus related tests."""
+
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.execute_script")
+    def test_prepare_nexus_for_pip_request(self, mock_exec_script):
+        """Check whether groovy srcript is called with proper args."""
+        pip.prepare_nexus_for_pip_request("cachito-pip-hosted-1", "cachito-pip-raw-1")
+
+        mock_exec_script.assert_called_once_with(
+            "pip_before_content_staged",
+            {
+                "pip_repository_name": "cachito-pip-hosted-1",
+                "raw_repository_name": "cachito-pip-raw-1",
+            },
+        )
+
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.execute_script")
+    def test_prepare_nexus_for_pip_request_failed(self, mock_exec_script):
+        """Check whether proper error is raised on groovy srcript failures."""
+        mock_exec_script.side_effect = NexusScriptError()
+
+        expected = "Failed to prepare Nexus for Cachito to stage Python content"
+        with pytest.raises(CachitoError, match=expected):
+            pip.prepare_nexus_for_pip_request(1, 1)

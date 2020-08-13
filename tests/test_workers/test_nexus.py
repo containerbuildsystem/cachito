@@ -259,7 +259,12 @@ def test_create_or_update_update_fails(mock_requests):
 @mock.patch("cachito.workers.nexus.create_or_update_script")
 def test_create_or_update_scripts(mock_cous):
     nexus.create_or_update_scripts()
-    expected_scripts = {"js_after_content_staged", "js_before_content_staged", "js_cleanup"}
+    expected_scripts = {
+        "js_after_content_staged",
+        "js_before_content_staged",
+        "js_cleanup",
+        "pip_before_content_staged",
+    }
     for call_args in mock_cous.call_args_list:
         script_name = call_args[0][0]
         expected_scripts.remove(script_name)
