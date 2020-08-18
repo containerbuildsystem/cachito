@@ -1419,6 +1419,27 @@ class TestPipRequirementsFile:
                 ],
                 [],
             ),
+            # Dependency from URL with environment markers
+            (
+                (
+                    "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server; "
+                    'python_version < "2.7"'
+                ),
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "url",
+                        "download_line": (
+                            "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                            "#egg=cnr_server"
+                            ' ; python_version < "2.7"'
+                        ),
+                        "qualifiers": {"egg": "cnr_server"},
+                        "environment_marker": 'python_version < "2.7"',
+                    },
+                ],
+                [],
+            ),
             # Dependency from VCS with egg name
             (
                 "git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
