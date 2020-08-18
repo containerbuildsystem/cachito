@@ -2,7 +2,9 @@
 import ast
 import configparser
 import logging
+import random
 import re
+import secrets
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -1066,3 +1068,31 @@ def prepare_nexus_for_pip_request(pip_repo_name, raw_repo_name):
     except NexusScriptError:
         log.exception("Failed to execute the script %s", script_name)
         raise CachitoError("Failed to prepare Nexus for Cachito to stage Python content")
+
+
+def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
+    """
+    Configure Nexus so that the request's Pyhton repositories are ready for consumption.
+
+    :param str pip_repo_name: the name of the pip repository for the Cachito pip request
+    :param str raw_repo_name: the name of the raw repository for the Cachito pip request
+    :param str username: the username of the user to be created for the Cachito pip request
+    :return: the password of the Nexus user that has access to the request's Python repositories
+    :rtype: str
+    :raise CachitoError: if the script execution fails
+    """
+    # Generate a 24-32 character (each byte is two hex characters) password
+    password = secrets.token_hex(random.randint(12, 16))
+    payload = {
+        "password": password,
+        "pip_repository_name": pip_repo_name,
+        "raw_repository_name": raw_repo_name,
+        "username": username,
+    }
+    script_name = "pip_after_content_staged"
+    try:
+        nexus.execute_script(script_name, payload)
+    except NexusScriptError:
+        log.exception("Failed to execute the script %s", script_name)
+        raise CachitoError("Failed to configure Nexus Python repositories for final consumption")
+    return password

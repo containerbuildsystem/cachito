@@ -1717,3 +1717,32 @@ class TestNexus:
         expected = "Failed to prepare Nexus for Cachito to stage Python content"
         with pytest.raises(CachitoError, match=expected):
             pip.prepare_nexus_for_pip_request(1, 1)
+
+    @mock.patch("secrets.token_hex")
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.execute_script")
+    def test_finalize_nexus_for_pip_request(self, mock_exec_script, mock_secret):
+        """Check whether groovy srcript is called with proper args."""
+        mock_secret.return_value = "password"
+        password = pip.finalize_nexus_for_pip_request(
+            "cachito-pip-hosted-1", "cachito-pip-raw-1", "user-1"
+        )
+
+        mock_exec_script.assert_called_once_with(
+            "pip_after_content_staged",
+            {
+                "pip_repository_name": "cachito-pip-hosted-1",
+                "raw_repository_name": "cachito-pip-raw-1",
+                "username": "user-1",
+                "password": "password",
+            },
+        )
+
+        assert password == "password"
+
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.execute_script")
+    def test_finalize_nexus_for_pip_request_failed(self, mock_exec_script):
+        """Check whether proper error is raised on groovy srcript failures."""
+        mock_exec_script.side_effect = NexusScriptError()
+        expected = "Failed to configure Nexus Python repositories for final consumption"
+        with pytest.raises(CachitoError, match=expected):
+            pip.finalize_nexus_for_pip_request(1, 1, 1)

@@ -263,6 +263,7 @@ def test_create_or_update_scripts(mock_cous):
         "js_after_content_staged",
         "js_before_content_staged",
         "js_cleanup",
+        "pip_after_content_staged",
         "pip_before_content_staged",
     }
     for call_args in mock_cous.call_args_list:
