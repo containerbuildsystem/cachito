@@ -1216,7 +1216,18 @@ class TestPipRequirementsFile:
         "file_contents, expected_requirements, expected_global_options",
         (
             # Dependency from pypi
-            ("aiowsgi", [{"package": "aiowsgi", "kind": "pypi", "download_line": "aiowsgi"}], [],),
+            (
+                "aiowsgi",
+                [
+                    {
+                        "package": "aiowsgi",
+                        "kind": "pypi",
+                        "download_line": "aiowsgi",
+                        "raw_package": "aiowsgi",
+                    }
+                ],
+                [],
+            ),
             # Dependency from pypi with pinned version
             (
                 "aiowsgi==0.7",
@@ -1226,6 +1237,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi==0.7",
                         "version_specs": [("==", "0.7")],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1239,6 +1251,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi>=0.7",
                         "version_specs": [(">=", "0.7")],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1252,6 +1265,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi>=0.7,<1.0",
                         "version_specs": [(">=", "0.7"), ("<", "1.0")],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1265,6 +1279,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi>=0.7,<1.0,!=0.8",
                         "version_specs": [(">=", "0.7"), ("<", "1.0"), ("!=", "0.8")],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1279,6 +1294,7 @@ class TestPipRequirementsFile:
                         "download_line": "aiowsgi[spam,bacon]==0.7",
                         "version_specs": [("==", "0.7")],
                         "extras": ["spam", "bacon"],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1292,6 +1308,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi~=0.6",
                         "version_specs": [("~=", "0.6")],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1305,6 +1322,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": 'aiowsgi; python_version < "2.7"',
                         "environment_marker": 'python_version < "2.7"',
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1328,6 +1346,7 @@ class TestPipRequirementsFile:
                             "sha256:6e649ca13a7df3faacdc8bbb280aa9a6602d22fd9d545",
                             "sha256:77f1aef9410698d20eaeac5b73a87817365f457a507d8",
                         ],
+                        "raw_package": "amqp",
                     },
                 ],
                 [],
@@ -1344,6 +1363,7 @@ class TestPipRequirementsFile:
                             "#egg=cnr_server"
                         ),
                         "qualifiers": {"egg": "cnr_server"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1358,6 +1378,7 @@ class TestPipRequirementsFile:
                         "download_line": (
                             "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
                         ),
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1374,6 +1395,7 @@ class TestPipRequirementsFile:
                             "#egg=cnr_server"
                         ),
                         "qualifiers": {"egg": "cnr_server"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1391,6 +1413,7 @@ class TestPipRequirementsFile:
                         ),
                         "options": ["-e"],
                         "qualifiers": {"egg": "cnr_server"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1415,6 +1438,7 @@ class TestPipRequirementsFile:
                             "ec2e6c70c8",
                         ],
                         "qualifiers": {"egg": "cnr_server"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1436,6 +1460,7 @@ class TestPipRequirementsFile:
                         ),
                         "qualifiers": {"egg": "cnr_server"},
                         "environment_marker": 'python_version < "2.7"',
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1455,6 +1480,7 @@ class TestPipRequirementsFile:
                             "#egg=cnr_server&spam=maps&bacon=nocab"
                         ),
                         "qualifiers": {"egg": "cnr_server", "spam": "maps", "bacon": "nocab"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1471,6 +1497,7 @@ class TestPipRequirementsFile:
                             "#egg=cnr_server"
                         ),
                         "qualifiers": {"egg": "cnr_server"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1485,6 +1512,7 @@ class TestPipRequirementsFile:
                         "download_line": (
                             "cnr_server @ git+https://github.com/quay/appr.git@58c88e49"
                         ),
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1501,6 +1529,7 @@ class TestPipRequirementsFile:
                             "#egg=cnr_server"
                         ),
                         "qualifiers": {"egg": "cnr_server"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1518,6 +1547,7 @@ class TestPipRequirementsFile:
                         ),
                         "options": ["-e"],
                         "qualifiers": {"egg": "cnr_server"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1537,6 +1567,7 @@ class TestPipRequirementsFile:
                             "#egg=cnr_server&spam=maps&bacon=nocab"
                         ),
                         "qualifiers": {"egg": "cnr_server", "spam": "maps", "bacon": "nocab"},
+                        "raw_package": "cnr_server",
                     },
                 ],
                 [],
@@ -1562,12 +1593,14 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi==0.7",
                         "version_specs": [("==", "0.7")],
+                        "raw_package": "aiowsgi",
                     },
                     {
                         "package": "asn1crypto",
                         "kind": "pypi",
                         "download_line": "asn1crypto==1.3.0",
                         "version_specs": [("==", "1.3.0")],
+                        "raw_package": "asn1crypto",
                     },
                 ],
                 [],
@@ -1589,12 +1622,14 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi==0.7",
                         "version_specs": [("==", "0.7")],
+                        "raw_package": "aiowsgi",
                     },
                     {
                         "package": "asn1crypto",
                         "kind": "pypi",
                         "download_line": "asn1crypto==1.3.0",
                         "version_specs": [("==", "1.3.0")],
+                        "raw_package": "asn1crypto",
                     },
                 ],
                 [],
@@ -1618,6 +1653,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi==0.7",
                         "version_specs": [("==", "0.7")],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 [],
@@ -1633,6 +1669,7 @@ class TestPipRequirementsFile:
                         "kind": "pypi",
                         "download_line": "aiowsgi==0.7",
                         "version_specs": [("==", "0.7")],
+                        "raw_package": "aiowsgi",
                     },
                 ],
                 ["--only-binary", ":all:"],
@@ -1734,6 +1771,7 @@ class TestPipRequirementsFile:
             "kind": None,
             "options": [],
             "package": None,
+            "raw_package": None,
             "qualifiers": {},
             "version_specs": [],
         }

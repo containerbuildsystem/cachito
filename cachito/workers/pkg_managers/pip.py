@@ -893,7 +893,11 @@ class PipRequirement:
 
     def __init__(self):
         """Initialize a PipRequirement."""
+        # The package name after it has been processed by setuptools, e.g. "_" are replaced
+        # with "-"
         self.package = None
+        # The package name as defined in the requirement line
+        self.raw_package = None
         self.extras = []
         self.version_specs = []
         self.environment_marker = None
@@ -953,6 +957,7 @@ class PipRequirement:
         requirement.download_line = to_be_parsed
         requirement.options = options
         requirement.package = parsed.project_name
+        requirement.raw_package = parsed.name
         requirement.version_specs = parsed.specs
         requirement.extras = parsed.extras
         requirement.environment_marker = str(parsed.marker) if parsed.marker else None
