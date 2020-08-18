@@ -1440,6 +1440,25 @@ class TestPipRequirementsFile:
                 ],
                 [],
             ),
+            # Dependency from URL with multiple qualifiers
+            (
+                (
+                    "https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                    "#egg=cnr_server&spam=maps&bacon=nocab"
+                ),
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "url",
+                        "download_line": (
+                            "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                            "#egg=cnr_server&spam=maps&bacon=nocab"
+                        ),
+                        "qualifiers": {"egg": "cnr_server", "spam": "maps", "bacon": "nocab"},
+                    },
+                ],
+                [],
+            ),
             # Dependency from VCS with egg name
             (
                 "git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
@@ -1499,6 +1518,25 @@ class TestPipRequirementsFile:
                         ),
                         "options": ["-e"],
                         "qualifiers": {"egg": "cnr_server"},
+                    },
+                ],
+                [],
+            ),
+            # Dependency from VCS with multiple qualifiers
+            (
+                (
+                    "git+https://github.com/quay/appr.git@58c88e49"
+                    "#egg=cnr_server&spam=maps&bacon=nocab"
+                ),
+                [
+                    {
+                        "package": "cnr-server",
+                        "kind": "vcs",
+                        "download_line": (
+                            "cnr_server @ git+https://github.com/quay/appr.git@58c88e49"
+                            "#egg=cnr_server&spam=maps&bacon=nocab"
+                        ),
+                        "qualifiers": {"egg": "cnr_server", "spam": "maps", "bacon": "nocab"},
                     },
                 ],
                 [],

@@ -1023,7 +1023,6 @@ class PipRequirement:
                         # Use the egg name as the package name to avoid ambiguity when both are
                         # provided. This matches the behavior of "pip install".
                         package_name = value
-                        break
 
         if not package_name:
             raise ValidationError(f"Egg name could not be determined from the requirement {line!r}")
