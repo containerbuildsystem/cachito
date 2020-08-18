@@ -1004,9 +1004,14 @@ class PipRequirement:
         package_name = None
         qualifiers = {}
         url = line
+        environment_marker = None
 
         if cls.HAS_NAME_IN_DIRECT_ACCESS_REQUIREMENT.search(line):
             package_name, url = line.split("@", 1)
+
+        # For direct access requirements, a space is needed after the semicolon.
+        if "; " in url:
+            url, environment_marker = url.split("; ", 1)
 
         parsed_url = urlparse(url)
         if parsed_url.fragment:
@@ -1023,7 +1028,13 @@ class PipRequirement:
         if not package_name:
             raise ValidationError(f"Egg name could not be determined from the requirement {line!r}")
 
-        return f"{package_name.strip()} @ {url.strip()}", qualifiers
+        requirement_parts = [package_name.strip(), "@", url.strip()]
+        if environment_marker:
+            # Although a space before the semicolon is not needed by pip, it is needed when
+            # using pkg_resources later on.
+            requirement_parts.append(";")
+            requirement_parts.append(environment_marker.strip())
+        return " ".join(requirement_parts), qualifiers
 
     @classmethod
     def _split_hashes_from_options(cls, options):
