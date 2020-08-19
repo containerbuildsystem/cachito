@@ -50,6 +50,8 @@ class RequestBundleDir(type(Path())):
         self.npm_package_lock_file = self.source_dir.joinpath("package-lock.json")
         self.npm_shrinkwrap_file = self.source_dir.joinpath("npm-shrinkwrap.json")
 
+        self.pip_deps_dir = self.joinpath("deps", "pip")
+
         self.bundle_archive_file = Path(root, f"{request_id}.tar.gz")
 
         return self

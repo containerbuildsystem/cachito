@@ -6,10 +6,11 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+import requests
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.pkg_managers import pip
+from cachito.workers.pkg_managers import pip, general
 
 
 def setup_module():
@@ -2205,3 +2206,395 @@ class TestNexus:
         expected = "Failed to configure Nexus Python repositories for final consumption"
         with pytest.raises(CachitoError, match=expected):
             pip.finalize_nexus_for_pip_request(1, 1, 1)
+
+
+class TestDownload:
+    """Tests for dependency downloading."""
+
+    DOWNLOAD_CONTENT = b"infinite content (https://www.youtube.com/watch?v=i2qx5P0kQSM)"
+    DOWNLOAD_SDIST = {
+        # "comment_text": "",
+        # "digests": {
+        #     "md5": "b0b7fe1397a57dc723bb1c8618a9cb2b",
+        #     "sha256": "731e3944ab2f1112a64661b565aa8d9df0fa8141b9ac23d9ce559e1501461108",
+        # },
+        # "downloads": -1,
+        "filename": "aiowsgi-0.7.tar.gz",
+        # "has_sig": False,
+        # "md5_digest": "ba59f62acce9a9175bb9747f46e3f59b",
+        "packagetype": "sdist",
+        # "python_version": "source",
+        # "requires_python": None,
+        # "size": 14954,
+        # "upload_time": "2018-11-02T19:38:09",
+        # "upload_time_iso_8601": "2018-11-02T19:38:09.851502Z",
+        "url": "https://example.org/aiowsgi-0.7.tar.gz",
+        "yanked": False,
+        # "yanked_reason": None
+    }
+
+    def mock_pypi_response(self, sdist_exists, sdist_not_yanked):
+        """Mock a PyPI JSON response."""
+        response_json = {
+            # "info": {},
+            # "last_serial": 0,
+            # "releases": {},
+            "urls": [
+                {
+                    # wheel, should be ignored
+                    "filename": "aiowsgi-0.7-py3-none-any.whl",
+                    "packagetype": "bdist_wheel",
+                    "url": "https://bad-example.org/aiowsgi-0.7-py3-none-any.whl",
+                    "yanked": False,
+                },
+            ],
+        }
+        if sdist_exists:
+            download_sdist = self.DOWNLOAD_SDIST.copy()
+            download_sdist["yanked"] = not sdist_not_yanked
+            response_json["urls"].append(download_sdist)
+        return response_json
+
+    def mock_requirements_file(self, requirements=None, options=None):
+        """Mock a requirement.txt file."""
+        return mock.Mock(requirements=requirements or [], options=options or [])
+
+    def mock_requirement(
+        self, package, kind, version_specs=None, download_line=None, hashes=None, qualifiers=None
+    ):
+        """Mock a requierements.txt item. By default should pass validation."""
+        return mock.Mock(
+            package=package,
+            kind=kind,
+            version_specs=version_specs if version_specs is not None else [("==", "1")],
+            download_line=download_line or package,
+            hashes=hashes or [],
+            qualifiers=qualifiers or {},
+        )
+
+    @pytest.mark.parametrize(
+        "pypi_query_success, sdist_exists, sdist_not_yanked, file_query_success",
+        [
+            (True, True, True, True),
+            (True, True, True, False),
+            (True, True, False, False),
+            (True, False, False, False),
+            (False, False, False, False),
+        ],
+    )
+    @mock.patch.object(pip.requests_session, "get")
+    def test_download_pypi_package(
+        self,
+        mock_get,
+        pypi_query_success,
+        sdist_exists,
+        sdist_not_yanked,
+        file_query_success,
+        tmp_path,
+    ):
+        """Test downloading of a single PyPI package."""
+        mock_requirement = self.mock_requirement("aiowsgi", "pypi", version_specs=[("==", "0.7")])
+
+        pypi_resp = self.mock_pypi_response(sdist_exists, sdist_not_yanked)
+        pypi_success = mock.Mock(json=lambda: pypi_resp)
+        pypi_fail = requests.RequestException("Something went wrong")
+
+        # Mock response from archive URL
+        file_success = mock.Mock(iter_content=lambda chunk_size: [self.DOWNLOAD_CONTENT])
+        file_fail = requests.RequestException("Something went wrong")
+
+        mock_get.side_effect = [
+            pypi_success if pypi_query_success else pypi_fail,
+            file_success if file_query_success else file_fail,
+        ]
+
+        if not pypi_query_success:
+            expect_error = "PyPI query failed: Something went wrong"
+        elif not sdist_exists:
+            expect_error = "No sdists found for package aiowsgi==0.7"
+        elif not sdist_not_yanked:
+            expect_error = "All sdists for package aiowsgi==0.7 are yanked"
+        elif not file_query_success:
+            expect_error = "Could not download aiowsgi-0.7.tar.gz: Something went wrong"
+        else:
+            expect_error = None
+
+        if expect_error is None:
+            download_path = pip._download_pypi_package(
+                mock_requirement, tmp_path, "https://pypi-proxy.example.org/", ("user", "password")
+            )
+            assert download_path == tmp_path / "aiowsgi" / "aiowsgi-0.7.tar.gz"
+            assert download_path.read_bytes() == self.DOWNLOAD_CONTENT
+        else:
+            with pytest.raises(CachitoError) as exc_info:
+                pip._download_pypi_package(
+                    mock_requirement,
+                    tmp_path,
+                    "https://pypi-proxy.example.org",
+                    ("user", "password"),
+                )
+            assert str(exc_info.value) == expect_error
+
+        # Check that correct requests were made
+        pypi_request = mock.call(
+            "https://pypi-proxy.example.org/pypi/aiowsgi/0.7/json", auth=("user", "password")
+        )
+        file_request = mock.call(self.DOWNLOAD_SDIST["url"], stream=True)
+        if pypi_query_success and sdist_exists and sdist_not_yanked:
+            request_calls = [pypi_request, file_request]
+        else:
+            request_calls = [pypi_request]
+
+        mock_get.assert_has_calls(request_calls)
+        assert mock_get.call_count == len(request_calls)
+
+    def test_sdist_sorting(self):
+        """Test that sdist preference key can be used for sorting in the expected order."""
+        # Original order is descending by preference
+        sdists = [
+            {"id": "unyanked-tar.gz", "yanked": False, "filename": "foo.tar.gz"},
+            {"id": "unyanked-zip", "yanked": False, "filename": "foo.zip"},
+            {"id": "unyanked-tar.bz2", "yanked": False, "filename": "foo.tar.bz2"},
+            {"id": "yanked-tar.gz", "yanked": True, "filename": "foo.tar.gz"},
+            {"id": "yanked-zip", "yanked": True, "filename": "foo.zip"},
+            {"id": "yanked-tar.bz2", "yanked": True, "filename": "foo.tar.bz2"},
+        ]
+        # Expected order is ascending by preference
+        expect_order = [
+            "yanked-tar.bz2",
+            "yanked-zip",
+            "yanked-tar.gz",
+            "unyanked-tar.bz2",
+            "unyanked-zip",
+            "unyanked-tar.gz",
+        ]
+        sdists.sort(key=pip._sdist_preference)
+        assert [s["id"] for s in sdists] == expect_order
+
+    def test_ignored_and_rejected_options(self, caplog):
+        """
+        Test ignored and rejected options.
+
+        All ignored options should be logged, all rejected options should be in error message.
+        """
+        all_rejected = [
+            "-i",
+            "--index-url",
+            "--extra-index-url",
+            "--no-index",
+            "-f",
+            "--find-links",
+            "--only-binary",
+        ]
+        options = all_rejected + ["-c", "constraints.txt", "--use-feature", "some_feature", "--foo"]
+        req_file = self.mock_requirements_file(options=options)
+        with pytest.raises(ValidationError) as exc_info:
+            pip.download_dependencies(1, req_file)
+
+        err_msg = (
+            "Cachito does not support the following options: -i, --index-url, --extra-index-url, "
+            "--no-index, -f, --find-links, --only-binary"
+        )
+        assert str(exc_info.value) == err_msg
+
+        log_msg = "Cachito will ignore the following options: -c, --use-feature, --foo"
+        assert log_msg in caplog.text
+
+    @pytest.mark.parametrize(
+        "version_specs",
+        [
+            [],
+            [("<", "1")],
+            [("==", "1"), ("<", "2")],
+            [("==", "1"), ("==", "1")],  # Probably no reason to handle this?
+        ],
+    )
+    def test_pypi_dep_not_pinned(self, version_specs):
+        """Test that unpinned PyPI deps cause a ValidationError."""
+        req = self.mock_requirement("foo", "pypi", version_specs=version_specs)
+        req_file = self.mock_requirements_file(requirements=[req])
+        with pytest.raises(ValidationError) as exc_info:
+            pip.download_dependencies(1, req_file)
+        msg = f"Requirement must be pinned to an exact version: {req.download_line}"
+        assert str(exc_info.value) == msg
+
+    @pytest.mark.parametrize(
+        "global_require_hash, local_hash", [(True, False), (False, True), (True, True)]
+    )
+    def test_pypi_dep_missing_hash(self, global_require_hash, local_hash, caplog):
+        """Test that missing hashes cause a validation error."""
+        if global_require_hash:
+            options = ["--require-hashes"]
+        else:
+            options = []
+
+        if local_hash:
+            req_1 = self.mock_requirement("foo", "pypi", hashes=["sha256:abcdef"])
+        else:
+            req_1 = self.mock_requirement("foo", "pypi")
+
+        req_2 = self.mock_requirement("bar", "pypi")
+        req_file = self.mock_requirements_file(requirements=[req_1, req_2], options=options)
+
+        with pytest.raises(ValidationError) as exc_info:
+            pip.download_dependencies(1, req_file)
+
+        if global_require_hash:
+            assert "Global --require-hashes option used, will require hashes" in caplog.text
+            bad_req = req_2 if local_hash else req_1
+        else:
+            msg = "At least one dependency uses the --hash option, will require hashes"
+            assert msg in caplog.text
+            bad_req = req_2
+
+        msg = f"Hash is required, dependency does not specify any: {bad_req.download_line}"
+        assert str(exc_info.value) == msg
+
+    @pytest.mark.parametrize("use_hashes", [True, False])
+    @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
+    @mock.patch("cachito.workers.pkg_managers.pip.get_worker_config")
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_credentials")
+    @mock.patch("cachito.workers.pkg_managers.pip._download_pypi_package")
+    @mock.patch("cachito.workers.pkg_managers.pip.verify_checksum")
+    def test_download_dependencies(
+        self,
+        mock_verify_checksum,
+        mock_pypi_download,
+        mock_get_nexus_creds,
+        mock_get_config,
+        mock_bundle_dir,
+        use_hashes,
+        tmp_path,
+        caplog,
+    ):
+        """
+        Test dependency downloading.
+
+        Mock the helper functions used for downloading here, test them properly elsewhere.
+        """
+        if use_hashes:
+            req_1 = self.mock_requirement("foo", "pypi", hashes=["sha256:abcdef"])
+            req_2 = self.mock_requirement("bar", "pypi", hashes=["sha256:123456"])
+        else:
+            req_1 = self.mock_requirement("foo", "pypi")
+            req_2 = self.mock_requirement("bar", "pypi")
+
+        req_file = self.mock_requirements_file(requirements=[req_1, req_2])
+
+        proxy_url = "https://pypi-proxy.example.org"
+        pip_deps = tmp_path / "deps" / "pip"
+        auth = requests.auth.HTTPBasicAuth("username", "password")
+
+        mock_bundle_dir.return_value = mock.Mock(pip_deps_dir=pip_deps)
+        mock_get_config.return_value = mock.Mock(cachito_nexus_pypi_proxy_url=proxy_url)
+        mock_get_nexus_creds.return_value = ("username", "password")
+        mock_pypi_download.side_effect = [
+            pip_deps / "foo" / "foo-1.0.tar.gz",
+            pip_deps / "bar" / "bar-1.0.tar.gz",
+        ]
+
+        pip.download_dependencies(1, req_file)
+
+        assert pip_deps.is_dir()
+
+        mock_bundle_dir.assert_called_once_with(1)
+        mock_get_config.assert_called_once()
+        mock_pypi_download.assert_has_calls(
+            [
+                mock.call(req_1, pip_deps, proxy_url, auth),
+                mock.call(req_2, pip_deps, proxy_url, auth),
+            ]
+        )
+        assert mock_pypi_download.call_count == 2
+
+        if use_hashes:
+            msg = "At least one dependency uses the --hash option, will require hashes"
+            assert msg in caplog.text
+
+            mock_verify_checksum.assert_has_calls(
+                [
+                    mock.call(
+                        str(pip_deps / "foo" / "foo-1.0.tar.gz"),
+                        general.ChecksumInfo("sha256", "abcdef"),
+                    ),
+                    mock.call(
+                        str(pip_deps / "bar" / "bar-1.0.tar.gz"),
+                        general.ChecksumInfo("sha256", "123456"),
+                    ),
+                ]
+            )
+            assert mock_verify_checksum.call_count == 2
+
+            assert "Verifying checksum of foo-1.0.tar.gz" in caplog.text
+            assert "Checksum of foo-1.0.tar.gz matches: sha256:abcdef" in caplog.text
+
+            assert "Verifying checksum of bar-1.0.tar.gz" in caplog.text
+            assert "Checksum of bar-1.0.tar.gz matches: sha256:123456" in caplog.text
+        else:
+            assert not mock_verify_checksum.called
+
+            msg = (
+                "No hash options used, will not require hashes for non-HTTP(S) dependencies. "
+                "HTTP(S) dependencies always require hashes (use the #cachito_hash URL qualifier)."
+            )
+            assert msg in caplog.text
+
+        for req in req_1, req_2:
+            assert f"Downloading {req.download_line} from PyPI" in caplog.text
+            assert f"Successfully downloaded {req.package}-1.0.tar.gz from PyPI" in caplog.text
+
+    @pytest.mark.parametrize(
+        "hashes, success",
+        [
+            (["sha256:good"], True),
+            (["sha256:good", "sha256:bad"], True),
+            (["sha256:bad", "sha256:good"], True),
+            (["sha256:bad"], False),
+            (["malformed"], False),
+            (["sha256:good", "malformed"], False),
+        ],
+    )
+    @mock.patch("cachito.workers.pkg_managers.pip.verify_checksum")
+    def test_checksum_verification(self, mock_verify_checksum, hashes, success, caplog):
+        """Test helper function for checksum verification."""
+        path = Path("/foo/bar.tar.gz")
+
+        if "malformed" in hashes:
+            with pytest.raises(CachitoError) as exc_info:
+                pip._verify_hash(path, hashes)
+
+            msg = "Not a valid hash specifier: 'malformed' (expected algorithm:digest)"
+            assert str(exc_info.value) == msg
+            assert not mock_verify_checksum.called
+        else:
+            mock_verify_checksum.side_effect = [
+                None if hash_spec == "sha256:good" else CachitoError("Something went wrong")
+                for hash_spec in hashes
+            ]
+
+            if success:
+                pip._verify_hash(path, hashes)
+                assert "Checksum of bar.tar.gz matches: sha256:good" in caplog.text
+
+                # Should return on first success
+                num_calls = hashes.index("sha256:good") + 1
+                num_fails = num_calls - 1
+            else:
+                with pytest.raises(CachitoError) as exc_info:
+                    pip._verify_hash(path, hashes)
+
+                msg = "Failed to verify checksum of bar.tar.gz against any of the provided hashes"
+                assert str(exc_info.value) == msg
+
+                num_calls = num_fails = len(hashes)
+
+            calls = [
+                mock.call(str(path), general.ChecksumInfo(*hash_spec.split(":", 1)))
+                for hash_spec in hashes[:num_calls]
+            ]
+            mock_verify_checksum.assert_has_calls(calls)
+            assert mock_verify_checksum.call_count == num_calls
+
+            assert caplog.text.count("Something went wrong") == num_fails
+
+        assert "Verifying checksum of bar.tar.gz" in caplog.text

@@ -11,10 +11,15 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pkg_resources
+import requests
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers import nexus
+from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
+from cachito.workers.paths import RequestBundleDir
+from cachito.workers.pkg_managers.general import ChecksumInfo, verify_checksum
+from cachito.workers.requests import requests_session
 
 
 log = logging.getLogger(__name__)
@@ -1203,3 +1208,264 @@ def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
         log.exception("Failed to execute the script %s", script_name)
         raise CachitoError("Failed to configure Nexus Python repositories for final consumption")
     return password
+
+
+def download_dependencies(request_id, requirements_file):
+    """
+    Download sdists (source distributions) of all dependencies in a requirements.txt file.
+
+    :param int request_id: ID of the request these dependencies are being downloaded for
+    :param PipRequirementsFile requirements_file: A requirements.txt file
+    """
+    options = _process_options(requirements_file.options)
+
+    if options["require_hashes"]:
+        log.info("Global --require-hashes option used, will require hashes")
+        require_hashes = True
+    elif any(req.hashes for req in requirements_file.requirements):
+        log.info("At least one dependency uses the --hash option, will require hashes")
+        require_hashes = True
+    else:
+        log.info(
+            "No hash options used, will not require hashes for non-HTTP(S) dependencies. "
+            "HTTP(S) dependencies always require hashes (use the #cachito_hash URL qualifier)."
+        )
+        require_hashes = False
+
+    _validate_requirements(requirements_file.requirements, require_hashes)
+
+    bundle_dir = RequestBundleDir(request_id)
+    bundle_dir.pip_deps_dir.mkdir(parents=True, exist_ok=True)
+
+    config = get_worker_config()
+    pypi_proxy_url = config.cachito_nexus_pypi_proxy_url
+
+    nexus_username, nexus_password = nexus.get_nexus_hoster_credentials()
+    pypi_proxy_auth = requests.auth.HTTPBasicAuth(nexus_username, nexus_password)
+
+    pypi_downloads = []
+
+    for req in requirements_file.requirements:
+        if req.kind == "pypi":
+            log.info("Downloading %s from PyPI", req.download_line)
+            download_path = _download_pypi_package(
+                req, bundle_dir.pip_deps_dir, pypi_proxy_url, pypi_proxy_auth
+            )
+            log.info("Successfully downloaded %s from PyPI", download_path.name)
+            pypi_downloads.append((req, download_path))
+        else:
+            log.warning("Dependency type not yet supported: %s", req.download_line)
+
+    if require_hashes:
+        for req, download_path in pypi_downloads:
+            _verify_hash(download_path, req.hashes)
+
+
+def _process_options(options):
+    """
+    Process global options from a requirements.txt file.
+
+    | Rejected option     | Reason                                                  |
+    |---------------------|---------------------------------------------------------|
+    | -i --index-url      | We only support the index which our proxy supports      |
+    | --extra-index-url   | We only support one index                               |
+    | --no-index          | Index is the only thing we support                      |
+    | -f --find-links     | We only support index                                   |
+    | --only-binary       | Only sdist                                              |
+
+    | Ignored option      | Reason                                                  |
+    |---------------------|---------------------------------------------------------|
+    | -c --constraint     | All versions must already be pinned                     |
+    | -e --editable       | Only relevant when installing                           |
+    | --no-binary         | Implied                                                 |
+    | --prefer-binary     | Prefer sdist                                            |
+    | --pre               | We do not care if version is pre-release (it is pinned) |
+    | --use-feature       | We probably do not have that feature                    |
+    | -* --*              | Did not exist when this implementation was done         |
+
+    | Undecided option    | Reason                                                  |
+    |---------------------|---------------------------------------------------------|
+    | -r --requirement    | We could support this but there is no good reason to    |
+    | --trusted-host      | Could be relevant for Git and HTTP(S) dependencies      |
+
+    | Relevant option     | Reason                                                  |
+    |---------------------|---------------------------------------------------------|
+    | --require-hashes    | Hashes are optional, so this makes sense                |
+
+    :param list[str] options: Global options from a requirements file
+    :return: Dict with all the relevant options and their values
+    :raise ValidationError: If any option was rejected
+    """
+    reject = {
+        "-i",
+        "--index-url",
+        "--extra-index-url",
+        "--no-index",
+        "-f",
+        "--find-links",
+        "--only-binary",
+    }
+
+    require_hashes = False
+    ignored = []
+    rejected = []
+
+    for option in options:
+        if option == "--require-hashes":
+            require_hashes = True
+        elif option in reject:
+            rejected.append(option)
+        elif option.startswith("-"):
+            # This is a bit simplistic, option arguments may also start with a '-' but
+            # should be good enough for a log message
+            ignored.append(option)
+
+    if ignored:
+        msg = f"Cachito will ignore the following options: {', '.join(ignored)}"
+        log.info(msg)
+
+    if rejected:
+        msg = f"Cachito does not support the following options: {', '.join(rejected)}"
+        raise ValidationError(msg)
+
+    return {
+        "require_hashes": require_hashes,
+    }
+
+
+def _validate_requirements(requirements, require_hashes):
+    """
+    Validate that all requirements meet Cachito expectations.
+
+    :param list[PipRequirement] requirements: All requirements from a file
+    :param bool require_hashes: True if all requirements must specify a checksum
+    :raise ValidationError: If any requirement does not meet expectations
+    """
+    # Fail if any PyPI dependency is not pinned to an exact version
+    for req in filter(lambda r: r.kind == "pypi", requirements):
+        vspec = req.version_specs
+        if len(vspec) != 1 or vspec[0][0] not in ("==", "==="):
+            msg = f"Requirement must be pinned to an exact version: {req.download_line}"
+            raise ValidationError(msg)
+
+    # Fail if any dependency requires a hash but does not specify one
+    for req in requirements:
+        hash_required = require_hashes or req.kind == "url"
+
+        if hash_required and not req.hashes and not req.qualifiers.get("cachito_hash"):
+            msg = f"Hash is required, dependency does not specify any: {req.download_line}"
+            raise ValidationError(msg)
+
+
+def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
+    """
+    Download the sdist (source distribution) of a PyPI package.
+
+    The package must be pinned to an exact version using the '==' (or '===') operator.
+    While the specification defines the '==' operator as slightly magical (reference:
+    https://www.python.org/dev/peps/pep-0440/#version-matching), we treat the version
+    as exact.
+
+    Does not download any dependencies (implied: ignores extras). Ignores environment
+    markers (target environment is not known to Cachito).
+
+    :param PipRequirement requirement: PyPI requirement from a requirement.txt file
+    :param Path pip_deps_dir: The deps/pip directory in a Cachito request bundle
+    :param str pypi_url: URL of PyPI (proxy) server
+    :param requests.auth.AuthBase pypi_auth: Authorization for the PyPI server
+
+    :return: Path to downloaded file
+    """
+    package = requirement.package
+    version = requirement.version_specs[0][1]
+
+    # See https://warehouse.readthedocs.io/api-reference/json/
+    package_url = f"{pypi_url.rstrip('/')}/pypi/{package}/{version}/json"
+    try:
+        pypi_resp = requests_session.get(package_url, auth=pypi_auth)
+        pypi_resp.raise_for_status()
+    except requests.RequestException as e:
+        raise CachitoError(f"PyPI query failed: {e}")
+
+    data = pypi_resp.json()
+    sdists = [pkg for pkg in data.get("urls", []) if pkg.get("packagetype") == "sdist"]
+    if not sdists:
+        raise CachitoError(f"No sdists found for package {package}=={version}")
+
+    # Choose best candidate based on sorting key
+    sdist = max(sdists, key=_sdist_preference)
+    if sdist.get("yanked", False):
+        raise CachitoError(f"All sdists for package {package}=={version} are yanked")
+
+    try:
+        file_resp = requests_session.get(sdist["url"], stream=True)
+        file_resp.raise_for_status()
+    except requests.RequestException as e:
+        raise CachitoError(f"Could not download {sdist['filename']}: {e}")
+
+    package_dir = pip_deps_dir / package
+    package_dir.mkdir(exist_ok=True)
+    download_path = package_dir / sdist["filename"]
+
+    with download_path.open("wb") as archive:
+        for chunk in file_resp.iter_content(chunk_size=8192):
+            archive.write(chunk)
+
+    return download_path
+
+
+def _sdist_preference(sdist_pkg):
+    """
+    Compute preference for a sdist package, can be used to sort in ascending order.
+
+    Prefer files that are not yanked over ones that are.
+    Within the same category (yanked vs. not), prefer .tar.gz > .zip > anything else.
+
+    :param dict sdist_pkg: An item of the "urls" array in a PyPI response
+    :return: Tuple of integers to use as sorting key
+    """
+    # Higher number = higher preference
+    yanked_pref = 0 if sdist_pkg.get("yanked", False) else 1
+
+    filename = sdist_pkg["filename"]
+    if filename.endswith(".tar.gz"):
+        filetype_pref = 2
+    elif filename.endswith(".zip"):
+        filetype_pref = 1
+    else:
+        filetype_pref = 0
+
+    return yanked_pref, filetype_pref
+
+
+def _verify_hash(download_path, hashes):
+    """
+    Check that downloaded archive verifies against at least one of the provided hashes.
+
+    :param Path download_path: Path to downloaded file
+    :param list[str] hashes: All provided hashes for requirement
+    :raise CachitoError: If computed hash does not match any of the provided hashes
+    """
+    log.info(f"Verifying checksum of {download_path.name}")
+
+    checksums = []
+
+    for hash_spec in hashes:
+        algorithm, _, digest = hash_spec.partition(":")
+        if not digest:
+            msg = f"Not a valid hash specifier: {hash_spec!r} (expected algorithm:digest)"
+            raise CachitoError(msg)
+
+        checksums.append(ChecksumInfo(algorithm, digest))
+
+    for checksum_info in checksums:
+        try:
+            verify_checksum(str(download_path), checksum_info)
+            algorithm, digest = checksum_info
+            log.info(f"Checksum of {download_path.name} matches: {algorithm}:{digest}")
+            return
+        except CachitoError as e:
+            log.error("%s", e)
+
+    msg = f"Failed to verify checksum of {download_path.name} against any of the provided hashes"
+    raise CachitoError(msg)
