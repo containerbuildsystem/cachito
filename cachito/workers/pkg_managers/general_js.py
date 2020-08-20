@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import base64
-import collections
-import hashlib
 import io
 import json
 import logging
@@ -19,7 +17,7 @@ from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers.pkg_managers.general import run_cmd
+from cachito.workers.pkg_managers.general import run_cmd, verify_checksum
 
 __all__ = [
     "download_dependencies",
@@ -34,9 +32,6 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
-
-
-ChecksumInfo = collections.namedtuple("ChecksumInfo", "algorithm hexdigest")
 
 
 def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
@@ -400,7 +395,7 @@ def upload_non_registry_dependency(
         )
         dep_archive = os.path.join(temp_dir, stdout.strip())
         if checksum_info:
-            _verify_checksum(dep_archive, checksum_info)
+            verify_checksum(dep_archive, checksum_info)
 
         package_json_rel_path = find_package_json(dep_archive)
         if not package_json_rel_path:
@@ -462,37 +457,3 @@ def upload_non_registry_dependency(
 
         repo_name = get_js_hosted_repo_name()
         nexus.upload_artifact(repo_name, "npm", modified_dep_archive)
-
-
-def _verify_checksum(file_path, checksum_info, chunk_size=10240):
-    """
-    Verify the checksum of the file at the given path matches the expected checksum info.
-
-    :param str file_path: the path to the file to be verified
-    :param ChecksumInfo checksum_info: the expected checksum information
-    :param int chunk_size: the amount of bytes to read at a time
-    :raise CachitoError: if the checksum is not as expected
-    """
-    filename = os.path.basename(file_path)
-    try:
-        hasher = hashlib.new(checksum_info.algorithm)
-    except ValueError as exc:
-        msg = f"Cannot perform checksum on the file {filename}, {exc}"
-        log.exception(msg)
-        raise CachitoError(msg)
-
-    with open(file_path, "rb") as f:
-        while True:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                break
-            hasher.update(chunk)
-    computed_hexdigest = hasher.hexdigest()
-
-    if computed_hexdigest != checksum_info.hexdigest:
-        msg = (
-            f"The file {filename} has an unexpected checksum value, "
-            f"expected {checksum_info.hexdigest} but computed {computed_hexdigest}"
-        )
-        log.error(msg)
-        raise CachitoError(msg)

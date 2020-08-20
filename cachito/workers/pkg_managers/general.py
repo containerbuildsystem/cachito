@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import collections
+import hashlib
 import logging
+import os
 import subprocess
 
 import requests
@@ -12,9 +15,13 @@ __all__ = [
     "update_request_with_config_files",
     "update_request_with_deps",
     "update_request_with_package",
+    "verify_checksum",
+    "ChecksumInfo",
 ]
 
 log = logging.getLogger(__name__)
+
+ChecksumInfo = collections.namedtuple("ChecksumInfo", "algorithm hexdigest")
 
 
 def _get_request_url(request_id):
@@ -172,3 +179,37 @@ def run_cmd(cmd, params, exc_msg=None):
         raise CachitoError(exc_msg or "An unexpected error occurred")
 
     return response.stdout
+
+
+def verify_checksum(file_path, checksum_info, chunk_size=10240):
+    """
+    Verify the checksum of the file at the given path matches the expected checksum info.
+
+    :param str file_path: the path to the file to be verified
+    :param ChecksumInfo checksum_info: the expected checksum information
+    :param int chunk_size: the amount of bytes to read at a time
+    :raise CachitoError: if the checksum is not as expected
+    """
+    filename = os.path.basename(file_path)
+    try:
+        hasher = hashlib.new(checksum_info.algorithm)
+    except ValueError as exc:
+        msg = f"Cannot perform checksum on the file {filename}, {exc}"
+        log.exception(msg)
+        raise CachitoError(msg)
+
+    with open(file_path, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            hasher.update(chunk)
+    computed_hexdigest = hasher.hexdigest()
+
+    if computed_hexdigest != checksum_info.hexdigest:
+        msg = (
+            f"The file {filename} has an unexpected checksum value, "
+            f"expected {checksum_info.hexdigest} but computed {computed_hexdigest}"
+        )
+        log.error(msg)
+        raise CachitoError(msg)

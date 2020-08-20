@@ -10,7 +10,7 @@ import pytest
 
 from cachito.errors import CachitoError
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.pkg_managers import general_js, npm
+from cachito.workers.pkg_managers import general, general_js, npm
 from cachito.workers.paths import RequestBundleDir
 
 
@@ -381,12 +381,12 @@ def test_prepare_nexus_for_js_request_failed(mock_exec_script):
         _, password = general_js.prepare_nexus_for_js_request(1)
 
 
-@mock.patch("cachito.workers.pkg_managers.general_js._verify_checksum")
+@mock.patch("cachito.workers.pkg_managers.general_js.verify_checksum")
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
 @mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_artifact")
-@pytest.mark.parametrize("checksum_info", [None, general_js.ChecksumInfo("sha512", "12345")])
+@pytest.mark.parametrize("checksum_info", [None, general.ChecksumInfo("sha512", "12345")])
 def test_upload_non_registry_dependency(
     mock_ua, mock_fpj, mock_run_cmd, mock_td, mock_vc, checksum_info, tmpdir
 ):
@@ -494,37 +494,3 @@ def test_upload_non_registry_dependency_invalid_package_json(
     expected = "The dependency star-wars@5.0.0 does not have a valid package.json file"
     with pytest.raises(CachitoError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
-
-
-def test_verify_checksum(tmpdir):
-    file = tmpdir.join("spells.txt")
-    file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
-
-    expected = {
-        "sha512": (
-            "da518fe8b800b3325fe35ca680085fe37626414d0916937a01a25ef8f5d7aa769b7233073235fce85ee"
-            "c717e02bb9d72062656cf2d79223792a784910c267b54"
-        ),
-        "sha256": "ed1f8cd69bfacf0528744b6a7084f36e8841b6128de0217503e215612a0ee835",
-        "md5": "308764bc995153f7d853827a675e6731",
-    }
-    for algorithm, checksum in expected.items():
-        general_js._verify_checksum(str(file), general_js.ChecksumInfo(algorithm, checksum))
-
-
-def test_verify_checksum_invalid_hexdigest(tmpdir):
-    file = tmpdir.join("spells.txt")
-    file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
-
-    expected_error = "The file spells.txt has an unexpected checksum value"
-    with pytest.raises(CachitoError, match=expected_error):
-        general_js._verify_checksum(str(file), general_js.ChecksumInfo("sha512", "spam"))
-
-
-def test_verify_checksum_unsupported_algorithm(tmpdir):
-    file = tmpdir.join("spells.txt")
-    file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
-
-    expected_error = "Cannot perform checksum on the file spells.txt,.*bacon.*"
-    with pytest.raises(CachitoError, match=expected_error):
-        general_js._verify_checksum(str(file), general_js.ChecksumInfo("bacon", "spam"))

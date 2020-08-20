@@ -9,7 +9,7 @@ import pytest
 
 from cachito.errors import CachitoError
 from cachito.workers.pkg_managers import npm
-from cachito.workers.pkg_managers.general_js import ChecksumInfo
+from cachito.workers.pkg_managers.general import ChecksumInfo
 
 
 @pytest.fixture()
