@@ -408,34 +408,78 @@ def test_search_components_failed(mock_requests):
 
 
 @mock.patch("cachito.workers.requests.requests_session")
-def test_upload_artifact(mock_requests):
+@pytest.mark.parametrize("use_hoster", [True, False])
+def test_upload_asset_only_component(mock_requests, use_hoster):
     mock_open = mock.mock_open(read_data=b"some tgz file")
     mock_requests.post.return_value.ok = True
 
     with mock.patch("cachito.workers.nexus.open", mock_open):
-        nexus.upload_artifact("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
+        nexus.upload_asset_only_component(
+            "cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz", use_hoster
+        )
 
     assert mock_requests.post.call_args[1]["files"] == {"npm.asset": b"some tgz file"}
     assert mock_requests.post.call_args[1]["params"] == {"repository": "cachito-js-hosted"}
+    assert mock_requests.post.call_args[1]["auth"].username == "cachito"
+    assert mock_requests.post.call_args[1]["auth"].password == "cachito"
 
 
 @mock.patch("cachito.workers.requests.requests_session")
-def test_upload_artifact_connection_error(mock_requests):
+def test_upload_asset_only_component_connection_error(mock_requests):
     mock_open = mock.mock_open(read_data=b"some tgz file")
     mock_requests.post.side_effect = requests.ConnectionError()
 
-    expected = "Could not connect to the Nexus instance to upload an artifact"
+    expected = "Could not connect to the Nexus instance to upload a component"
     with mock.patch("cachito.workers.nexus.open", mock_open):
         with pytest.raises(CachitoError, match=expected):
-            nexus.upload_artifact("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
+            nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
 
 
 @mock.patch("cachito.workers.requests.requests_session")
-def test_upload_artifact_failed(mock_requests):
+def test_upload_asset_only_component_failed(mock_requests):
     mock_open = mock.mock_open(read_data=b"some tgz file")
     mock_requests.post.return_value.ok = False
 
-    expected = "Failed to upload an artifact to Nexus"
+    expected = "Failed to upload a component to Nexus"
     with mock.patch("cachito.workers.nexus.open", mock_open):
         with pytest.raises(CachitoError, match=expected):
-            nexus.upload_artifact("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
+            nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
+
+
+def test_upload_asset_only_component_wrong_type():
+    repo_type = "unsupported"
+    expected = f"Type {repo_type!r} is not supported or requires additional params"
+    with pytest.raises(ValueError, match=expected):
+        nexus.upload_asset_only_component("cachito-js-hosted", repo_type, "/path/to/rxjs-6.5.5.tgz")
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+@pytest.mark.parametrize("use_hoster", [True, False])
+def test_upload_raw_component(mock_requests, use_hoster):
+    mock_open = mock.mock_open(read_data=b"some tgz file")
+    mock_requests.post.return_value.ok = True
+
+    components = [{"path": "path/to/foo-1.0.0.tgz", "filename": "foo-1.0.0.tar.gz"}]
+    with mock.patch("cachito.workers.nexus.open", mock_open):
+        nexus.upload_raw_component("cachito-pip-raw", "foo/1.0.0", components, use_hoster)
+
+    assert mock_requests.post.call_args[1]["files"] == {
+        "raw.asset1": b"some tgz file",
+        "raw.asset1.filename": "foo-1.0.0.tar.gz",
+        "raw.directory": "foo/1.0.0",
+    }
+    assert mock_requests.post.call_args[1]["params"] == {"repository": "cachito-pip-raw"}
+    assert mock_requests.post.call_args[1]["auth"].username == "cachito"
+    assert mock_requests.post.call_args[1]["auth"].password == "cachito"
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_upload_raw_component_failed(mock_requests):
+    mock_open = mock.mock_open(read_data=b"some tgz file")
+    mock_requests.post.return_value.ok = False
+
+    components = [{"path": "path/to/foo-1.0.0.tgz", "filename": "foo-1.0.0.tar.gz"}]
+    expected = "Failed to upload a component to Nexus"
+    with mock.patch("cachito.workers.nexus.open", mock_open):
+        with pytest.raises(CachitoError, match=expected):
+            nexus.upload_raw_component("cachito-pip-raw", "foo/1.0.0", components)

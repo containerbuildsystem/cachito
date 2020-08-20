@@ -2598,3 +2598,30 @@ class TestDownload:
             assert caplog.text.count("Something went wrong") == num_fails
 
         assert "Verifying checksum of bar.tar.gz" in caplog.text
+
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.upload_asset_only_component")
+    def test_upload_package(self, mock_upload, caplog):
+        """Check Nexus upload calls."""
+        name = "name"
+        path = "fakepath"
+
+        pip.upload_pypi_package(name, path)
+        log_msg = f"Uploading {path!r} as a PyPI package to the {name!r} Nexus repository"
+        assert log_msg in caplog.text
+        mock_upload.assert_called_once_with(name, "pypi", path, to_nexus_hoster=False)
+
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.upload_raw_component")
+    @pytest.mark.parametrize("is_request_repo", [True, False])
+    def test_upload_raw_package(self, mock_upload, caplog, is_request_repo):
+        """Check Nexus upload calls."""
+        name = "name"
+        path = "fakepath"
+        dest_dir = "name/varsion"
+        filename = "name.tar.gz"
+
+        pip.upload_raw_package(name, path, dest_dir, filename, is_request_repo)
+
+        components = [{"path": path, "filename": filename}]
+        log_msg = f"Uploading {path!r} as a raw package to the {name!r} Nexus repository"
+        assert log_msg in caplog.text
+        mock_upload.assert_called_once_with(name, dest_dir, components, not is_request_repo)

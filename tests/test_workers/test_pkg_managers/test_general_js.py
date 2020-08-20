@@ -385,7 +385,7 @@ def test_prepare_nexus_for_js_request_failed(mock_exec_script):
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
 @mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
-@mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_artifact")
+@mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_asset_only_component")
 @pytest.mark.parametrize("checksum_info", [None, general.ChecksumInfo("sha512", "12345")])
 def test_upload_non_registry_dependency(
     mock_ua, mock_fpj, mock_run_cmd, mock_td, mock_vc, checksum_info, tmpdir
@@ -476,7 +476,7 @@ def test_upload_non_registry_dependency_no_package_json(mock_fpj, mock_run_cmd, 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
 @mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
-@mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_artifact")
+@mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_asset_only_component")
 def test_upload_non_registry_dependency_invalid_package_json(
     mock_ua, mock_fpj, mock_run_cmd, mock_td, tmpdir
 ):

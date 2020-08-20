@@ -456,4 +456,4 @@ def upload_non_registry_dependency(
                     modified_dep_archive_file.addfile(member, package_json_file_obj)
 
         repo_name = get_js_hosted_repo_name()
-        nexus.upload_artifact(repo_name, "npm", modified_dep_archive)
+        nexus.upload_asset_only_component(repo_name, "npm", modified_dep_archive)

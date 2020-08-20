@@ -295,46 +295,98 @@ def search_components(**query_params):
     return items
 
 
-def upload_artifact(repo_name, repo_type, artifact_path):
+def upload_asset_only_component(repo_name, repo_type, component_path, to_nexus_hoster=True):
     """
-    Upload an artifact to the Nexus hosted repository.
+    Upload an asset only component to a Nexus hosted repository.
 
     :param str repo_name: the name of the Nexus hosted repository
     :param str repo_type: the type of the Nexus hosted repository (e.g. ``npm``)
-    :param str artifact_path: the path to the artifact to upload
+    :param str component_path: the path to the component to upload
+    :param bool to_nexus_hoster: Use the nexus hoster instance, if available
+    :raise CachitoError: if the upload fails
+    :raise ValueError: if uploading to an unsupported or non-asset-only repository type
+    """
+    NEXUS_ASSET_ONLY_UPLOAD_TYPES = ("pypi", "npm", "nuget", "rubygems")
+    if repo_type not in NEXUS_ASSET_ONLY_UPLOAD_TYPES:
+        raise ValueError(f"Type {repo_type!r} is not supported or requires additional params")
+
+    params = {"repository": repo_name}
+    with open(component_path, "rb") as component:
+        payload = {f"{repo_type}.asset": component.read()}
+
+    log.info("Uploading the component %r to the %r Nexus repository", component_path, repo_type)
+    try:
+        upload_component(params, payload, to_nexus_hoster)
+    except CachitoError:
+        log.exception("Failed to upload %r to the %r Nexus repository", component_path, repo_type)
+        raise
+
+
+def upload_raw_component(repo_name, directory, components, to_nexus_hoster=True):
+    """
+    Upload a component to a Nexus raw repository.
+
+    :param str repo_name: the name of the Nexus raw hosted repository
+    :param str directory: destination to upload files to
+    :param list components: a list of dicts with the "path" of the file to be uploaded and the
+        "filename" to be saved in the destination directory.
+    :param bool to_nexus_hoster: Use the nexus hoster instance, if available
+    :raise CachitoError: if the upload fails
+    """
+    params = {"repository": repo_name}
+    payload = {"raw.directory": directory}
+    for index, component in enumerate(components):
+        n = index + 1
+        payload[f"raw.asset{n}.filename"] = component["filename"]
+        with open(component["path"], "rb") as f:
+            payload[f"raw.asset{n}"] = f.read()
+
+    try:
+        upload_component(params, payload, to_nexus_hoster)
+    except CachitoError:
+        log.exception("Failed to upload %r to the raw Nexus repository", components)
+        raise
+
+
+def upload_component(params, payload, to_nexus_hoster):
+    """
+    Push a payload to the Nexus upload endpoint.
+
+    See https://help.sonatype.com/repomanager3/rest-and-integration-api/components-api for further
+    reference.
+
+    :param dict params: the request parameters to the upload endpoint (e.g. {"repository": NAME})
+    :param dict payload: Nexus API compliant file payload
+    :param bool to_nexus_hoster: Use the nexus hoster instance, if available
     :raise CachitoError: if the upload fails
     """
     # Import this here to avoid a circular import
     from cachito.workers.requests import requests_session
 
-    with open(artifact_path, "rb") as artifact:
-        file_payload = {f"{repo_type}.asset": artifact.read()}
-
-    username, password = get_nexus_hoster_credentials()
-    auth = requests.auth.HTTPBasicAuth(username, password)
-    url = f"{_get_nexus_hoster_url()}/service/rest/v1/components"
     config = get_worker_config()
+    if to_nexus_hoster:
+        username, password = get_nexus_hoster_credentials()
+        nexus_url = _get_nexus_hoster_url()
+    else:
+        username = config.cachito_nexus_username
+        password = config.cachito_nexus_password
+        nexus_url = config.cachito_nexus_url
 
-    log.info("Uploading the artifact %s", artifact_path)
+    auth = requests.auth.HTTPBasicAuth(username, password)
+    endpoint = f"{nexus_url}/service/rest/v1/components"
+
     try:
         rv = requests_session.post(
-            url,
-            auth=auth,
-            files=file_payload,
-            params={"repository": repo_name},
-            timeout=config.cachito_nexus_timeout,
+            endpoint, auth=auth, files=payload, params=params, timeout=config.cachito_nexus_timeout
         )
     except requests.RequestException:
-        log.exception(
-            "Could not connect to the Nexus instance to upload the artifact %s", artifact_path
-        )
-        raise CachitoError("Could not connect to the Nexus instance to upload an artifact")
+        log.exception("Could not connect to the Nexus instance to upload the component")
+        raise CachitoError("Could not connect to the Nexus instance to upload a component")
 
     if not rv.ok:
         log.error(
-            "Failed to upload the artifact %s with the status code %d and the text: %s",
-            artifact_path,
+            "Failed to upload a component with the status code %d and the text: %s",
             rv.status_code,
             rv.text,
         )
-        raise CachitoError("Failed to upload an artifact to Nexus")
+        raise CachitoError("Failed to upload a component to Nexus")

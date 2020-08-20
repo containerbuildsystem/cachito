@@ -1469,3 +1469,34 @@ def _verify_hash(download_path, hashes):
 
     msg = f"Failed to verify checksum of {download_path.name} against any of the provided hashes"
     raise CachitoError(msg)
+
+
+def upload_pypi_package(repo_name, artifact_path):
+    """
+    Upload a PyPI Python package to a Nexus repository.
+
+    :param str repo_name: the name of the hosted PyPI repository to upload the package to
+    :param str artifact_path: the path for the PyPI package to be uploaded
+    """
+    log.debug("Uploading %r as a PyPI package to the %r Nexus repository", artifact_path, repo_name)
+    # PyPI packages should always be uploaded to a hosted repository. Hence, we never use the
+    # hoster instance, which holds only the PyPI proxy and the hosted raw repository.
+    nexus.upload_asset_only_component(repo_name, "pypi", artifact_path, to_nexus_hoster=False)
+
+
+def upload_raw_package(repo_name, artifact_path, dest_dir, filename, is_request_repository):
+    """
+    Upload a raw Python package to a Nexus repository.
+
+    :param str repo_name: the name of the hosted raw repository to upload the package to
+    :param str artifact_path: the path of the raw Python package to be uploaded
+    :param str dest_dir: the path of the directory to where the raw Python package will be uploaded
+        to in the Nexus repository
+    :param str filename: the name to save the file with after it is uploaded to the dest_dir
+    :param bool is_request_repository: whether to use the cachito nexus instance or the hoster one,
+        if available
+    """
+    components = [{"path": artifact_path, "filename": filename}]
+    to_nexus_hoster = not is_request_repository
+    log.debug("Uploading %r as a raw package to the %r Nexus repository", artifact_path, repo_name)
+    nexus.upload_raw_component(repo_name, dest_dir, components, to_nexus_hoster)
