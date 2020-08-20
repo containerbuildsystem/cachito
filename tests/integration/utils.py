@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from collections import namedtuple
+import os
 import time
 
 import jsonschema
@@ -48,12 +49,11 @@ class Client:
         :rtype: Response
         :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
         """
-        authentication_mapping = {"kerberos": HTTPKerberosAuth()}
         resp = requests.post(
             f"{self._cachito_api_url}/requests",
-            auth=authentication_mapping.get(self._cachito_api_auth_type),
             headers={"Content-Type": "application/json"},
             json=payload,
+            **self._get_authentication_params(),
         )
         resp.raise_for_status()
         return Response(resp.json(), resp.json()["id"], resp.status_code)
@@ -133,6 +133,19 @@ class Client:
         resp = requests.get(f"{self._cachito_api_url}/requests/{request_id}/content-manifest")
         resp.raise_for_status()
         return Response(resp.json(), request_id, resp.status_code)
+
+    def _get_authentication_params(self):
+        """
+        Return the parameters required to authenticate with Cachito.
+
+        :return: keyword parameters to be used with requests module
+        :rtype: dict
+        """
+        if self._cachito_api_auth_type == "cert":
+            return {"cert": (os.getenv("CACHITO_TEST_CERT"), os.getenv("CACHITO_TEST_KEY"))}
+        elif self._cachito_api_auth_type == "kerberos":
+            return {"auth": HTTPKerberosAuth()}
+        return {"auth": None}
 
 
 def escape_path_go(dependency):

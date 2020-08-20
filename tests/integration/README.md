@@ -27,3 +27,7 @@ have certificates issued by a custom root certificate authority. Example usage:
 
 `KRB5CCNAME` can be passed in `tox.ini` for the `integration`
 environment when using Kerberos authentication in requests.
+
+To use certificate authentication, set `api_auth_type` to `cert` in the integration tests
+yaml configuration file. You must also set the environment variables `CACHITO_TEST_CERT`
+and `CACHITO_TEST_KEY` to reference the certificate and key files respectively.
