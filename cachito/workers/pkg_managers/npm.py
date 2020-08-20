@@ -7,8 +7,8 @@ import os
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
+from cachito.workers.pkg_managers.general import ChecksumInfo
 from cachito.workers.pkg_managers.general_js import (
-    ChecksumInfo,
     download_dependencies,
     get_npm_component_info_from_nexus,
     upload_non_registry_dependency,
