@@ -440,10 +440,16 @@ Nexus instance that hosts the permanent content: `cachito_nexus_hoster_username`
 
 The table below shows the supported package managers and their support level in Cachito.
 
-| Package Manager | Baseline | Content Manifest | Dependency Replacements | Dev Dependencies | External Dependencies | Multiple Paths | Nested Dependencies | Offline Installations |
-| --------------- | -------- | ---------------- | ----------------------- | ---------------- | --------------------- | -------------- | ------------------- | --------------------- |
-| gomod           | ✓        | ✓                | ✓                       |  ✓               | N/A                   | x              | ✓                   | ✓                     |
-| npm             | ✓        | ✓                | x                       |  ✓               | ✓                     | ✓              | ✓                   | x                     |
+Feature                 | gomod | npm
+---                     | ---   | ---
+Baseline                | ✓     | ✓
+Content Manifest        | ✓     | ✓
+Dependency Replacements | ✓     | x
+Dev Dependencies        | ✓     | ✓
+External Dependencies   | N/A   | ✓
+Multiple Paths          | x     | ✓
+Nested Dependencies     | ✓     | ✓
+Offline Installations   | ✓     | x
 
 #### Feature Definitions
 
