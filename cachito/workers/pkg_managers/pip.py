@@ -348,12 +348,12 @@ class SetupCFG(SetupFile):
 
         if root_module in package_dir:
             custom_path = Path(package_dir[root_module])
-            log.debug(f"Custom path set for root module %r: %r", root_module, str(custom_path))
+            log.debug("Custom path set for root module %r: %r", root_module, str(custom_path))
             # Custom path replaces the root module
             module_path = custom_path.joinpath(*module_path.parts[1:])
         elif "" in package_dir:
             custom_path = Path(package_dir[""])
-            log.debug(f"Custom path set for all root modules: %r", str(custom_path))
+            log.debug("Custom path set for all root modules: %r", str(custom_path))
             # Custom path does not replace the root module
             module_path = custom_path / module_path
 
