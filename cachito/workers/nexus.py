@@ -14,7 +14,7 @@ from cachito.workers.errors import NexusScriptError
 log = logging.getLogger(__name__)
 
 
-def _get_nexus_hoster_credentials():
+def get_nexus_hoster_credentials():
     """
     Get the username and password of the account to use on Nexus instance that hosts content.
 
@@ -251,7 +251,7 @@ def search_components(**query_params):
     # Import this here to avoid a circular import
     from cachito.workers.requests import requests_session
 
-    username, password = _get_nexus_hoster_credentials()
+    username, password = get_nexus_hoster_credentials()
     auth = requests.auth.HTTPBasicAuth(username, password)
     url = f"{_get_nexus_hoster_url()}/service/rest/v1/search"
     # Create a copy so that the original query parameters are unaltered later on
@@ -310,7 +310,7 @@ def upload_artifact(repo_name, repo_type, artifact_path):
     with open(artifact_path, "rb") as artifact:
         file_payload = {f"{repo_type}.asset": artifact.read()}
 
-    username, password = _get_nexus_hoster_credentials()
+    username, password = get_nexus_hoster_credentials()
     auth = requests.auth.HTTPBasicAuth(username, password)
     url = f"{_get_nexus_hoster_url()}/service/rest/v1/components"
     config = get_worker_config()
