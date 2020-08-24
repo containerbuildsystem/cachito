@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from utils import make_list_of_packages_hashable
+from utils import make_list_of_packages_hashable, Client
 
 
 def test_valid_data_in_request(test_env, default_requests):
@@ -68,3 +68,19 @@ def test_npm_basic(test_env, default_requests):
     assert env_variables["CYPRESS_INSTALL_BINARY"] == "0"
     assert env_variables["GECKODRIVER_SKIP_DOWNLOAD"] == "true"
     assert env_variables["SKIP_SASS_BINARY_DOWNLOAD_FOR_CI"] == "true"
+
+
+def test_various_packages(test_env):
+    client = Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+    for pkg_manager, package in test_env["various_packages"].items():
+        initial_response = client.create_new_request(
+            payload={
+                "repo": package["repo"],
+                "ref": package["ref"],
+                "pkg_managers": [pkg_manager],
+            },
+        )
+        completed_response = client.wait_for_complete_request(initial_response)
+        assert completed_response.status == 200
+
+        assert len(completed_response.data["dependencies"]) == package["dependencies_count"]
