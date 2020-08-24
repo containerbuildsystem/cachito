@@ -107,6 +107,7 @@ class DevelopmentConfig(Config):
     cachito_nexus_proxy_password = "cachito_unprivileged"
     cachito_nexus_proxy_username = "cachito_unprivileged"
     cachito_nexus_url = "http://nexus:8081"
+    cachito_npm_file_deps_allowlist = {"cachito-npm-test": ["subpackage"]}
     cachito_request_file_logs_dir = "/var/log/cachito/requests"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
 
