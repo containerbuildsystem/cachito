@@ -103,3 +103,8 @@ run_app:
 content_manifest:
   # Package managers for testing
   pkg_managers: ["gomod", "npm"]
+various_packages:
+  npm:
+    repo: https://github.com/akhmanova/cachito-npm-test
+    ref: 2f94fe0a21f97bd7ac0d4a70b96bea3cbab1a837
+    dependencies_count: 11
