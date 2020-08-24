@@ -119,7 +119,7 @@ def test_get_nexus_hoster_credentials(
     mock_gwc.return_value.cachito_nexus_username = username
     mock_gwc.return_value.cachito_nexus_password = password
 
-    rv_username, rv_password = nexus._get_nexus_hoster_credentials()
+    rv_username, rv_password = nexus.get_nexus_hoster_credentials()
 
     assert rv_username == expected_username
     assert rv_password == expected_password
