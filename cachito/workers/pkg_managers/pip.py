@@ -945,6 +945,20 @@ class PipRequirement:
 
         self.options = []
 
+        self._url = None
+
+    @property
+    def url(self):
+        """Extract the URL from the download line of a VCS or URL requirement."""
+        if self._url is None:
+            if self.kind not in ("url", "vcs"):
+                raise ValueError(f"Cannot extract URL from {self.kind} requirement")
+            # package @ url ; environment_marker
+            parts = self.download_line.split()
+            self._url = parts[2]
+
+        return self._url
+
     def __str__(self):
         """Return the string representation of the PipRequirement."""
         line = []
