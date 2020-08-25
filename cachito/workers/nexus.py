@@ -191,16 +191,18 @@ def get_ca_cert():
 
 
 def get_component_info_from_nexus(
-    repository, component_format, name, version, group=None, max_attempts=1
+    repository, component_format, name, version=None, group=None, max_attempts=1
 ):
     """
     Get the component information from a Nexus repository using Nexus' REST API.
 
+    Nexus accepts wildcards for some of the parameters in a search query (e.g. name, version).
+    If you do use wildcards, make sure they will only match one component.
+
     :param str repository: the name of the repository
     :param str component_format: the format of the component (e.g. npm)
-    :param str name: the name of the component
-    :param str version: the version of the dependency; a wildcard can be specified but it should
-        not match more than a single version
+    :param str name: the name of the component, if format is raw then this is the unique identifier
+    :param str version: the version of the dependency, should be specified if format is not raw
     :param str group: an optional group of the dependency (e.g. the scope of a npm package)
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
     :return: the JSON about the component or None
@@ -209,6 +211,9 @@ def get_component_info_from_nexus(
     """
     if max_attempts < 1:
         raise ValueError("The max_attempts parameter must be at least 1")
+
+    if (version is None) != (component_format == "raw"):
+        raise ValueError("'version' argument must be provided if and only if format is not 'raw'")
 
     component = None
     attempts = 0
@@ -237,6 +242,34 @@ def get_component_info_from_nexus(
         attempts += 1
 
     return None
+
+
+def get_raw_component_asset_url(repository, name, max_attempts=1):
+    """
+    Get download URL for the asset of a raw component.
+
+    In a raw repo, the name of a component identifies it uniquely. However, the name parameter
+    of a search query does accept wildcards, so make sure only component will be found.
+
+    :param str repository: the name of the repository
+    :param str name: the name of the component (directory + filename)
+    :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
+    :return: download URL for the asset, or None if component was not found
+    """
+    component = get_component_info_from_nexus(repository, "raw", name, max_attempts=max_attempts)
+    if component is None:
+        return None
+
+    assets = component["assets"]
+
+    # Sanity checks, in practice this should not happen
+    if not assets:
+        raise RuntimeError(f"Component {name} has no assets")
+    if len(assets) > 1:
+        log.debug("All assets: %r", assets)
+        raise RuntimeError(f"Component {name} has more than 1 asset")
+
+    return assets[0]["downloadUrl"]
 
 
 def search_components(**query_params):

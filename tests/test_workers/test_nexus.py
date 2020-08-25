@@ -364,6 +364,73 @@ def test_get_component_info_from_nexus_multiple_results(
         nexus.get_component_info_from_nexus("cachito-js-proxy", "npm", "rxjs", "*")
 
 
+@pytest.mark.parametrize("raw, version", [(True, "some"), (False, None)])
+def test_get_component_info_from_nexus_version_vs_raw(raw, version):
+    component_format = "raw" if raw else "npm"
+
+    expected = "'version' argument must be provided if and only if format is not 'raw'"
+    with pytest.raises(ValueError, match=expected):
+        nexus.get_component_info_from_nexus(
+            "some-repository", component_format, "some-name", version
+        )
+
+
+@mock.patch("cachito.workers.nexus.get_component_info_from_nexus")
+def test_get_raw_component_asset_url(mock_get_component_info):
+    mock_get_component_info.return_value = {
+        # "id": "1234",
+        # "repository": "cachito-pip-raw",
+        # "format": "raw",
+        # "name": "foo/bar/foobar-1.0.tar.gz",
+        # "version": None,
+        "assets": [
+            {
+                "downloadUrl": "http://nexus/repository/cachito-pip-raw/foo/bar/foobar-1.0.tar.gz",
+                # "path": "foo/bar/foobar-1.0.tar.gz",
+                # "id": "5678",
+                # "repository": "cachito-pip-raw",
+                # "format": "raw",
+                # "checksum": {
+                #     "sha1": "abcdef",
+                #     "sha512": "123456",
+                #     "sha256": "fedcba",
+                #     "md5": "654321",
+                # }
+            }
+        ]
+    }
+
+    url = nexus.get_raw_component_asset_url("cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz")
+    assert url == "http://nexus/repository/cachito-pip-raw/foo/bar/foobar-1.0.tar.gz"
+
+    mock_get_component_info.assert_called_once_with(
+        "cachito-pip-raw", "raw", "foo/bar/foobar-1.0.tar.gz", max_attempts=1
+    )
+
+
+@mock.patch("cachito.workers.nexus.get_component_info_from_nexus")
+def test_get_raw_component_asset_url_not_found(mock_get_component_info):
+    mock_get_component_info.return_value = None
+
+    url = nexus.get_raw_component_asset_url("cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz")
+    assert url is None
+
+
+@pytest.mark.parametrize(
+    "component, error",
+    [
+        ({"assets": []}, "Component foo/bar/foobar-1.0.tar.gz has no assets"),
+        ({"assets": [1, 2]}, "Component foo/bar/foobar-1.0.tar.gz has more than 1 asset"),
+    ],
+)
+@mock.patch("cachito.workers.nexus.get_component_info_from_nexus")
+def test_get_raw_component_asset_url_sanity_check(mock_get_component_info, component, error):
+    mock_get_component_info.return_value = component
+
+    with pytest.raises(RuntimeError, match=error):
+        nexus.get_raw_component_asset_url("cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz")
+
+
 @mock.patch("cachito.workers.requests.requests_session")
 def test_search_components(mock_requests, components_search_results):
     # Split up the components_search_results fixture into two pages to test pagination
