@@ -1378,6 +1378,9 @@ class TestPipRequirementsFile:
                         ),
                         "qualifiers": {"egg": "cnr_server"},
                         "raw_package": "cnr_server",
+                        "url": (
+                            "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server"
+                        ),
                     },
                 ],
                 [],
@@ -1393,6 +1396,7 @@ class TestPipRequirementsFile:
                             "cnr_server @ https://github.com/quay/appr/archive/58c88e49.tar.gz"
                         ),
                         "raw_package": "cnr_server",
+                        "url": "https://github.com/quay/appr/archive/58c88e49.tar.gz",
                     },
                 ],
                 [],
@@ -1410,6 +1414,9 @@ class TestPipRequirementsFile:
                         ),
                         "qualifiers": {"egg": "cnr_server"},
                         "raw_package": "cnr_server",
+                        "url": (
+                            "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server"
+                        ),
                     },
                 ],
                 [],
@@ -1428,6 +1435,9 @@ class TestPipRequirementsFile:
                         "options": ["-e"],
                         "qualifiers": {"egg": "cnr_server"},
                         "raw_package": "cnr_server",
+                        "url": (
+                            "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server"
+                        ),
                     },
                 ],
                 [],
@@ -1453,6 +1463,9 @@ class TestPipRequirementsFile:
                         ],
                         "qualifiers": {"egg": "cnr_server"},
                         "raw_package": "cnr_server",
+                        "url": (
+                            "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server"
+                        ),
                     },
                 ],
                 [],
@@ -1475,6 +1488,9 @@ class TestPipRequirementsFile:
                         "qualifiers": {"egg": "cnr_server"},
                         "environment_marker": 'python_version < "2.7"',
                         "raw_package": "cnr_server",
+                        "url": (
+                            "https://github.com/quay/appr/archive/58c88e49.tar.gz#egg=cnr_server"
+                        ),
                     },
                 ],
                 [],
@@ -1495,6 +1511,10 @@ class TestPipRequirementsFile:
                         ),
                         "qualifiers": {"egg": "cnr_server", "spam": "maps", "bacon": "nocab"},
                         "raw_package": "cnr_server",
+                        "url": (
+                            "https://github.com/quay/appr/archive/58c88e49.tar.gz"
+                            "#egg=cnr_server&spam=maps&bacon=nocab"
+                        ),
                     },
                 ],
                 [],
@@ -1512,6 +1532,7 @@ class TestPipRequirementsFile:
                         ),
                         "qualifiers": {"egg": "cnr_server"},
                         "raw_package": "cnr_server",
+                        "url": "git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
                     },
                 ],
                 [],
@@ -1527,6 +1548,7 @@ class TestPipRequirementsFile:
                             "cnr_server @ git+https://github.com/quay/appr.git@58c88e49"
                         ),
                         "raw_package": "cnr_server",
+                        "url": "git+https://github.com/quay/appr.git@58c88e49",
                     },
                 ],
                 [],
@@ -1544,6 +1566,7 @@ class TestPipRequirementsFile:
                         ),
                         "qualifiers": {"egg": "cnr_server"},
                         "raw_package": "cnr_server",
+                        "url": "git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
                     },
                 ],
                 [],
@@ -1562,6 +1585,7 @@ class TestPipRequirementsFile:
                         "options": ["-e"],
                         "qualifiers": {"egg": "cnr_server"},
                         "raw_package": "cnr_server",
+                        "url": "git+https://github.com/quay/appr.git@58c88e49#egg=cnr_server",
                     },
                 ],
                 [],
@@ -1582,6 +1606,10 @@ class TestPipRequirementsFile:
                         ),
                         "qualifiers": {"egg": "cnr_server", "spam": "maps", "bacon": "nocab"},
                         "raw_package": "cnr_server",
+                        "url": (
+                            "git+https://github.com/quay/appr.git@58c88e49"
+                            "#egg=cnr_server&spam=maps&bacon=nocab"
+                        ),
                     },
                 ],
                 [],
@@ -1816,20 +1844,23 @@ class TestPipRequirementsFile:
 
         expected_attr_changes = {
             "cnr_server": {
-                "download_line": ("cnr_server @ https://cachito/nexus/58c88.tar.gz#egg=cnr_server"),
+                "download_line": "cnr_server @ https://cachito/nexus/58c88.tar.gz#egg=cnr_server",
+                "url": "https://cachito/nexus/58c88.tar.gz#egg=cnr_server",
             },
             "spam": {
                 "hashes": ["sha256:45678"],
                 "options": [],
                 "kind": "url",
                 "download_line": "spam @ https://cachito/nexus/spam-123456.tar.gz",
+                "url": "https://cachito/nexus/spam-123456.tar.gz",
             },
             "aiowsgi": {"hashes": ["sha256:90123"]},
             "asn1crypto": {
-                "download_line": ("asn1crypto @ https://cachito/nexus/asn1crypto-1.3.0.tar.gz"),
+                "download_line": "asn1crypto @ https://cachito/nexus/asn1crypto-1.3.0.tar.gz",
                 "hashes": ["sha256:01234"],
                 "kind": "url",
                 "version_specs": [],
+                "url": "https://cachito/nexus/asn1crypto-1.3.0.tar.gz",
             },
         }
 
@@ -2008,6 +2039,7 @@ class TestPipRequirementsFile:
                 {
                     "download_line": "spam @ https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
                     "kind": "url",
+                    "url": "https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
                 },
             ),
             # url is modified to another url
@@ -2020,6 +2052,7 @@ class TestPipRequirementsFile:
                         "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam"
                     ),
                     "kind": "url",
+                    "url": "https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam",
                 },
             ),
             # vcs is modified to URL
@@ -2032,6 +2065,7 @@ class TestPipRequirementsFile:
                         "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam"
                     ),
                     "kind": "url",
+                    "url": "https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam",
                 },
             ),
             # Editable option, "-e", is dropped when setting url
@@ -2045,6 +2079,7 @@ class TestPipRequirementsFile:
                     ),
                     "kind": "url",
                     "options": [],
+                    "url": "https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam",
                 },
             ),
             # Editable option, "--e", is not dropped when url is not set
@@ -2060,6 +2095,7 @@ class TestPipRequirementsFile:
                     ),
                     "kind": "url",
                     "options": [],
+                    "url": "https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam",
                 },
             ),
             # Editable option, "--editable", is not dropped when url is not set
@@ -2083,6 +2119,7 @@ class TestPipRequirementsFile:
                         '; python_version < "2.7"'
                     ),
                     "kind": "url",
+                    "url": "https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam",
                 },
             ),
             # Extras are cleared when setting a new URL
@@ -2094,6 +2131,7 @@ class TestPipRequirementsFile:
                     "download_line": "spam @ https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
                     "kind": "url",
                     "extras": [],
+                    "url": "https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
                 },
             ),
             # Extras are NOT cleared when a new URL is not set
@@ -2107,6 +2145,7 @@ class TestPipRequirementsFile:
                     "download_line": "spam @ https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
                     "kind": "url",
                     "version_specs": [],
+                    "url": "https://cachito.example.com/nexus/spam-1.2.3.tar.gz",
                 },
             ),
             # Version specs are NOT cleared when a new URL is not set
@@ -2121,6 +2160,7 @@ class TestPipRequirementsFile:
                         "spam @ https://cachito.example.com/nexus/spam-58c88.tar.gz#"
                         "egg=spam&spam=maps"
                     ),
+                    "url": "https://cachito.example.com/nexus/spam-58c88.tar.gz#egg=spam&spam=maps",
                 },
             ),
         ),
@@ -2136,6 +2176,15 @@ class TestPipRequirementsFile:
             expected_changes.setdefault(attr, getattr(original_requirement, attr))
 
         self._assert_pip_requirement(new_requirement, expected_changes)
+
+    def test_invalid_kind_for_url(self):
+        """Test extracting URL from a requirement that does not have one."""
+        requirement = pip.PipRequirement()
+        requirement.download_line = "aiowsgi==0.7"
+        requirement.kind = "pypi"
+
+        with pytest.raises(ValueError, match="Cannot extract URL from pypi requirement"):
+            _ = requirement.url
 
     def _assert_pip_requirement(self, pip_requirement, expected_requirement):
         for attr, default_value in self.PIP_REQUIREMENT_ATTRS.items():
