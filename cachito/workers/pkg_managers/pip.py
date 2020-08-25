@@ -1727,3 +1727,30 @@ def get_hosted_repositories_username(request_id):
     :rtype: str
     """
     return f"cachito-pip-{request_id}"
+
+
+def get_index_url(nexus_pypi_hosted_repo_url, username, password):
+    """
+    Get index url for the nexus pypi hosted repository for the request.
+
+    This is to be set as PIP_INDEX_URL.
+
+    :param str nexus_pypi_hosted_repo_url: the URL for the Nexus PyPI hosted repository
+        for the request
+    :param str username: the username of the user to be created for the Cachito pip request
+    :param str password: the password of the Nexus user that has access to the request's Python
+        repositories
+    :return: the index url
+    :rtype: str
+    """
+    # Instead of getting the token from Nexus, use basic authentication as supported by Pip:
+    # https://pip.pypa.io/en/stable/user_guide/#basic-authentication-credentials
+    # Create the request specific nexus repo url to be passed as `index-url` within pip.conf
+    if "://" in nexus_pypi_hosted_repo_url:
+        index_url = nexus_pypi_hosted_repo_url.replace("://", f"://{username}:{password}@", 1)
+    else:
+        raise CachitoError(
+            f"Nexus PyPI hosted repo URL: {nexus_pypi_hosted_repo_url} is not a valid URL"
+        )
+
+    return index_url
