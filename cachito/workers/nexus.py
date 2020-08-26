@@ -367,21 +367,22 @@ def upload_raw_component(repo_name, directory, components, to_nexus_hoster=True)
     :raise CachitoError: if the upload fails
     """
     params = {"repository": repo_name}
-    payload = {"raw.directory": directory}
+    additional_data = {"raw.directory": directory}
+    payload = {}
     for index, component in enumerate(components):
         n = index + 1
-        payload[f"raw.asset{n}.filename"] = component["filename"]
+        additional_data[f"raw.asset{n}.filename"] = component["filename"]
         with open(component["path"], "rb") as f:
             payload[f"raw.asset{n}"] = f.read()
 
     try:
-        upload_component(params, payload, to_nexus_hoster)
+        upload_component(params, payload, to_nexus_hoster, additional_data)
     except CachitoError:
         log.exception("Failed to upload %r to the raw Nexus repository", components)
         raise
 
 
-def upload_component(params, payload, to_nexus_hoster):
+def upload_component(params, payload, to_nexus_hoster, additional_data=None):
     """
     Push a payload to the Nexus upload endpoint.
 
@@ -391,6 +392,10 @@ def upload_component(params, payload, to_nexus_hoster):
     :param dict params: the request parameters to the upload endpoint (e.g. {"repository": NAME})
     :param dict payload: Nexus API compliant file payload
     :param bool to_nexus_hoster: Use the nexus hoster instance, if available
+    :param dict additional_data: non-file Nexus API compliant file payload. This is needed for
+        string params that would be passed in the "file" param. Note that python requests does not
+        support sending non-files in the file payload. See
+        https://issues.sonatype.org/browse/NEXUS-21946 for further reference.
     :raise CachitoError: if the upload fails
     """
     # Import this here to avoid a circular import
@@ -410,7 +415,12 @@ def upload_component(params, payload, to_nexus_hoster):
 
     try:
         rv = requests_session.post(
-            endpoint, auth=auth, files=payload, params=params, timeout=config.cachito_nexus_timeout
+            endpoint,
+            auth=auth,
+            files=payload,
+            data=additional_data,
+            params=params,
+            timeout=config.cachito_nexus_timeout,
         )
     except requests.RequestException:
         log.exception("Could not connect to the Nexus instance to upload the component")
