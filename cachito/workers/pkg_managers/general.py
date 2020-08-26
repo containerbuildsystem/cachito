@@ -213,3 +213,27 @@ def verify_checksum(file_path, checksum_info, chunk_size=10240):
         )
         log.error(msg)
         raise CachitoError(msg)
+
+
+def download_binary_file(url, download_path, auth=None, chunk_size=8192):
+    """
+    Download a binary file (such as a TAR archive) from a URL.
+
+    :param str url: URL for file download
+    :param (str | Path) download_path: Path to download file to
+    :param requests.auth.AuthBase auth: Authentication for the URL
+    :param int chunk_size: Chunk size param for Response.iter_content()
+    :raise CachitoError: If download failed
+    """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_session
+
+    try:
+        resp = requests_session.get(url, stream=True, auth=auth)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise CachitoError(f"Could not download {url}: {e}")
+
+    with open(download_path, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=chunk_size):
+            f.write(chunk)

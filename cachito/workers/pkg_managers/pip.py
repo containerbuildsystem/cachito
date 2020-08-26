@@ -18,7 +18,11 @@ from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers.pkg_managers.general import ChecksumInfo, verify_checksum
+from cachito.workers.pkg_managers.general import (
+    ChecksumInfo,
+    verify_checksum,
+    download_binary_file,
+)
 from cachito.workers.requests import requests_session
 
 
@@ -1411,19 +1415,11 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
     if sdist.get("yanked", False):
         raise CachitoError(f"All sdists for package {package}=={version} are yanked")
 
-    try:
-        file_resp = requests_session.get(sdist["url"], stream=True)
-        file_resp.raise_for_status()
-    except requests.RequestException as e:
-        raise CachitoError(f"Could not download {sdist['filename']}: {e}")
-
     package_dir = pip_deps_dir / package
     package_dir.mkdir(exist_ok=True)
     download_path = package_dir / sdist["filename"]
 
-    with download_path.open("wb") as archive:
-        for chunk in file_resp.iter_content(chunk_size=8192):
-            archive.write(chunk)
+    download_binary_file(sdist["url"], download_path)
 
     return download_path
 

@@ -2260,7 +2260,6 @@ class TestNexus:
 class TestDownload:
     """Tests for dependency downloading."""
 
-    DOWNLOAD_CONTENT = b"infinite content (https://www.youtube.com/watch?v=i2qx5P0kQSM)"
     DOWNLOAD_SDIST = {
         # "comment_text": "",
         # "digests": {
@@ -2322,23 +2321,24 @@ class TestDownload:
         )
 
     @pytest.mark.parametrize(
-        "pypi_query_success, sdist_exists, sdist_not_yanked, file_query_success",
+        "pypi_query_success, sdist_exists, sdist_not_yanked",
         [
-            (True, True, True, True),
-            (True, True, True, False),
-            (True, True, False, False),
-            (True, False, False, False),
-            (False, False, False, False),
+            (True, True, True),
+            (True, True, True),
+            (True, True, False),
+            (True, False, False),
+            (False, False, False),
         ],
     )
     @mock.patch.object(pip.requests_session, "get")
+    @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
     def test_download_pypi_package(
         self,
+        mock_download_file,
         mock_get,
         pypi_query_success,
         sdist_exists,
         sdist_not_yanked,
-        file_query_success,
         tmp_path,
     ):
         """Test downloading of a single PyPI package."""
@@ -2348,13 +2348,8 @@ class TestDownload:
         pypi_success = mock.Mock(json=lambda: pypi_resp)
         pypi_fail = requests.RequestException("Something went wrong")
 
-        # Mock response from archive URL
-        file_success = mock.Mock(iter_content=lambda chunk_size: [self.DOWNLOAD_CONTENT])
-        file_fail = requests.RequestException("Something went wrong")
-
         mock_get.side_effect = [
             pypi_success if pypi_query_success else pypi_fail,
-            file_success if file_query_success else file_fail,
         ]
 
         if not pypi_query_success:
@@ -2363,8 +2358,6 @@ class TestDownload:
             expect_error = "No sdists found for package aiowsgi==0.7"
         elif not sdist_not_yanked:
             expect_error = "All sdists for package aiowsgi==0.7 are yanked"
-        elif not file_query_success:
-            expect_error = "Could not download aiowsgi-0.7.tar.gz: Something went wrong"
         else:
             expect_error = None
 
@@ -2373,7 +2366,7 @@ class TestDownload:
                 mock_requirement, tmp_path, "https://pypi-proxy.example.org/", ("user", "password")
             )
             assert download_path == tmp_path / "aiowsgi" / "aiowsgi-0.7.tar.gz"
-            assert download_path.read_bytes() == self.DOWNLOAD_CONTENT
+            mock_download_file.assert_called_once_with(self.DOWNLOAD_SDIST["url"], download_path)
         else:
             with pytest.raises(CachitoError) as exc_info:
                 pip._download_pypi_package(
@@ -2384,18 +2377,9 @@ class TestDownload:
                 )
             assert str(exc_info.value) == expect_error
 
-        # Check that correct requests were made
-        pypi_request = mock.call(
+        mock_get.assert_called_once_with(
             "https://pypi-proxy.example.org/pypi/aiowsgi/0.7/json", auth=("user", "password")
         )
-        file_request = mock.call(self.DOWNLOAD_SDIST["url"], stream=True)
-        if pypi_query_success and sdist_exists and sdist_not_yanked:
-            request_calls = [pypi_request, file_request]
-        else:
-            request_calls = [pypi_request]
-
-        mock_get.assert_has_calls(request_calls)
-        assert mock_get.call_count == len(request_calls)
 
     def test_sdist_sorting(self):
         """Test that sdist preference key can be used for sorting in the expected order."""
