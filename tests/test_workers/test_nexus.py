@@ -531,11 +531,11 @@ def test_upload_raw_component(mock_requests, use_hoster):
     with mock.patch("cachito.workers.nexus.open", mock_open):
         nexus.upload_raw_component("cachito-pip-raw", "foo/1.0.0", components, use_hoster)
 
-    assert mock_requests.post.call_args[1]["files"] == {
-        "raw.asset1": b"some tgz file",
+    assert mock_requests.post.call_args[1]["data"] == {
         "raw.asset1.filename": "foo-1.0.0.tar.gz",
         "raw.directory": "foo/1.0.0",
     }
+    assert mock_requests.post.call_args[1]["files"] == {"raw.asset1": b"some tgz file"}
     assert mock_requests.post.call_args[1]["params"] == {"repository": "cachito-pip-raw"}
     assert mock_requests.post.call_args[1]["auth"].username == "cachito"
     assert mock_requests.post.call_args[1]["auth"].password == "cachito"
