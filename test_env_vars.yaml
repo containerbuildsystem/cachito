@@ -103,11 +103,17 @@ run_app:
 content_manifest:
   # Package managers for testing
   pkg_managers: ["gomod", "npm"]
+# Test data with various types of dependencies in packages
 various_packages:
+  # repo: The URL for the upstream git repository
+  # ref: A git reference at the given git repository
+  # dependencies_count: An amount of expected dependencies
+  # JavaScript package with dependencies: regular, github, gitlab, file, https
   npm:
     repo: https://github.com/akhmanova/cachito-npm-test
     ref: 2f94fe0a21f97bd7ac0d4a70b96bea3cbab1a837
     dependencies_count: 11
+  # Go package with regular dependencies
   gomod:
     repo: https://github.com/akhmanova/cachito-gomod-test
     ref: 1827221d787cbd1e979b339cfbbf59728eddf0d4
