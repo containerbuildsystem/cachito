@@ -2674,3 +2674,23 @@ class TestDownload:
         log_msg = f"Uploading {path!r} as a raw package to the {name!r} Nexus repository"
         assert log_msg in caplog.text
         mock_upload.assert_called_once_with(name, dest_dir, components, not is_request_repo)
+
+
+def test_get_pypi_hosted_repo_name():
+    assert pip.get_pypi_hosted_repo_name(42) == "cachito-pip-hosted-42"
+
+
+def test_get_raw_hosted_repo_name():
+    assert pip.get_raw_hosted_repo_name(42) == "cachito-pip-raw-42"
+
+
+def test_get_pypi_hosted_repo_url():
+    assert pip.get_pypi_hosted_repo_url(42).endswith("/repository/cachito-pip-hosted-42/")
+
+
+def test_get_raw_hosted_repo_url():
+    assert pip.get_raw_hosted_repo_url(42).endswith("/repository/cachito-pip-raw-42/")
+
+
+def test_get_hosted_repositories_username():
+    assert pip.get_hosted_repositories_username(42) == "cachito-pip-42"

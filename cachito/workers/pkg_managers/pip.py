@@ -1514,3 +1514,64 @@ def upload_raw_package(repo_name, artifact_path, dest_dir, filename, is_request_
     to_nexus_hoster = not is_request_repository
     log.debug("Uploading %r as a raw package to the %r Nexus repository", artifact_path, repo_name)
     nexus.upload_raw_component(repo_name, dest_dir, components, to_nexus_hoster)
+
+
+def get_pypi_hosted_repo_name(request_id):
+    """
+    Get the name of the Nexus PyPI hosted repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the name of the PyPI hosted repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    return f"{config.cachito_nexus_request_repo_prefix}pip-hosted-{request_id}"
+
+
+def get_raw_hosted_repo_name(request_id):
+    """
+    Get the name of the Nexus raw hosted repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the name of the raw hosted repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    return f"{config.cachito_nexus_request_repo_prefix}pip-raw-{request_id}"
+
+
+def get_pypi_hosted_repo_url(request_id):
+    """
+    Get the URL for the Nexus PyPI hosted repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the URL for the Nexus PyPI hosted repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    repo_name = get_pypi_hosted_repo_name(request_id)
+    return f"{config.cachito_nexus_url.rstrip('/')}/repository/{repo_name}/"
+
+
+def get_raw_hosted_repo_url(request_id):
+    """
+    Get the URL for the Nexus PyPI hosted repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the URL for the Nexus PyPI hosted repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    repo_name = get_raw_hosted_repo_name(request_id)
+    return f"{config.cachito_nexus_url.rstrip('/')}/repository/{repo_name}/"
+
+
+def get_hosted_repositories_username(request_id):
+    """
+    Get the username that has read access on the PyPI and raw hosted repositories for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the username
+    :rtype: str
+    """
+    return f"cachito-pip-{request_id}"
