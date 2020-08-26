@@ -5,10 +5,11 @@ import logging
 import random
 import re
 import secrets
+import shutil
+import urllib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
 
 import pkg_resources
 import requests
@@ -24,11 +25,15 @@ from cachito.workers.pkg_managers.general import (
     download_binary_file,
 )
 from cachito.workers.requests import requests_session
+from cachito.workers.scm import Git
 
 
 log = logging.getLogger(__name__)
 
 NOTHING = object()  # A None replacement for cases where the distinction is needed
+
+# Check that the path component of a URL ends with a full-length git ref
+GIT_REF_IN_PATH = re.compile(r"@[a-fA-F0-9]{40}$")
 
 
 def get_pip_metadata(package_dir):
@@ -1133,7 +1138,7 @@ class PipRequirement:
         if "; " in url:
             url, environment_marker = url.split("; ", 1)
 
-        parsed_url = urlparse(url)
+        parsed_url = urllib.parse.urlparse(url)
         if parsed_url.fragment:
             for section in parsed_url.fragment.split("&"):
                 if "=" in section:
@@ -1257,25 +1262,38 @@ def download_dependencies(request_id, requirements_file):
 
     config = get_worker_config()
     pypi_proxy_url = config.cachito_nexus_pypi_proxy_url
+    pip_raw_repo_name = config.cachito_nexus_pip_raw_repo_name
 
     nexus_username, nexus_password = nexus.get_nexus_hoster_credentials()
-    pypi_proxy_auth = requests.auth.HTTPBasicAuth(nexus_username, nexus_password)
+    nexus_auth = requests.auth.HTTPBasicAuth(nexus_username, nexus_password)
+    pypi_proxy_auth = nexus_auth
 
-    pypi_downloads = []
+    downloads = []
 
     for req in requirements_file.requirements:
+        log.info("Downloading %s", req.download_line)
+
         if req.kind == "pypi":
-            log.info("Downloading %s from PyPI", req.download_line)
             download_path = _download_pypi_package(
                 req, bundle_dir.pip_deps_dir, pypi_proxy_url, pypi_proxy_auth
             )
-            log.info("Successfully downloaded %s from PyPI", download_path.name)
-            pypi_downloads.append((req, download_path))
+        elif req.kind == "vcs":
+            download_path = _download_vcs_package(
+                req, bundle_dir.pip_deps_dir, pip_raw_repo_name, nexus_auth
+            )
         else:
             log.warning("Dependency type not yet supported: %s", req.download_line)
+            continue
+
+        log.info(
+            "Successfully downloaded %s to %s",
+            req.download_line,
+            download_path.relative_to(bundle_dir),
+        )
+        downloads.append((req, download_path))
 
     if require_hashes:
-        for req, download_path in pypi_downloads:
+        for req, download_path in downloads:
             _verify_hash(download_path, req.hashes)
 
 
@@ -1374,6 +1392,17 @@ def _validate_requirements(requirements, require_hashes):
             msg = f"Hash is required, dependency does not specify any: {req.download_line}"
             raise ValidationError(msg)
 
+    # Fail if any VCS requirement uses any VCS other than git or does not have a valid ref
+    for req in filter(lambda r: r.kind == "vcs", requirements):
+        url = urllib.parse.urlparse(req.url)
+
+        if not url.scheme.startswith("git"):
+            raise ValidationError(f"Unsupported VCS for {req.download_line}: {url.scheme}")
+
+        if not GIT_REF_IN_PATH.search(url.path):
+            msg = f"No valid git ref in {req.download_line} (expected 40 hexadecimal characters)"
+            raise ValidationError(msg)
+
 
 def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
     """
@@ -1446,6 +1475,115 @@ def _sdist_preference(sdist_pkg):
         filetype_pref = 0
 
     return yanked_pref, filetype_pref
+
+
+def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_auth):
+    """
+    Fetch the source for a Python package from VCS (only git is supported).
+
+    After downloading, upload this package to the Pip raw repository on the Nexus hoster instance,
+    and on subsequent downloads, reuse the uploaded asset instead of fetching from VCS again.
+
+    :param PipRequirement requirement: VCS requirement from a requirements.txt file
+    :param Path pip_deps_dir: The deps/pip directory in a Cachito request bundle
+    :param str pip_raw_repo_name: Name of the Nexus raw repository for Pip
+    :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
+
+    :return: Path to downloaded file
+    """
+    git_info = _extract_git_info(requirement.url)
+
+    namespace_parts = git_info["namespace"].split("/")
+    repo_name = git_info["repo"]
+    ref = git_info["ref"]
+
+    # Download to e.g. deps/pip/github.com/namespace/repo
+    package_dir = pip_deps_dir.joinpath(git_info["host"], *namespace_parts, repo_name)
+    package_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{repo_name}-external-gitcommit-{ref}.tar.gz"
+    download_path = package_dir / filename
+
+    # Check if we already have the raw component
+    raw_component_name = f"{repo_name}/{filename}"
+    log.debug("Looking for raw component %r in %r repo", raw_component_name, pip_raw_repo_name)
+    download_url = nexus.get_raw_component_asset_url(pip_raw_repo_name, raw_component_name)
+
+    if download_url is not None:
+        log.debug("Found raw component, will download from %r", download_url)
+        download_binary_file(download_url, download_path, auth=nexus_auth)
+    else:
+        log.debug("Raw component not found, will fetch from git")
+        repo = Git(git_info["url"], ref)
+        repo.fetch_source()
+        log.debug("Fetched package, uploading as %r to %r", raw_component_name, pip_raw_repo_name)
+        upload_raw_package(
+            pip_raw_repo_name,
+            repo.sources_dir.archive_path,
+            dest_dir=repo_name,
+            filename=filename,
+            is_request_repository=False,
+        )
+        # Copy downloaded archive to expected download path
+        shutil.copy(repo.sources_dir.archive_path, download_path)
+
+    return download_path
+
+
+def _extract_git_info(vcs_url):
+    """
+    Extract important info from a VCS requirement URL.
+
+    Given a URL such as git+https://user:pass@host:port/namespace/repo.git@123456?foo=bar#egg=spam
+    this function will extract:
+    - the "clean" URL: https://user:pass@host:port/namespace/repo.git?foo=bar#egg=spam
+    - the git ref: 123456
+    - the host, namespace and repo: host:port, namespace, repo
+
+    The clean URL and ref can be passed straight to scm.Git to fetch the repo.
+    The host, namespace and repo will be used to construct the file path under deps/pip.
+
+    :param str vcs_url: The URL of a VCS requirement, must be valid (have git ref in path)
+    :return: Dict with url, ref, host, namespace and repo keys
+    """
+    url = urllib.parse.urlparse(vcs_url)
+
+    # If scheme is git+protocol://, keep only protocol://
+    if url.scheme.startswith("git+"):
+        clean_scheme = url.scheme[len("git+") :]
+    else:
+        clean_scheme = url.scheme
+
+    ref = url.path[-40:]  # Take the last 40 characters (the git ref)
+    clean_path = url.path[:-41]  # Drop the last 41 characters ('@' + git ref)
+
+    clean_url = urllib.parse.ParseResult(
+        scheme=clean_scheme,
+        netloc=url.netloc,
+        path=clean_path,
+        params=url.params,
+        query=url.query,
+        fragment=url.fragment,
+    )
+
+    # Assume everything up to the last '@' is user:pass. This should be kept in the
+    # clean URL used for fetching, but should not be considered part of the host.
+    _, _, clean_netloc = url.netloc.rpartition("@")
+
+    namespace_repo = clean_path.strip("/")
+    if namespace_repo.endswith(".git"):
+        namespace_repo = namespace_repo[: -len(".git")]
+
+    # Everything up to the last '/' is namespace, the rest is repo
+    namespace, _, repo = namespace_repo.rpartition("/")
+
+    return {
+        "url": clean_url.geturl(),
+        "ref": ref.lower(),
+        "host": clean_netloc,
+        "namespace": namespace,
+        "repo": repo,
+    }
 
 
 def _verify_hash(download_path, hashes):
