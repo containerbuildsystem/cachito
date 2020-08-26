@@ -13,6 +13,9 @@ from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import pip, general
 
 
+GIT_REF = "9a557920b2a6d4110f838506120904a6fda421a2"
+
+
 def setup_module():
     """Re-enable logging that was disabled at some point in previous tests."""
     pip.log.disabled = False
@@ -2257,6 +2260,16 @@ class TestNexus:
             pip.finalize_nexus_for_pip_request(1, 1, 1)
 
 
+class MockBundleDir(type(Path())):
+    """Mocked RequestBundleDir."""
+
+    def __new__(cls, *args, **kwargs):
+        """Make a new MockBundleDir."""
+        self = super().__new__(cls, *args, **kwargs)
+        self.pip_deps_dir = self / "deps" / "pip"
+        return self
+
+
 class TestDownload:
     """Tests for dependency downloading."""
 
@@ -2304,13 +2317,20 @@ class TestDownload:
         return response_json
 
     def mock_requirements_file(self, requirements=None, options=None):
-        """Mock a requirement.txt file."""
+        """Mock a requirements.txt file."""
         return mock.Mock(requirements=requirements or [], options=options or [])
 
     def mock_requirement(
-        self, package, kind, version_specs=None, download_line=None, hashes=None, qualifiers=None
+        self,
+        package,
+        kind,
+        version_specs=None,
+        download_line=None,
+        hashes=None,
+        qualifiers=None,
+        url=None,
     ):
-        """Mock a requierements.txt item. By default should pass validation."""
+        """Mock a requirements.txt item. By default should pass validation."""
         return mock.Mock(
             package=package,
             kind=kind,
@@ -2318,6 +2338,7 @@ class TestDownload:
             download_line=download_line or package,
             hashes=hashes or [],
             qualifiers=qualifiers or {},
+            url=url,
         )
 
     @pytest.mark.parametrize(
@@ -2404,6 +2425,127 @@ class TestDownload:
         sdists.sort(key=pip._sdist_preference)
         assert [s["id"] for s in sdists] == expect_order
 
+    @pytest.mark.parametrize("have_raw_component", [True, False])
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_raw_component_asset_url")
+    @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
+    @mock.patch("cachito.workers.pkg_managers.pip.Git")
+    @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
+    @mock.patch("shutil.copy")
+    def test_download_vcs_package(
+        self,
+        mock_shutil_copy,
+        mock_upload_package,
+        mock_git,
+        mock_download_file,
+        mock_get_component_url,
+        have_raw_component,
+        tmp_path,
+        caplog,
+    ):
+        """Test downloading of a single VCS package."""
+        vcs_url = f"git+https://github.com/spam/eggs@{GIT_REF}"
+        raw_url = f"https://nexus:8081/repository/cachito-pip-raw/eggs.tar.gz"
+
+        mock_requirement = self.mock_requirement(
+            "eggs", "vsc", url=vcs_url, download_line=f"eggs @ {vcs_url}"
+        )
+
+        git_archive_path = tmp_path / "eggs.tar.gz"
+
+        mock_get_component_url.return_value = raw_url if have_raw_component else None
+        mock_git.return_value = mock.Mock()
+        mock_git.return_value.sources_dir.archive_path = git_archive_path
+
+        download_path = pip._download_vcs_package(
+            mock_requirement, tmp_path, "cachito-pip-raw", ("username", "password")
+        )
+        assert download_path == tmp_path.joinpath(
+            "github.com", "spam", "eggs", f"eggs-external-gitcommit-{GIT_REF}.tar.gz"
+        )
+
+        raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+
+        assert f"Looking for raw component '{raw_component}' in 'cachito-pip-raw'" in caplog.text
+
+        if have_raw_component:
+            assert f"Found raw component, will download from '{raw_url}'" in caplog.text
+            mock_download_file.assert_called_once_with(
+                raw_url, download_path, auth=("username", "password")
+            )
+            mock_git.assert_not_called()
+            mock_upload_package.assert_not_called()
+            mock_shutil_copy.assert_not_called()
+        else:
+            assert "Raw component not found, will fetch from git" in caplog.text
+            mock_download_file.assert_not_called()
+            mock_git.assert_called_once_with(f"https://github.com/spam/eggs", GIT_REF)
+            mock_git.return_value.fetch_source.assert_called_once()
+            assert (
+                f"Fetched package, uploading as '{raw_component}' to 'cachito-pip-raw'"
+            ) in caplog.text
+            mock_upload_package.assert_called_once_with(
+                "cachito-pip-raw",
+                git_archive_path,
+                dest_dir="eggs",
+                filename=f"eggs-external-gitcommit-{GIT_REF}.tar.gz",
+                is_request_repository=False,
+            )
+            mock_shutil_copy.assert_called_once_with(git_archive_path, download_path)
+
+    @pytest.mark.parametrize(
+        "url, nonstandard_info",  # See body of function for what is standard info
+        [
+            (f"git+https://github.com/monty/python@{GIT_REF}", None),
+            (
+                f"git+https://github.com/monty/python@{GIT_REF.upper()}",
+                {"ref": GIT_REF},  # Standard but be explicit about it
+            ),
+            (
+                f"git+https://github.com/monty/python.git@{GIT_REF}",
+                {"url": "https://github.com/monty/python.git"},
+            ),
+            (f"git://github.com/monty/python@{GIT_REF}", {"url": "git://github.com/monty/python"}),
+            (
+                f"git+git://github.com/monty/python@{GIT_REF}",
+                {"url": "git://github.com/monty/python"},
+            ),
+            (
+                f"git+https://github.com/python@{GIT_REF}",
+                {"url": "https://github.com/python", "namespace": ""},
+            ),
+            (
+                f"git+https://github.com/monty/python/and/the/holy/grail@{GIT_REF}",
+                {
+                    "url": "https://github.com/monty/python/and/the/holy/grail",
+                    "namespace": "monty/python/and/the/holy",
+                    "repo": "grail",
+                },
+            ),
+            (
+                f"git+https://github.com:443/monty/python@{GIT_REF}",
+                {"url": "https://github.com:443/monty/python", "host": "github.com:443"},
+            ),
+            (
+                f"git+https://user:password@github.com/monty/python@{GIT_REF}",
+                {
+                    "url": "https://user:password@github.com/monty/python",
+                    "host": "github.com",  # Standard but be explicit about it
+                },
+            ),
+        ],
+    )
+    def test_extract_git_info(self, url, nonstandard_info):
+        """Test extraction of git info from VCS URL."""
+        info = {
+            "url": "https://github.com/monty/python",
+            "ref": f"{GIT_REF}",
+            "namespace": "monty",
+            "repo": "python",
+            "host": "github.com",
+        }
+        info.update(nonstandard_info or {})
+        assert pip._extract_git_info(url) == info
+
     def test_ignored_and_rejected_options(self, caplog):
         """
         Test ignored and rejected options.
@@ -2452,9 +2594,49 @@ class TestDownload:
         assert str(exc_info.value) == msg
 
     @pytest.mark.parametrize(
+        "url",
+        [
+            # there is no ref
+            "git+https://github.com/spam/eggs",
+            "git+https://github.com/spam/eggs@",
+            # ref is too short
+            "git+https://github.com/spam/eggs@abcdef",
+            # ref is in the wrong place
+            f"git+https://github.com@{GIT_REF}/spam/eggs",
+            f"git+https://github.com/spam/eggs#@{GIT_REF}",
+        ],
+    )
+    def test_vcs_dep_no_git_ref(self, url):
+        """Test that VCS deps with no git ref cause a ValidationError."""
+        req = self.mock_requirement("eggs", "vcs", url=url, download_line=f"eggs @ {url}")
+        req_file = self.mock_requirements_file(requirements=[req])
+
+        with pytest.raises(ValidationError) as exc_info:
+            pip.download_dependencies(1, req_file)
+
+        msg = f"No valid git ref in {req.download_line} (expected 40 hexadecimal characters)"
+        assert str(exc_info.value) == msg
+
+    @pytest.mark.parametrize("scheme", ["svn", "svn+https"])
+    def test_vcs_dep_not_git(self, scheme):
+        """Test that VCS deps not from git cause a ValidationError."""
+        url = f"{scheme}://example.org/spam/eggs"
+        req = self.mock_requirement("eggs", "vcs", url=url, download_line=f"eggs @ {url}")
+        req_file = self.mock_requirements_file(requirements=[req])
+
+        with pytest.raises(ValidationError) as exc_info:
+            pip.download_dependencies(1, req_file)
+
+        msg = f"Unsupported VCS for {req.download_line}: {scheme}"
+        assert str(exc_info.value) == msg
+
+    @pytest.mark.parametrize(
         "global_require_hash, local_hash", [(True, False), (False, True), (True, True)]
     )
-    def test_pypi_dep_missing_hash(self, global_require_hash, local_hash, caplog):
+    @pytest.mark.parametrize("requirement_kind", ["pypi", "vcs"])
+    def test_requirement_missing_hash(
+        self, global_require_hash, local_hash, requirement_kind, caplog
+    ):
         """Test that missing hashes cause a validation error."""
         if global_require_hash:
             options = ["--require-hashes"]
@@ -2462,11 +2644,11 @@ class TestDownload:
             options = []
 
         if local_hash:
-            req_1 = self.mock_requirement("foo", "pypi", hashes=["sha256:abcdef"])
+            req_1 = self.mock_requirement("foo", requirement_kind, hashes=["sha256:abcdef"])
         else:
-            req_1 = self.mock_requirement("foo", "pypi")
+            req_1 = self.mock_requirement("foo", requirement_kind)
 
-        req_2 = self.mock_requirement("bar", "pypi")
+        req_2 = self.mock_requirement("bar", requirement_kind)
         req_file = self.mock_requirements_file(requirements=[req_1, req_2], options=options)
 
         with pytest.raises(ValidationError) as exc_info:
@@ -2488,14 +2670,16 @@ class TestDownload:
     @mock.patch("cachito.workers.pkg_managers.pip.get_worker_config")
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_credentials")
     @mock.patch("cachito.workers.pkg_managers.pip._download_pypi_package")
+    @mock.patch("cachito.workers.pkg_managers.pip._download_vcs_package")
     @mock.patch("cachito.workers.pkg_managers.pip.verify_checksum")
     def test_download_dependencies(
         self,
         mock_verify_checksum,
+        mock_vcs_download,
         mock_pypi_download,
         mock_get_nexus_creds,
         mock_get_config,
-        mock_bundle_dir,
+        mock_request_bundle_dir,
         use_hashes,
         tmp_path,
         caplog,
@@ -2505,40 +2689,50 @@ class TestDownload:
 
         Mock the helper functions used for downloading here, test them properly elsewhere.
         """
-        if use_hashes:
-            req_1 = self.mock_requirement("foo", "pypi", hashes=["sha256:abcdef"])
-            req_2 = self.mock_requirement("bar", "pypi", hashes=["sha256:123456"])
-        else:
-            req_1 = self.mock_requirement("foo", "pypi")
-            req_2 = self.mock_requirement("bar", "pypi")
+        git_url = f"https://github.com/spam/eggs@{GIT_REF}"
 
-        req_file = self.mock_requirements_file(requirements=[req_1, req_2])
+        pypi_req = self.mock_requirement(
+            "foo", "pypi", download_line="foo==1.0", version_specs=[("==", "1.0")]
+        )
+        vcs_req = self.mock_requirement(
+            "eggs", "vcs", download_line=f"eggs @ git+{git_url}", url=f"git+{git_url}"
+        )
+        if use_hashes:
+            pypi_req.hashes = ["sha256:abcdef"]
+            vcs_req.hashes = ["sha256:123456"]
+
+        req_file = self.mock_requirements_file(requirements=[pypi_req, vcs_req])
 
         proxy_url = "https://pypi-proxy.example.org"
-        pip_deps = tmp_path / "deps" / "pip"
-        auth = requests.auth.HTTPBasicAuth("username", "password")
+        nexus_auth = requests.auth.HTTPBasicAuth("username", "password")
+        proxy_auth = nexus_auth
 
-        mock_bundle_dir.return_value = mock.Mock(pip_deps_dir=pip_deps)
-        mock_get_config.return_value = mock.Mock(cachito_nexus_pypi_proxy_url=proxy_url)
+        raw_repo = "cachito-pip-raw"
+
+        mock_bundle_dir = MockBundleDir(tmp_path)
+        pip_deps = mock_bundle_dir.pip_deps_dir
+
+        pypi_download = pip_deps / "foo" / "foo-1.0.tar.gz"
+        vcs_download = pip_deps.joinpath(
+            "github.com", "spam", "eggs", f"eggs-external-gitcommit-{GIT_REF}.tar.gz",
+        )
+
+        mock_request_bundle_dir.return_value = mock_bundle_dir
+        mock_get_config.return_value = mock.Mock(
+            cachito_nexus_pypi_proxy_url=proxy_url, cachito_nexus_pip_raw_repo_name=raw_repo
+        )
         mock_get_nexus_creds.return_value = ("username", "password")
-        mock_pypi_download.side_effect = [
-            pip_deps / "foo" / "foo-1.0.tar.gz",
-            pip_deps / "bar" / "bar-1.0.tar.gz",
-        ]
+        mock_pypi_download.return_value = pypi_download
+        mock_vcs_download.return_value = vcs_download
 
         pip.download_dependencies(1, req_file)
 
         assert pip_deps.is_dir()
 
-        mock_bundle_dir.assert_called_once_with(1)
+        mock_request_bundle_dir.assert_called_once_with(1)
         mock_get_config.assert_called_once()
-        mock_pypi_download.assert_has_calls(
-            [
-                mock.call(req_1, pip_deps, proxy_url, auth),
-                mock.call(req_2, pip_deps, proxy_url, auth),
-            ]
-        )
-        assert mock_pypi_download.call_count == 2
+        mock_pypi_download.assert_called_once_with(pypi_req, pip_deps, proxy_url, proxy_auth)
+        mock_vcs_download.assert_called_once_with(vcs_req, pip_deps, raw_repo, nexus_auth)
 
         if use_hashes:
             msg = "At least one dependency uses the --hash option, will require hashes"
@@ -2546,23 +2740,17 @@ class TestDownload:
 
             mock_verify_checksum.assert_has_calls(
                 [
-                    mock.call(
-                        str(pip_deps / "foo" / "foo-1.0.tar.gz"),
-                        general.ChecksumInfo("sha256", "abcdef"),
-                    ),
-                    mock.call(
-                        str(pip_deps / "bar" / "bar-1.0.tar.gz"),
-                        general.ChecksumInfo("sha256", "123456"),
-                    ),
+                    mock.call(str(pypi_download), general.ChecksumInfo("sha256", "abcdef")),
+                    mock.call(str(vcs_download), general.ChecksumInfo("sha256", "123456")),
                 ]
             )
             assert mock_verify_checksum.call_count == 2
 
-            assert "Verifying checksum of foo-1.0.tar.gz" in caplog.text
-            assert "Checksum of foo-1.0.tar.gz matches: sha256:abcdef" in caplog.text
+            assert f"Verifying checksum of {pypi_download.name}" in caplog.text
+            assert f"Checksum of {pypi_download.name} matches: sha256:abcdef" in caplog.text
 
-            assert "Verifying checksum of bar-1.0.tar.gz" in caplog.text
-            assert "Checksum of bar-1.0.tar.gz matches: sha256:123456" in caplog.text
+            assert f"Verifying checksum of {vcs_download.name}" in caplog.text
+            assert f"Checksum of {vcs_download.name} matches: sha256:123456" in caplog.text
         else:
             assert not mock_verify_checksum.called
 
@@ -2572,9 +2760,16 @@ class TestDownload:
             )
             assert msg in caplog.text
 
-        for req in req_1, req_2:
-            assert f"Downloading {req.download_line} from PyPI" in caplog.text
-            assert f"Successfully downloaded {req.package}-1.0.tar.gz from PyPI" in caplog.text
+        assert f"Downloading {pypi_req.download_line}" in caplog.text
+        assert (
+            f"Successfully downloaded {pypi_req.download_line} to deps/pip/foo/foo-1.0.tar.gz"
+        ) in caplog.text
+
+        assert f"Downloading {vcs_req.download_line}" in caplog.text
+        assert (
+            f"Successfully downloaded {vcs_req.download_line} to deps/pip/github.com/spam/eggs/"
+            f"eggs-external-gitcommit-{GIT_REF}.tar.gz"
+        ) in caplog.text
 
     @pytest.mark.parametrize(
         "hashes, success",
