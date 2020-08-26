@@ -6,6 +6,7 @@ import pytest
 
 from cachito.errors import CachitoError
 from cachito.workers.pkg_managers.general import (
+    download_binary_file,
     update_request_with_config_files,
     update_request_with_deps,
     update_request_with_package,
@@ -155,3 +156,30 @@ def test_verify_checksum_unsupported_algorithm(tmpdir):
     expected_error = "Cannot perform checksum on the file spells.txt,.*bacon.*"
     with pytest.raises(CachitoError, match=expected_error):
         verify_checksum(str(file), ChecksumInfo("bacon", "spam"))
+
+
+@pytest.mark.parametrize("auth", [None, ("user", "password")])
+@pytest.mark.parametrize("chunk_size", [1024, 2048])
+@mock.patch("cachito.workers.requests.requests_session")
+def test_download_binary_file(mock_requests_session, auth, chunk_size, tmpdir):
+    url = "http://example.org/example.tar.gz"
+    content = b"file content"
+
+    mock_response = mock_requests_session.get.return_value
+    mock_response.iter_content.return_value = [content]
+
+    download_path = tmpdir.join("example.tar.gz")
+    download_binary_file(url, download_path.strpath, auth=auth, chunk_size=chunk_size)
+
+    assert download_path.read_binary() == content
+    mock_requests_session.get.assert_called_with(url, stream=True, auth=auth)
+    mock_response.iter_content.assert_called_with(chunk_size=chunk_size)
+
+
+@mock.patch("cachito.workers.requests.requests_session")
+def test_download_binary_file_failed(mock_requests_session):
+    mock_requests_session.get.side_effect = [requests.RequestException("Something went wrong")]
+
+    expected = "Could not download http://example.org/example.tar.gz: Something went wrong"
+    with pytest.raises(CachitoError, match=expected):
+        download_binary_file("http://example.org/example.tar.gz", "/example.tar.gz")
