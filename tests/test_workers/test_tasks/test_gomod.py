@@ -36,8 +36,12 @@ def test_fetch_gomod_source(
     sample_pkg_lvl_pkg,
     sample_env_vars,
 ):
-    # Add the default environment variable from the configuration
-    sample_env_vars["GO111MODULE"] = {"value": "on", "kind": "literal"}
+    # Add the default environment variables from the configuration
+    env_vars = {
+        "GO111MODULE": {"value": "on", "kind": "literal"},
+        "GOSUMDB": {"value": "off", "kind": "literal"},
+    }
+    sample_env_vars.update(env_vars)
     mock_request = mock.Mock()
     mock_set_request_state.return_value = mock_request
     pkg_lvl_deps = []
