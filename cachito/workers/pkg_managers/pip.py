@@ -1239,6 +1239,9 @@ def download_dependencies(request_id, requirements_file):
 
     :param int request_id: ID of the request these dependencies are being downloaded for
     :param PipRequirementsFile requirements_file: A requirements.txt file
+    :return: Info about downloaded packages; all items will contain "kind" and "path" keys
+        (and more based on kind, see _download_*_package functions for more details)
+    :rtype: list[dict]
     """
     options = _process_options(requirements_file.options)
 
@@ -1274,11 +1277,11 @@ def download_dependencies(request_id, requirements_file):
         log.info("Downloading %s", req.download_line)
 
         if req.kind == "pypi":
-            download_path = _download_pypi_package(
+            download_info = _download_pypi_package(
                 req, bundle_dir.pip_deps_dir, pypi_proxy_url, pypi_proxy_auth
             )
         elif req.kind == "vcs":
-            download_path = _download_vcs_package(
+            download_info = _download_vcs_package(
                 req, bundle_dir.pip_deps_dir, pip_raw_repo_name, nexus_auth
             )
         else:
@@ -1288,13 +1291,16 @@ def download_dependencies(request_id, requirements_file):
         log.info(
             "Successfully downloaded %s to %s",
             req.download_line,
-            download_path.relative_to(bundle_dir),
+            download_info["path"].relative_to(bundle_dir),
         )
-        downloads.append((req, download_path))
 
-    if require_hashes:
-        for req, download_path in downloads:
-            _verify_hash(download_path, req.hashes)
+        if require_hashes:
+            _verify_hash(download_info["path"], req.hashes)
+
+        download_info["kind"] = req.kind
+        downloads.append(download_info)
+
+    return downloads
 
 
 def _process_options(options):
@@ -1421,7 +1427,7 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
     :param str pypi_url: URL of PyPI (proxy) server
     :param requests.auth.AuthBase pypi_auth: Authorization for the PyPI server
 
-    :return: Path to downloaded file
+    :return: Dict with package name, version and download path
     """
     package = requirement.package
     version = requirement.version_specs[0][1]
@@ -1450,7 +1456,14 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
 
     download_binary_file(sdist["url"], download_path)
 
-    return download_path
+    package_info = data.get("info", {})
+
+    return {
+        # Use canonical package name and version from PyPI response (if present)
+        "package": package_info.get("name") or package,
+        "version": package_info.get("version") or version,
+        "path": download_path,
+    }
 
 
 def _sdist_preference(sdist_pkg):
@@ -1489,7 +1502,7 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     :param str pip_raw_repo_name: Name of the Nexus raw repository for Pip
     :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
 
-    :return: Path to downloaded file
+    :return: Dict with package name, name of raw component in Nexus, download path and git info
     """
     git_info = _extract_git_info(requirement.url)
 
@@ -1527,7 +1540,12 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
         # Copy downloaded archive to expected download path
         shutil.copy(repo.sources_dir.archive_path, download_path)
 
-    return download_path
+    return {
+        "package": requirement.package,
+        "raw_component_name": raw_component_name,
+        "path": download_path,
+        **git_info,
+    }
 
 
 def _extract_git_info(vcs_url):
