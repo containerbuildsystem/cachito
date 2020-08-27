@@ -29,7 +29,7 @@ def get_requests_session(auth=False):
             session.cert = config.cachito_auth_cert
 
     retry = Retry(
-        total=3, read=3, connect=3, backoff_factor=1, status_forcelist=(500, 502, 503, 504)
+        total=5, read=5, connect=5, backoff_factor=1.3, status_forcelist=(500, 502, 503, 504)
     )
     adapter = requests.adapters.HTTPAdapter(max_retries=retry)
     session.mount("http://", adapter)
