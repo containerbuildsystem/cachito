@@ -377,6 +377,9 @@ paths:
                 GOPATH:
                   value: deps/gomod
                   kind: path
+                GOSUMDB:
+                  value: off
+                  kind: literal
         "404":
           description: The request wasn't found
           content:
