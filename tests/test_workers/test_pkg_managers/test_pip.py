@@ -2294,7 +2294,7 @@ class TestDownload:
         # "yanked_reason": None
     }
 
-    def mock_pypi_response(self, sdist_exists, sdist_not_yanked):
+    def mock_pypi_response(self, sdist_exists, sdist_not_yanked, has_metadata):
         """Mock a PyPI JSON response."""
         response_json = {
             # "info": {},
@@ -2314,6 +2314,11 @@ class TestDownload:
             download_sdist = self.DOWNLOAD_SDIST.copy()
             download_sdist["yanked"] = not sdist_not_yanked
             response_json["urls"].append(download_sdist)
+        if has_metadata:
+            response_json["info"] = {
+                "name": "aiowsgi-canonical-name",
+                "version": "0.7.canonical.version",
+            }
         return response_json
 
     def mock_requirements_file(self, requirements=None, options=None):
@@ -2351,6 +2356,7 @@ class TestDownload:
             (False, False, False),
         ],
     )
+    @pytest.mark.parametrize("metadata_in_response", [True, False])
     @mock.patch.object(pip.requests_session, "get")
     @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
     def test_download_pypi_package(
@@ -2360,12 +2366,13 @@ class TestDownload:
         pypi_query_success,
         sdist_exists,
         sdist_not_yanked,
+        metadata_in_response,
         tmp_path,
     ):
         """Test downloading of a single PyPI package."""
         mock_requirement = self.mock_requirement("aiowsgi", "pypi", version_specs=[("==", "0.7")])
 
-        pypi_resp = self.mock_pypi_response(sdist_exists, sdist_not_yanked)
+        pypi_resp = self.mock_pypi_response(sdist_exists, sdist_not_yanked, metadata_in_response)
         pypi_success = mock.Mock(json=lambda: pypi_resp)
         pypi_fail = requests.RequestException("Something went wrong")
 
@@ -2383,11 +2390,18 @@ class TestDownload:
             expect_error = None
 
         if expect_error is None:
-            download_path = pip._download_pypi_package(
+            download_info = pip._download_pypi_package(
                 mock_requirement, tmp_path, "https://pypi-proxy.example.org/", ("user", "password")
             )
-            assert download_path == tmp_path / "aiowsgi" / "aiowsgi-0.7.tar.gz"
-            mock_download_file.assert_called_once_with(self.DOWNLOAD_SDIST["url"], download_path)
+            assert download_info == {
+                "package": "aiowsgi" if not metadata_in_response else "aiowsgi-canonical-name",
+                "version": "0.7" if not metadata_in_response else "0.7.canonical.version",
+                "path": tmp_path / "aiowsgi" / "aiowsgi-0.7.tar.gz",
+            }
+
+            mock_download_file.assert_called_once_with(
+                self.DOWNLOAD_SDIST["url"], download_info["path"]
+            )
         else:
             with pytest.raises(CachitoError) as exc_info:
                 pip._download_pypi_package(
@@ -2456,14 +2470,26 @@ class TestDownload:
         mock_git.return_value = mock.Mock()
         mock_git.return_value.sources_dir.archive_path = git_archive_path
 
-        download_path = pip._download_vcs_package(
+        download_info = pip._download_vcs_package(
             mock_requirement, tmp_path, "cachito-pip-raw", ("username", "password")
-        )
-        assert download_path == tmp_path.joinpath(
-            "github.com", "spam", "eggs", f"eggs-external-gitcommit-{GIT_REF}.tar.gz"
         )
 
         raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+
+        assert download_info == {
+            "package": "eggs",
+            "raw_component_name": raw_component,
+            "path": tmp_path.joinpath(
+                "github.com", "spam", "eggs", f"eggs-external-gitcommit-{GIT_REF}.tar.gz"
+            ),
+            "url": "https://github.com/spam/eggs",
+            "ref": GIT_REF,
+            "namespace": "spam",
+            "repo": "eggs",
+            "host": "github.com",
+        }
+
+        download_path = download_info["path"]
 
         assert f"Looking for raw component '{raw_component}' in 'cachito-pip-raw'" in caplog.text
 
@@ -2717,15 +2743,27 @@ class TestDownload:
             "github.com", "spam", "eggs", f"eggs-external-gitcommit-{GIT_REF}.tar.gz",
         )
 
+        pypi_info = {"package": "foo", "version": "1.0", "path": pypi_download}
+        vcs_info = {
+            "package": "eggs",
+            "raw_component_name": "eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz",
+            "path": vcs_download,
+            # etc., not important for this test
+        }
+
         mock_request_bundle_dir.return_value = mock_bundle_dir
         mock_get_config.return_value = mock.Mock(
             cachito_nexus_pypi_proxy_url=proxy_url, cachito_nexus_pip_raw_repo_name=raw_repo
         )
         mock_get_nexus_creds.return_value = ("username", "password")
-        mock_pypi_download.return_value = pypi_download
-        mock_vcs_download.return_value = vcs_download
+        mock_pypi_download.return_value = pypi_info
+        mock_vcs_download.return_value = vcs_info
 
-        pip.download_dependencies(1, req_file)
+        downloads = pip.download_dependencies(1, req_file)
+        assert downloads == [
+            {**pypi_info, "kind": "pypi"},
+            {**vcs_info, "kind": "vcs"},
+        ]
 
         assert pip_deps.is_dir()
 
