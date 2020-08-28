@@ -336,14 +336,16 @@ def patch_request(request_id):
     request = Request.query.get_or_404(request_id)
     delete_bundle = False
     delete_bundle_temp = False
-    cleanup_nexus = False
+    cleanup_nexus = []
     delete_logs = False
     if "state" in payload and "state_reason" in payload:
         new_state = payload["state"]
         delete_bundle = new_state == "stale" and request.state.state_name != "failed"
-        cleanup_nexus = new_state in ("stale", "failed") and any(
-            p.name == "npm" for p in request.pkg_managers
-        )
+        if new_state in ("stale", "failed"):
+            if any(p.name == "npm" for p in request.pkg_managers):
+                cleanup_nexus.append("npm")
+            if any(p.name == "pip" for p in request.pkg_managers):
+                cleanup_nexus.append("pip")
         delete_bundle_temp = new_state in ("complete", "failed")
         delete_logs = new_state == "stale"
         new_state_reason = payload["state_reason"]
@@ -413,16 +415,18 @@ def patch_request(request_id):
         except:  # noqa E722
             flask.current_app.logger.exception("Failed to delete the log file %s", path_to_file)
 
-    if cleanup_nexus:
+    for pkg_mgr in cleanup_nexus:
         flask.current_app.logger.info(
-            "Cleaning up the Nexus npm content for request %d", request_id
+            "Cleaning up the Nexus %s content for request %d", pkg_mgr, request_id
         )
+        cleanup_task = getattr(tasks, f"cleanup_{pkg_mgr}_request")
         try:
-            tasks.cleanup_npm_request.delay(request_id)
+            cleanup_task.delay(request_id)
         except kombu.exceptions.OperationalError:
             flask.current_app.logger.exception(
-                "Failed to schedule the cleanup_npm_request task for request %d. An administrator "
+                "Failed to schedule the cleanup_%s_request task for request %d. An administrator "
                 "must clean this up manually.",
+                pkg_mgr,
                 request.id,
             )
 
