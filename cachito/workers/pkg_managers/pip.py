@@ -1383,30 +1383,30 @@ def _validate_requirements(requirements, require_hashes):
     :param bool require_hashes: True if all requirements must specify a checksum
     :raise ValidationError: If any requirement does not meet expectations
     """
-    # Fail if any PyPI dependency is not pinned to an exact version
-    for req in filter(lambda r: r.kind == "pypi", requirements):
-        vspec = req.version_specs
-        if len(vspec) != 1 or vspec[0][0] not in ("==", "==="):
-            msg = f"Requirement must be pinned to an exact version: {req.download_line}"
-            raise ValidationError(msg)
-
-    # Fail if any dependency requires a hash but does not specify one
     for req in requirements:
+        # Fail if PyPI requirement is not pinned to an exact version
+        if req.kind == "pypi":
+            vspec = req.version_specs
+            if len(vspec) != 1 or vspec[0][0] not in ("==", "==="):
+                msg = f"Requirement must be pinned to an exact version: {req.download_line}"
+                raise ValidationError(msg)
+
+        # Fail if VCS requirement uses any VCS other than git or does not have a valid ref
+        elif req.kind == "vcs":
+            url = urllib.parse.urlparse(req.url)
+
+            if not url.scheme.startswith("git"):
+                raise ValidationError(f"Unsupported VCS for {req.download_line}: {url.scheme}")
+
+            if not GIT_REF_IN_PATH.search(url.path):
+                msg = f"No git ref in {req.download_line} (expected 40 hexadecimal characters)"
+                raise ValidationError(msg)
+
+        # Fail if requirement requires a hash but does not specify one
         hash_required = require_hashes or req.kind == "url"
 
         if hash_required and not req.hashes and not req.qualifiers.get("cachito_hash"):
             msg = f"Hash is required, dependency does not specify any: {req.download_line}"
-            raise ValidationError(msg)
-
-    # Fail if any VCS requirement uses any VCS other than git or does not have a valid ref
-    for req in filter(lambda r: r.kind == "vcs", requirements):
-        url = urllib.parse.urlparse(req.url)
-
-        if not url.scheme.startswith("git"):
-            raise ValidationError(f"Unsupported VCS for {req.download_line}: {url.scheme}")
-
-        if not GIT_REF_IN_PATH.search(url.path):
-            msg = f"No valid git ref in {req.download_line} (expected 40 hexadecimal characters)"
             raise ValidationError(msg)
 
 
