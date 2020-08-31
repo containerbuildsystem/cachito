@@ -2336,6 +2336,11 @@ class TestDownload:
         url=None,
     ):
         """Mock a requirements.txt item. By default should pass validation."""
+        if url is None and kind == "vcs":
+            url = f"git+https://github.com/example@{GIT_REF}"
+        elif url is None and kind == "url":
+            url = "https://example.org/file.tar.gz"
+
         return mock.Mock(
             package=package,
             kind=kind,
@@ -2680,7 +2685,7 @@ class TestDownload:
         with pytest.raises(ValidationError) as exc_info:
             pip.download_dependencies(1, req_file)
 
-        msg = f"No valid git ref in {req.download_line} (expected 40 hexadecimal characters)"
+        msg = f"No git ref in {req.download_line} (expected 40 hexadecimal characters)"
         assert str(exc_info.value) == msg
 
     @pytest.mark.parametrize("scheme", ["svn", "svn+https"])
