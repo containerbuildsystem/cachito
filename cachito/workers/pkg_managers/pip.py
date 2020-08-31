@@ -35,6 +35,9 @@ NOTHING = object()  # A None replacement for cases where the distinction is need
 # Check that the path component of a URL ends with a full-length git ref
 GIT_REF_IN_PATH = re.compile(r"@[a-fA-F0-9]{40}$")
 
+# All supported sdist formats, see https://docs.python.org/3/distutils/sourcedist.html
+SDIST_FILE_EXTENSIONS = [".zip", ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.Z", ".tar"]
+
 
 def get_pip_metadata(package_dir):
     """
@@ -1285,9 +1288,13 @@ def download_dependencies(request_id, requirements_file):
             download_info = _download_vcs_package(
                 req, bundle_dir.pip_deps_dir, pip_raw_repo_name, nexus_auth
             )
+        elif req.kind == "url":
+            download_info = _download_url_package(
+                req, bundle_dir.pip_deps_dir, pip_raw_repo_name, nexus_auth
+            )
         else:
-            log.warning("Dependency type not yet supported: %s", req.download_line)
-            continue
+            # Should not happen
+            raise RuntimeError(f"Unexpected requirement kind: {req.kind!r}")
 
         log.info(
             "Successfully downloaded %s to %s",
@@ -1295,8 +1302,10 @@ def download_dependencies(request_id, requirements_file):
             download_info["path"].relative_to(bundle_dir),
         )
 
+        # TODO: Always verify URL requirements?
         if require_hashes:
-            _verify_hash(download_info["path"], req.hashes)
+            hashes = req.hashes or [req.qualifiers["cachito_hash"]]
+            _verify_hash(download_info["path"], hashes)
 
         download_info["kind"] = req.kind
         downloads.append(download_info)
@@ -1402,6 +1411,26 @@ def _validate_requirements(requirements):
                 msg = f"No git ref in {req.download_line} (expected 40 hexadecimal characters)"
                 raise ValidationError(msg)
 
+        # Fail if URL requirement does not specify exactly one hash (--hash or #cachito_hash)
+        # or does not have a recognized file extension
+        elif req.kind == "url":
+            n_hashes = len(req.hashes) + (1 if req.qualifiers.get("cachito_hash") else 0)
+            if n_hashes != 1:
+                msg = (
+                    f"URL requirement must specify exactly one hash, but specifies {n_hashes}: "
+                    f"{req.download_line}. Use the --hash option or the #cachito_hash URL "
+                    "fragment, but not both (or more than one --hash)."
+                )
+                raise ValidationError(msg)
+
+            url = urllib.parse.urlparse(req.url)
+            if not any(url.path.endswith(ext) for ext in SDIST_FILE_EXTENSIONS):
+                msg = (
+                    "URL for requirement does not contain any recognized file extension: "
+                    f"{req.download_line} (expected one of {', '.join(SDIST_FILE_EXTENSIONS)})"
+                )
+                raise ValidationError(msg)
+
 
 def _validate_provided_hashes(requirements, require_hashes):
     """
@@ -1413,14 +1442,14 @@ def _validate_provided_hashes(requirements, require_hashes):
     """
     for req in requirements:
         if req.kind == "url":
-            hashes = req.hashes
-            url_hash = req.qualifiers.get("cachito_hash")
-            if url_hash:
-                hashes = hashes + [url_hash]
+            # TODO: urllib.parse.unquote() the cachito_hash, probably in PipRequirement
+            hashes = req.hashes or [req.qualifiers["cachito_hash"]]
         else:
             hashes = req.hashes
 
         if require_hashes and not hashes:
+            # This can only happen for non-URL requirements
+            # For URL requirements, having a hash is required to pass basic validation
             msg = f"Hash is required, dependency does not specify any: {req.download_line}"
             raise ValidationError(msg)
 
@@ -1569,15 +1598,13 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     filename = f"{repo_name}-external-gitcommit-{ref}.tar.gz"
     download_path = package_dir / filename
 
-    # Check if we already have the raw component
+    # Download raw component if we already have it
     raw_component_name = f"{repo_name}/{filename}"
-    log.debug("Looking for raw component %r in %r repo", raw_component_name, pip_raw_repo_name)
-    download_url = nexus.get_raw_component_asset_url(pip_raw_repo_name, raw_component_name)
+    have_raw_component = _download_raw_component(
+        raw_component_name, pip_raw_repo_name, download_path, nexus_auth
+    )
 
-    if download_url is not None:
-        log.debug("Found raw component, will download from %r", download_url)
-        download_binary_file(download_url, download_path, auth=nexus_auth)
-    else:
+    if not have_raw_component:
         log.debug("Raw component not found, will fetch from git")
         repo = Git(git_info["url"], ref)
         repo.fetch_source()
@@ -1647,6 +1674,82 @@ def _extract_git_info(vcs_url):
         "namespace": namespace,
         "repo": repo,
     }
+
+
+def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_auth):
+    """
+    Download a Python package from a URL.
+
+    After downloading, upload this package to the Pip raw repository on the Nexus hoster instance,
+    and on subsequent downloads, reuse the uploaded asset instead of downloading from URL again.
+
+    :param PipRequirement requirement: VCS requirement from a requirements.txt file
+    :param Path pip_deps_dir: The deps/pip directory in a Cachito request bundle
+    :param str pip_raw_repo_name: Name of the Nexus raw repository for Pip
+    :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
+
+    :return: Dict with package name, name of raw component in Nexus, download path and original URL
+    """
+    package = requirement.package
+
+    hashes = requirement.hashes
+    hash_spec = hashes[0] if hashes else requirement.qualifiers["cachito_hash"]
+    algorithm, _, digest = hash_spec.partition(":")
+
+    url = urllib.parse.urlparse(requirement.url)
+    file_ext = next(ext for ext in SDIST_FILE_EXTENSIONS if url.path.endswith(ext))
+
+    filename = f"{package}-external-{algorithm}-{digest}{file_ext}"
+
+    package_dir = pip_deps_dir / f"external-{package}"
+    package_dir.mkdir(exist_ok=True)
+    download_path = package_dir / filename
+
+    # Download raw component if we already have it
+    raw_component_name = f"{package}/{filename}"
+    have_raw_component = _download_raw_component(
+        raw_component_name, pip_raw_repo_name, download_path, nexus_auth
+    )
+
+    if not have_raw_component:
+        log.debug("Raw component not found, will download from %r", requirement.url)
+        # TODO: Respect --trusted-host (disable SSL verification based on hostname)?
+        download_binary_file(requirement.url, download_path)
+
+        log.debug(
+            "Downloaded package, uploading as %r to %r", raw_component_name, pip_raw_repo_name
+        )
+        upload_raw_package(
+            pip_raw_repo_name,
+            download_path,
+            dest_dir=package,
+            filename=filename,
+            is_request_repository=False,
+        )
+
+    return {
+        "package": package,
+        "raw_component_name": raw_component_name,
+        "path": download_path,
+        "original_url": requirement.url,
+    }
+
+
+def _download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
+    """
+    Download raw component if present in raw repo.
+
+    :return: True if component was downloaded, False otherwise
+    """
+    log.debug("Looking for raw component %r in %r repo", raw_component_name, raw_repo_name)
+    download_url = nexus.get_raw_component_asset_url(raw_repo_name, raw_component_name)
+
+    if download_url is not None:
+        log.debug("Found raw component, will download from %r", download_url)
+        download_binary_file(download_url, download_path, auth=nexus_auth)
+        return True
+
+    return False
 
 
 def _verify_hash(download_path, hashes):
