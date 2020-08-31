@@ -1258,7 +1258,8 @@ def download_dependencies(request_id, requirements_file):
         )
         require_hashes = False
 
-    _validate_requirements(requirements_file.requirements, require_hashes)
+    _validate_requirements(requirements_file.requirements)
+    _validate_provided_hashes(requirements_file.requirements, require_hashes)
 
     bundle_dir = RequestBundleDir(request_id)
     bundle_dir.pip_deps_dir.mkdir(parents=True, exist_ok=True)
@@ -1375,12 +1376,11 @@ def _process_options(options):
     }
 
 
-def _validate_requirements(requirements, require_hashes):
+def _validate_requirements(requirements):
     """
     Validate that all requirements meet Cachito expectations.
 
     :param list[PipRequirement] requirements: All requirements from a file
-    :param bool require_hashes: True if all requirements must specify a checksum
     :raise ValidationError: If any requirement does not meet expectations
     """
     for req in requirements:
@@ -1402,12 +1402,33 @@ def _validate_requirements(requirements, require_hashes):
                 msg = f"No git ref in {req.download_line} (expected 40 hexadecimal characters)"
                 raise ValidationError(msg)
 
-        # Fail if requirement requires a hash but does not specify one
-        hash_required = require_hashes or req.kind == "url"
 
-        if hash_required and not req.hashes and not req.qualifiers.get("cachito_hash"):
+def _validate_provided_hashes(requirements, require_hashes):
+    """
+    Validate that hashes are not missing and follow the "algorithm:digest" format.
+
+    :param list[PipRequirement] requirements: All requirements from a file
+    :param bool require_hashes: True if hashes are required for all requirements
+    :raise ValidationError: If hashes are missing or have invalid format
+    """
+    for req in requirements:
+        if req.kind == "url":
+            hashes = req.hashes
+            url_hash = req.qualifiers.get("cachito_hash")
+            if url_hash:
+                hashes = hashes + [url_hash]
+        else:
+            hashes = req.hashes
+
+        if require_hashes and not hashes:
             msg = f"Hash is required, dependency does not specify any: {req.download_line}"
             raise ValidationError(msg)
+
+        for hash_spec in hashes:
+            algorithm, _, digest = hash_spec.partition(":")
+            if not digest:
+                msg = f"Not a valid hash specifier: {hash_spec!r} (expected algorithm:digest)"
+                raise ValidationError(msg)
 
 
 def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy_auth):
@@ -1638,20 +1659,11 @@ def _verify_hash(download_path, hashes):
     """
     log.info(f"Verifying checksum of {download_path.name}")
 
-    checksums = []
-
     for hash_spec in hashes:
         algorithm, _, digest = hash_spec.partition(":")
-        if not digest:
-            msg = f"Not a valid hash specifier: {hash_spec!r} (expected algorithm:digest)"
-            raise CachitoError(msg)
-
-        checksums.append(ChecksumInfo(algorithm, digest))
-
-    for checksum_info in checksums:
+        checksum_info = ChecksumInfo(algorithm, digest)
         try:
             verify_checksum(str(download_path), checksum_info)
-            algorithm, digest = checksum_info
             log.info(f"Checksum of {download_path.name} matches: {algorithm}:{digest}")
             return
         except CachitoError as e:

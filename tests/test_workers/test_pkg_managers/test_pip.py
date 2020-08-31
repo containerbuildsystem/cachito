@@ -2736,6 +2736,28 @@ class TestDownload:
         msg = f"Hash is required, dependency does not specify any: {bad_req.download_line}"
         assert str(exc_info.value) == msg
 
+    @pytest.mark.parametrize(
+        "requirement_kind, hash_in_url",
+        [("pypi", False), ("vcs", False), ("url", True), ("url", False)],
+    )
+    def test_malformed_hash(self, requirement_kind, hash_in_url):
+        """Test that invalid hash specifiers cause a validation error."""
+        if hash_in_url:
+            hashes = []
+            qualifiers = {"cachito_hash": "malformed"}
+        else:
+            hashes = ["malformed"]
+            qualifiers = {}
+
+        req = self.mock_requirement("foo", requirement_kind, hashes=hashes, qualifiers=qualifiers)
+        req_file = self.mock_requirements_file(requirements=[req])
+
+        with pytest.raises(ValidationError) as exc_info:
+            pip.download_dependencies(1, req_file)
+
+        msg = "Not a valid hash specifier: 'malformed' (expected algorithm:digest)"
+        assert str(exc_info.value) == msg
+
     @pytest.mark.parametrize("use_hashes", [True, False])
     @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
     @mock.patch("cachito.workers.pkg_managers.pip.get_worker_config")
@@ -2861,8 +2883,6 @@ class TestDownload:
             (["sha256:good", "sha256:bad"], True),
             (["sha256:bad", "sha256:good"], True),
             (["sha256:bad"], False),
-            (["malformed"], False),
-            (["sha256:good", "malformed"], False),
         ],
     )
     @mock.patch("cachito.workers.pkg_managers.pip.verify_checksum")
@@ -2870,44 +2890,35 @@ class TestDownload:
         """Test helper function for checksum verification."""
         path = Path("/foo/bar.tar.gz")
 
-        if "malformed" in hashes:
+        mock_verify_checksum.side_effect = [
+            None if hash_spec == "sha256:good" else CachitoError("Something went wrong")
+            for hash_spec in hashes
+        ]
+
+        if success:
+            pip._verify_hash(path, hashes)
+            assert "Checksum of bar.tar.gz matches: sha256:good" in caplog.text
+
+            # Should return on first success
+            num_calls = hashes.index("sha256:good") + 1
+            num_fails = num_calls - 1
+        else:
             with pytest.raises(CachitoError) as exc_info:
                 pip._verify_hash(path, hashes)
 
-            msg = "Not a valid hash specifier: 'malformed' (expected algorithm:digest)"
+            msg = "Failed to verify checksum of bar.tar.gz against any of the provided hashes"
             assert str(exc_info.value) == msg
-            assert not mock_verify_checksum.called
-        else:
-            mock_verify_checksum.side_effect = [
-                None if hash_spec == "sha256:good" else CachitoError("Something went wrong")
-                for hash_spec in hashes
-            ]
 
-            if success:
-                pip._verify_hash(path, hashes)
-                assert "Checksum of bar.tar.gz matches: sha256:good" in caplog.text
+            num_calls = num_fails = len(hashes)
 
-                # Should return on first success
-                num_calls = hashes.index("sha256:good") + 1
-                num_fails = num_calls - 1
-            else:
-                with pytest.raises(CachitoError) as exc_info:
-                    pip._verify_hash(path, hashes)
+        calls = [
+            mock.call(str(path), general.ChecksumInfo(*hash_spec.split(":", 1)))
+            for hash_spec in hashes[:num_calls]
+        ]
+        mock_verify_checksum.assert_has_calls(calls)
+        assert mock_verify_checksum.call_count == num_calls
 
-                msg = "Failed to verify checksum of bar.tar.gz against any of the provided hashes"
-                assert str(exc_info.value) == msg
-
-                num_calls = num_fails = len(hashes)
-
-            calls = [
-                mock.call(str(path), general.ChecksumInfo(*hash_spec.split(":", 1)))
-                for hash_spec in hashes[:num_calls]
-            ]
-            mock_verify_checksum.assert_has_calls(calls)
-            assert mock_verify_checksum.call_count == num_calls
-
-            assert caplog.text.count("Something went wrong") == num_fails
-
+        assert caplog.text.count("Something went wrong") == num_fails
         assert "Verifying checksum of bar.tar.gz" in caplog.text
 
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.upload_asset_only_component")
