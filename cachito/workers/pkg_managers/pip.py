@@ -1247,6 +1247,7 @@ def download_dependencies(request_id, requirements_file):
     :rtype: list[dict]
     """
     options = _process_options(requirements_file.options)
+    trusted_hosts = set(options["trusted_hosts"])
 
     if options["require_hashes"]:
         log.info("Global --require-hashes option used, will require hashes")
@@ -1290,7 +1291,7 @@ def download_dependencies(request_id, requirements_file):
             )
         elif req.kind == "url":
             download_info = _download_url_package(
-                req, bundle_dir.pip_deps_dir, pip_raw_repo_name, nexus_auth
+                req, bundle_dir.pip_deps_dir, pip_raw_repo_name, nexus_auth, trusted_hosts
             )
         else:
             # Should not happen
@@ -1338,11 +1339,11 @@ def _process_options(options):
     | Undecided option    | Reason                                                  |
     |---------------------|---------------------------------------------------------|
     | -r --requirement    | We could support this but there is no good reason to    |
-    | --trusted-host      | Could be relevant for Git and HTTP(S) dependencies      |
 
     | Relevant option     | Reason                                                  |
     |---------------------|---------------------------------------------------------|
     | --require-hashes    | Hashes are optional, so this makes sense                |
+    | --trusted-host      | Disables SSL verification for URL dependencies          |
 
     :param list[str] options: Global options from a requirements file
     :return: Dict with all the relevant options and their values
@@ -1359,18 +1360,27 @@ def _process_options(options):
     }
 
     require_hashes = False
+    trusted_hosts = []
     ignored = []
     rejected = []
 
-    for option in options:
+    i = 0
+    while i < len(options):
+        option = options[i]
+
         if option == "--require-hashes":
             require_hashes = True
+        elif option == "--trusted-host":
+            trusted_hosts.append(options[i + 1])
+            i += 1
         elif option in reject:
             rejected.append(option)
         elif option.startswith("-"):
             # This is a bit simplistic, option arguments may also start with a '-' but
             # should be good enough for a log message
             ignored.append(option)
+
+        i += 1
 
     if ignored:
         msg = f"Cachito will ignore the following options: {', '.join(ignored)}"
@@ -1382,6 +1392,7 @@ def _process_options(options):
 
     return {
         "require_hashes": require_hashes,
+        "trusted_hosts": trusted_hosts,
     }
 
 
@@ -1676,7 +1687,7 @@ def _extract_git_info(vcs_url):
     }
 
 
-def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_auth):
+def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_auth, trusted_hosts):
     """
     Download a Python package from a URL.
 
@@ -1687,6 +1698,7 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     :param Path pip_deps_dir: The deps/pip directory in a Cachito request bundle
     :param str pip_raw_repo_name: Name of the Nexus raw repository for Pip
     :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
+    :param set[str] trusted_hosts: If host (or host:port) is trusted, do not verify SSL
 
     :return: Dict with package name, name of raw component in Nexus, download path and original URL
     """
@@ -1713,8 +1725,19 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
 
     if not have_raw_component:
         log.debug("Raw component not found, will download from %r", requirement.url)
-        # TODO: Respect --trusted-host (disable SSL verification based on hostname)?
-        download_binary_file(requirement.url, download_path)
+
+        if url.hostname in trusted_hosts:
+            log.debug("Disabling SSL verification, %s is a --trusted-host", url.hostname)
+            insecure = True
+        elif url.port is not None and f"{url.hostname}:{url.port}" in trusted_hosts:
+            log.debug(
+                "Disabling SSL verification, %s:%s is a --trusted-host", url.hostname, url.port
+            )
+            insecure = True
+        else:
+            insecure = False
+
+        download_binary_file(requirement.url, download_path, insecure=insecure)
 
         log.debug(
             "Downloaded package, uploading as %r to %r", raw_component_name, pip_raw_repo_name

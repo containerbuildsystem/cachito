@@ -159,9 +159,10 @@ def test_verify_checksum_unsupported_algorithm(tmpdir):
 
 
 @pytest.mark.parametrize("auth", [None, ("user", "password")])
+@pytest.mark.parametrize("insecure", [True, False])
 @pytest.mark.parametrize("chunk_size", [1024, 2048])
 @mock.patch("cachito.workers.requests.requests_session")
-def test_download_binary_file(mock_requests_session, auth, chunk_size, tmpdir):
+def test_download_binary_file(mock_requests_session, auth, insecure, chunk_size, tmpdir):
     url = "http://example.org/example.tar.gz"
     content = b"file content"
 
@@ -169,10 +170,12 @@ def test_download_binary_file(mock_requests_session, auth, chunk_size, tmpdir):
     mock_response.iter_content.return_value = [content]
 
     download_path = tmpdir.join("example.tar.gz")
-    download_binary_file(url, download_path.strpath, auth=auth, chunk_size=chunk_size)
+    download_binary_file(
+        url, download_path.strpath, auth=auth, insecure=insecure, chunk_size=chunk_size
+    )
 
     assert download_path.read_binary() == content
-    mock_requests_session.get.assert_called_with(url, stream=True, auth=auth)
+    mock_requests_session.get.assert_called_with(url, stream=True, auth=auth, verify=not insecure)
     mock_response.iter_content.assert_called_with(chunk_size=chunk_size)
 
 
