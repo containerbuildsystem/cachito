@@ -24,7 +24,6 @@ from cachito.workers.pkg_managers.general import (
     verify_checksum,
     download_binary_file,
 )
-from cachito.workers.requests import requests_session
 from cachito.workers.scm import Git
 
 
@@ -1429,6 +1428,9 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
 
     :return: Dict with package name, version and download path
     """
+    # Import this here to avoid a circular import
+    from cachito.workers.requests import requests_session
+
     package = requirement.package
     version = requirement.version_specs[0][1]
 
@@ -1778,3 +1780,57 @@ def get_index_url(nexus_pypi_hosted_repo_url, username, password):
         )
 
     return index_url
+
+
+def resolve_pip(path, request, requirement_files=None, build_requirement_files=None):
+    log.debug("Checking if the application source uses pip")
+    try:
+        pkg_name, pkg_version = get_pip_metadata(path)
+    except CachitoError:
+        log.exception("The requested package is not pip compatible")
+        raise
+
+    def set_requirement_file_list(filename):
+        req = path / filename
+        return [str(req)] if req.is_file() else []
+
+    # This could be an empty list
+    if requirement_files is None:
+        requirement_files = set_requirement_file_list("requirements.txt")
+
+    # This could be an empty list
+    if build_requirement_files is None:
+        build_requirement_files = set_requirement_file_list("requirements-build.txt")
+
+    requires = []
+    for req_file in requirement_files:
+        requires.extend(download_dependencies(request["id"], PipRequirementsFile(req_file)))
+
+    buildrequires = []
+    for br_file in build_requirement_files:
+        buildrequires.extend(download_dependencies(request["id"], PipRequirementsFile(br_file)))
+
+    for d in buildrequires:
+        d['dev'] = True
+
+    # set and upload dependencies
+    dependencies = []
+    pip_repo_name = get_pypi_hosted_repo_name(request["id"])
+    raw_repo_name = get_raw_hosted_repo_name(request["id"])
+    for d in requires + buildrequires:
+        if d["kind"] == "pypi":
+            upload_pypi_package(pip_repo_name, d["path"])
+            dep = {"name": d["package"], "version": d["version"], "type": "pip"}
+        else:
+            dest_dir, filename = d["raw_component_name"].rsplit("/", 1)
+            upload_raw_package(raw_repo_name, d["path"], dest_dir, filename, True)
+            version = f"vcs:{d['host']}/{d['namespace']}@{d['ref']}"
+            dep = {"name": d["package"], "version": version, "type": "pip"}
+
+        dep["dev"] = d.get("dev", False)
+        dependencies.append(dep)
+
+    return {
+        "package": {"name": pkg_name, "version": pkg_version, "type": "pip"},
+        "dependencies": dependencies,
+    }

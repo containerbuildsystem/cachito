@@ -239,6 +239,15 @@ def create_request():
         chain_tasks.append(
             tasks.fetch_npm_source.si(request.id, npm_package_configs).on_error(error_callback)
         )
+    if "pip" in pkg_manager_names:
+        if pkg_manager_to_dep_replacements.get("pip"):
+            raise ValidationError(
+                "Dependency replacements are not yet supported for the pip package manager"
+            )
+        pip_package_configs = package_configs.get("pip", {})
+        chain_tasks.append(
+            tasks.fetch_pip_source.si(request.id, pip_package_configs).on_error(error_callback)
+        )
 
     chain_tasks.append(tasks.create_bundle_archive.si(request.id).on_error(error_callback))
 
