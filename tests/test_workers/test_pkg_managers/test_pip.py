@@ -2622,6 +2622,18 @@ class TestDownload:
 
     @pytest.mark.parametrize("have_raw_component", [True, False])
     @pytest.mark.parametrize("hash_as_qualifier", [True, False])
+    @pytest.mark.parametrize(
+        "host_in_url, trusted_hosts, host_is_trusted",
+        [
+            ("example.org", [], False),
+            ("example.org", ["example.org"], True),
+            ("example.org:443", ["example.org:443"], True),
+            # 'host' in URL does not match 'host:port' in trusted hosts
+            ("example.org", ["example.org:443"], False),
+            # 'host:port' in URL *does* match 'host' in trusted hosts
+            ("example.org:443", ["example.org"], True),
+        ],
+    )
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_raw_component_asset_url")
     @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
     @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
@@ -2632,13 +2644,16 @@ class TestDownload:
         mock_get_component_url,
         have_raw_component,
         hash_as_qualifier,
+        host_in_url,
+        trusted_hosts,
+        host_is_trusted,
         tmp_path,
         caplog,
     ):
         """Test downloading of a single URL package."""
         # Add the #cachito_package fragment to make sure the .tar.gz extension
         # will be found even if the URL does not end with it
-        original_url = f"https://example.org/foo.tar.gz#cachito_package=foo"
+        original_url = f"https://{host_in_url}/foo.tar.gz#cachito_package=foo"
         raw_url = f"https://nexus:8081/repository/cachito-pip-raw/foo.tar.gz"
 
         mock_requirement = self.mock_requirement(
@@ -2653,7 +2668,11 @@ class TestDownload:
         mock_get_component_url.return_value = raw_url if have_raw_component else None
 
         download_info = pip._download_url_package(
-            mock_requirement, tmp_path, "cachito-pip-raw", ("username", "password")
+            mock_requirement,
+            tmp_path,
+            "cachito-pip-raw",
+            ("username", "password"),
+            set(trusted_hosts),
         )
 
         raw_component = f"foo/foo-external-sha256-abcdef.tar.gz"
@@ -2677,7 +2696,9 @@ class TestDownload:
             mock_upload_package.assert_not_called()
         else:
             assert f"Raw component not found, will download from '{original_url}'" in caplog.text
-            mock_download_file.assert_called_once_with(original_url, download_path)
+            mock_download_file.assert_called_once_with(
+                original_url, download_path, insecure=host_is_trusted
+            )
             assert (
                 f"Downloaded package, uploading as '{raw_component}' to 'cachito-pip-raw'"
             ) in caplog.text
@@ -2884,6 +2905,7 @@ class TestDownload:
         assert str(exc_info.value) == msg
 
     @pytest.mark.parametrize("use_hashes", [True, False])
+    @pytest.mark.parametrize("trusted_hosts", [[], ["example.org"]])
     @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
     @mock.patch("cachito.workers.pkg_managers.pip.get_worker_config")
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_credentials")
@@ -2901,6 +2923,7 @@ class TestDownload:
         mock_get_config,
         mock_request_bundle_dir,
         use_hashes,
+        trusted_hosts,
         tmp_path,
         caplog,
     ):
@@ -2930,7 +2953,14 @@ class TestDownload:
             pypi_req.hashes = ["sha256:abcdef"]
             vcs_req.hashes = ["sha256:123456"]
 
-        req_file = self.mock_requirements_file(requirements=[pypi_req, vcs_req, url_req])
+        options = []
+        for host in trusted_hosts:
+            options.append("--trusted-host")
+            options.append(host)
+
+        req_file = self.mock_requirements_file(
+            requirements=[pypi_req, vcs_req, url_req], options=options,
+        )
 
         proxy_url = "https://pypi-proxy.example.org"
         nexus_auth = requests.auth.HTTPBasicAuth("username", "password")
@@ -2983,7 +3013,9 @@ class TestDownload:
         mock_get_config.assert_called_once()
         mock_pypi_download.assert_called_once_with(pypi_req, pip_deps, proxy_url, proxy_auth)
         mock_vcs_download.assert_called_once_with(vcs_req, pip_deps, raw_repo, nexus_auth)
-        mock_url_download.assert_called_once_with(url_req, pip_deps, raw_repo, nexus_auth)
+        mock_url_download.assert_called_once_with(
+            url_req, pip_deps, raw_repo, nexus_auth, set(trusted_hosts)
+        )
 
         if use_hashes:
             msg = "At least one dependency uses the --hash option, will require hashes"
