@@ -1146,6 +1146,7 @@ class PipRequirement:
             for section in parsed_url.fragment.split("&"):
                 if "=" in section:
                     attr, value = section.split("=", 1)
+                    value = urllib.parse.unquote(value)
                     qualifiers[attr] = value
                     if attr == "egg":
                         # Use the egg name as the package name to avoid ambiguity when both are
@@ -1453,7 +1454,6 @@ def _validate_provided_hashes(requirements, require_hashes):
     """
     for req in requirements:
         if req.kind == "url":
-            # TODO: urllib.parse.unquote() the cachito_hash, probably in PipRequirement
             hashes = req.hashes or [req.qualifiers["cachito_hash"]]
         else:
             hashes = req.hashes
