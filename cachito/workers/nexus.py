@@ -344,8 +344,9 @@ def upload_asset_only_component(repo_name, repo_type, component_path, to_nexus_h
         raise ValueError(f"Type {repo_type!r} is not supported or requires additional params")
 
     params = {"repository": repo_name}
+    filename = os.path.basename(component_path)
     with open(component_path, "rb") as component:
-        payload = {f"{repo_type}.asset": component.read()}
+        payload = {f"{repo_type}.asset": (filename, component.read())}
 
     log.info("Uploading the component %r to the %r Nexus repository", component_path, repo_type)
     try:
