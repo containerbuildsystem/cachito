@@ -1410,7 +1410,7 @@ def _validate_requirements(requirements, require_hashes):
             raise ValidationError(msg)
 
 
-def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
+def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy_auth):
     """
     Download the sdist (source distribution) of a PyPI package.
 
@@ -1424,8 +1424,8 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
 
     :param PipRequirement requirement: PyPI requirement from a requirement.txt file
     :param Path pip_deps_dir: The deps/pip directory in a Cachito request bundle
-    :param str pypi_url: URL of PyPI (proxy) server
-    :param requests.auth.AuthBase pypi_auth: Authorization for the PyPI server
+    :param str pypi_proxy_url: URL of Nexus PyPI proxy
+    :param requests.auth.AuthBase pypi_proxy_auth: Authorization for the PyPI proxy
 
     :return: Dict with package name, version and download path
     """
@@ -1433,9 +1433,9 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
     version = requirement.version_specs[0][1]
 
     # See https://warehouse.readthedocs.io/api-reference/json/
-    package_url = f"{pypi_url.rstrip('/')}/pypi/{package}/{version}/json"
+    package_url = f"{pypi_proxy_url.rstrip('/')}/pypi/{package}/{version}/json"
     try:
-        pypi_resp = requests_session.get(package_url, auth=pypi_auth)
+        pypi_resp = requests_session.get(package_url, auth=pypi_proxy_auth)
         pypi_resp.raise_for_status()
     except requests.RequestException as e:
         raise CachitoError(f"PyPI query failed: {e}")
@@ -1450,11 +1450,42 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_url, pypi_auth):
     if sdist.get("yanked", False):
         raise CachitoError(f"All sdists for package {package}=={version} are yanked")
 
+    # Unlike regular PyPI, the Nexus PyPI proxy supports the following magic with file URLs:
+    #   - original (from PyPI): https://files.pythonhosted.org/...
+    #   - modified (from Nexus): http(s)://<nexus_pypi_proxy_url>/files.pythonhosted.org/https/...
+    # i.e. mangle the file URL, prepend the proxy URL and let Nexus serve you the file.
+
+    # The reason why this is important is that Nexus will only cache the file if you use
+    # the Nexus URL to download it!
+
+    # For regular usage (e.g. set Nexus proxy as index-url for Pip), this just works, because
+    # Nexus modifies the response from the /simple/<package_name> endpoint as follows:
+    #   - original: <a href="https://files.pythonhosted.org/...">
+    #   - modified: <a href="../../files.pythonhosted.org/https/...">
+
+    # However, since we are using the /pypi/<package_name>/<version>/json endpoint here, we
+    # will have to do the mangling ourselves.
+
+    original_url = urllib.parse.urlparse(sdist["url"])
+    if not original_url.scheme:
+        # In case Nexus starts mangling URLs from the /json endpoint as well
+        raise RuntimeError(f"Unexpected value for sdist URL: {sdist['url']!r}")
+
+    # Note: despite starting with an underscore, the namedtuple._replace() method is public
+    mangled_url = original_url._replace(
+        scheme="",
+        # Netloc needs to be part of path to match what you get when you parse a URL without scheme
+        netloc="",
+        path=f"{original_url.netloc}/{original_url.scheme}{original_url.path}",
+    )
+
+    proxied_url = f"{pypi_proxy_url.rstrip('/')}/{mangled_url.geturl()}"
+
     package_dir = pip_deps_dir / package
     package_dir.mkdir(exist_ok=True)
     download_path = package_dir / sdist["filename"]
 
-    download_binary_file(sdist["url"], download_path)
+    download_binary_file(proxied_url, download_path, auth=pypi_proxy_auth)
 
     package_info = data.get("info", {})
 
