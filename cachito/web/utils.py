@@ -1,5 +1,30 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from collections import OrderedDict
+
 from flask import request, url_for
+
+
+def deep_sort_icm(orig_item):
+    """
+    Return a new element recursively sorted in ascending order.
+
+    The function for sorting image content manifests
+
+    :param orig_item: Original content manifest to be sorted
+    :return: Recursively sorted dict or list according to orig_item
+    :rtype: Any
+    """
+    if isinstance(orig_item, list):
+        sorted_item = [deep_sort_icm(item) for item in orig_item]
+        if len(sorted_item) and isinstance(sorted_item[0], OrderedDict):
+            sorted_item = sorted(sorted_item, key=lambda ordered_dict: list(ordered_dict.items()))
+    elif isinstance(orig_item, dict):
+        sorted_item = OrderedDict(
+            sorted({k: deep_sort_icm(v) for k, v in orig_item.items()}.items())
+        )
+    else:
+        sorted_item = orig_item
+    return sorted_item
 
 
 def pagination_metadata(pagination_query, **kwargs):

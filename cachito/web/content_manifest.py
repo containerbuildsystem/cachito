@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import flask
 
+from cachito.web.utils import deep_sort_icm
+
 
 class ContentManifest:
     """A content manifest associated with a Cacihto request."""
@@ -92,7 +94,7 @@ class ContentManifest:
         Generate the JSON representation of the content manifest.
 
         :return: the JSON form of the ContentManifest object
-        :rtype: dict
+        :rtype: OrderedDict
         """
         self._gopkg_data = {}
         self._gomod_data = {}
@@ -135,7 +137,7 @@ class ContentManifest:
 
         :param list image_contents: List with components for the ICM's ``image_contents`` field
         :return: a valid Image Content Manifest
-        :rtype: dict
+        :rtype: OrderedDict
         """
         icm = {
             "metadata": {
@@ -146,4 +148,4 @@ class ContentManifest:
         }
         icm["image_contents"] = image_contents or []
 
-        return icm
+        return deep_sort_icm(icm)
