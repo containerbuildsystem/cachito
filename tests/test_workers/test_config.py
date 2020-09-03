@@ -11,6 +11,7 @@ from cachito.workers.config import (
     validate_celery_config,
     validate_nexus_config,
     validate_npm_config,
+    validate_pip_config,
 )
 from cachito.errors import ConfigError
 
@@ -186,6 +187,31 @@ def test_validate_npm_config(mock_vnc, mock_gwc):
     )
     with pytest.raises(ConfigError, match=expected):
         validate_npm_config()
+
+
+@pytest.mark.parametrize(
+    "missing_configs",
+    (
+        ["cachito_nexus_pypi_proxy_url"],
+        ["cachito_nexus_pip_raw_repo_name"],
+        ["cachito_nexus_pypi_proxy_url", "cachito_nexus_pip_raw_repo_name"],
+        [],
+    ),
+)
+@patch("cachito.workers.config.get_worker_config")
+@patch("cachito.workers.config.validate_nexus_config")
+def test_validate_pip_config(mock_vnc, mock_gwc, missing_configs):
+    configs = {"cachito_nexus_pypi_proxy_url": "foo", "cachito_nexus_pip_raw_repo_name": "bar"}
+    for conf in missing_configs:
+        configs.pop(conf)
+
+    mock_gwc.return_value = configs
+    if missing_configs:
+        expected = f'The configuration "{missing_configs[0]}" must be set for this package manager'
+        with pytest.raises(ConfigError, match=expected):
+            validate_pip_config()
+    else:
+        validate_pip_config()
 
 
 @pytest.mark.parametrize(
