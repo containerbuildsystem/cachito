@@ -2391,7 +2391,7 @@ class TestDownload:
 
         if expect_error is None:
             download_info = pip._download_pypi_package(
-                mock_requirement, tmp_path, "https://pypi-proxy.example.org/", ("user", "password")
+                mock_requirement, tmp_path, "https://pypi-proxy.org/", ("user", "password")
             )
             assert download_info == {
                 "package": "aiowsgi" if not metadata_in_response else "aiowsgi-canonical-name",
@@ -2399,21 +2399,38 @@ class TestDownload:
                 "path": tmp_path / "aiowsgi" / "aiowsgi-0.7.tar.gz",
             }
 
+            proxied_file_url = "https://pypi-proxy.org/example.org/https/aiowsgi-0.7.tar.gz"
             mock_download_file.assert_called_once_with(
-                self.DOWNLOAD_SDIST["url"], download_info["path"]
+                proxied_file_url, download_info["path"], auth=("user", "password")
             )
         else:
             with pytest.raises(CachitoError) as exc_info:
                 pip._download_pypi_package(
-                    mock_requirement,
-                    tmp_path,
-                    "https://pypi-proxy.example.org",
-                    ("user", "password"),
+                    mock_requirement, tmp_path, "https://pypi-proxy.org", ("user", "password")
                 )
             assert str(exc_info.value) == expect_error
 
         mock_get.assert_called_once_with(
-            "https://pypi-proxy.example.org/pypi/aiowsgi/0.7/json", auth=("user", "password")
+            "https://pypi-proxy.org/pypi/aiowsgi/0.7/json", auth=("user", "password")
+        )
+
+    @mock.patch.object(pip.requests_session, "get")
+    def test_download_pypi_package_unexpected_url(self, mock_get):
+        """Test that an unexpected file URL will cause a RuntimeError."""
+        mock_requirement = self.mock_requirement("aiowsgi", "pypi", version_specs=[("==", "0.7")])
+
+        pypi_resp = self.mock_pypi_response(True, True, True)
+        pypi_resp["urls"][1]["url"] = "../../../../example.org/https/aiowsgi-0.7.tar.gz"
+
+        mock_get.return_value.json.return_value = pypi_resp
+
+        with pytest.raises(RuntimeError) as exc_info:
+            pip._download_pypi_package(
+                mock_requirement, Path("/xyz"), "https://pypi-proxy.org", ("user", "password")
+            )
+
+        assert str(exc_info.value) == (
+            "Unexpected value for sdist URL: '../../../../example.org/https/aiowsgi-0.7.tar.gz'"
         )
 
     def test_sdist_sorting(self):
