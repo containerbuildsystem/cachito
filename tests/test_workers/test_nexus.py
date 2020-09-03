@@ -486,7 +486,8 @@ def test_upload_asset_only_component(mock_requests, use_hoster):
             "cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz", use_hoster
         )
 
-    assert mock_requests.post.call_args[1]["files"] == {"npm.asset": b"some tgz file"}
+    expected_asset = {"npm.asset": ("rxjs-6.5.5.tgz", b"some tgz file")}
+    assert mock_requests.post.call_args[1]["files"] == expected_asset
     assert mock_requests.post.call_args[1]["params"] == {"repository": "cachito-js-hosted"}
     assert mock_requests.post.call_args[1]["auth"].username == "cachito"
     assert mock_requests.post.call_args[1]["auth"].password == "cachito"
