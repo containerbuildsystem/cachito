@@ -1459,8 +1459,8 @@ def test_fetch_request_content_manifest_go(
         image_content["dependencies"].append({"purl": p})
 
     expected = {
-        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
         "image_contents": [image_content],
+        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
     }
 
     # emulate worker
@@ -1532,20 +1532,20 @@ def test_fetch_request_content_manifest_npm(app, client, db, auth_env, worker_au
 
     image_contents = [
         {
-            "purl": "pkg:npm/client@1.0.0",
             "dependencies": [],
+            "purl": "pkg:npm/client@1.0.0",
             "sources": [{"purl": "pkg:npm/rxjs@6.5.5"}, {"purl": "pkg:npm/safe-regex@1.1.0"}],
         },
         {
-            "purl": "pkg:npm/proxy@1.0.0",
             "dependencies": [{"purl": "pkg:npm/react@16.13.1"}],
-            "sources": [{"purl": "pkg:npm/rxjs@6.5.5"}, {"purl": "pkg:npm/react@16.13.1"}],
+            "purl": "pkg:npm/proxy@1.0.0",
+            "sources": [{"purl": "pkg:npm/react@16.13.1"}, {"purl": "pkg:npm/rxjs@6.5.5"}],
         },
     ]
 
     expected = {
-        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
         "image_contents": image_contents,
+        "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
     }
 
     rv = client.get("/api/v1/requests/1")

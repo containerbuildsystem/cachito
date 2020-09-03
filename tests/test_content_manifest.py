@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from collections import OrderedDict
 from unittest import mock
 
 import pytest
@@ -114,17 +115,21 @@ def test_to_json(app, package):
     assert cm.to_json() == expected
 
 
-@pytest.mark.parametrize("contents", [None, [], "foobar", 42, {"egg": "bacon"}])
+@pytest.mark.parametrize("contents", [None, [], "foobar", 42, OrderedDict({"egg": "bacon"})])
 def test_generate_icm(contents):
     cm = ContentManifest()
-    expected = {
-        "metadata": {
-            "icm_version": 1,
-            "icm_spec": ContentManifest.json_schema_url,
-            "image_layer_index": -1,
-        },
-        "image_contents": contents or [],
-    }
+    expected = OrderedDict(
+        {
+            "image_contents": contents or [],
+            "metadata": OrderedDict(
+                {
+                    "icm_spec": ContentManifest.json_schema_url,
+                    "icm_version": 1,
+                    "image_layer_index": -1,
+                }
+            ),
+        }
+    )
     assert cm.generate_icm(contents) == expected
 
 
