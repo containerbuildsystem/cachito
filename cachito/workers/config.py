@@ -268,6 +268,21 @@ def validate_npm_config():
         )
 
 
+def validate_pip_config():
+    """
+    Perform validation on the Celery configuration for the pip package manager.
+
+    :raise ConfigError: if the Celery configuration isn't configured for pip
+    """
+    validate_nexus_config()
+    conf = get_worker_config()
+    for pip_config in ("cachito_nexus_pypi_proxy_url", "cachito_nexus_pip_raw_repo_name"):
+        if not conf.get(pip_config):
+            raise ConfigError(
+                f'The configuration "{pip_config}" must be set for this package manager'
+            )
+
+
 def get_worker_config():
     """Get the Celery worker configuration."""
     # Import this here to avoid a circular import
