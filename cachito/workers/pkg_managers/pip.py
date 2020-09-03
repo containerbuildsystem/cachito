@@ -1585,7 +1585,7 @@ def _extract_git_info(vcs_url):
 
     Given a URL such as git+https://user:pass@host:port/namespace/repo.git@123456?foo=bar#egg=spam
     this function will extract:
-    - the "clean" URL: https://user:pass@host:port/namespace/repo.git?foo=bar#egg=spam
+    - the "clean" URL: https://user:pass@host:port/namespace/repo.git
     - the git ref: 123456
     - the host, namespace and repo: host:port, namespace, repo
 
@@ -1595,25 +1595,18 @@ def _extract_git_info(vcs_url):
     :param str vcs_url: The URL of a VCS requirement, must be valid (have git ref in path)
     :return: Dict with url, ref, host, namespace and repo keys
     """
-    url = urllib.parse.urlparse(vcs_url)
-
     # If scheme is git+protocol://, keep only protocol://
-    if url.scheme.startswith("git+"):
-        clean_scheme = url.scheme[len("git+") :]
-    else:
-        clean_scheme = url.scheme
+    # Do this before parsing URL, otherwise urllib may not extract URL params
+    if vcs_url.startswith("git+"):
+        vcs_url = vcs_url[len("git+") :]
+
+    url = urllib.parse.urlparse(vcs_url)
 
     ref = url.path[-40:]  # Take the last 40 characters (the git ref)
     clean_path = url.path[:-41]  # Drop the last 41 characters ('@' + git ref)
 
-    clean_url = urllib.parse.ParseResult(
-        scheme=clean_scheme,
-        netloc=url.netloc,
-        path=clean_path,
-        params=url.params,
-        query=url.query,
-        fragment=url.fragment,
-    )
+    # Note: despite starting with an underscore, the namedtuple._replace() method is public
+    clean_url = url._replace(path=clean_path, params="", query="", fragment="")
 
     # Assume everything up to the last '@' is user:pass. This should be kept in the
     # clean URL used for fetching, but should not be considered part of the host.

@@ -2538,25 +2538,38 @@ class TestDownload:
     @pytest.mark.parametrize(
         "url, nonstandard_info",  # See body of function for what is standard info
         [
-            (f"git+https://github.com/monty/python@{GIT_REF}", None),
             (
+                # Standard case
+                f"git+https://github.com/monty/python@{GIT_REF}",
+                None,
+            ),
+            (
+                # Ref should be converted to lowercase
                 f"git+https://github.com/monty/python@{GIT_REF.upper()}",
                 {"ref": GIT_REF},  # Standard but be explicit about it
             ),
             (
+                # Repo ends with .git (that is okay)
                 f"git+https://github.com/monty/python.git@{GIT_REF}",
                 {"url": "https://github.com/monty/python.git"},
             ),
-            (f"git://github.com/monty/python@{GIT_REF}", {"url": "git://github.com/monty/python"}),
             (
+                # git://
+                f"git://github.com/monty/python@{GIT_REF}",
+                {"url": "git://github.com/monty/python"},
+            ),
+            (
+                # git+git://
                 f"git+git://github.com/monty/python@{GIT_REF}",
                 {"url": "git://github.com/monty/python"},
             ),
             (
+                # No namespace
                 f"git+https://github.com/python@{GIT_REF}",
                 {"url": "https://github.com/python", "namespace": ""},
             ),
             (
+                # Namespace with more parts
                 f"git+https://github.com/monty/python/and/the/holy/grail@{GIT_REF}",
                 {
                     "url": "https://github.com/monty/python/and/the/holy/grail",
@@ -2565,14 +2578,24 @@ class TestDownload:
                 },
             ),
             (
+                # Port should be part of host
                 f"git+https://github.com:443/monty/python@{GIT_REF}",
                 {"url": "https://github.com:443/monty/python", "host": "github.com:443"},
             ),
             (
+                # Authentication should not be part of host
                 f"git+https://user:password@github.com/monty/python@{GIT_REF}",
                 {
                     "url": "https://user:password@github.com/monty/python",
                     "host": "github.com",  # Standard but be explicit about it
+                },
+            ),
+            (
+                # Params, query and fragment should be stripped
+                f"git+https://github.com/monty/python@{GIT_REF};foo=bar?bar=baz#egg=spam",
+                {
+                    # Standard but be explicit about it
+                    "url": "https://github.com/monty/python",
                 },
             ),
         ],
@@ -2581,7 +2604,7 @@ class TestDownload:
         """Test extraction of git info from VCS URL."""
         info = {
             "url": "https://github.com/monty/python",
-            "ref": f"{GIT_REF}",
+            "ref": GIT_REF,
             "namespace": "monty",
             "repo": "python",
             "host": "github.com",
