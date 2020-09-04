@@ -2501,12 +2501,10 @@ class TestDownload:
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_raw_component_asset_url")
     @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
     @mock.patch("cachito.workers.pkg_managers.pip.Git")
-    @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
     @mock.patch("shutil.copy")
     def test_download_vcs_package(
         self,
         mock_shutil_copy,
-        mock_upload_package,
         mock_git,
         mock_download_file,
         mock_get_component_url,
@@ -2536,7 +2534,6 @@ class TestDownload:
 
         assert download_info == {
             "package": "eggs",
-            "raw_component_name": raw_component,
             "path": tmp_path.joinpath(
                 "github.com", "spam", "eggs", f"eggs-external-gitcommit-{GIT_REF}.tar.gz"
             ),
@@ -2545,6 +2542,8 @@ class TestDownload:
             "namespace": "spam",
             "repo": "eggs",
             "host": "github.com",
+            "raw_component_name": raw_component,
+            "have_raw_component": have_raw_component,
         }
 
         download_path = download_info["path"]
@@ -2557,23 +2556,12 @@ class TestDownload:
                 raw_url, download_path, auth=("username", "password")
             )
             mock_git.assert_not_called()
-            mock_upload_package.assert_not_called()
             mock_shutil_copy.assert_not_called()
         else:
             assert "Raw component not found, will fetch from git" in caplog.text
             mock_download_file.assert_not_called()
             mock_git.assert_called_once_with(f"https://github.com/spam/eggs", GIT_REF)
             mock_git.return_value.fetch_source.assert_called_once()
-            assert (
-                f"Fetched package, uploading as '{raw_component}' to 'cachito-pip-raw'"
-            ) in caplog.text
-            mock_upload_package.assert_called_once_with(
-                "cachito-pip-raw",
-                git_archive_path,
-                dest_dir="eggs",
-                filename=f"eggs-external-gitcommit-{GIT_REF}.tar.gz",
-                is_request_repository=False,
-            )
             mock_shutil_copy.assert_called_once_with(git_archive_path, download_path)
 
     @pytest.mark.parametrize(
@@ -2669,10 +2657,8 @@ class TestDownload:
     )
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_raw_component_asset_url")
     @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
-    @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
     def test_download_url_package(
         self,
-        mock_upload_package,
         mock_download_file,
         mock_get_component_url,
         have_raw_component,
@@ -2712,9 +2698,10 @@ class TestDownload:
 
         assert download_info == {
             "package": "foo",
-            "raw_component_name": raw_component,
             "path": tmp_path / "external-foo" / "foo-external-sha256-abcdef.tar.gz",
             "original_url": original_url,
+            "raw_component_name": raw_component,
+            "have_raw_component": have_raw_component,
         }
 
         download_path = download_info["path"]
@@ -2726,21 +2713,10 @@ class TestDownload:
             mock_download_file.assert_called_once_with(
                 raw_url, download_path, auth=("username", "password")
             )
-            mock_upload_package.assert_not_called()
         else:
             assert f"Raw component not found, will download from '{original_url}'" in caplog.text
             mock_download_file.assert_called_once_with(
                 original_url, download_path, insecure=host_is_trusted
-            )
-            assert (
-                f"Downloaded package, uploading as '{raw_component}' to 'cachito-pip-raw'"
-            ) in caplog.text
-            mock_upload_package.assert_called_once_with(
-                "cachito-pip-raw",
-                download_path,
-                dest_dir="foo",
-                filename="foo-external-sha256-abcdef.tar.gz",
-                is_request_repository=False,
             )
 
     def test_ignored_and_rejected_options(self, caplog):
@@ -2938,6 +2914,8 @@ class TestDownload:
         assert str(exc_info.value) == msg
 
     @pytest.mark.parametrize("use_hashes", [True, False])
+    @pytest.mark.parametrize("have_vcs_raw_component", [True, False])
+    @pytest.mark.parametrize("have_url_raw_component", [True, False])
     @pytest.mark.parametrize("trusted_hosts", [[], ["example.org"]])
     @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
     @mock.patch("cachito.workers.pkg_managers.pip.get_worker_config")
@@ -2946,8 +2924,10 @@ class TestDownload:
     @mock.patch("cachito.workers.pkg_managers.pip._download_vcs_package")
     @mock.patch("cachito.workers.pkg_managers.pip._download_url_package")
     @mock.patch("cachito.workers.pkg_managers.pip.verify_checksum")
+    @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
     def test_download_dependencies(
         self,
+        mock_upload_raw_package,
         mock_verify_checksum,
         mock_url_download,
         mock_vcs_download,
@@ -2956,6 +2936,8 @@ class TestDownload:
         mock_get_config,
         mock_request_bundle_dir,
         use_hashes,
+        have_vcs_raw_component,
+        have_url_raw_component,
         trusted_hosts,
         tmp_path,
         caplog,
@@ -2965,6 +2947,7 @@ class TestDownload:
 
         Mock the helper functions used for downloading here, test them properly elsewhere.
         """
+        # <setup>
         git_url = f"https://github.com/spam/eggs@{GIT_REF}"
         plain_url = "https://example.org/bar.tar.gz"
 
@@ -3013,15 +2996,18 @@ class TestDownload:
         pypi_info = {"package": "foo", "version": "1.0", "path": pypi_download}
         vcs_info = {
             "package": "eggs",
-            "raw_component_name": f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz",
             "path": vcs_download,
+            "repo": "eggs",
+            "raw_component_name": f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz",
+            "have_raw_component": have_vcs_raw_component,
             # etc., not important for this test
         }
         url_info = {
             "package": "bar",
-            "raw_component_name": "bar/bar-external-sha256-654321.tar.gz",
             "original_url": plain_url,
             "path": url_download,
+            "raw_component_name": "bar/bar-external-sha256-654321.tar.gz",
+            "have_raw_component": have_url_raw_component,
         }
 
         mock_request_bundle_dir.return_value = mock_bundle_dir
@@ -3032,16 +3018,19 @@ class TestDownload:
         mock_pypi_download.return_value = pypi_info
         mock_vcs_download.return_value = vcs_info
         mock_url_download.return_value = url_info
+        # </setup>
 
+        # <call>
         downloads = pip.download_dependencies(1, req_file)
         assert downloads == [
             {**pypi_info, "kind": "pypi"},
             {**vcs_info, "kind": "vcs"},
             {**url_info, "kind": "url"},
         ]
-
         assert pip_deps.is_dir()
+        # </call>
 
+        # <check calls that must always be made>
         mock_request_bundle_dir.assert_called_once_with(1)
         mock_get_config.assert_called_once()
         mock_pypi_download.assert_called_once_with(pypi_req, pip_deps, proxy_url, proxy_auth)
@@ -3049,37 +3038,75 @@ class TestDownload:
         mock_url_download.assert_called_once_with(
             url_req, pip_deps, raw_repo, nexus_auth, set(trusted_hosts)
         )
+        # </check calls that must always be made>
 
+        # <check calls to checksum verification method>
+        verify_url_checksum_call = mock.call(
+            str(url_download), general.ChecksumInfo("sha256", "654321")
+        )
         if use_hashes:
             msg = "At least one dependency uses the --hash option, will require hashes"
             assert msg in caplog.text
 
-            mock_verify_checksum.assert_has_calls(
-                [
-                    mock.call(str(pypi_download), general.ChecksumInfo("sha256", "abcdef")),
-                    mock.call(str(vcs_download), general.ChecksumInfo("sha256", "123456")),
-                    mock.call(str(url_download), general.ChecksumInfo("sha256", "654321")),
-                ]
+            verify_checksum_calls = [
+                mock.call(str(pypi_download), general.ChecksumInfo("sha256", "abcdef")),
+                mock.call(str(vcs_download), general.ChecksumInfo("sha256", "123456")),
+                verify_url_checksum_call,
+            ]
+        else:
+            msg = (
+                "No hash options used, will not require hashes for non-HTTP(S) dependencies. "
+                "HTTP(S) dependencies always require hashes (use the #cachito_hash URL qualifier)."
             )
-            assert mock_verify_checksum.call_count == 3
+            assert msg in caplog.text
+            # Hashes for URL dependencies should be verified no matter what
+            verify_checksum_calls = [verify_url_checksum_call]
 
+        mock_verify_checksum.assert_has_calls(verify_checksum_calls)
+        assert mock_verify_checksum.call_count == len(verify_checksum_calls)
+
+        if use_hashes:
             assert f"Verifying checksum of {pypi_download.name}" in caplog.text
             assert f"Checksum of {pypi_download.name} matches: sha256:abcdef" in caplog.text
 
             assert f"Verifying checksum of {vcs_download.name}" in caplog.text
             assert f"Checksum of {vcs_download.name} matches: sha256:123456" in caplog.text
 
-            assert f"Verifying checksum of {url_download.name}" in caplog.text
-            assert f"Checksum of {url_download.name} matches: sha256:654321" in caplog.text
-        else:
-            assert not mock_verify_checksum.called
+        assert f"Verifying checksum of {url_download.name}" in caplog.text
+        assert f"Checksum of {url_download.name} matches: sha256:654321" in caplog.text
+        # </check calls to checksum verification method>
 
-            msg = (
-                "No hash options used, will not require hashes for non-HTTP(S) dependencies. "
-                "HTTP(S) dependencies always require hashes (use the #cachito_hash URL qualifier)."
+        # <check calls to raw package upload method>
+        if not have_vcs_raw_component:
+            assert (
+                f"Uploading '{vcs_download.name}' to '{raw_repo}' "
+                f"as '{vcs_info['raw_component_name']}'"
+            ) in caplog.text
+            mock_upload_raw_package.assert_any_call(
+                raw_repo,
+                vcs_download,
+                vcs_info["repo"],
+                vcs_download.name,
+                is_request_repository=False,
             )
-            assert msg in caplog.text
+        if not have_url_raw_component:
+            assert (
+                f"Uploading '{url_download.name}' to '{raw_repo}' "
+                f"as '{url_info['raw_component_name']}'"
+            ) in caplog.text
+            mock_upload_raw_package.assert_any_call(
+                raw_repo,
+                url_download,
+                url_info["package"],
+                url_download.name,
+                is_request_repository=False,
+            )
+        assert mock_upload_raw_package.call_count == (
+            (0 if have_vcs_raw_component else 1) + (0 if have_url_raw_component else 1)
+        )
+        # </check calls to raw package upload method>
 
+        # <check basic logging output>
         assert f"Downloading {pypi_req.download_line}" in caplog.text
         assert (
             f"Successfully downloaded {pypi_req.download_line} to deps/pip/foo/foo-1.0.tar.gz"
@@ -3096,6 +3123,7 @@ class TestDownload:
             f"Successfully downloaded {url_req.download_line} to deps/pip/external-bar/"
             f"bar-external-sha256-654321.tar.gz"
         ) in caplog.text
+        # </check basic logging output>
 
     @pytest.mark.parametrize(
         "hashes, success",

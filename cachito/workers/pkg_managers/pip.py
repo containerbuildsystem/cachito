@@ -1241,6 +1241,10 @@ def download_dependencies(request_id, requirements_file):
     """
     Download sdists (source distributions) of all dependencies in a requirements.txt file.
 
+    After downloading, upload all VCS and URL dependencies to the Nexus raw repo if they
+    were not already present. PyPI dependencies get cached automatically just by being
+    downloaded from the right URL, see _download_pypi_package().
+
     :param int request_id: ID of the request these dependencies are being downloaded for
     :param PipRequirementsFile requirements_file: A requirements.txt file
     :return: Info about downloaded packages; all items will contain "kind" and "path" keys
@@ -1304,10 +1308,26 @@ def download_dependencies(request_id, requirements_file):
             download_info["path"].relative_to(bundle_dir),
         )
 
-        # TODO: Always verify URL requirements?
-        if require_hashes:
+        if require_hashes or req.kind == "url":
             hashes = req.hashes or [req.qualifiers["cachito_hash"]]
             _verify_hash(download_info["path"], hashes)
+
+        # If the raw component is not in the Nexus hoster instance, upload it there
+        if req.kind in ("vcs", "url") and not download_info["have_raw_component"]:
+            log.debug(
+                "Uploading %r to %r as %r",
+                download_info["path"].name,
+                pip_raw_repo_name,
+                download_info["raw_component_name"],
+            )
+            dest_dir, filename = download_info["raw_component_name"].rsplit("/", 1)
+            upload_raw_package(
+                pip_raw_repo_name,
+                download_info["path"],
+                dest_dir,
+                filename,
+                is_request_repository=False,
+            )
 
         download_info["kind"] = req.kind
         downloads.append(download_info)
@@ -1586,15 +1606,16 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     """
     Fetch the source for a Python package from VCS (only git is supported).
 
-    After downloading, upload this package to the Pip raw repository on the Nexus hoster instance,
-    and on subsequent downloads, reuse the uploaded asset instead of fetching from VCS again.
+    If the package is already present in Nexus as a raw component, download it
+    from there instead of fetching from the original location.
 
     :param PipRequirement requirement: VCS requirement from a requirements.txt file
     :param Path pip_deps_dir: The deps/pip directory in a Cachito request bundle
     :param str pip_raw_repo_name: Name of the Nexus raw repository for Pip
     :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
 
-    :return: Dict with package name, name of raw component in Nexus, download path and git info
+    :return: Dict with package name, download path, git info, name of raw component in Nexus
+        and boolean whether we already have the raw component in Nexus
     """
     git_info = _extract_git_info(requirement.url)
 
@@ -1619,22 +1640,15 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
         log.debug("Raw component not found, will fetch from git")
         repo = Git(git_info["url"], ref)
         repo.fetch_source()
-        log.debug("Fetched package, uploading as %r to %r", raw_component_name, pip_raw_repo_name)
-        upload_raw_package(
-            pip_raw_repo_name,
-            repo.sources_dir.archive_path,
-            dest_dir=repo_name,
-            filename=filename,
-            is_request_repository=False,
-        )
         # Copy downloaded archive to expected download path
         shutil.copy(repo.sources_dir.archive_path, download_path)
 
     return {
         "package": requirement.package,
-        "raw_component_name": raw_component_name,
         "path": download_path,
         **git_info,
+        "raw_component_name": raw_component_name,
+        "have_raw_component": have_raw_component,
     }
 
 
@@ -1691,8 +1705,8 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     """
     Download a Python package from a URL.
 
-    After downloading, upload this package to the Pip raw repository on the Nexus hoster instance,
-    and on subsequent downloads, reuse the uploaded asset instead of downloading from URL again.
+    If the package is already present in Nexus as a raw component, download it
+    from there instead of fetching from the original location.
 
     :param PipRequirement requirement: VCS requirement from a requirements.txt file
     :param Path pip_deps_dir: The deps/pip directory in a Cachito request bundle
@@ -1700,7 +1714,8 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
     :param set[str] trusted_hosts: If host (or host:port) is trusted, do not verify SSL
 
-    :return: Dict with package name, name of raw component in Nexus, download path and original URL
+    :return: Dict with package name, download path, original URL, name of raw component in Nexus
+        and boolean whether we already have the raw component in Nexus
     """
     package = requirement.package
 
@@ -1739,22 +1754,12 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
 
         download_binary_file(requirement.url, download_path, insecure=insecure)
 
-        log.debug(
-            "Downloaded package, uploading as %r to %r", raw_component_name, pip_raw_repo_name
-        )
-        upload_raw_package(
-            pip_raw_repo_name,
-            download_path,
-            dest_dir=package,
-            filename=filename,
-            is_request_repository=False,
-        )
-
     return {
         "package": package,
-        "raw_component_name": raw_component_name,
         "path": download_path,
         "original_url": requirement.url,
+        "raw_component_name": raw_component_name,
+        "have_raw_component": have_raw_component,
     }
 
 
