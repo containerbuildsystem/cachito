@@ -3197,6 +3197,34 @@ class TestDownload:
         assert log_msg in caplog.text
         mock_upload.assert_called_once_with(name, dest_dir, components, not is_request_repo)
 
+    @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_credentials")
+    @mock.patch("cachito.workers.pkg_managers.pip._download_pypi_package")
+    def test_download_from_requirement_files(
+        self, mock_pypi_download, mock_get_nexus_creds, mock_request_bundle_dir, tmp_path,
+    ):
+        """Test downloading dependencies from a requirement file list."""
+        req_file1 = tmp_path / "requirements.txt"
+        req_file1.write_text("foo==1.0.0")
+        req_file2 = tmp_path / "requirements-alt.txt"
+        req_file2.write_text("bar==0.0.1")
+
+        mock_bundle_dir = MockBundleDir(tmp_path)
+        pip_deps = mock_bundle_dir.pip_deps_dir
+
+        pypi_download1 = pip_deps / "foo" / "foo-1.0.0.tar.gz"
+        pypi_download2 = pip_deps / "bar" / "bar-0.0.1.tar.gz"
+
+        pypi_info1 = {"package": "foo", "version": "1.0.0", "path": pypi_download1}
+        pypi_info2 = {"package": "bar", "version": "0.0.1", "path": pypi_download2}
+
+        mock_request_bundle_dir.return_value = mock_bundle_dir
+        mock_get_nexus_creds.return_value = ("username", "password")
+        mock_pypi_download.side_effect = [pypi_info1, pypi_info2]
+
+        downloads = pip._download_from_requirement_files(1, [req_file1, req_file2])
+        assert downloads == [{**pypi_info1, "kind": "pypi"}, {**pypi_info2, "kind": "pypi"}]
+
 
 def test_get_pypi_hosted_repo_name():
     assert pip.get_pypi_hosted_repo_name(42) == "cachito-pip-hosted-42"
@@ -3236,3 +3264,137 @@ def test_get_index_url_invalid_url():
         pip.get_index_url(
             "repository/cachito-pip-hosted-5/simple", "admin", "admin123",
         )
+
+
+@pytest.mark.parametrize("exists", [True, False])
+@pytest.mark.parametrize("devel", [True, False])
+def test_default_requirement_file_list(tmp_path, exists, devel):
+    req_file = None
+    requirements = pip.DEFAULT_REQUIREMENTS_FILE
+    build_requirements = pip.DEFAULT_BUILD_REQUIREMENTS_FILE
+    if exists:
+        filename = build_requirements if devel else requirements
+        req_file = tmp_path / filename
+        req_file.write_text("nothing to see here\n")
+
+    req_files = pip._default_requirement_file_list(tmp_path, devel)
+    expected = [str(req_file)] if req_file else []
+    assert req_files == expected
+
+
+@pytest.mark.parametrize("dev", [True, False])
+@mock.patch("cachito.workers.pkg_managers.pip.upload_pypi_package")
+def test_push_downloaded_requirement_from_pypi(mock_upload, dev):
+    pip_repo_name = "test-pip-hosted"
+    raw_repo_name = "test-pip-raw"
+    name = "foo"
+    version = "1"
+    path = "some/path"
+    req = {"package": name, "version": version, "path": path, "kind": "pypi", "dev": dev}
+    expected_dependency = {"name": name, "version": version, "type": "pip", "dev": dev}
+    dependency = pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
+    mock_upload.assert_called_once_with(pip_repo_name, path)
+    assert dependency == expected_dependency
+
+
+@pytest.mark.parametrize("dev", [True, False])
+@mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
+def test_push_downloaded_requirement_vcs(mock_upload, dev):
+    pip_repo_name = "test-pip-hosted"
+    raw_repo_name = "test-pip-raw"
+    name = "eggs"
+    path = "some/path"
+    version = f"vcs:github.com/spam/eggs@{GIT_REF}"
+    raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+    dest_dir, filename = raw_component.rsplit("/", 1)
+    req = {
+        "package": name,
+        "raw_component_name": raw_component,
+        "path": path,
+        "kind": "vcs",
+        "dev": dev,
+        "host": "github.com",
+        "namespace": "spam",
+        "repo": "eggs",
+        "ref": GIT_REF,
+    }
+    expected_dependency = {"name": name, "version": version, "type": "pip", "dev": dev}
+    dependency = pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
+    mock_upload.assert_called_once_with(raw_repo_name, path, dest_dir, filename, True)
+    assert dependency == expected_dependency
+
+
+@mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")
+def test_resolve_pip_no_deps(mock_metadata, tmp_path):
+    mock_metadata.return_value = ("foo", "1.0")
+    request = {"id": 1}
+    pkg_info = pip.resolve_pip(tmp_path, request)
+    expected = {
+        "package": {"name": "foo", "version": "1.0", "type": "pip"},
+        "dependencies": [],
+    }
+    assert pkg_info == expected
+
+
+@mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")
+def test_resolve_pip_incompatible(mock_metadata, tmp_path):
+    expected_error = "Could not resolve package metadata: name"
+    mock_metadata.side_effect = CachitoError(expected_error)
+    request = {"id": 1}
+    with pytest.raises(CachitoError, match=expected_error):
+        pip.resolve_pip(tmp_path, request)
+
+
+@pytest.mark.parametrize("custom_requirements", [True, False])
+@mock.patch("cachito.workers.pkg_managers.pip.upload_pypi_package")
+@mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")
+@mock.patch("cachito.workers.pkg_managers.pip.download_dependencies")
+def test_resolve_pip(mock_download, mock_metadata, mock_upload, tmp_path, custom_requirements):
+    relative_req_file_path = "req.txt"
+    relative_build_req_file_path = "breq.txt"
+    req_file = tmp_path / pip.DEFAULT_REQUIREMENTS_FILE
+    build_req_file = tmp_path / pip.DEFAULT_BUILD_REQUIREMENTS_FILE
+    if custom_requirements:
+        req_file = tmp_path / relative_req_file_path
+        build_req_file = tmp_path / relative_build_req_file_path
+
+    req_file.write_text("bar==2.1")
+    build_req_file.write_text("baz==0.0.5")
+    mock_metadata.return_value = ("foo", "1.0")
+    mock_download.side_effect = [
+        [{"kind": "pypi", "path": "some/path", "package": "bar", "version": "2.1"}],
+        [{"kind": "pypi", "path": "another/path", "package": "baz", "version": "0.0.5"}],
+    ]
+    request = {"id": 1}
+    if custom_requirements:
+        pkg_info = pip.resolve_pip(
+            tmp_path,
+            request,
+            requirement_files=[relative_req_file_path],
+            build_requirement_files=[relative_build_req_file_path],
+        )
+    else:
+        pkg_info = pip.resolve_pip(tmp_path, request)
+
+    mock_upload.assert_has_calls(
+        [
+            mock.call("cachito-pip-hosted-1", "some/path"),
+            mock.call("cachito-pip-hosted-1", "another/path"),
+        ]
+    )
+    assert mock_upload.call_count == 2
+    expected = {
+        "package": {"name": "foo", "version": "1.0", "type": "pip"},
+        "dependencies": [
+            {"name": "bar", "version": "2.1", "type": "pip", "dev": False},
+            {"name": "baz", "version": "0.0.5", "type": "pip", "dev": True},
+        ],
+    }
+    assert pkg_info == expected
+
+
+def test_get_absolute_pkg_file_paths(tmp_path):
+    paths = ["foo", "foo/bar", "bar"]
+    expected_paths = [str(tmp_path / p) for p in paths]
+    assert pip._get_absolute_pkg_file_paths(tmp_path, paths) == expected_paths
+    assert pip._get_absolute_pkg_file_paths(tmp_path, []) == []
