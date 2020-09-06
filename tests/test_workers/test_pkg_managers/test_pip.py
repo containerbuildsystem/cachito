@@ -11,6 +11,7 @@ import requests
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import pip, general
+from cachito.workers.requests import requests_session
 
 
 GIT_REF = "9a557920b2a6d4110f838506120904a6fda421a2"
@@ -2398,7 +2399,7 @@ class TestDownload:
         ],
     )
     @pytest.mark.parametrize("metadata_in_response", [True, False])
-    @mock.patch.object(pip.requests_session, "get")
+    @mock.patch.object(requests_session, "get")
     @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
     def test_download_pypi_package(
         self,
@@ -2455,7 +2456,7 @@ class TestDownload:
             "https://pypi-proxy.org/pypi/aiowsgi/0.7/json", auth=("user", "password")
         )
 
-    @mock.patch.object(pip.requests_session, "get")
+    @mock.patch.object(requests_session, "get")
     def test_download_pypi_package_unexpected_url(self, mock_get):
         """Test that an unexpected file URL will cause a RuntimeError."""
         mock_requirement = self.mock_requirement("aiowsgi", "pypi", version_specs=[("==", "0.7")])
