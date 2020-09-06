@@ -30,6 +30,9 @@ from cachito.workers.scm import Git
 
 log = logging.getLogger(__name__)
 
+DEFAULT_BUILD_REQUIREMENTS_FILE = "requirements-build.txt"
+DEFAULT_REQUIREMENTS_FILE = "requirements.txt"
+
 NOTHING = object()  # A None replacement for cases where the distinction is needed
 
 # Check that the path component of a URL ends with a full-length git ref
@@ -1921,3 +1924,130 @@ def get_index_url(nexus_pypi_hosted_repo_url, username, password):
         )
 
     return index_url
+
+
+def _download_from_requirement_files(request_id, files):
+    """
+    Download dependencies listed in the requirement files.
+
+    :param int request_id: ID of the request these dependencies are being downloaded for
+    :param list files: list of str, each representing the absolute path of a pip requirement file
+    :return: Info about downloaded packages; see download_dependencies return docs for further
+        reference
+    :rtype: list[dict]
+    """
+    requirements = []
+    for req_file in files:
+        requirements.extend(download_dependencies(request_id, PipRequirementsFile(req_file)))
+    return requirements
+
+
+def _default_requirement_file_list(path, devel=False):
+    """
+    Get the paths for the default pip requirement files, if they are present.
+
+    :param Path path: the full path to the application source code
+    :param bool devel: whether to return the build requirement files
+    :return: list of str representing the absolute paths to the Python requirement files
+    :rtype: list[str]
+    """
+    filename = DEFAULT_BUILD_REQUIREMENTS_FILE if devel else DEFAULT_REQUIREMENTS_FILE
+    req = path / filename
+    return [str(req)] if req.is_file() else []
+
+
+def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
+    """
+    Upload a dependency to the proper Request temporary Nexus repository.
+
+    :param dict requirement: Single entry with the info about downloaded packages retrieved from the
+        list returned by the download_dependencies function
+    :param str pip_repo_name: Name of the Nexus Python hosted repository to push the requirement to
+        (if pypi)
+    :param str raw_repo_name: Name of the Nexus raw hosted repository to push the requirement to
+        (if not pypi)
+    :return: dict with the cachito Dependency representation
+    :rtype: dict
+    """
+    if requirement["kind"] == "pypi":
+        upload_pypi_package(pip_repo_name, requirement["path"])
+        dep = {"name": requirement["package"], "version": requirement["version"], "type": "pip"}
+    else:
+        dest_dir, filename = requirement["raw_component_name"].rsplit("/", 1)
+        upload_raw_package(raw_repo_name, requirement["path"], dest_dir, filename, True)
+        version = (
+            f"vcs:{requirement['host']}/{requirement['namespace']}/{requirement['repo']}@"
+            f"{requirement['ref']}"
+        )
+        dep = {"name": requirement["package"], "version": version, "type": "pip"}
+
+    dep["dev"] = requirement.get("dev", False)
+    return dep
+
+
+def resolve_pip(path, request, requirement_files=None, build_requirement_files=None):
+    """
+    Resolve and fetch pip dependencies for the given app source archive.
+
+    :param Path path: the full path to the application source code
+    :param dict request: the Cachito request to resolve pip dependencies for
+    :param list requirement_files: a list of str representing paths to the Python requirement files
+        to be used to compile a list of dependencies to be fetched
+    :param list build_requirement_files: a list of str representing paths to the Python build
+        requirement files to be used to compile a list of build dependencies to be fetched
+    :return: a dictionary that has the following keys:
+        ``package`` which is the dict representing the main Package,
+        ``dependencies`` which is a list of dicts representing the package Dependencies
+    :rtype: dict
+    :raises CachitoError: if the package is not cachito-pip compatible
+    """
+    log.debug("Checking if the application source uses pip")
+    try:
+        pkg_name, pkg_version = get_pip_metadata(path)
+    except CachitoError:
+        log.exception("The requested package is not pip compatible")
+        raise
+
+    # This could be an empty list
+    if requirement_files is None:
+        requirement_files = _default_requirement_file_list(path)
+    else:
+        requirement_files = _get_absolute_pkg_file_paths(path, requirement_files)
+
+    # This could be an empty list
+    if build_requirement_files is None:
+        build_requirement_files = _default_requirement_file_list(path, devel=True)
+    else:
+        build_requirement_files = _get_absolute_pkg_file_paths(path, build_requirement_files)
+
+    requires = _download_from_requirement_files(request["id"], requirement_files)
+    buildrequires = _download_from_requirement_files(request["id"], build_requirement_files)
+
+    # Mark all build dependencies as Cachito dev dependencies
+    for dependency in buildrequires:
+        dependency["dev"] = True
+
+    # Upload dependencies and prepare return value
+    dependencies = []
+    pip_repo_name = get_pypi_hosted_repo_name(request["id"])
+    raw_repo_name = get_raw_hosted_repo_name(request["id"])
+    for requirement in requires + buildrequires:
+        dep = _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name)
+        dependencies.append(dep)
+
+    return {
+        "package": {"name": pkg_name, "version": pkg_version, "type": "pip"},
+        "dependencies": dependencies,
+    }
+
+
+def _get_absolute_pkg_file_paths(path, relative_paths):
+    """
+    Get the absolute paths for a list of files in a package.
+
+    :param Path path: the root path for the package containing the files in relative_paths
+    :param list relative_paths: paths to be converted to absolute paths
+    :return: absolute paths for the items in relative_paths
+    :rtype: list
+    """
+    return [str(path / r) for r in relative_paths]
