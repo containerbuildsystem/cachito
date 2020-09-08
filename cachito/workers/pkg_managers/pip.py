@@ -1974,14 +1974,20 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
     if requirement["kind"] == "pypi":
         upload_pypi_package(pip_repo_name, requirement["path"])
         dep = {"name": requirement["package"], "version": requirement["version"], "type": "pip"}
-    else:
+    elif requirement["kind"] in ("vcs", "url"):
         dest_dir, filename = requirement["raw_component_name"].rsplit("/", 1)
         upload_raw_package(raw_repo_name, requirement["path"], dest_dir, filename, True)
-        version = (
-            f"vcs:{requirement['host']}/{requirement['namespace']}/{requirement['repo']}@"
-            f"{requirement['ref']}"
-        )
+        if requirement["kind"] == "vcs":
+            version = (
+                f"vcs:{requirement['host']}/{requirement['namespace']}/{requirement['repo']}@"
+                f"{requirement['ref']}"
+            )
+        else:
+            version = requirement["original_url"]
+
         dep = {"name": requirement["package"], "version": version, "type": "pip"}
+    else:
+        raise ValueError(f"Invalid pip requirement kind {requirement['kind']!r}")
 
     dep["dev"] = requirement.get("dev", False)
     return dep
