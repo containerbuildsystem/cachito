@@ -3299,26 +3299,41 @@ def test_push_downloaded_requirement_from_pypi(mock_upload, dev):
 
 
 @pytest.mark.parametrize("dev", [True, False])
+@pytest.mark.parametrize("kind", ["url", "vcs"])
 @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
-def test_push_downloaded_requirement_vcs(mock_upload, dev):
+def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
     pip_repo_name = "test-pip-hosted"
     raw_repo_name = "test-pip-raw"
     name = "eggs"
     path = "some/path"
-    version = f"vcs:github.com/spam/eggs@{GIT_REF}"
-    raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+    if kind == "vcs":
+        version = f"vcs:github.com/spam/eggs@{GIT_REF}"
+        raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+    elif kind == "url":
+        url = "https://example.org/eggs.tar.gz"
+        version = url
+        raw_component = f"eggs/eggs.tar.gz"
+
     dest_dir, filename = raw_component.rsplit("/", 1)
     req = {
         "package": name,
         "raw_component_name": raw_component,
         "path": path,
-        "kind": "vcs",
+        "kind": kind,
         "dev": dev,
-        "host": "github.com",
-        "namespace": "spam",
-        "repo": "eggs",
-        "ref": GIT_REF,
     }
+    if kind == "vcs":
+        additional_keys = {
+            "host": "github.com",
+            "namespace": "spam",
+            "repo": "eggs",
+            "ref": GIT_REF,
+        }
+    elif kind == "url":
+        additional_keys = {"original_url": url}
+
+    req.update(additional_keys)
+
     expected_dependency = {"name": name, "version": version, "type": "pip", "dev": dev}
     dependency = pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
     mock_upload.assert_called_once_with(raw_repo_name, path, dest_dir, filename, True)
