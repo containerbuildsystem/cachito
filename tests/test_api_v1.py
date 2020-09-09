@@ -20,6 +20,7 @@ from cachito.workers.tasks import (
     fetch_app_source,
     fetch_gomod_source,
     fetch_npm_source,
+    fetch_pip_source,
     failed_request_callback,
     create_bundle_archive,
 )
@@ -51,6 +52,7 @@ from cachito.workers.tasks import (
         ),
         ([], [], "tom_hanks@DOMAIN.LOCAL", []),
         ([], ["npm"], None, ["npm"]),
+        ([], ["pip"], None, ["pip"]),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -108,6 +110,8 @@ def test_create_and_fetch_request(
         )
     if "npm" in expected_pkg_managers:
         expected.append(fetch_npm_source.si(created_request["id"], {}).on_error(error_callback))
+    if "pip" in expected_pkg_managers:
+        expected.append(fetch_pip_source.si(created_request["id"], {}).on_error(error_callback))
     expected.append(create_bundle_archive.si(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
 
@@ -462,28 +466,35 @@ def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, cl
 
 
 @pytest.mark.parametrize(
-    "dependency_replacements, error_msg",
+    "pkg_manager, dependency_replacements, error_msg",
     (
         (
+            "npm",
             ["mypackage"],
             "A dependency replacement must be a JSON object with the following keys: name, type, "
             "version. It may also contain the following optional keys: new_name.",
         ),
-        ("mypackage", '"dependency_replacements" must be an array'),
+        ("npm", "mypackage", '"dependency_replacements" must be an array'),
         (
+            "npm",
             [{"name": "rxjs", "type": "npm", "version": "6.5.5"}],
             "Dependency replacements are not yet supported for the npm package manager",
+        ),
+        (
+            "pip",
+            [{"name": "flexmock", "type": "pip", "version": "0.15"}],
+            "Dependency replacements are not yet supported for the pip package manager",
         ),
     ),
 )
 def test_create_request_invalid_dependency_replacement(
-    dependency_replacements, error_msg, auth_env, client, db
+    dependency_replacements, error_msg, auth_env, client, db, pkg_manager
 ):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "dependency_replacements": dependency_replacements,
-        "pkg_managers": ["npm"],
+        "pkg_managers": [pkg_manager],
     }
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)

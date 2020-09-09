@@ -242,7 +242,7 @@ class Dependency(Package):
     This uses the same table as Package, but has different methods.
     """
 
-    pkg_managers_with_dev = ("npm",)
+    pkg_managers_with_dev = ("npm", "pip")
 
     def __repr__(self):
         rv = (
