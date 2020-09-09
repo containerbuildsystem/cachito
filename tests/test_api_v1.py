@@ -1553,12 +1553,15 @@ def test_fetch_request_content_manifest_go(
         assert rv.json == {"error": err_msg}
 
 
+@pytest.mark.parametrize("pkg_manager, purl_type", [("npm", "npm"), ("pip", "pypi")])
 @pytest.mark.parametrize("state", ["complete", "stale", "in_progress", "failed"])
-def test_fetch_request_content_manifest_npm(app, client, db, auth_env, worker_auth_env, state):
+def test_fetch_request_content_manifest_npm_or_pip(
+    app, client, db, auth_env, worker_auth_env, state, pkg_manager, purl_type
+):
     data = {
-        "repo": "https://github.com/release-engineering/console-ui.git",
+        "repo": "https://github.com/release-engineering/dummy.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["npm"],
+        "pkg_managers": [pkg_manager],
     }
     # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=auth_env):
@@ -1567,24 +1570,24 @@ def test_fetch_request_content_manifest_npm(app, client, db, auth_env, worker_au
     db.session.add(request)
     db.session.commit()
 
-    npm_pkgs = [
-        {"name": "client", "type": "npm", "version": "1.0.0"},
-        {"name": "proxy", "type": "npm", "version": "1.0.0"},
+    pkgs = [
+        {"name": "pkg-aa", "type": pkg_manager, "version": "1.0.0"},
+        {"name": "pkg-bb", "type": pkg_manager, "version": "1.0.0"},
     ]
-    npm_deps = [
-        {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
-        {"dev": True, "name": "safe-regex", "replaces": None, "type": "npm", "version": "1.1.0"},
-        {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
-        {"dev": False, "name": "react", "replaces": None, "type": "npm", "version": "16.13.1"},
+    deps = [
+        {"dev": True, "name": "dep-aa", "replaces": None, "type": pkg_manager, "version": "1.0.0"},
+        {"dev": True, "name": "dep-bb", "replaces": None, "type": pkg_manager, "version": "2.0.0"},
+        {"dev": True, "name": "dep-cc", "replaces": None, "type": pkg_manager, "version": "3.0.0"},
+        {"dev": False, "name": "dep-dd", "replaces": None, "type": pkg_manager, "version": "4.0.0"},
     ]
     payload = {
-        "dependencies": npm_deps[:2],
-        "package": npm_pkgs[0],
+        "dependencies": deps[:2],
+        "package": pkgs[0],
     }
     client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
     payload = {
-        "dependencies": npm_deps[2:],
-        "package": npm_pkgs[1],
+        "dependencies": deps[2:],
+        "package": pkgs[1],
     }
     client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
 
@@ -1600,13 +1603,19 @@ def test_fetch_request_content_manifest_npm(app, client, db, auth_env, worker_au
     image_contents = [
         {
             "dependencies": [],
-            "purl": "pkg:npm/client@1.0.0",
-            "sources": [{"purl": "pkg:npm/rxjs@6.5.5"}, {"purl": "pkg:npm/safe-regex@1.1.0"}],
+            "purl": f"pkg:{purl_type}/pkg-aa@1.0.0",
+            "sources": [
+                {"purl": f"pkg:{purl_type}/dep-aa@1.0.0"},
+                {"purl": f"pkg:{purl_type}/dep-bb@2.0.0"},
+            ],
         },
         {
-            "dependencies": [{"purl": "pkg:npm/react@16.13.1"}],
-            "purl": "pkg:npm/proxy@1.0.0",
-            "sources": [{"purl": "pkg:npm/react@16.13.1"}, {"purl": "pkg:npm/rxjs@6.5.5"}],
+            "dependencies": [{"purl": f"pkg:{purl_type}/dep-dd@4.0.0"}],
+            "purl": f"pkg:{purl_type}/pkg-bb@1.0.0",
+            "sources": [
+                {"purl": f"pkg:{purl_type}/dep-cc@3.0.0"},
+                {"purl": f"pkg:{purl_type}/dep-dd@4.0.0"},
+            ],
         },
     ]
 

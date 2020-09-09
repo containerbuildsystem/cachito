@@ -8,6 +8,7 @@ import urllib.parse
 
 import flask
 from flask_login import UserMixin, current_user
+import pkg_resources
 import sqlalchemy
 import sqlalchemy.sql
 from werkzeug.exceptions import Forbidden
@@ -230,6 +231,28 @@ class Package(db.Model):
                 raise ContentManifestError(
                     f"Unknown protocol in npm package version: {self.version}"
                 )
+
+        elif self.type == "pip":
+            # As per the purl spec, PyPI names should be normalized by lowercasing and
+            # converting '_' to '-'. The safe_name() function does the latter but not the
+            # former. It is not necessary to escape characters in the name, safe_name()
+            # also replaces everything except alphanumeric chars and '.' with '-'.
+            name = pkg_resources.safe_name(self.name.lower())
+            parsed_url = urllib.parse.urlparse(self.version)
+
+            if not parsed_url.scheme:
+                # Version is a PyPI version string
+                return f"pkg:pypi/{name}@{self.version}"
+            elif parsed_url.scheme.startswith("git+"):
+                # Version is git+<git_url>
+                quoted_url = urllib.parse.quote(self.version, safe="")
+                return f"pkg:generic/{name}?vcs_url={quoted_url}"
+            else:
+                # Version is a plain URL
+                fragments = urllib.parse.parse_qs(parsed_url.fragment)
+                checksum = fragments["cachito_hash"][0]
+                quoted_url = urllib.parse.quote(self.version, safe="")
+                return f"pkg:generic/{name}?download_url={quoted_url}&checksum={checksum}"
 
         else:
             raise ContentManifestError(f"The PURL spec is not defined for {self.type} packages")

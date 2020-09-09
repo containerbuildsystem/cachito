@@ -27,6 +27,8 @@ class ContentManifest:
         self._gomod_data = {}
         # dict to store npm package data; uses the package purl as key to identify a package
         self._npm_data = {}
+        # dict to store pip package data; uses the package purl as key to identify a package
+        self._pip_data = {}
 
     def process_gomod(self, package, dependency):
         """
@@ -83,11 +85,31 @@ class ContentManifest:
         :param Dependency dependency: the npm package dependency to process
         """
         if dependency.type == "npm":
-            purl = package.to_purl()
-            icm_dependency = {"purl": dependency.to_purl()}
-            self._npm_data[purl]["sources"].append(icm_dependency)
-            if not dependency.dev:
-                self._npm_data[purl]["dependencies"].append(icm_dependency)
+            self._process_standard_package("npm", package, dependency)
+
+    def process_pip_package(self, package, dependency):
+        """
+        Process pip package.
+
+        :param Package package: the pip package to process
+        :param Dependency dependency: the pip package dependency to process
+        """
+        if dependency.type == "pip":
+            self._process_standard_package("pip", package, dependency)
+
+    def _process_standard_package(self, pkg_type, package, dependency):
+        """
+        Process a standard package (standard = does not require the same magic as go packages).
+
+        Currently, all package types except for gomod and go-package are standard.
+        """
+        pkg_type_data = getattr(self, f"_{pkg_type}_data")
+
+        purl = package.to_purl()
+        icm_dependency = {"purl": dependency.to_purl()}
+        pkg_type_data[purl]["sources"].append(icm_dependency)
+        if not dependency.dev:
+            pkg_type_data[purl]["dependencies"].append(icm_dependency)
 
     def to_json(self):
         """
@@ -99,6 +121,7 @@ class ContentManifest:
         self._gopkg_data = {}
         self._gomod_data = {}
         self._npm_data = {}
+        self._pip_data = {}
 
         # Address the possibility of packages having no dependencies
         for package in self.request.packages:
@@ -109,9 +132,10 @@ class ContentManifest:
                 )
             elif package.type == "gomod":
                 self._gomod_data.setdefault(package.name, [])
-            elif package.type == "npm":
+            elif package.type in ("npm", "pip"):
                 purl = package.to_purl()
-                self._npm_data.setdefault(purl, {"purl": purl, "dependencies": [], "sources": []})
+                data = getattr(self, f"_{package.type}_data")
+                data.setdefault(purl, {"purl": purl, "dependencies": [], "sources": []})
             else:
                 flask.current_app.logger.debug(
                     "No ICM implementation for '%s' packages", package.type
@@ -124,11 +148,17 @@ class ContentManifest:
                 self.process_gomod(req_dep.package, req_dep.dependency)
             elif req_dep.package.type == "npm":
                 self.process_npm_package(req_dep.package, req_dep.dependency)
+            elif req_dep.package.type == "pip":
+                self.process_pip_package(req_dep.package, req_dep.dependency)
 
         # Adjust source level dependencies for go packages
         self.set_go_package_sources()
 
-        top_level_packages = list(self._gopkg_data.values()) + list(self._npm_data.values())
+        top_level_packages = [
+            *self._gopkg_data.values(),
+            *self._npm_data.values(),
+            *self._pip_data.values(),
+        ]
         return self.generate_icm(top_level_packages)
 
     def generate_icm(self, image_contents=None):
