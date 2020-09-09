@@ -90,6 +90,51 @@ def test_process_npm():
     assert cm._npm_data == expected_contents
 
 
+def test_process_pip():
+    pkg = Package.from_json({"name": "requests", "type": "pip", "version": "2.24.0"})
+    expected_purl = "pkg:pypi/requests@2.24.0"
+
+    dep_commit_id = "58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    dep = Package.from_json(
+        {
+            "name": "cnr-server",
+            "type": "pip",
+            "version": f"git+https://github.com/quay/appr@{dep_commit_id}",
+        }
+    )
+
+    expected_dep_purl = (
+        f"pkg:generic/cnr-server?vcs_url="
+        f"git%2Bhttps%3A%2F%2Fgithub.com%2Fquay%2Fappr%40{dep_commit_id}"
+    )
+
+    src = Package.from_json({"name": "setuptools", "type": "pip", "version": "49.1.1"})
+    expected_src_purl = "pkg:pypi/setuptools@49.1.1"
+
+    src.dev = True
+    cm = ContentManifest()
+
+    # emulate to_json behavior to setup internal packages cache
+    cm._pip_data.setdefault(
+        expected_purl, {"purl": expected_purl, "dependencies": [], "sources": []}
+    )
+
+    cm.process_pip_package(pkg, dep)
+    cm.process_pip_package(pkg, src)
+
+    expected_contents = {
+        expected_purl: {
+            "purl": expected_purl,
+            "dependencies": [{"purl": expected_dep_purl}],
+            "sources": [{"purl": expected_dep_purl}, {"purl": expected_src_purl}],
+        }
+    }
+
+    assert cm._pip_data
+    assert expected_purl in cm._pip_data
+    assert cm._pip_data == expected_contents
+
+
 @pytest.mark.parametrize(
     "package", [None, {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"}]
 )
@@ -248,6 +293,46 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn):
             None,
             True,
             False,
+        ],
+        [
+            {"name": "requests", "type": "pip", "version": "2.24.0"},
+            "pkg:pypi/requests@2.24.0",
+            True,
+            True,
+        ],
+        [
+            {"name": "requests_FOO bar", "type": "pip", "version": "2.24.0"},
+            "pkg:pypi/requests-foo-bar@2.24.0",
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "cnr-server",
+                "type": "pip",
+                "version": "git+https://github.com/quay/appr@abcdef",
+            },
+            "pkg:generic/cnr-server?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fquay%2Fappr%40abcdef",
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "operator-manifest",
+                "type": "pip",
+                "version": (
+                    "https://github.com/containerbuildsystem/operator-manifest/archive/"
+                    "1234.tar.gz#egg=operator-manifest&cachito_hash=sha256:abcd"
+                ),
+            },
+            (
+                "pkg:generic/operator-manifest"
+                "?download_url=https%3A%2F%2Fgithub.com%2Fcontainerbuildsystem%2Foperator-manifest"
+                "%2Farchive%2F1234.tar.gz%23egg%3Doperator-manifest%26cachito_hash%3Dsha256%3Aabcd"
+                "&checksum=sha256:abcd"
+            ),
+            True,
+            True,
         ],
     ],
 )
