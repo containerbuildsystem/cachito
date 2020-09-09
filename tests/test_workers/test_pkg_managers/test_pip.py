@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
+from urllib.parse import urlparse
 
 import pytest
 import requests
@@ -2674,6 +2675,10 @@ class TestDownload:
         # Add the #cachito_package fragment to make sure the .tar.gz extension
         # will be found even if the URL does not end with it
         original_url = f"https://{host_in_url}/foo.tar.gz#cachito_package=foo"
+        url_with_hash = f"{original_url}&cachito_hash=sha256:abcdef"
+        if hash_as_qualifier:
+            original_url = url_with_hash
+
         raw_url = f"https://nexus:8081/repository/cachito-pip-raw/foo.tar.gz"
 
         mock_requirement = self.mock_requirement(
@@ -2701,6 +2706,7 @@ class TestDownload:
             "package": "foo",
             "path": tmp_path / "external-foo" / "foo-external-sha256-abcdef.tar.gz",
             "original_url": original_url,
+            "url_with_hash": url_with_hash,
             "raw_component_name": raw_component,
             "have_raw_component": have_raw_component,
         }
@@ -2719,6 +2725,24 @@ class TestDownload:
             mock_download_file.assert_called_once_with(
                 original_url, download_path, insecure=host_is_trusted
             )
+
+    @pytest.mark.parametrize(
+        "original_url, url_with_hash",
+        [
+            (
+                "http://example.org/file.zip",
+                "http://example.org/file.zip#cachito_hash=sha256:abcdef",
+            ),
+            (
+                "http://example.org/file.zip#egg=spam",
+                "http://example.org/file.zip#egg=spam&cachito_hash=sha256:abcdef",
+            ),
+        ],
+    )
+    def test_add_cachito_hash_to_url(self, original_url, url_with_hash):
+        """Test adding the #cachito_hash fragment to URLs."""
+        hsh = "sha256:abcdef"
+        assert pip._add_cachito_hash_to_url(urlparse(original_url), hsh) == url_with_hash
 
     def test_ignored_and_rejected_options(self, caplog):
         """
@@ -2952,7 +2976,7 @@ class TestDownload:
         """
         # <setup>
         git_url = f"https://github.com/spam/eggs@{GIT_REF}"
-        plain_url = "https://example.org/bar.tar.gz"
+        plain_url = "https://example.org/bar.tar.gz#cachito_hash=sha256:654321"
 
         pypi_req = self.mock_requirement(
             "foo", "pypi", download_line="foo==1.0", version_specs=[("==", "1.0")]
@@ -3008,6 +3032,7 @@ class TestDownload:
         url_info = {
             "package": "bar",
             "original_url": plain_url,
+            "url_with_hash": plain_url,
             "path": url_download,
             "raw_component_name": "bar/bar-external-sha256-654321.tar.gz",
             "have_raw_component": have_url_raw_component,
@@ -3312,11 +3337,12 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
     name = "eggs"
     path = "some/path"
     if kind == "vcs":
-        version = f"vcs:github.com/spam/eggs@{GIT_REF}"
+        version = f"git+https://github.com/spam/eggs@{GIT_REF}"
         raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
     elif kind == "url":
         url = "https://example.org/eggs.tar.gz"
-        version = url
+        url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
+        version = url_with_hash
         raw_component = f"eggs/eggs.tar.gz"
 
     dest_dir, filename = raw_component.rsplit("/", 1)
@@ -3329,13 +3355,14 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
     }
     if kind == "vcs":
         additional_keys = {
+            "url": "https://github.com/spam/eggs",
             "host": "github.com",
             "namespace": "spam",
             "repo": "eggs",
             "ref": GIT_REF,
         }
     elif kind == "url":
-        additional_keys = {"original_url": url}
+        additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
 
     req.update(additional_keys)
 

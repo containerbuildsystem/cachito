@@ -1721,8 +1721,8 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
     :param set[str] trusted_hosts: If host (or host:port) is trusted, do not verify SSL
 
-    :return: Dict with package name, download path, original URL, name of raw component in Nexus
-        and boolean whether we already have the raw component in Nexus
+    :return: Dict with package name, download path, original URL, URL with hash, name of raw
+        component in Nexus and boolean whether we already have the raw component in Nexus
     """
     package = requirement.package
 
@@ -1761,13 +1761,34 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
 
         download_binary_file(requirement.url, download_path, insecure=insecure)
 
+    if "cachito_hash" in requirement.qualifiers:
+        url_with_hash = requirement.url
+    else:
+        url_with_hash = _add_cachito_hash_to_url(url, hash_spec)
+
     return {
         "package": package,
         "path": download_path,
         "original_url": requirement.url,
+        "url_with_hash": url_with_hash,
         "raw_component_name": raw_component_name,
         "have_raw_component": have_raw_component,
     }
+
+
+def _add_cachito_hash_to_url(parsed_url, hash_spec):
+    """
+    Add the #cachito_hash fragment to URL.
+
+    :param urllib.parse.ParseResult parsed_url: A parsed URL with no cachito_hash in fragment
+    :param str hash_spec: A hash specifier - "algorithm:digest", e.g. "sha256:123456"
+    :return: Original URL + cachito_hash in fragment
+    :rtype: str
+    """
+    new_fragment = f"cachito_hash={hash_spec}"
+    if parsed_url.fragment:
+        new_fragment = f"{parsed_url.fragment}&{new_fragment}"
+    return parsed_url._replace(fragment=new_fragment).geturl()
 
 
 def _download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
@@ -1980,12 +2001,11 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
         dest_dir, filename = requirement["raw_component_name"].rsplit("/", 1)
         upload_raw_package(raw_repo_name, requirement["path"], dest_dir, filename, True)
         if requirement["kind"] == "vcs":
-            version = (
-                f"vcs:{requirement['host']}/{requirement['namespace']}/{requirement['repo']}@"
-                f"{requirement['ref']}"
-            )
+            # Version is "git+" followed by the URL used to to fetch from git
+            version = f"git+{requirement['url']}@{requirement['ref']}"
         else:
-            version = requirement["original_url"]
+            # Version is the original URL with #cachito_hash added if it was not present
+            version = requirement["url_with_hash"]
 
         dep = {"name": requirement["package"], "version": version, "type": "pip"}
     else:
