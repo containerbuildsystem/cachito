@@ -386,6 +386,27 @@ class RequestDependency(db.Model):
     __table_args__ = (db.UniqueConstraint("request_id", "dependency_id", "package_id"),)
 
 
+def _validate_configuration_path_value(pkg_manager, config_name, config_path):
+    """
+    Validate path representing strings in the "packages" parameter of a request.
+
+    :param str pkg_manager: the name of the package manager the configuration is for
+    :param str config_name: the name of the configuration setting the path
+    :param str config_path: the path to be validated
+    :raises ValidationError: if the "config_path" parameter is invalid
+    """
+    if not (
+        isinstance(config_path, str)
+        and config_path
+        and not os.path.isabs(config_path)
+        and os.pardir not in os.path.normpath(config_path)
+    ):
+        raise ValidationError(
+            f'The "{config_name}" values in the "packages.{pkg_manager}" value must be to a '
+            "relative path in the source repository"
+        )
+
+
 def _validate_request_package_configs(request_kwargs, pkg_managers_names):
     """
     Validate the "packages" parameter in a new request.
@@ -407,7 +428,7 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
             + ", ".join(invalid_package_managers)
         )
 
-    supported_packages_configs = {"npm"}
+    supported_packages_configs = {"npm", "pip"}
     unsupported_packages_managers = packages_configs.keys() - supported_packages_configs
     if unsupported_packages_managers:
         raise ValidationError(
@@ -416,11 +437,15 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
         )
 
     # Validate the values for each package manager configuration (e.g. packages.npm)
-    valid_package_config_keys = {"path"}
+    valid_package_config_keys = {"path", "requirements_build_files", "requirements_files"}
+    valid_package_config_keys = {
+        "npm": {"path"},
+        "pip": {"path", "requirements_build_files", "requirements_files"},
+    }
     for pkg_manager, packages_config in packages_configs.items():
         invalid_format_error = (
             f'The value of "packages.{pkg_manager}" must be an array of objects with the following '
-            f'keys: {", ".join(valid_package_config_keys)}'
+            f'keys: {", ".join(valid_package_config_keys[pkg_manager])}'
         )
         if not isinstance(packages_config, list):
             raise ValidationError(invalid_format_error)
@@ -429,20 +454,16 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
             if not isinstance(package_config, dict) or not package_config:
                 raise ValidationError(invalid_format_error)
 
-            invalid_keys = package_config.keys() - valid_package_config_keys
+            invalid_keys = package_config.keys() - valid_package_config_keys[pkg_manager]
             if invalid_keys:
                 raise ValidationError(invalid_format_error)
 
-            if not (
-                isinstance(package_config["path"], str)
-                and package_config["path"]
-                and not os.path.isabs(package_config["path"])
-                and os.pardir not in os.path.normpath(package_config["path"])
-            ):
-                raise ValidationError(
-                    f'The "path" values in the "packages.{pkg_manager}" value must be to a '
-                    "relative path in the source repository"
-                )
+            if package_config.get("path") is not None:
+                _validate_configuration_path_value(pkg_manager, "path", package_config["path"])
+            for path in package_config.get("requirements_files", []):
+                _validate_configuration_path_value(pkg_manager, "requirements_files", path)
+            for path in package_config.get("requirements_build_files", []):
+                _validate_configuration_path_value(pkg_manager, "requirements_build_files", path)
 
 
 class Request(db.Model):
