@@ -27,15 +27,16 @@ from cachito.workers.tasks import (
 
 
 @pytest.mark.parametrize(
-    "dependency_replacements, pkg_managers, user, expected_pkg_managers",
+    "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags",
     (
-        ([], [], None, []),
-        ([], ["gomod"], None, ["gomod"]),
+        ([], [], None, [], None),
+        ([], ["gomod"], None, ["gomod"], None),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             ["gomod"],
             None,
             ["gomod"],
+            None,
         ),
         (
             [
@@ -49,10 +50,11 @@ from cachito.workers.tasks import (
             ["gomod"],
             None,
             ["gomod"],
+            None,
         ),
-        ([], [], "tom_hanks@DOMAIN.LOCAL", []),
-        ([], ["npm"], None, ["npm"]),
-        ([], ["pip"], None, ["pip"]),
+        ([], [], "tom_hanks@DOMAIN.LOCAL", [], None),
+        ([], ["npm"], None, ["npm"], None),
+        ([], ["pip"], None, ["pip"], ["pip-dev-preview"]),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -66,17 +68,19 @@ def test_create_and_fetch_request(
     auth_env,
     client,
     db,
+    flags,
 ):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "pkg_managers": pkg_managers,
     }
-
     if dependency_replacements:
         data["dependency_replacements"] = dependency_replacements
     if user:
         data["user"] = user
+    if flags is not None:
+        data["flags"] = flags
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 201
@@ -1745,3 +1749,55 @@ def test_get_request_logs_not_configured(app, client, db, worker_auth_env):
     rv = client.get(f"/api/v1/requests/{request_id}")
     assert rv.status_code == 200
     assert "logs" not in rv.json
+
+
+@pytest.mark.parametrize("has_flag", [True, False])
+@pytest.mark.parametrize("is_active", [True, False])
+@mock.patch("cachito.web.api_v1.chain")
+def test_create_and_fetch_request_with_pip_preview(
+    mock_chain, app, auth_env, client, db, has_flag, is_active
+):
+    flag = Flag.query.filter_by(name="pip-dev-preview").first()
+    flag.active = is_active
+    db.session.commit()
+
+    data = {
+        "repo": "https://github.com/release-engineering/retrodep.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["pip"],
+    }
+    if has_flag:
+        data["flags"] = ["pip-dev-preview"]
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    if (has_flag and is_active) or (not has_flag and not is_active):
+        assert rv.status_code == 201
+        created_request = rv.json
+        for key, expected_value in data.items():
+            assert expected_value == created_request[key]
+        assert created_request["user"] == "tbrady@DOMAIN.LOCAL"
+
+        error_callback = failed_request_callback.s(1)
+        mock_chain.assert_called_once_with(
+            [
+                fetch_app_source.s(
+                    "https://github.com/release-engineering/retrodep.git",
+                    "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                    1,
+                ).on_error(error_callback),
+                fetch_pip_source.si(1, {}).on_error(error_callback),
+                create_bundle_archive.si(1).on_error(error_callback),
+            ]
+        )
+        request_id = created_request["id"]
+        rv = client.get("/api/v1/requests/{}".format(request_id))
+        assert rv.status_code == 200
+        fetched_request = rv.json
+        assert fetched_request["state"] == "in_progress"
+        assert fetched_request["state_reason"] == "The request was initiated"
+    elif not has_flag and is_active:
+        assert rv.status_code == 400
+        assert "The pip package manager is not ready for production usage" in rv.json["error"]
+    elif has_flag and not is_active:
+        assert rv.status_code == 400
+        assert "Invalid/Inactive flag(s): pip-dev-preview" in rv.json["error"]
