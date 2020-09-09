@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os.path
+import re
 import tempfile
 from unittest import mock
 
@@ -23,6 +24,10 @@ from cachito.workers.tasks import (
     fetch_pip_source,
     failed_request_callback,
     create_bundle_archive,
+)
+
+RE_INVALID_PACKAGES_VALUE = (
+    r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'
 )
 
 
@@ -130,7 +135,7 @@ def test_create_and_fetch_request(
 
 
 @mock.patch("cachito.web.api_v1.chain")
-def test_create_and_fetch_request_package_configs(
+def test_create_and_fetch_request_npm_package_configs(
     mock_chain, app, auth_env, client, db,
 ):
     package_value = {"npm": [{"path": "client"}, {"path": "proxy"}]}
@@ -152,6 +157,47 @@ def test_create_and_fetch_request_package_configs(
             1,
         ).on_error(error_callback),
         fetch_npm_source.si(1, package_value["npm"]).on_error(error_callback),
+        create_bundle_archive.si(1).on_error(error_callback),
+    ]
+    mock_chain.assert_called_once_with(expected)
+
+
+@pytest.mark.parametrize(
+    "pkg_value",
+    [
+        [{"path": "client"}, {"path": "proxy"}],
+        [{"path": "proxy"}],
+        [{"path": ".", "requirements_files": ["alt.txt"]}],
+        [{"path": ".", "requirements_build_files": ["alt.txt"]}],
+        [{"requirements_files": ["alt.txt"], "requirements_build_files": ["bld.txt"], "path": "."}],
+    ],
+)
+@mock.patch("cachito.web.api_v1.chain")
+def test_create_and_fetch_request_pip_package_configs(
+    mock_chain, app, auth_env, client, db, pkg_value
+):
+    package_value = {"pip": pkg_value}
+    data = {
+        "repo": "https://github.com/release-engineering/web-terminal.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "packages": package_value,
+        "pkg_managers": ["pip"],
+        "flags": ["pip-dev-preview"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    # assert rv.status_code == 201
+    if not rv.status_code == 201:
+        assert rv.json["error"] == 201
+
+    error_callback = failed_request_callback.s(1)
+    expected = [
+        fetch_app_source.s(
+            "https://github.com/release-engineering/web-terminal.git",
+            "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            1,
+        ).on_error(error_callback),
+        fetch_pip_source.si(1, package_value["pip"]).on_error(error_callback),
         create_bundle_archive.si(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
@@ -520,21 +566,9 @@ def test_create_request_invalid_dependency_replacement(
             ["gomod"],
             'The following package managers in the "packages" object are unsupported: gomod',
         ),
-        (
-            {"npm": {"path": "client"}},
-            ["npm"],
-            'The value of "packages.npm" must be an array of objects with the following keys: path',
-        ),
-        (
-            {"npm": ["path"]},
-            ["npm"],
-            'The value of "packages.npm" must be an array of objects with the following keys: path',
-        ),
-        (
-            {"npm": [{}]},
-            ["npm"],
-            'The value of "packages.npm" must be an array of objects with the following keys: path',
-        ),
+        ({"npm": {"path": "client"}}, ["npm"], RE_INVALID_PACKAGES_VALUE),
+        ({"npm": ["path"]}, ["npm"], RE_INVALID_PACKAGES_VALUE),
+        ({"npm": [{}]}, ["npm"], RE_INVALID_PACKAGES_VALUE),
         (
             {"npm": [{"path": 1}]},
             ["npm"],
@@ -567,6 +601,24 @@ def test_create_request_invalid_dependency_replacement(
                 "source repository"
             ),
         ),
+        ({"pip": {"path": "client"}}, ["pip"], RE_INVALID_PACKAGES_VALUE),
+        ({"pip": [{}]}, ["pip"], RE_INVALID_PACKAGES_VALUE),
+        (
+            {"pip": [{"requirements_files": ["../etc/httpd", "foo"]}]},
+            ["pip"],
+            (
+                'The "requirements_files" values in the "packages.pip" value must be to a relative '
+                "path in the source repository"
+            ),
+        ),
+        (
+            {"pip": [{"requirements_files": ["foo"], "requirements_build_files": ["../foo"]}]},
+            ["pip"],
+            (
+                'The "requirements_build_files" values in the "packages.pip" value must be to a '
+                "relative path in the source repository"
+            ),
+        ),
     ),
 )
 def test_create_request_invalid_packages(packages, pkg_managers, error_msg, auth_env, client, db):
@@ -579,7 +631,7 @@ def test_create_request_invalid_packages(packages, pkg_managers, error_msg, auth
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == error_msg
+    assert re.match(error_msg, rv.json["error"])
 
 
 def test_create_request_not_an_object(auth_env, client, db):
