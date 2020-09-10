@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from pathlib import Path
 import base64
 import logging
 import os
@@ -12,10 +13,12 @@ from cachito.workers.pkg_managers.general import (
     update_request_with_package,
 )
 from cachito.workers.pkg_managers.pip import (
+    PipRequirementsFile,
     finalize_nexus_for_pip_request,
     get_index_url,
     get_pypi_hosted_repo_name,
     get_pypi_hosted_repo_url,
+    get_raw_component_name,
     get_raw_hosted_repo_name,
     get_hosted_repositories_username,
     prepare_nexus_for_pip_request,
@@ -60,6 +63,7 @@ def fetch_pip_source(request_id, package_configs=None):
     log.info("Fetching dependencies for request %d", request_id)
     package_configs = package_configs or [{}]
     packages_data = []
+    pip_config_files = []
     for pkg_cfg in package_configs:
         pkg_path = pkg_cfg.get("path", ".")
         source_dir = bundle_dir.app_subpath(pkg_path).source_dir
@@ -73,6 +77,14 @@ def fetch_pip_source(request_id, package_configs=None):
             build_requirement_files=pkg_cfg.get("requirements_build_files"),
         )
 
+        # prepare custom requirement files
+        for requirement_file_path in pkg_and_deps_info.pop("requirements"):
+            custom_requirement_file = _get_custom_requirement_config_file(
+                requirement_file_path, bundle_dir.source_root_dir, raw_repo_name
+            )
+            if custom_requirement_file:
+                pip_config_files.append(custom_requirement_file)
+
         # defer DB operations to use the Nexus password in the env vars
         packages_data.append(pkg_and_deps_info)
 
@@ -81,8 +93,7 @@ def fetch_pip_source(request_id, package_configs=None):
     username = get_hosted_repositories_username(request_id)
     password = finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username)
 
-    # Set environment variables and config files
-    pip_config_files = []
+    # Set environment variables and additional config files
     raw_url = get_pypi_hosted_repo_url(request_id)
     pip_index_url = get_index_url(raw_url, username, password)
     env_vars = {"PIP_INDEX_URL": {"value": pip_index_url, "kind": "literal"}}
@@ -108,3 +119,55 @@ def fetch_pip_source(request_id, package_configs=None):
 
     if pip_config_files:
         update_request_with_config_files(request_id, pip_config_files)
+
+
+def _get_custom_requirement_config_file(requirement_file_path, source_dir, raw_repo_name):
+    """
+    Get custom pip requirement file.
+
+    Generates and returns a configuration file representing a custom pip requirement file where the
+    original URL and VCS entries are replaced with entries pointing to those resources in Nexus.
+
+    :param str requirement_file_path: path to the requirement file
+    :param Path source_dir: path to the application source code
+    :param str raw_repo_name: name of the raw hosted Nexus repository containing the
+        requirements
+    :return: Cachito configuration file representation containing the custom requirement file
+    :rtype: dict
+    """
+    original_requirement_file = PipRequirementsFile(requirement_file_path)
+    cachito_requirements = []
+    differs_from_original = False
+    for requirement in original_requirement_file.requirements:
+        raw_component_name = get_raw_component_name(requirement)
+        if raw_component_name:
+            # increase max_attempts to make sure the package upload/setup is complete
+            new_url = nexus.get_raw_component_asset_url(
+                raw_repo_name, raw_component_name, max_attempts=5
+            )
+            requirement = requirement.copy(url=new_url)
+            differs_from_original = True
+
+        cachito_requirements.append(requirement)
+
+    if not differs_from_original:
+        # No vcs or url dependencies. No need for a custom requirements file
+        return
+
+    cachito_requirement_file = PipRequirementsFile.from_requirements_and_options(
+        cachito_requirements, original_requirement_file.options
+    )
+    final_contents = []
+    if cachito_requirement_file.options:
+        final_contents.append(" ".join(cachito_requirement_file.options))
+
+    final_contents.extend(
+        [str(requirement) for requirement in cachito_requirement_file.requirements]
+    )
+    req_str = "\n".join(final_contents)
+    final_path = Path("app") / Path(requirement_file_path).relative_to(source_dir)
+    return {
+        "content": base64.b64encode(req_str.encode("utf-8")).decode("utf-8"),
+        "path": str(final_path),
+        "type": "base64",
+    }

@@ -2519,7 +2519,7 @@ class TestDownload:
         raw_url = f"https://nexus:8081/repository/cachito-pip-raw/eggs.tar.gz"
 
         mock_requirement = self.mock_requirement(
-            "eggs", "vsc", url=vcs_url, download_line=f"eggs @ {vcs_url}"
+            "eggs", "vcs", url=vcs_url, download_line=f"eggs @ {vcs_url}"
         )
 
         git_archive_path = tmp_path / "eggs.tar.gz"
@@ -3380,6 +3380,7 @@ def test_resolve_pip_no_deps(mock_metadata, tmp_path):
     expected = {
         "package": {"name": "foo", "version": "1.0", "type": "pip"},
         "dependencies": [],
+        "requirements": [],
     }
     assert pkg_info == expected
 
@@ -3437,6 +3438,7 @@ def test_resolve_pip(mock_download, mock_metadata, mock_upload, tmp_path, custom
             {"name": "bar", "version": "2.1", "type": "pip", "dev": False},
             {"name": "baz", "version": "0.0.5", "type": "pip", "dev": True},
         ],
+        "requirements": [str(req_file), str(build_req_file)],
     }
     assert pkg_info == expected
 
@@ -3446,3 +3448,24 @@ def test_get_absolute_pkg_file_paths(tmp_path):
     expected_paths = [str(tmp_path / p) for p in paths]
     assert pip._get_absolute_pkg_file_paths(tmp_path, paths) == expected_paths
     assert pip._get_absolute_pkg_file_paths(tmp_path, []) == []
+
+
+@pytest.mark.parametrize(
+    "component_kind, url",
+    (
+        ["vcs", f"git+https://www.github.com/cachito/mypkg.git@{'f'*40}?egg=mypkg"],
+        ["url", "https://files.cachito.rocks/mypkg.tar.gz"],
+        ["invalid", "https://files.cachito.rocks/package.tar.gz"],
+    ),
+)
+def test_get_raw_component_name(component_kind, url):
+    requirement = mock.Mock(
+        kind=component_kind, url=url, package="package", hashes=["sha256:noRealHash"]
+    )
+    raw_component = pip.get_raw_component_name(requirement)
+    if component_kind == "url":
+        assert raw_component == "package/package-external-sha256-noRealHash.tar.gz"
+    elif component_kind == "vcs":
+        assert raw_component == f"mypkg/mypkg-external-gitcommit-{'f'*40}.tar.gz"
+    else:
+        assert not raw_component

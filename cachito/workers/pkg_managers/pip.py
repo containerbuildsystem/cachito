@@ -1634,11 +1634,11 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     package_dir = pip_deps_dir.joinpath(git_info["host"], *namespace_parts, repo_name)
     package_dir.mkdir(parents=True, exist_ok=True)
 
-    filename = f"{repo_name}-external-gitcommit-{ref}.tar.gz"
+    raw_component_name = get_raw_component_name(requirement)
+    filename = raw_component_name.rsplit("/", 1)[-1]
     download_path = package_dir / filename
 
     # Download raw component if we already have it
-    raw_component_name = f"{repo_name}/{filename}"
     have_raw_component = _download_raw_component(
         raw_component_name, pip_raw_repo_name, download_path, nexus_auth
     )
@@ -1728,19 +1728,17 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
 
     hashes = requirement.hashes
     hash_spec = hashes[0] if hashes else requirement.qualifiers["cachito_hash"]
-    algorithm, _, digest = hash_spec.partition(":")
 
     url = urllib.parse.urlparse(requirement.url)
-    file_ext = next(ext for ext in SDIST_FILE_EXTENSIONS if url.path.endswith(ext))
 
-    filename = f"{package}-external-{algorithm}-{digest}{file_ext}"
+    raw_component_name = get_raw_component_name(requirement)
+    filename = raw_component_name.rsplit("/", 1)[-1]
 
     package_dir = pip_deps_dir / f"external-{package}"
     package_dir.mkdir(exist_ok=True)
     download_path = package_dir / filename
 
     # Download raw component if we already have it
-    raw_component_name = f"{package}/{filename}"
     have_raw_component = _download_raw_component(
         raw_component_name, pip_raw_repo_name, download_path, nexus_auth
     )
@@ -2028,6 +2026,8 @@ def resolve_pip(path, request, requirement_files=None, build_requirement_files=N
     :return: a dictionary that has the following keys:
         ``package`` which is the dict representing the main Package,
         ``dependencies`` which is a list of dicts representing the package Dependencies
+        ``requirements`` which is a list of str with the absolute paths for the requirement files
+            belonging to the package
     :rtype: dict
     :raises CachitoError: if the package is not cachito-pip compatible
     """
@@ -2068,6 +2068,7 @@ def resolve_pip(path, request, requirement_files=None, build_requirement_files=N
     return {
         "package": {"name": pkg_name, "version": pkg_version, "type": "pip"},
         "dependencies": dependencies,
+        "requirements": [*requirement_files, *build_requirement_files],
     }
 
 
@@ -2081,3 +2082,32 @@ def _get_absolute_pkg_file_paths(path, relative_paths):
     :rtype: list
     """
     return [str(path / r) for r in relative_paths]
+
+
+def get_raw_component_name(requirement):
+    """
+    Get the raw_component_name for a URL or VCS requirement.
+
+    :param PipRequirement requirement: URL or VCS requirement from a requirements.txt file
+    :return: Nexus raw component name for the requirement or None if requirement is not of URL or
+        VCS type
+    :rtype: str or None
+    """
+    raw_component_name = None
+    if requirement.kind == "url":
+        package = requirement.package
+        hashes = requirement.hashes
+        hash_spec = hashes[0] if hashes else requirement.qualifiers["cachito_hash"]
+        algorithm, _, digest = hash_spec.partition(":")
+        orig_url = urllib.parse.urlparse(requirement.url)
+        file_ext = next(ext for ext in SDIST_FILE_EXTENSIONS if orig_url.path.endswith(ext))
+        filename = f"{package}-external-{algorithm}-{digest}{file_ext}"
+        raw_component_name = f"{package}/{filename}"
+    elif requirement.kind == "vcs":
+        git_info = _extract_git_info(requirement.url)
+        repo_name = git_info["repo"]
+        ref = git_info["ref"]
+        filename = f"{repo_name}-external-gitcommit-{ref}.tar.gz"
+        raw_component_name = f"{repo_name}/{filename}"
+
+    return raw_component_name
