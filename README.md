@@ -349,6 +349,11 @@ Custom configuration for the Celery workers are listed below:
   change if you are using the two Nexus instance approach as described in the "Nexus For npm"
   section or you use a different name for the repository.
 * `cachito_nexus_password` - the password of the Nexus service account used by Cachito.
+* `cachito_nexus_pip_raw_repo_name` - the name of the Nexus raw repository for the `pip` package
+  manager. This defaults to `cachito-pip-raw`.
+* `cachito_nexus_pypi_proxy_url` - the URL of the Nexus PyPI proxy repository for the `pip` package
+  manager. Configured using a full URL rather than just a repo name because we need the additional
+  flexibility.
 * `cachito_nexus_proxy_password` - the password of the unprivileged user that has read access
   to the main Cachito repositories (e.g. `cachito-js`). This is needed if the Nexus instance that
   hosts the main Cachito repositories has anonymous access disabled. This is the case if Cachito
