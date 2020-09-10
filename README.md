@@ -434,13 +434,13 @@ with the `mod_auth_gssapi` module.
 
 ### Nexus For npm
 
-The npm package manager functionality relies on
-[Nexus Repository Manager 3][nexus-docs] to store npm dependencies. The
-Nexus instance will have an npm group repository (e.g. `cachito-js`) which points to an npm hosted
-repository (e.g. `cachito-js-hosted`) and an npm proxy repository (e.g. `cachito-js-proxy`) that
-points to registry.npmjs.org. The hosted repository will contain all non-registry dependencies and
-the proxy repository will contain all dependencies from the npm registry. The union of these two
-repositories gives the set of all the npm dependencies ever encountered by Cachito.
+The npm package manager functionality relies on [Nexus Repository Manager 3][nexus-docs] to store
+npm dependencies. The Nexus instance will have an npm group repository (e.g. `cachito-js`) which
+points to an npm hosted repository (e.g. `cachito-js-hosted`) and an npm proxy repository
+(e.g. `cachito-js-proxy`) that points to registry.npmjs.org. The hosted repository will contain all
+non-registry dependencies and the proxy repository will contain all dependencies from the npm
+registry. The union of these two repositories gives the set of all the npm dependencies ever
+encountered by Cachito.
 
 On each request, Cachito will create a proxy repository to the npm group repository
 (e.g. `cachito-js`). Cachito will populate this proxy repository to contain the subset of
