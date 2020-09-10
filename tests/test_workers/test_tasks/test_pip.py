@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 
 from cachito.workers.config import get_worker_config
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import pip
 
 
@@ -21,6 +22,7 @@ def test_cleanup_pip_request(mock_exec_script):
 
 
 @pytest.mark.parametrize("with_cert", [True, False])
+@pytest.mark.parametrize("with_req", [True, False])
 @mock.patch("cachito.workers.tasks.pip.resolve_pip")
 @mock.patch("cachito.workers.tasks.pip.finalize_nexus_for_pip_request")
 @mock.patch("cachito.workers.tasks.pip.prepare_nexus_for_pip_request")
@@ -29,7 +31,11 @@ def test_cleanup_pip_request(mock_exec_script):
 @mock.patch("cachito.workers.tasks.pip.update_request_with_package")
 @mock.patch("cachito.workers.tasks.pip.update_request_with_config_files")
 @mock.patch("cachito.workers.tasks.pip.nexus.get_ca_cert")
+@mock.patch("cachito.workers.tasks.pip.PipRequirementsFile._read_lines")
+@mock.patch("cachito.workers.tasks.pip.nexus.get_raw_component_asset_url")
 def test_fetch_pip_source(
+    mock_get_raw_asset_url,
+    mock_read,
     mock_cert,
     mock_update_cfg,
     mock_update_pkg,
@@ -39,10 +45,13 @@ def test_fetch_pip_source(
     mock_finalize_nexus,
     mock_resolve,
     with_cert,
+    with_req,
+    tmp_path,
 ):
     pkg_data = {
         "package": {"name": "foo", "version": "1", "type": "pip"},
         "dependencies": [{"name": "bar", "version": "2.0", "type": "pip", "dev": True}],
+        "requirements": [],
     }
     request = {"id": 1}
     username = f"cachito-pip-{request['id']}"
@@ -56,9 +65,23 @@ def test_fetch_pip_source(
     }
     mock_cert.return_value = None
     cert_contents = "stub_cert"
+    cfg_contents = []
+    if with_req:
+        pkg_data["requirements"].append(str(RequestBundleDir(1).source_dir / "requirements.txt"))
+        mock_get_raw_asset_url.return_value = "fake-raw-asset-url"
+        req_contents = f"mypkg @ git+https://www.github.com/cachito/mypkg.git@{'f'*40}?egg=mypkg\n"
+        mock_read.return_value = [req_contents]
+        b64_req_contents = base64.b64encode("mypkg @ fake-raw-asset-url".encode()).decode()
+        cfg_contents.append(
+            {"content": b64_req_contents, "path": "app/requirements.txt", "type": "base64"}
+        )
     if with_cert:
         mock_cert.return_value = cert_contents
         env_vars["PIP_CERT"] = {"value": "app/package-index-ca.pem", "kind": "path"}
+        b64_cert_contents = base64.b64encode(cert_contents.encode()).decode()
+        cfg_contents.append(
+            {"content": b64_cert_contents, "path": "app/package-index-ca.pem", "type": "base64"}
+        )
 
     mock_resolve.return_value = pkg_data
     mock_finalize_nexus.return_value = password
@@ -72,9 +95,40 @@ def test_fetch_pip_source(
         pkg_data["package"],
         [{"name": "bar", "version": "2.0", "type": "pip", "dev": True}],
     )
-    if with_cert:
-        b64_cert_contents = base64.b64encode(cert_contents.encode()).decode()
+    if cfg_contents:
         mock_update_cfg.assert_called_once_with(
-            request["id"],
-            [{"content": b64_cert_contents, "path": "app/package-index-ca.pem", "type": "base64"}],
+            request["id"], cfg_contents,
         )
+
+
+@pytest.mark.parametrize(
+    "original, component_name",
+    [
+        ["foo==1\n", None],
+        [
+            f"mypkg @ git+https://www.github.com/cachito/mypkg.git@{'f'*40}?egg=mypkg\n",
+            f"mypkg/mypkg-external-gitcommit-{'f'*40}.tar.gz",
+        ],
+        [
+            "mypkg @ https://example.com/cachito/mypkg.tar.gz#egg=mypkg&cachito_hash=sha256%3Ax\n",
+            "mypkg/mypkg-external-sha256-x.tar.gz",
+        ],
+    ],
+)
+@mock.patch("cachito.workers.tasks.pip.nexus.get_raw_component_asset_url")
+def test_get_custom_requirement_config_file(mock_get_url, original, component_name, tmp_path):
+    new_url = "fake-resource"
+    mock_get_url.return_value = new_url
+    req_file = tmp_path / "req.txt"
+    req_file.write_text(original)
+    component_name = component_name
+    repo_name = "raw-1"
+    req = pip._get_custom_requirement_config_file(req_file, tmp_path, repo_name)
+    if component_name:
+        mock_get_url.assert_called_once_with(repo_name, component_name, max_attempts=5)
+        assert req["type"] == "base64"
+        assert req["path"] == "app/req.txt"
+        assert new_url in base64.b64decode(req["content"]).decode()
+    else:
+        mock_get_url.assert_not_called()
+        assert req is None
