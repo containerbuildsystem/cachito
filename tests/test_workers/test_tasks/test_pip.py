@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import base64
 from unittest import mock
 
 import pytest
@@ -26,9 +27,11 @@ def test_cleanup_pip_request(mock_exec_script):
 @mock.patch("cachito.workers.tasks.pip.set_request_state")
 @mock.patch("cachito.workers.tasks.pip.update_request_with_deps")
 @mock.patch("cachito.workers.tasks.pip.update_request_with_package")
+@mock.patch("cachito.workers.tasks.pip.update_request_with_config_files")
 @mock.patch("cachito.workers.tasks.pip.nexus.get_ca_cert")
 def test_fetch_pip_source(
     mock_cert,
+    mock_update_cfg,
     mock_update_pkg,
     mock_update_deps,
     mock_set_state,
@@ -52,9 +55,10 @@ def test_fetch_pip_source(
         "PIP_INDEX_URL": {"value": f"{index_base_url}/repository/{repo_name}/", "kind": "literal"}
     }
     mock_cert.return_value = None
+    cert_contents = "stub_cert"
     if with_cert:
-        mock_cert.return_value = "stub_cert"
-        env_vars["PIP_CERT"] = {"value": "stub_cert", "kind": "literal"}
+        mock_cert.return_value = cert_contents
+        env_vars["PIP_CERT"] = {"value": "app/package-index-ca.pem", "kind": "path"}
 
     mock_resolve.return_value = pkg_data
     mock_finalize_nexus.return_value = password
@@ -68,3 +72,9 @@ def test_fetch_pip_source(
         pkg_data["package"],
         [{"name": "bar", "version": "2.0", "type": "pip", "dev": True}],
     )
+    if with_cert:
+        b64_cert_contents = base64.b64encode(cert_contents.encode()).decode()
+        mock_update_cfg.assert_called_once_with(
+            request["id"],
+            [{"content": b64_cert_contents, "path": "app/package-index-ca.pem", "type": "base64"}],
+        )
