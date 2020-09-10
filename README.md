@@ -597,4 +597,44 @@ again in a future request, it will use it directly from Nexus rather than downlo
 uploading it again. This guarantees that any dependency used for a Cachito request can be used again
 in a future Cachito request.
 
+### pip
+
+The pip package manager works by parsing the `requirements.txt` and `requirements-build.txt` files
+present in the source repository to determine what dependencies are required to build the
+application. It is possible to specify different file path(s) for the requirements files as long
+as the files use the expected format.
+
+Cachito then creates two repositories in an instance of Nexus it manages that contain just the
+dependencies discovered in the requirements files. PyPI dependencies are uploaded to a PyPI hosted
+repository, external dependencies are uploaded to a raw repository. Connection information for the
+hosted repository is provided as the `PIP_INDEX_URL` environment variable accessible at the
+`/api/v1/requests/<id>/environment-variables` endpoint. To make external dependencies available,
+Cachito modifies the requirements files for the request by replacing relevant entries with their
+corresponding URLs from the raw repository. The modified requirements files are accessible at the
+`/api/v1/requests/<id>/configuration-files` endpoint.
+
+Note that the `PIP_INDEX_URL` variable exposes the username and password of the temporary user
+created for your request. This should not be a security concern, the user only has read access for
+the repositories and the only reason why we do not allow anonymous read access is due to a technical
+limitation in Nexus.
+
+Cachito will produce a bundle that is downloadable at `/api/v1/requests/<id>/download`. This
+bundle will contain the application source code in the `app` directory and individual source
+archives of all the dependencies in the `deps/pip` directory. These archives are not meant to be
+used to build the application. They are there for convenience so that the dependency sources can be
+published alongside your application sources. In addition, they can be used to to install packages
+directly from the filesystem with `pip install --no-index --no-deps <path/to/archive>` (for each
+individual source archive) in the event that the application needs to be built without Cachito and
+the Nexus instance it manages.
+
+As mentioned above, Cachito can also handle dependencies that are not from PyPI, such as those from
+a Git repository or an HTTP(S) URL. After downloading such a dependency, Cachito will upload it to
+the Nexus instance used for hosting permanent content. If Cachito encounters this same dependency
+again in a future request, it will use it directly from Nexus rather than downloading it and
+uploading it again. This guarantees that any dependency used for a Cachito request can be used again
+in a future Cachito request.
+
+Compared to gomod and npm, Cachito support for pip has restrictions and limitations that users may
+not expect. For more details, see the [Cachito pip documentation](docs/pip.md).
+
 [nexus-docs]: https://help.sonatype.com/repomanager3
