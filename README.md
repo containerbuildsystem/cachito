@@ -435,7 +435,7 @@ with the `mod_auth_gssapi` module.
 ### Nexus For npm
 
 The npm package manager functionality relies on
-[Nexus Repository Manager 3](https://help.sonatype.com/repomanager3) to store npm dependencies. The
+[Nexus Repository Manager 3][nexus-docs] to store npm dependencies. The
 Nexus instance will have an npm group repository (e.g. `cachito-js`) which points to an npm hosted
 repository (e.g. `cachito-js-hosted`) and an npm proxy repository (e.g. `cachito-js-proxy`) that
 points to registry.npmjs.org. The hosted repository will contain all non-registry dependencies and
@@ -453,6 +453,29 @@ instance or at least not set to have read access on all repositories.
 
 These repositories and users created per request are deleted when the request is marked as stale
 or the request fails.
+
+### Nexus For pip
+
+The pip package manager functionality relies on [Nexus Repository Manager 3][nexus-docs] to store
+pip dependencies. The Nexus instance will have a PyPI proxy repository (e.g. `cachito-pip-proxy`)
+that points to pypi.org and a raw repository (e.g. `cachito-pip-raw`) which will be used to store
+external dependencies. The PyPI proxy repository will cache all PyPI packages that Cachito downloads
+through it and the raw repository will hold tarballs or zip archives of external dependencies that
+Cachito will upload after fetching them from the original locations.
+
+On each request, Cachito will create a PyPI hosted repository and a raw repository, e.g.
+`cachito-pip-hosted-1` and `cachito-pip-raw-1`. Cachito will upload all dependencies for the request
+to these repositories (dependencies from PyPI to the hosted repository, external dependencies to the
+raw one). Cachito will provide environment variables and configuration files that, when applied
+to the user's environment, will allow them to install their dependencies from the above-mentioned
+repositories. When installing dependencies from the Cachito-provided repositories, the user is
+inherently blocked from installing anything that they did not declare as a dependency, because the
+repositories will only contain content that Cachito has made available.
+
+These repositories are created per request and deleted when the request is marked as stale or the
+request fails.
+
+### Common Configuration
 
 Refer to the "Configuring Workers" section to see how to configure Cachito to use Nexus. Please
 note that you may choose to use two Nexus instances. One for hosting the permanent content and the
@@ -571,3 +594,5 @@ Nexus instead. The modified files will be accessible at the
 again in a future request, it will use it directly from Nexus rather than downloading it and
 uploading it again. This guarantees that any dependency used for a Cachito request can be used again
 in a future Cachito request.
+
+[nexus-docs]: https://help.sonatype.com/repomanager3
