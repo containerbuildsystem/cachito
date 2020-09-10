@@ -427,6 +427,8 @@ with the `mod_auth_gssapi` module.
 
 * `gomod-vendor` - the flag to indicate the vendoring requirement for gomod dependencies. If present in the
   Cachito request, Cachito will run `go mod vendor` instead of `go mod download` to gather dependencies.
+* `pip-dev-preview` - required for requests that use the `pip` package manager until Cachito support
+  for Python proves to be production-ready
 
 ## Nexus
 
