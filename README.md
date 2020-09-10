@@ -491,16 +491,16 @@ Nexus instance that hosts the permanent content: `cachito_nexus_hoster_username`
 
 The table below shows the supported package managers and their support level in Cachito.
 
-Feature                 | gomod | npm
----                     | ---   | ---
-Baseline                | ✓     | ✓
-Content Manifest        | ✓     | ✓
-Dependency Replacements | ✓     | x
-Dev Dependencies        | ✓     | ✓
-External Dependencies   | N/A   | ✓
-Multiple Paths          | x     | ✓
-Nested Dependencies     | ✓     | ✓
-Offline Installations   | ✓     | x
+Feature                 | gomod | npm | pip |
+---                     | ---   | --- | --- |
+Baseline                | ✓     | ✓   | ✓   |
+Content Manifest        | ✓     | ✓   | ✓   |
+Dependency Replacements | ✓     | x   | x   |
+Dev Dependencies        | ✓     | ✓   | ✓   |
+External Dependencies   | N/A   | ✓   | ✓   |
+Multiple Paths          | x     | ✓   | ✓   |
+Nested Dependencies     | ✓     | ✓   | x   |
+Offline Installations   | ✓     | x   | x   |
 
 #### Feature Definitions
 
@@ -529,8 +529,10 @@ Offline Installations   | ✓     | x
   For example, `npm` allows `file` dependencies with the `cachito_npm_file_deps_allowlist`
   configuration. `gomod` allows this through the `go.mod` replace directive.
 * **Offline Installations** - The dependencies can be installed solely with the contents of the
-  bundle. This is true for the `gomod` package manager, however, the `npm` package manager relies
-  on Nexus to be online and properly configured by Cachito.
+  bundle. This is true for the `gomod` package manager, however, the `npm` and `pip` package
+  managers rely on Nexus to be online and properly configured by Cachito. If users were so inclined,
+  they could find ways to do an offline install for any package manager, but only `gomod` supports
+  this out of the box (i.e. the user does not need to change their workflow).
 
 ### gomod
 
