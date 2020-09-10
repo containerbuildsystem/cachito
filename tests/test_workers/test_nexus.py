@@ -137,7 +137,7 @@ def test_get_nexus_hoster_url(mock_gwc, cachito_nexus_hoster_url, cachito_nexus_
     mock_gwc.return_value.cachito_nexus_hoster_url = cachito_nexus_hoster_url
     mock_gwc.return_value.cachito_nexus_url = cachito_nexus_url
 
-    assert nexus._get_nexus_hoster_url() == expected
+    assert nexus.get_nexus_hoster_url() == expected
 
 
 @mock.patch("cachito.workers.requests.requests_session")

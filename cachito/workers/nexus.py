@@ -36,7 +36,7 @@ def get_nexus_hoster_credentials():
     return username, password
 
 
-def _get_nexus_hoster_url():
+def get_nexus_hoster_url():
     """
     Get the Nexus instance with the hosted repositories.
 
@@ -286,7 +286,7 @@ def search_components(**query_params):
 
     username, password = get_nexus_hoster_credentials()
     auth = requests.auth.HTTPBasicAuth(username, password)
-    url = f"{_get_nexus_hoster_url()}/service/rest/v1/search"
+    url = f"{get_nexus_hoster_url()}/service/rest/v1/search"
     # Create a copy so that the original query parameters are unaltered later on
     params = copy.deepcopy(query_params)
     config = get_worker_config()
@@ -405,7 +405,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
     config = get_worker_config()
     if to_nexus_hoster:
         username, password = get_nexus_hoster_credentials()
-        nexus_url = _get_nexus_hoster_url()
+        nexus_url = get_nexus_hoster_url()
     else:
         username = config.cachito_nexus_username
         password = config.cachito_nexus_password

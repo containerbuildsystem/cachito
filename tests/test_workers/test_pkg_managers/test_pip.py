@@ -2921,6 +2921,7 @@ class TestDownload:
     @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
     @mock.patch("cachito.workers.pkg_managers.pip.get_worker_config")
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_credentials")
+    @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_url")
     @mock.patch("cachito.workers.pkg_managers.pip._download_pypi_package")
     @mock.patch("cachito.workers.pkg_managers.pip._download_vcs_package")
     @mock.patch("cachito.workers.pkg_managers.pip._download_url_package")
@@ -2933,6 +2934,7 @@ class TestDownload:
         mock_url_download,
         mock_vcs_download,
         mock_pypi_download,
+        mock_get_nexus_url,
         mock_get_nexus_creds,
         mock_get_config,
         mock_request_bundle_dir,
@@ -2979,10 +2981,10 @@ class TestDownload:
             requirements=[pypi_req, vcs_req, url_req], options=options,
         )
 
-        proxy_url = "https://pypi-proxy.example.org"
         nexus_auth = requests.auth.HTTPBasicAuth("username", "password")
         proxy_auth = nexus_auth
 
+        proxy_repo = "cachito-pip-proxy"
         raw_repo = "cachito-pip-raw"
 
         mock_bundle_dir = MockBundleDir(tmp_path)
@@ -3013,9 +3015,10 @@ class TestDownload:
 
         mock_request_bundle_dir.return_value = mock_bundle_dir
         mock_get_config.return_value = mock.Mock(
-            cachito_nexus_pypi_proxy_url=proxy_url, cachito_nexus_pip_raw_repo_name=raw_repo
+            cachito_nexus_pip_proxy_repo_name=proxy_repo, cachito_nexus_pip_raw_repo_name=raw_repo
         )
         mock_get_nexus_creds.return_value = ("username", "password")
+        mock_get_nexus_url.return_value = "http://nexus:8081"
         mock_pypi_download.return_value = pypi_info
         mock_vcs_download.return_value = vcs_info
         mock_url_download.return_value = url_info
@@ -3034,7 +3037,9 @@ class TestDownload:
         # <check calls that must always be made>
         mock_request_bundle_dir.assert_called_once_with(1)
         mock_get_config.assert_called_once()
-        mock_pypi_download.assert_called_once_with(pypi_req, pip_deps, proxy_url, proxy_auth)
+        mock_pypi_download.assert_called_once_with(
+            pypi_req, pip_deps, f"http://nexus:8081/repository/{proxy_repo}", proxy_auth
+        )
         mock_vcs_download.assert_called_once_with(vcs_req, pip_deps, raw_repo, nexus_auth)
         mock_url_download.assert_called_once_with(
             url_req, pip_deps, raw_repo, nexus_auth, set(trusted_hosts)
