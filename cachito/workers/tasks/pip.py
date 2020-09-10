@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import base64
 import logging
+import os
 
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config, validate_pip_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
+    update_request_with_config_files,
     update_request_with_deps,
     update_request_with_package,
 )
@@ -78,13 +81,22 @@ def fetch_pip_source(request_id, package_configs=None):
     username = get_hosted_repositories_username(request_id)
     password = finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username)
 
-    # Set environment variables
+    # Set environment variables and config files
+    pip_config_files = []
     raw_url = get_pypi_hosted_repo_url(request_id)
     pip_index_url = get_index_url(raw_url, username, password)
     env_vars = {"PIP_INDEX_URL": {"value": pip_index_url, "kind": "literal"}}
     ca_cert = nexus.get_ca_cert()
     if ca_cert:
-        env_vars["PIP_CERT"] = {"value": ca_cert, "kind": "literal"}
+        ca_cert_path = os.path.join("app", "package-index-ca.pem")
+        env_vars["PIP_CERT"] = {"value": ca_cert_path, "kind": "path"}
+        pip_config_files.append(
+            {
+                "content": base64.b64encode(ca_cert.encode("utf-8")).decode("utf-8"),
+                "path": ca_cert_path,
+                "type": "base64",
+            }
+        )
 
     worker_config = get_worker_config()
     env_vars.update(worker_config.cachito_default_environment_variables.get("pip", {}))
@@ -93,3 +105,6 @@ def fetch_pip_source(request_id, package_configs=None):
     for pkg_data in packages_data:
         update_request_with_package(request_id, pkg_data["package"], env_vars)
         update_request_with_deps(request_id, pkg_data["package"], pkg_data["dependencies"])
+
+    if pip_config_files:
+        update_request_with_config_files(request_id, pip_config_files)
