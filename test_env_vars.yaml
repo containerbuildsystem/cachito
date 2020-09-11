@@ -118,3 +118,23 @@ various_packages:
     repo: https://github.com/akhmanova/cachito-gomod-test
     ref: 1827221d787cbd1e979b339cfbbf59728eddf0d4
     dependencies_count: 7
+# Test data for pip packages
+pip_packages:
+  # pip package without dependencies and requirements.txt
+  # repo: The URL for the upstream git repository
+  # ref: A git reference at the given git repository
+  # expected_files: Expected source files <relative_path>: <file_URL>
+  # package: expected package from the Cachito response
+  # purl: PURL of the package
+  without_deps:
+    repo: https://github.com/cachito-testing/cachito-pip-without-deps.git
+    ref: fb07c8492432631d557aba15e1715af9cef9c844
+    expected_files:
+      setup.cfg: https://raw.githubusercontent.com/cachito-testing/cachito-pip-without-deps/master/setup.cfg
+      setup.py: https://raw.githubusercontent.com/cachito-testing/cachito-pip-without-deps/master/setup.py
+    package:
+      dependencies: []
+      name: "cachito-pip-empty"
+      type: "pip"
+      version: "1.0.0"
+    purl: "pkg:pypi/cachito-pip-empty@1.0.0"
