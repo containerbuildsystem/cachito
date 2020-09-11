@@ -38,11 +38,4 @@ def test_valid_content_manifest_request(test_env, default_requests):
         assert content_manifest_response.status == 200
 
         response_data = content_manifest_response.data
-        assert_content_manifest_schema(response_data)
-
-
-def assert_content_manifest_schema(response_data):
-    """Validate content manifest according with JSON schema."""
-    icm_spec = response_data["metadata"]["icm_spec"]
-    schema = requests.get(icm_spec, timeout=30).json()
-    assert utils.validate_json(schema, response_data)
+        utils.assert_content_manifest_schema(response_data)

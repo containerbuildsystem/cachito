@@ -194,3 +194,10 @@ def make_list_of_packages_hashable(data):
     :return: list of lists with values name, type and version in this order
     """
     return sorted([[i["name"], i["type"], i["version"]] for i in data])
+
+
+def assert_content_manifest_schema(response_data):
+    """Validate content manifest according with JSON schema."""
+    icm_spec = response_data["metadata"]["icm_spec"]
+    schema = requests.get(icm_spec, timeout=30).json()
+    assert validate_json(schema, response_data)
