@@ -10,6 +10,11 @@ from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
 
 
+def setup_module():
+    """Disable logging."""
+    nexus.log.disabled = True
+
+
 @pytest.fixture()
 def components_search_results():
     return {
