@@ -3328,6 +3328,28 @@ def test_push_downloaded_requirement_from_pypi(mock_upload, dev):
     assert dependency == expected_dependency
 
 
+@pytest.mark.parametrize("uploaded", [True, False])
+@mock.patch("cachito.workers.pkg_managers.pip.upload_pypi_package")
+@mock.patch("cachito.workers.pkg_managers.pip.nexus.get_component_info_from_nexus")
+def test_push_downloaded_requirement_from_pypi_duplicated(mock_get_info, mock_upload, uploaded):
+    mock_upload.side_effect = CachitoError("stub")
+    mock_get_info.return_value = uploaded
+    pip_repo_name = "test-pip-hosted"
+    raw_repo_name = "test-pip-raw"
+    name = "foo"
+    version = "1"
+    path = "some/path"
+    req = {"package": name, "version": version, "path": path, "kind": "pypi", "dev": False}
+    expected_dependency = {"name": name, "version": version, "type": "pip", "dev": False}
+    if uploaded:
+        dependency = pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
+        mock_upload.assert_called_once_with(pip_repo_name, path)
+        assert dependency == expected_dependency
+    else:
+        with pytest.raises(CachitoError, match="stub"):
+            pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
+
+
 @pytest.mark.parametrize("dev", [True, False])
 @pytest.mark.parametrize("kind", ["url", "vcs"])
 @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
@@ -3370,6 +3392,59 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
     dependency = pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
     mock_upload.assert_called_once_with(raw_repo_name, path, dest_dir, filename, True)
     assert dependency == expected_dependency
+
+
+@pytest.mark.parametrize("kind", ["url", "vcs"])
+@pytest.mark.parametrize("uploaded", [True, False])
+@mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
+@mock.patch("cachito.workers.pkg_managers.pip.nexus.get_component_info_from_nexus")
+def test_push_downloaded_requirement_non_pypi_duplicated(
+    mock_get_info, mock_upload, kind, uploaded
+):
+    mock_upload.side_effect = CachitoError("stub")
+    mock_get_info.return_value = uploaded
+    pip_repo_name = "test-pip-hosted"
+    raw_repo_name = "test-pip-raw"
+    name = "eggs"
+    path = "some/path"
+    if kind == "vcs":
+        version = f"git+https://github.com/spam/eggs@{GIT_REF}"
+        raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+    elif kind == "url":
+        url = "https://example.org/eggs.tar.gz"
+        url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
+        version = url_with_hash
+        raw_component = f"eggs/eggs.tar.gz"
+
+    dest_dir, filename = raw_component.rsplit("/", 1)
+    req = {
+        "package": name,
+        "raw_component_name": raw_component,
+        "path": path,
+        "kind": kind,
+        "dev": False,
+    }
+    if kind == "vcs":
+        additional_keys = {
+            "url": "https://github.com/spam/eggs",
+            "host": "github.com",
+            "namespace": "spam",
+            "repo": "eggs",
+            "ref": GIT_REF,
+        }
+    elif kind == "url":
+        additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
+
+    req.update(additional_keys)
+
+    expected_dependency = {"name": name, "version": version, "type": "pip", "dev": False}
+    if uploaded:
+        dependency = pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
+        mock_upload.assert_called_once_with(raw_repo_name, path, dest_dir, filename, True)
+        assert dependency == expected_dependency
+    else:
+        with pytest.raises(CachitoError, match="stub"):
+            pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
 
 
 @mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")
