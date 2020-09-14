@@ -1991,13 +1991,49 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
         (if not pypi)
     :return: dict with the cachito Dependency representation
     :rtype: dict
+    :raises CachitoError: If Nexus upload operation fails
     """
     if requirement["kind"] == "pypi":
-        upload_pypi_package(pip_repo_name, requirement["path"])
+        try:
+            upload_pypi_package(pip_repo_name, requirement["path"])
+        except CachitoError:
+            if nexus.get_component_info_from_nexus(
+                pip_repo_name,
+                "pypi",
+                requirement["package"],
+                version=requirement["version"],
+                max_attempts=3,  # make sure the repo has been created
+                from_nexus_hoster=False,
+            ):
+                log.info(
+                    "dependency at '%s' has been uploaded to '%s' already. Skipping",
+                    requirement["path"],
+                    pip_repo_name,
+                )
+            else:
+                raise
+
         dep = {"name": requirement["package"], "version": requirement["version"], "type": "pip"}
     elif requirement["kind"] in ("vcs", "url"):
         dest_dir, filename = requirement["raw_component_name"].rsplit("/", 1)
-        upload_raw_package(raw_repo_name, requirement["path"], dest_dir, filename, True)
+        try:
+            upload_raw_package(raw_repo_name, requirement["path"], dest_dir, filename, True)
+        except CachitoError:
+            if nexus.get_component_info_from_nexus(
+                raw_repo_name,
+                "raw",
+                requirement["raw_component_name"],
+                max_attempts=3,  # make sure the repo has been created
+                from_nexus_hoster=False,
+            ):
+                log.info(
+                    "dependency at '%s' has been uploaded to '%s' already. Skipping",
+                    requirement["path"],
+                    raw_repo_name,
+                )
+            else:
+                raise
+
         if requirement["kind"] == "vcs":
             # Version is "git+" followed by the URL used to to fetch from git
             version = f"git+{requirement['url']}@{requirement['ref']}"
