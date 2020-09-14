@@ -15,20 +15,20 @@ from cachito.web.utils import deep_sort_icm
                 "image_contents": [
                     {
                         "dependencies": [
-                            {"purl": "sample-URL"},
-                            {"apurl": "sample-URL"},
-                            {"bpurl": "asample-URL"},
-                            {"bpurl": "0sample-URL"},
-                            {"apurl": "sample-URL"},
-                            {"purl": "asample-URL"},
+                            {"purl": "5sample-URL"},
+                            {"purl": "4sample-URL"},
+                            {"purl": "3sample-URL"},
+                            {"purl": "2sample-URL"},
+                            {"purl": "1sample-URL"},
+                            {"purl": "0sample-URL"},
                         ],
-                        "purl": "sample-URL",
+                        "purl": "1sample-URL",
                         "sources": [],
                     },
                     {
-                        "purl": "sample-URL",
-                        "sources": [{"purl": "sample-URL"}, {"apurl": "sample-URL"}],
-                        "adependencies": [],
+                        "dependencies": [],
+                        "purl": "0sample-URL",
+                        "sources": [{"purl": "1sample-URL"}, {"purl": "0sample-URL"}],
                     },
                 ],
             }
@@ -42,25 +42,25 @@ def test_deep_sort_icm(orig_items):
                 "image_contents": [
                     OrderedDict(
                         {
-                            "adependencies": [],
-                            "purl": "sample-URL",
+                            "dependencies": [],
+                            "purl": "0sample-URL",
                             "sources": [
-                                OrderedDict({"apurl": "sample-URL"}),
-                                OrderedDict({"purl": "sample-URL"}),
+                                OrderedDict({"purl": "0sample-URL"}),
+                                OrderedDict({"purl": "1sample-URL"}),
                             ],
                         }
                     ),
                     OrderedDict(
                         {
                             "dependencies": [
-                                OrderedDict({"apurl": "sample-URL"}),
-                                OrderedDict({"apurl": "sample-URL"}),
-                                OrderedDict({"bpurl": "0sample-URL"}),
-                                OrderedDict({"bpurl": "asample-URL"}),
-                                OrderedDict({"purl": "asample-URL"}),
-                                OrderedDict({"purl": "sample-URL"}),
+                                OrderedDict({"purl": "0sample-URL"}),
+                                OrderedDict({"purl": "1sample-URL"}),
+                                OrderedDict({"purl": "2sample-URL"}),
+                                OrderedDict({"purl": "3sample-URL"}),
+                                OrderedDict({"purl": "4sample-URL"}),
+                                OrderedDict({"purl": "5sample-URL"}),
                             ],
-                            "purl": "sample-URL",
+                            "purl": "1sample-URL",
                             "sources": [],
                         }
                     ),
