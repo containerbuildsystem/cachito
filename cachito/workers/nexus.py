@@ -191,7 +191,13 @@ def get_ca_cert():
 
 
 def get_component_info_from_nexus(
-    repository, component_format, name, version=None, group=None, max_attempts=1
+    repository,
+    component_format,
+    name,
+    version=None,
+    group=None,
+    max_attempts=1,
+    from_nexus_hoster=True,
 ):
     """
     Get the component information from a Nexus repository using Nexus' REST API.
@@ -205,6 +211,8 @@ def get_component_info_from_nexus(
     :param str version: the version of the dependency, should be specified if format is not raw
     :param str group: an optional group of the dependency (e.g. the scope of a npm package)
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
+    :param bool from_nexus_hoster: whether to get the info from the Nexus hoster instance, if
+        available
     :return: the JSON about the component or None
     :rtype: dict or None
     :raise CachitoError: if the search fails or more than one component is returned
@@ -225,7 +233,12 @@ def get_component_info_from_nexus(
             time.sleep(3)
 
         components = search_components(
-            format=component_format, group=group, name=name, repository=repository, version=version
+            in_nexus_hoster=from_nexus_hoster,
+            format=component_format,
+            group=group,
+            name=name,
+            repository=repository,
+            version=version,
         )
         if len(components) > 1:
             log.error(
@@ -272,10 +285,12 @@ def get_raw_component_asset_url(repository, name, max_attempts=1):
     return assets[0]["downloadUrl"]
 
 
-def search_components(**query_params):
+def search_components(in_nexus_hoster=True, **query_params):
     """
     Search for components using the Nexus REST API.
 
+    :param in_nexus_hoster: whether to search in the Nexus hoster instance, if one is
+        available. If set to false, will search in the self hosted instance
     :param query_params: the query parameters to filter
     :return: the list of components returned by the search
     :rtype: list<dict>
@@ -284,12 +299,19 @@ def search_components(**query_params):
     # Import this here to avoid a circular import
     from cachito.workers.requests import requests_session
 
-    username, password = get_nexus_hoster_credentials()
+    config = get_worker_config()
+    if in_nexus_hoster:
+        username, password = get_nexus_hoster_credentials()
+        nexus_url = get_nexus_hoster_url()
+    else:
+        username = config.cachito_nexus_username
+        password = config.cachito_nexus_password
+        nexus_url = config.cachito_nexus_url
+
     auth = requests.auth.HTTPBasicAuth(username, password)
-    url = f"{get_nexus_hoster_url()}/service/rest/v1/search"
+    url = f"{nexus_url}/service/rest/v1/search"
     # Create a copy so that the original query parameters are unaltered later on
     params = copy.deepcopy(query_params)
-    config = get_worker_config()
 
     log.debug(
         "Searching Nexus for components using the following query parameters: %r", query_params

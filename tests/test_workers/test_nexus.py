@@ -462,6 +462,36 @@ def test_search_components(mock_requests, components_search_results):
     assert mock_requests.get.call_count == 2
 
 
+@pytest.mark.parametrize("hoster", [True, False])
+@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch("requests.auth.HTTPBasicAuth")
+@mock.patch("cachito.workers.nexus.get_worker_config")
+def test_search_components_auth(
+    mock_gwc, mock_auth, mock_requests, components_search_results, hoster
+):
+    hoster_credential = "hoster"
+    local_credential = "local"
+    mock_gwc.return_value.cachito_nexus_hoster_username = hoster_credential
+    mock_gwc.return_value.cachito_nexus_hoster_password = hoster_credential
+    mock_gwc.return_value.cachito_nexus_username = local_credential
+    mock_gwc.return_value.cachito_nexus_password = local_credential
+
+    mock_rv = mock.Mock()
+    mock_rv.ok = True
+    mock_rv.json.return_value = components_search_results
+    mock_requests.get.return_value = mock_rv
+    results = nexus.search_components(
+        in_nexus_hoster=hoster, repository="cachito-js-hosted", type="npm"
+    )
+
+    assert results == components_search_results["items"]
+    assert mock_requests.get.call_count == 1
+    if hoster:
+        mock_auth.assert_called_once_with(hoster_credential, hoster_credential)
+    else:
+        mock_auth.assert_called_once_with(local_credential, local_credential)
+
+
 @mock.patch("cachito.workers.requests.requests_session")
 def test_search_components_connection_error(mock_requests):
     mock_requests.get.side_effect = requests.ConnectionError()
