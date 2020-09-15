@@ -36,7 +36,7 @@ def get_nexus_hoster_credentials():
     return username, password
 
 
-def get_nexus_hoster_url():
+def _get_nexus_hoster_url():
     """
     Get the Nexus instance with the hosted repositories.
 
@@ -302,7 +302,7 @@ def search_components(in_nexus_hoster=True, **query_params):
     config = get_worker_config()
     if in_nexus_hoster:
         username, password = get_nexus_hoster_credentials()
-        nexus_url = get_nexus_hoster_url()
+        nexus_url = _get_nexus_hoster_url()
     else:
         username = config.cachito_nexus_username
         password = config.cachito_nexus_password
@@ -427,7 +427,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
     config = get_worker_config()
     if to_nexus_hoster:
         username, password = get_nexus_hoster_credentials()
-        nexus_url = get_nexus_hoster_url()
+        nexus_url = _get_nexus_hoster_url()
     else:
         username = config.cachito_nexus_username
         password = config.cachito_nexus_password

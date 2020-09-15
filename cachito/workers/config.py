@@ -40,8 +40,8 @@ class Config(object):
     cachito_nexus_hoster_username = None
     cachito_nexus_js_hosted_repo_name = "cachito-js-hosted"
     cachito_nexus_npm_proxy_repo_url = "http://localhost:8081/repository/cachito-js/"
-    cachito_nexus_pip_proxy_repo_name = "cachito-pip-proxy"
     cachito_nexus_pip_raw_repo_name = "cachito-pip-raw"
+    cachito_nexus_pypi_proxy_url = "http://localhost:8081/repository/cachito-pip-proxy/"
     cachito_nexus_proxy_password = None
     cachito_nexus_proxy_username = None
     cachito_nexus_request_repo_prefix = "cachito-"
@@ -276,7 +276,7 @@ def validate_pip_config():
     """
     validate_nexus_config()
     conf = get_worker_config()
-    for pip_config in ("cachito_nexus_pip_proxy_repo_name", "cachito_nexus_pip_raw_repo_name"):
+    for pip_config in ("cachito_nexus_pypi_proxy_url", "cachito_nexus_pip_raw_repo_name"):
         if not conf.get(pip_config):
             raise ConfigError(
                 f'The configuration "{pip_config}" must be set for this package manager'

@@ -192,16 +192,16 @@ def test_validate_npm_config(mock_vnc, mock_gwc):
 @pytest.mark.parametrize(
     "missing_configs",
     (
-        ["cachito_nexus_pip_proxy_repo_name"],
+        ["cachito_nexus_pypi_proxy_url"],
         ["cachito_nexus_pip_raw_repo_name"],
-        ["cachito_nexus_pip_proxy_repo_name", "cachito_nexus_pip_raw_repo_name"],
+        ["cachito_nexus_pypi_proxy_url", "cachito_nexus_pip_raw_repo_name"],
         [],
     ),
 )
 @patch("cachito.workers.config.get_worker_config")
 @patch("cachito.workers.config.validate_nexus_config")
 def test_validate_pip_config(mock_vnc, mock_gwc, missing_configs):
-    configs = {"cachito_nexus_pip_proxy_repo_name": "foo", "cachito_nexus_pip_raw_repo_name": "bar"}
+    configs = {"cachito_nexus_pypi_proxy_url": "foo", "cachito_nexus_pip_raw_repo_name": "bar"}
     for conf in missing_configs:
         configs.pop(conf)
 
