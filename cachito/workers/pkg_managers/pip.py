@@ -1276,13 +1276,11 @@ def download_dependencies(request_id, requirements_file):
     bundle_dir.pip_deps_dir.mkdir(parents=True, exist_ok=True)
 
     config = get_worker_config()
-    pip_proxy_repo_name = config.cachito_nexus_pip_proxy_repo_name
+    pypi_proxy_url = config.cachito_nexus_pypi_proxy_url
     pip_raw_repo_name = config.cachito_nexus_pip_raw_repo_name
 
     nexus_username, nexus_password = nexus.get_nexus_hoster_credentials()
     nexus_auth = requests.auth.HTTPBasicAuth(nexus_username, nexus_password)
-
-    pypi_proxy_url = f"{nexus.get_nexus_hoster_url()}/repository/{pip_proxy_repo_name}"
     pypi_proxy_auth = nexus_auth
 
     downloads = []
