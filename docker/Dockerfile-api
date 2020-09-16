@@ -16,6 +16,7 @@ RUN dnf -y install \
     python3-flask-sqlalchemy \
     python3-GitPython \
     python3-mod_wsgi \
+    python3-packaging \
     python3-pip \
     python3-psycopg2 \
     python3-requests \

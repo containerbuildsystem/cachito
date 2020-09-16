@@ -12,6 +12,7 @@ RUN dnf -y install \
     npm \
     python3-celery \
     python3-GitPython \
+    python3-packaging \
     python3-pip \
     python3-requests \
     python3-requests-kerberos \
