@@ -5,6 +5,7 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 from urllib.parse import urlparse
+from xml.etree import ElementTree
 
 import pytest
 import requests
@@ -2308,53 +2309,29 @@ class MockBundleDir(type(Path())):
 class TestDownload:
     """Tests for dependency downloading."""
 
-    DOWNLOAD_SDIST = {
-        # "comment_text": "",
-        # "digests": {
-        #     "md5": "b0b7fe1397a57dc723bb1c8618a9cb2b",
-        #     "sha256": "731e3944ab2f1112a64661b565aa8d9df0fa8141b9ac23d9ce559e1501461108",
-        # },
-        # "downloads": -1,
-        "filename": "aiowsgi-0.7.tar.gz",
-        # "has_sig": False,
-        # "md5_digest": "ba59f62acce9a9175bb9747f46e3f59b",
-        "packagetype": "sdist",
-        # "python_version": "source",
-        # "requires_python": None,
-        # "size": 14954,
-        # "upload_time": "2018-11-02T19:38:09",
-        # "upload_time_iso_8601": "2018-11-02T19:38:09.851502Z",
-        "url": "https://example.org/aiowsgi-0.7.tar.gz",
-        "yanked": False,
-        # "yanked_reason": None
-    }
+    def mock_pypi_response(self, sdist_exists, sdist_not_yanked):
+        """Mock a PyPI HTML response from the /simple/<project> endpoint."""
+        egg_filename = "aiowsgi-0.7.egg"
+        tar_filename = "aiowsgi-0.7.tar.gz"
 
-    def mock_pypi_response(self, sdist_exists, sdist_not_yanked, has_metadata):
-        """Mock a PyPI JSON response."""
-        response_json = {
-            # "info": {},
-            # "last_serial": 0,
-            # "releases": {},
-            "urls": [
-                {
-                    # wheel, should be ignored
-                    "filename": "aiowsgi-0.7-py3-none-any.whl",
-                    "packagetype": "bdist_wheel",
-                    "url": "https://bad-example.org/aiowsgi-0.7-py3-none-any.whl",
-                    "yanked": False,
-                },
-            ],
-        }
-        if sdist_exists:
-            download_sdist = self.DOWNLOAD_SDIST.copy()
-            download_sdist["yanked"] = not sdist_not_yanked
-            response_json["urls"].append(download_sdist)
-        if has_metadata:
-            response_json["info"] = {
-                "name": "aiowsgi-canonical-name",
-                "version": "0.7.canonical.version",
-            }
-        return response_json
+        egg = f'<a href="../../package/{egg_filename}">{egg_filename}</a>'
+        if sdist_not_yanked:
+            sdist = f'<a href="../../packages/{tar_filename}">{tar_filename}</a>'
+        else:
+            sdist = f'<a href="../../packages/{tar_filename}" data-yanked="">{tar_filename}</a>'
+
+        html = dedent(
+            f"""
+            <html>
+              <body>
+                {egg}
+                {sdist if sdist_exists else ""}
+              </body>
+            </html>
+            """
+        )
+
+        return html
 
     def mock_requirements_file(self, requirements=None, options=None):
         """Mock a requirements.txt file."""
@@ -2399,7 +2376,8 @@ class TestDownload:
             (False, False, False),
         ],
     )
-    @pytest.mark.parametrize("metadata_in_response", [True, False])
+    # Package name should be normalized before querying PyPI
+    @pytest.mark.parametrize("package_name", ["AioWSGI", "aiowsgi"])
     @mock.patch.object(requests_session, "get")
     @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
     def test_download_pypi_package(
@@ -2409,14 +2387,16 @@ class TestDownload:
         pypi_query_success,
         sdist_exists,
         sdist_not_yanked,
-        metadata_in_response,
+        package_name,
         tmp_path,
     ):
         """Test downloading of a single PyPI package."""
-        mock_requirement = self.mock_requirement("aiowsgi", "pypi", version_specs=[("==", "0.7")])
+        mock_requirement = self.mock_requirement(
+            package_name, "pypi", version_specs=[("==", "0.7")]
+        )
 
-        pypi_resp = self.mock_pypi_response(sdist_exists, sdist_not_yanked, metadata_in_response)
-        pypi_success = mock.Mock(json=lambda: pypi_resp)
+        pypi_resp = self.mock_pypi_response(sdist_exists, sdist_not_yanked)
+        pypi_success = mock.Mock(text=pypi_resp)
         pypi_fail = requests.RequestException("Something went wrong")
 
         mock_get.side_effect = [
@@ -2426,9 +2406,10 @@ class TestDownload:
         if not pypi_query_success:
             expect_error = "PyPI query failed: Something went wrong"
         elif not sdist_exists:
-            expect_error = "No sdists found for package aiowsgi==0.7"
+            # The error message should show the package name unchanged, not normalized
+            expect_error = f"No sdists found for package {package_name}==0.7"
         elif not sdist_not_yanked:
-            expect_error = "All sdists for package aiowsgi==0.7 are yanked"
+            expect_error = f"All sdists for package {package_name}==0.7 are yanked"
         else:
             expect_error = None
 
@@ -2437,12 +2418,14 @@ class TestDownload:
                 mock_requirement, tmp_path, "https://pypi-proxy.org/", ("user", "password")
             )
             assert download_info == {
-                "package": "aiowsgi" if not metadata_in_response else "aiowsgi-canonical-name",
-                "version": "0.7" if not metadata_in_response else "0.7.canonical.version",
+                "package": "aiowsgi",
+                "version": "0.7",
                 "path": tmp_path / "aiowsgi" / "aiowsgi-0.7.tar.gz",
             }
 
-            proxied_file_url = "https://pypi-proxy.org/example.org/https/aiowsgi-0.7.tar.gz"
+            proxied_file_url = (
+                "https://pypi-proxy.org/simple/aiowsgi/../../packages/aiowsgi-0.7.tar.gz"
+            )
             mock_download_file.assert_called_once_with(
                 proxied_file_url, download_info["path"], auth=("user", "password")
             )
@@ -2454,27 +2437,140 @@ class TestDownload:
             assert str(exc_info.value) == expect_error
 
         mock_get.assert_called_once_with(
-            "https://pypi-proxy.org/pypi/aiowsgi/0.7/json", auth=("user", "password")
+            "https://pypi-proxy.org/simple/aiowsgi/", auth=("user", "password")
         )
 
-    @mock.patch.object(requests_session, "get")
-    def test_download_pypi_package_unexpected_url(self, mock_get):
-        """Test that an unexpected file URL will cause a RuntimeError."""
-        mock_requirement = self.mock_requirement("aiowsgi", "pypi", version_specs=[("==", "0.7")])
+    def test_process_package_links(self):
+        """Test processing of package links."""
+        links = [
+            ElementTree.fromstring('<a href="../foo-1.0.tar.gz">foo-1.0.tar.gz</a>'),
+            ElementTree.fromstring('<a href="../foo-1.0.zip" data-yanked="">foo-1.0.zip</a>'),
+        ]
+        assert pip._process_package_links(links, "foo", "1.0") == [
+            {
+                "name": "foo",
+                "version": "1.0",
+                "url": "../foo-1.0.tar.gz",
+                "filename": "foo-1.0.tar.gz",
+                "yanked": False,
+            },
+            {
+                "name": "foo",
+                "version": "1.0",
+                "url": "../foo-1.0.zip",
+                "filename": "foo-1.0.zip",
+                "yanked": True,
+            },
+        ]
 
-        pypi_resp = self.mock_pypi_response(True, True, True)
-        pypi_resp["urls"][1]["url"] = "../../../../example.org/https/aiowsgi-0.7.tar.gz"
+    @pytest.mark.parametrize(
+        "noncanonical_name, canonical_name",
+        [
+            ("Django", "django"),
+            ("ruamel.yaml.clib", "ruamel-yaml-clib"),
+            ("requests_kerberos", "requests-kerberos"),
+            ("Requests_._-_Kerberos", "requests-kerberos"),
+        ],
+    )
+    @pytest.mark.parametrize("requested_name_is_canonical", [True, False])
+    @pytest.mark.parametrize("actual_name_is_canonical", [True, False])
+    def test_process_package_links_noncanonical_name(
+        self,
+        canonical_name,
+        noncanonical_name,
+        requested_name_is_canonical,
+        actual_name_is_canonical,
+    ):
+        """Test that canonical names match non-canonical names."""
+        if requested_name_is_canonical:
+            requested_name = canonical_name
+        else:
+            requested_name = noncanonical_name
 
-        mock_get.return_value.json.return_value = pypi_resp
+        if actual_name_is_canonical:
+            actual_name = canonical_name
+        else:
+            actual_name = noncanonical_name
 
-        with pytest.raises(RuntimeError) as exc_info:
-            pip._download_pypi_package(
-                mock_requirement, Path("/xyz"), "https://pypi-proxy.org", ("user", "password")
-            )
+        links = [
+            ElementTree.fromstring(
+                f'<a href="../{actual_name}-1.0.tar.gz">{actual_name}-1.0.tar.gz</a>'
+            ),
+        ]
 
-        assert str(exc_info.value) == (
-            "Unexpected value for sdist URL: '../../../../example.org/https/aiowsgi-0.7.tar.gz'"
-        )
+        assert pip._process_package_links(links, requested_name, "1.0") == [
+            {
+                "name": actual_name,
+                "version": "1.0",
+                "url": f"../{actual_name}-1.0.tar.gz",
+                "filename": f"{actual_name}-1.0.tar.gz",
+                "yanked": False,
+            }
+        ]
+
+    @pytest.mark.parametrize(
+        "noncanonical_version, canonical_version",
+        [
+            ("1.0", "1"),
+            ("1.0.0", "1"),
+            ("1.0.alpha1", "1a1"),
+            ("1.1.0", "1.1"),
+            ("1.1.alpha1", "1.1a1"),
+            ("1.0-1", "1.post1"),
+            ("1.1.0-1", "1.1.post1"),
+        ],
+    )
+    @pytest.mark.parametrize("requested_version_is_canonical", [True, False])
+    @pytest.mark.parametrize("actual_version_is_canonical", [True, False])
+    def test_process_package_links_noncanonical_version(
+        self,
+        canonical_version,
+        noncanonical_version,
+        requested_version_is_canonical,
+        actual_version_is_canonical,
+    ):
+        """Test that canonical names match non-canonical names."""
+        if requested_version_is_canonical:
+            requested_version = canonical_version
+        else:
+            requested_version = noncanonical_version
+
+        if actual_version_is_canonical:
+            actual_version = canonical_version
+        else:
+            actual_version = noncanonical_version
+
+        links = [
+            ElementTree.fromstring(
+                f'<a href="../foo-{actual_version}.tar.gz">foo-{actual_version}.tar.gz</a>'
+            ),
+        ]
+
+        assert pip._process_package_links(links, "foo", requested_version) == [
+            {
+                "name": "foo",
+                "version": actual_version,
+                "url": f"../foo-{actual_version}.tar.gz",
+                "filename": f"foo-{actual_version}.tar.gz",
+                "yanked": False,
+            }
+        ]
+
+    def test_process_package_links_not_sdist(self):
+        """Test that links for files that are not sdists are ignored."""
+        links = [
+            ElementTree.fromstring('<a href="../foo-1.0.whl">foo-1.0.whl</a>'),
+            ElementTree.fromstring('<a href="../foo-1.0.egg">foo-1.0.egg</a>'),
+        ]
+        assert pip._process_package_links(links, "foo", "1.0") == []
+
+    @pytest.mark.parametrize("requested_version", ["2.0", "1.0.a1", "1.0.post1", "1.0.dev1"])
+    def test_process_package_links_wrong_version(self, requested_version):
+        """Test that links for files with different version are ignored."""
+        links = [
+            ElementTree.fromstring('<a href="../foo-1.0.tar.gz">foo-1.0.tar.gz</a>'),
+        ]
+        assert pip._process_package_links(links, "foo", requested_version) == []
 
     def test_sdist_sorting(self):
         """Test that sdist preference key can be used for sorting in the expected order."""

@@ -10,9 +10,11 @@ import urllib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pkg_resources
 import requests
+from packaging.utils import canonicalize_name, canonicalize_version
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers import nexus
@@ -39,6 +41,7 @@ GIT_REF_IN_PATH = re.compile(r"@[a-fA-F0-9]{40}$")
 
 # All supported sdist formats, see https://docs.python.org/3/distutils/sourcedist.html
 SDIST_FILE_EXTENSIONS = [".zip", ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.Z", ".tar"]
+SDIST_EXT_PATTERN = r"|".join(map(re.escape, SDIST_FILE_EXTENSIONS))
 
 
 def get_pip_metadata(package_dir):
@@ -1500,7 +1503,7 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
     The package must be pinned to an exact version using the '==' (or '===') operator.
     While the specification defines the '==' operator as slightly magical (reference:
     https://www.python.org/dev/peps/pep-0440/#version-matching), we treat the version
-    as exact.
+    as exact (after normalization).
 
     Does not download any dependencies (implied: ignores extras). Ignores environment
     markers (target environment is not known to Cachito).
@@ -1518,16 +1521,19 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
     package = requirement.package
     version = requirement.version_specs[0][1]
 
-    # See https://warehouse.readthedocs.io/api-reference/json/
-    package_url = f"{pypi_proxy_url.rstrip('/')}/pypi/{package}/{version}/json"
+    # See https://www.python.org/dev/peps/pep-0503/
+    package_url = f"{pypi_proxy_url.rstrip('/')}/simple/{canonicalize_name(package)}/"
     try:
         pypi_resp = requests_session.get(package_url, auth=pypi_proxy_auth)
         pypi_resp.raise_for_status()
     except requests.RequestException as e:
         raise CachitoError(f"PyPI query failed: {e}")
 
-    data = pypi_resp.json()
-    sdists = [pkg for pkg in data.get("urls", []) if pkg.get("packagetype") == "sdist"]
+    html = ElementTree.fromstring(pypi_resp.text)
+    # Find all anchors anywhere in the doc, the PEP does not specify where they should be
+    links = html.iter("a")
+
+    sdists = _process_package_links(links, package, version)
     if not sdists:
         raise CachitoError(f"No sdists found for package {package}=={version}")
 
@@ -1536,51 +1542,68 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
     if sdist.get("yanked", False):
         raise CachitoError(f"All sdists for package {package}=={version} are yanked")
 
-    # Unlike regular PyPI, the Nexus PyPI proxy supports the following magic with file URLs:
-    #   - original (from PyPI): https://files.pythonhosted.org/...
-    #   - modified (from Nexus): http(s)://<nexus_pypi_proxy_url>/files.pythonhosted.org/https/...
-    # i.e. mangle the file URL, prepend the proxy URL and let Nexus serve you the file.
-
-    # The reason why this is important is that Nexus will only cache the file if you use
-    # the Nexus URL to download it!
-
-    # For regular usage (e.g. set Nexus proxy as index-url for Pip), this just works, because
-    # Nexus modifies the response from the /simple/<package_name> endpoint as follows:
-    #   - original: <a href="https://files.pythonhosted.org/...">
-    #   - modified: <a href="../../files.pythonhosted.org/https/...">
-
-    # However, since we are using the /pypi/<package_name>/<version>/json endpoint here, we
-    # will have to do the mangling ourselves.
-
-    original_url = urllib.parse.urlparse(sdist["url"])
-    if not original_url.scheme:
-        # In case Nexus starts mangling URLs from the /json endpoint as well
-        raise RuntimeError(f"Unexpected value for sdist URL: {sdist['url']!r}")
-
-    # Note: despite starting with an underscore, the namedtuple._replace() method is public
-    mangled_url = original_url._replace(
-        scheme="",
-        # Netloc needs to be part of path to match what you get when you parse a URL without scheme
-        netloc="",
-        path=f"{original_url.netloc}/{original_url.scheme}{original_url.path}",
-    )
-
-    proxied_url = f"{pypi_proxy_url.rstrip('/')}/{mangled_url.geturl()}"
-
-    package_dir = pip_deps_dir / package
+    package_dir = pip_deps_dir / sdist["name"]
     package_dir.mkdir(exist_ok=True)
     download_path = package_dir / sdist["filename"]
 
+    # Nexus turns package URLs into relative URLs
+    proxied_url = f"{package_url.rstrip('/')}/{sdist['url']}"
     download_binary_file(proxied_url, download_path, auth=pypi_proxy_auth)
 
-    package_info = data.get("info", {})
-
     return {
-        # Use canonical package name and version from PyPI response (if present)
-        "package": package_info.get("name") or package,
-        "version": package_info.get("version") or version,
+        "package": sdist["name"],
+        "version": sdist["version"],
         "path": download_path,
     }
+
+
+def _process_package_links(links, name, version):
+    """
+    Process links to Python packages.
+
+    Pick out sdists at the specified version, return metadata about found sdists.
+
+    :param Iterable links: Iterable of html anchor elements
+    :param str name: Package name
+    :param str version: Package version
+    :return: List of dicts with processed metadata
+    """
+    canonical_name = canonicalize_name(name)
+    canonical_version = canonicalize_version(version)
+
+    # When matching package name, use a regex that will match any non-canonical
+    # variation of the canonical name (it also needs to be case-insensitive).
+    # See https://www.python.org/dev/peps/pep-0503/#normalized-names.
+    noncanonical_name_pattern = re.escape(canonical_name).replace("\\-", "[-_.]+")
+    sdist_re = re.compile(
+        # <name>-<version><extension>
+        rf"^({noncanonical_name_pattern})-(.+)(?:{SDIST_EXT_PATTERN})$",
+        re.IGNORECASE,
+    )
+
+    sdists = []
+
+    for link in links:
+        match = sdist_re.match(link.text)
+        if not match:
+            continue
+
+        name, version = match.groups()
+        if canonical_version != canonicalize_version(version):
+            continue
+
+        sdists.append(
+            {
+                "name": name,
+                "version": version,
+                "filename": link.text,
+                "url": link.get("href"),
+                # https://www.python.org/dev/peps/pep-0592/
+                "yanked": link.get("data-yanked") is not None,
+            }
+        )
+
+    return sdists
 
 
 def _sdist_preference(sdist_pkg):
