@@ -1967,7 +1967,9 @@ def get_index_url(nexus_pypi_hosted_repo_url, username, password):
             f"Nexus PyPI hosted repo URL: {nexus_pypi_hosted_repo_url} is not a valid URL"
         )
 
-    return index_url
+    # Append endpoint for the simple repository API
+    simple_api_url = f'{index_url.rstrip("/")}/simple'
+    return simple_api_url
 
 
 def _download_from_requirement_files(request_id, files):

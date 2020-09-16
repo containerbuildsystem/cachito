@@ -3369,9 +3369,7 @@ def test_get_hosted_repositories_username():
 
 
 def test_get_index_url():
-    index_url = pip.get_index_url(
-        "https://repository/cachito-pip-hosted-5/simple", "admin", "admin123",
-    )
+    index_url = pip.get_index_url("https://repository/cachito-pip-hosted-5/", "admin", "admin123")
 
     expected = "https://admin:admin123@repository/cachito-pip-hosted-5/simple"
 
@@ -3379,12 +3377,10 @@ def test_get_index_url():
 
 
 def test_get_index_url_invalid_url():
-    expected = (
-        "Nexus PyPI hosted repo URL: repository/cachito-pip-hosted-5/simple is not a valid URL"
-    )
+    expected = "Nexus PyPI hosted repo URL: repository/cachito-pip-hosted-5/ is not a valid URL"
     with pytest.raises(CachitoError, match=expected):
         pip.get_index_url(
-            "repository/cachito-pip-hosted-5/simple", "admin", "admin123",
+            "repository/cachito-pip-hosted-5/", "admin", "admin123",
         )
 
 

@@ -61,7 +61,10 @@ def test_fetch_pip_source(
     nexus_url = config.cachito_nexus_url
     index_base_url = nexus_url.replace("://", f"://{username}:{password}@")
     env_vars = {
-        "PIP_INDEX_URL": {"value": f"{index_base_url}/repository/{repo_name}/", "kind": "literal"}
+        "PIP_INDEX_URL": {
+            "value": f"{index_base_url}/repository/{repo_name}/simple",
+            "kind": "literal",
+        }
     }
     mock_cert.return_value = None
     cert_contents = "stub_cert"
