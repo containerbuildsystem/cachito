@@ -381,8 +381,9 @@ def test_get_component_info_from_nexus_version_vs_raw(raw, version):
         )
 
 
+@pytest.mark.parametrize("hoster", [True, False])
 @mock.patch("cachito.workers.nexus.get_component_info_from_nexus")
-def test_get_raw_component_asset_url(mock_get_component_info):
+def test_get_raw_component_asset_url(mock_get_component_info, hoster):
     mock_get_component_info.return_value = {
         # "id": "1234",
         # "repository": "cachito-pip-raw",
@@ -406,11 +407,17 @@ def test_get_raw_component_asset_url(mock_get_component_info):
         ]
     }
 
-    url = nexus.get_raw_component_asset_url("cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz")
+    url = nexus.get_raw_component_asset_url(
+        "cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz", from_nexus_hoster=hoster
+    )
     assert url == "http://nexus/repository/cachito-pip-raw/foo/bar/foobar-1.0.tar.gz"
 
     mock_get_component_info.assert_called_once_with(
-        "cachito-pip-raw", "raw", "foo/bar/foobar-1.0.tar.gz", max_attempts=1
+        "cachito-pip-raw",
+        "raw",
+        "foo/bar/foobar-1.0.tar.gz",
+        max_attempts=1,
+        from_nexus_hoster=hoster,
     )
 
 

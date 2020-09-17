@@ -259,7 +259,7 @@ def get_component_info_from_nexus(
     return None
 
 
-def get_raw_component_asset_url(repository, name, max_attempts=1):
+def get_raw_component_asset_url(repository, name, max_attempts=1, from_nexus_hoster=True):
     """
     Get download URL for the asset of a raw component.
 
@@ -269,9 +269,13 @@ def get_raw_component_asset_url(repository, name, max_attempts=1):
     :param str repository: the name of the repository
     :param str name: the name of the component (directory + filename)
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
+    :param bool from_nexus_hoster: whether to get the URL from the Nexus hoster instance, if
+        available
     :return: download URL for the asset, or None if component was not found
     """
-    component = get_component_info_from_nexus(repository, "raw", name, max_attempts=max_attempts)
+    component = get_component_info_from_nexus(
+        repository, "raw", name, max_attempts=max_attempts, from_nexus_hoster=from_nexus_hoster
+    )
     if component is None:
         return None
 
