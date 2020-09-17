@@ -227,10 +227,12 @@ def get_component_info_from_nexus(
     attempts = 0
     while component is None and attempts < max_attempts:
         if attempts != 0:
+            # Start waiting 3 seconds; then increase the wait time exponentially
+            wait = 2 + (2 ** (attempts - 1))
             log.warning(
-                "The component search did not yield any results. Trying again in three seconds."
+                f"The component search did not yield any results. Trying again in {wait} seconds."
             )
-            time.sleep(3)
+            time.sleep(wait)
 
         components = search_components(
             in_nexus_hoster=from_nexus_hoster,
