@@ -146,7 +146,10 @@ def _get_custom_requirement_config_file(requirement_file_path, source_dir, raw_r
             worker_config = get_worker_config()
             max_attempts = worker_config.cachito_nexus_max_search_attempts
             new_url = nexus.get_raw_component_asset_url(
-                raw_repo_name, raw_component_name, max_attempts=max_attempts
+                raw_repo_name,
+                raw_component_name,
+                max_attempts=max_attempts,
+                from_nexus_hoster=False,
             )
             if not new_url:
                 raise CachitoError(

@@ -136,7 +136,9 @@ def test_get_custom_requirement_config_file(
     if found_url or not component_name:
         req = pip._get_custom_requirement_config_file(req_file, tmp_path, repo_name)
         if component_name:
-            mock_get_url.assert_called_once_with(repo_name, component_name, max_attempts=5)
+            mock_get_url.assert_called_once_with(
+                repo_name, component_name, max_attempts=5, from_nexus_hoster=False
+            )
             assert req["type"] == "base64"
             assert req["path"] == "app/req.txt"
             assert new_url in base64.b64decode(req["content"]).decode()
