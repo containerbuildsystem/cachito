@@ -39,6 +39,7 @@ class Config(object):
     cachito_nexus_hoster_url = None
     cachito_nexus_hoster_username = None
     cachito_nexus_js_hosted_repo_name = "cachito-js-hosted"
+    cachito_nexus_max_search_attempts = 5
     cachito_nexus_npm_proxy_repo_url = "http://localhost:8081/repository/cachito-js/"
     cachito_nexus_pip_raw_repo_name = "cachito-pip-raw"
     cachito_nexus_pypi_proxy_url = "http://localhost:8081/repository/cachito-pip-proxy/"

@@ -341,6 +341,8 @@ Custom configuration for the Celery workers are listed below:
   also be set.
 * `cachito_nexus_js_hosted_repo_name` - the name of the Nexus hosted repository for JavaScript
   package managers. This defaults to `cachito-js-hosted`.
+* `cachito_nexus_max_search_attempts` - the number of times Cachito will retry searching for non
+  PyPI assets in the raw pip repositories to retrieve a URL to append to the requirements file.
 * `cachito_nexus_npm_proxy_repo_url` - the URL to the `cachito-js` repository which is a Nexus group
   that points to the `cachito-js-hosted` hosted repository and the `cachito-js-proxy` proxy
   repository. This defaults to `http://localhost:8081/repository/cachito-js/`. This only needs to
