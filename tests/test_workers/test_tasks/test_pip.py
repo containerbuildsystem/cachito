@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 
+from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import pip
@@ -118,20 +119,31 @@ def test_fetch_pip_source(
         ],
     ],
 )
+@pytest.mark.parametrize("found_url", [True, False])
 @mock.patch("cachito.workers.tasks.pip.nexus.get_raw_component_asset_url")
-def test_get_custom_requirement_config_file(mock_get_url, original, component_name, tmp_path):
+def test_get_custom_requirement_config_file(
+    mock_get_url, original, component_name, tmp_path, found_url
+):
     new_url = "fake-resource"
-    mock_get_url.return_value = new_url
+    if found_url:
+        mock_get_url.return_value = new_url
+    else:
+        mock_get_url.return_value = None
+
     req_file = tmp_path / "req.txt"
     req_file.write_text(original)
-    component_name = component_name
     repo_name = "raw-1"
-    req = pip._get_custom_requirement_config_file(req_file, tmp_path, repo_name)
-    if component_name:
-        mock_get_url.assert_called_once_with(repo_name, component_name, max_attempts=5)
-        assert req["type"] == "base64"
-        assert req["path"] == "app/req.txt"
-        assert new_url in base64.b64decode(req["content"]).decode()
+    if found_url or not component_name:
+        req = pip._get_custom_requirement_config_file(req_file, tmp_path, repo_name)
+        if component_name:
+            mock_get_url.assert_called_once_with(repo_name, component_name, max_attempts=5)
+            assert req["type"] == "base64"
+            assert req["path"] == "app/req.txt"
+            assert new_url in base64.b64decode(req["content"]).decode()
+        else:
+            mock_get_url.assert_not_called()
+            assert req is None
     else:
-        mock_get_url.assert_not_called()
-        assert req is None
+        msg = f"Could not retrieve URL for {component_name} in {repo_name}. Was the asset uploaded?"
+        with pytest.raises(CachitoError, match=msg):
+            pip._get_custom_requirement_config_file(req_file, tmp_path, repo_name)

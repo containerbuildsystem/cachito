@@ -4,6 +4,7 @@ import base64
 import logging
 import os
 
+from cachito.errors import CachitoError
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config, validate_pip_config
 from cachito.workers.paths import RequestBundleDir
@@ -145,6 +146,12 @@ def _get_custom_requirement_config_file(requirement_file_path, source_dir, raw_r
             new_url = nexus.get_raw_component_asset_url(
                 raw_repo_name, raw_component_name, max_attempts=5
             )
+            if not new_url:
+                raise CachitoError(
+                    f"Could not retrieve URL for {raw_component_name} in {raw_repo_name}. Was the "
+                    "asset uploaded?"
+                )
+
             requirement = requirement.copy(url=new_url)
             differs_from_original = True
 
