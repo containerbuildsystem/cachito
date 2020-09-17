@@ -72,10 +72,12 @@ def test_fetch_pip_source(
     cfg_contents = []
     if with_req:
         pkg_data["requirements"].append(str(RequestBundleDir(1).source_dir / "requirements.txt"))
-        mock_get_raw_asset_url.return_value = "fake-raw-asset-url"
+        mock_get_raw_asset_url.return_value = "http://fake-raw-asset-url.dev"
         req_contents = f"mypkg @ git+https://www.github.com/cachito/mypkg.git@{'f'*40}?egg=mypkg\n"
         mock_read.return_value = [req_contents]
-        b64_req_contents = base64.b64encode("mypkg @ fake-raw-asset-url".encode()).decode()
+        b64_req_contents = base64.b64encode(
+            f"mypkg @ http://{username}:{password}@fake-raw-asset-url.dev".encode()
+        ).decode()
         cfg_contents.append(
             {"content": b64_req_contents, "path": "app/requirements.txt", "type": "base64"}
         )
@@ -119,33 +121,45 @@ def test_fetch_pip_source(
         ],
     ],
 )
-@pytest.mark.parametrize("found_url", [True, False])
+@pytest.mark.parametrize("found_url", ["http://fake-resource.dev", None, "fake-resource.dev"])
 @mock.patch("cachito.workers.tasks.pip.nexus.get_raw_component_asset_url")
 def test_get_custom_requirement_config_file(
     mock_get_url, original, component_name, tmp_path, found_url
 ):
-    new_url = "fake-resource"
     if found_url:
-        mock_get_url.return_value = new_url
+        mock_get_url.return_value = found_url
     else:
         mock_get_url.return_value = None
 
     req_file = tmp_path / "req.txt"
     req_file.write_text(original)
     repo_name = "raw-1"
-    if found_url or not component_name:
-        req = pip._get_custom_requirement_config_file(req_file, tmp_path, repo_name)
+    username = "my_username"
+    password = "my_password"
+    if not found_url and component_name:
+        msg = f"Could not retrieve URL for {component_name} in {repo_name}. Was the asset uploaded?"
+        with pytest.raises(CachitoError, match=msg):
+            pip._get_custom_requirement_config_file(
+                req_file, tmp_path, repo_name, username, password
+            )
+    elif found_url and "://" not in found_url and component_name:
+        msg = f"Nexus raw resource URL: {found_url} is not a valid URL"
+        with pytest.raises(CachitoError, match=msg):
+            pip._get_custom_requirement_config_file(
+                req_file, tmp_path, repo_name, username, password
+            )
+    else:
+        req = pip._get_custom_requirement_config_file(
+            req_file, tmp_path, repo_name, username, password
+        )
         if component_name:
             mock_get_url.assert_called_once_with(
                 repo_name, component_name, max_attempts=5, from_nexus_hoster=False
             )
             assert req["type"] == "base64"
             assert req["path"] == "app/req.txt"
-            assert new_url in base64.b64decode(req["content"]).decode()
+            final_url = found_url.replace("://", f"://{username}:{password}@")
+            assert final_url in base64.b64decode(req["content"]).decode()
         else:
             mock_get_url.assert_not_called()
             assert req is None
-    else:
-        msg = f"Could not retrieve URL for {component_name} in {repo_name}. Was the asset uploaded?"
-        with pytest.raises(CachitoError, match=msg):
-            pip._get_custom_requirement_config_file(req_file, tmp_path, repo_name)

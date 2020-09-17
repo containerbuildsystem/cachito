@@ -64,7 +64,7 @@ def fetch_pip_source(request_id, package_configs=None):
     log.info("Fetching dependencies for request %d", request_id)
     package_configs = package_configs or [{}]
     packages_data = []
-    pip_config_files = []
+    requirement_file_paths = []
     for pkg_cfg in package_configs:
         pkg_path = pkg_cfg.get("path", ".")
         source_dir = bundle_dir.app_subpath(pkg_path).source_dir
@@ -78,13 +78,9 @@ def fetch_pip_source(request_id, package_configs=None):
             build_requirement_files=pkg_cfg.get("requirements_build_files"),
         )
 
-        # prepare custom requirement files
+        # defer custom requirement files creation to use the Nexus password in the URLs
         for requirement_file_path in pkg_and_deps_info.pop("requirements"):
-            custom_requirement_file = _get_custom_requirement_config_file(
-                requirement_file_path, bundle_dir.source_root_dir, raw_repo_name
-            )
-            if custom_requirement_file:
-                pip_config_files.append(custom_requirement_file)
+            requirement_file_paths.append(requirement_file_path)
 
         # defer DB operations to use the Nexus password in the env vars
         packages_data.append(pkg_and_deps_info)
@@ -94,7 +90,15 @@ def fetch_pip_source(request_id, package_configs=None):
     username = get_hosted_repositories_username(request_id)
     password = finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username)
 
-    # Set environment variables and additional config files
+    # Set environment variables and config files
+    pip_config_files = []
+    for requirement_file_path in requirement_file_paths:
+        custom_requirement_file = _get_custom_requirement_config_file(
+            requirement_file_path, bundle_dir.source_root_dir, raw_repo_name, username, password
+        )
+        if custom_requirement_file:
+            pip_config_files.append(custom_requirement_file)
+
     raw_url = get_pypi_hosted_repo_url(request_id)
     pip_index_url = get_index_url(raw_url, username, password)
     env_vars = {"PIP_INDEX_URL": {"value": pip_index_url, "kind": "literal"}}
@@ -122,7 +126,9 @@ def fetch_pip_source(request_id, package_configs=None):
         update_request_with_config_files(request_id, pip_config_files)
 
 
-def _get_custom_requirement_config_file(requirement_file_path, source_dir, raw_repo_name):
+def _get_custom_requirement_config_file(
+    requirement_file_path, source_dir, raw_repo_name, username, password
+):
     """
     Get custom pip requirement file.
 
@@ -133,8 +139,13 @@ def _get_custom_requirement_config_file(requirement_file_path, source_dir, raw_r
     :param Path source_dir: path to the application source code
     :param str raw_repo_name: name of the raw hosted Nexus repository containing the
         requirements
+    :param str username: the username of the Nexus user that has access to the request's Python
+        repositories
+    :param str password: the password of the Nexus user that has access to the request's Python
+        repositories
     :return: Cachito configuration file representation containing the custom requirement file
     :rtype: dict
+    :raises CachitoError: If a valid component URL cannot be retrieved from the raw Nexus repository
     """
     original_requirement_file = PipRequirementsFile(requirement_file_path)
     cachito_requirements = []
@@ -157,6 +168,11 @@ def _get_custom_requirement_config_file(requirement_file_path, source_dir, raw_r
                     "asset uploaded?"
                 )
 
+            # Inject credentials
+            if "://" not in new_url:
+                raise CachitoError(f"Nexus raw resource URL: {new_url} is not a valid URL")
+
+            new_url = new_url.replace("://", f"://{username}:{password}@", 1)
             requirement = requirement.copy(url=new_url)
             differs_from_original = True
 
