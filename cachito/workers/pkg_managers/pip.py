@@ -1951,7 +1951,8 @@ def get_index_url(nexus_pypi_hosted_repo_url, username, password):
 
     :param str nexus_pypi_hosted_repo_url: the URL for the Nexus PyPI hosted repository
         for the request
-    :param str username: the username of the user to be created for the Cachito pip request
+    :param str username: the username of the Nexus user that has access to the request's Python
+        repositories
     :param str password: the password of the Nexus user that has access to the request's Python
         repositories
     :return: the index url
