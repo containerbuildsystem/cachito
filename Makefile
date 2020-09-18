@@ -19,16 +19,18 @@ ifeq ($(CACHITO_COMPOSE_ENGINE), podman-compose)
 	# Create the other directories for podman-compose compatibility
 	# See https://github.com/containers/podman-compose/issues/185
 	mkdir -p ./tmp/athens-storage
-	mkdir -p ./tmp/nexus-volume
 	mkdir -p ./tmp/request-logs-volume
-	# we need the nexus container user to be able to write here
-	setfacl -d -m other::rwx ./tmp/nexus-volume
-	setfacl -m other::rwx ./tmp/nexus-volume
 endif
 	# Manually create this directory to allow the interation tests suite to create a locak git
 	# repository in that directory. If this is not done here, docker will create the directory
 	# as root and python will not be able to create the local repository there.
 	mkdir -p ./tmp/cachito-archives
+	# Manually create the Nexus volume directory and allow others to write in it. The Nexus
+	# container runs as the "nexus" user, neither docker nor podman are able to change the
+	# owner of a host directory.
+	mkdir -p ./tmp/nexus-volume
+	setfacl -d -m other::rwx ./tmp/nexus-volume
+	setfacl -m other::rwx ./tmp/nexus-volume
 	$(CACHITO_COMPOSE_ENGINE) up
 
 test:
