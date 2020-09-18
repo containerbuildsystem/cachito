@@ -1,5 +1,8 @@
 # Pip
 
+> :warning: Cachito's way of supporting Git and HTTP(S) dependencies is currently only compatible
+> with `pip >= 10.0`
+
 This document describes some of the more intricate details of Cachito support for pip. For a high
 level overview, look [here in the README](../README.md#pip).
 
