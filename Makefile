@@ -21,7 +21,7 @@ ifeq ($(CACHITO_COMPOSE_ENGINE), podman-compose)
 	mkdir -p ./tmp/athens-storage
 	mkdir -p ./tmp/request-logs-volume
 endif
-	# Manually create this directory to allow the interation tests suite to create a locak git
+	# Manually create this directory to allow the integration tests suite to create a local git
 	# repository in that directory. If this is not done here, docker will create the directory
 	# as root and python will not be able to create the local repository there.
 	mkdir -p ./tmp/cachito-archives
