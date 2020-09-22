@@ -133,14 +133,21 @@ class Git(SCM):
         # The previous archive does not mean the one just before the request that
         # schedules current task. The only reason for finding out such a file is
         # to access the git history. So, anyone is ok.
-        previous_archive = max(
-            self.sources_dir.package_dir.glob("*.tar.gz"), key=os.path.getctime, default=None
+        previous_archives = sorted(
+            self.sources_dir.package_dir.glob("*.tar.gz"), key=os.path.getctime, reverse=True
         )
+        for previous_archive in previous_archives:
+            try:
+                self.update_and_archive(previous_archive)
+                return
+            except (
+                git.exc.InvalidGitRepositoryError,
+                tarfile.ExtractError,
+                OSError,  # raised by tarfile when an FS operation fails
+            ) as exc:
+                log.warning("Error handling archived artifact '%s': %s", previous_archive, exc)
 
-        if previous_archive:
-            self.update_and_archive(previous_archive)
-        else:
-            self.clone_and_archive()
+        self.clone_and_archive()
 
     @property
     def repo_name(self):

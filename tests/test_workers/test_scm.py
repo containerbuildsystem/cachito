@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from datetime import datetime
 from unittest import mock
+import tarfile
 
 import git
 import pytest
@@ -122,6 +123,42 @@ def test_fetch_source_by_pull(mock_update_and_archive, mock_getctime):
     mock_update_and_archive.assert_called_once_with("a8c2d2.tar.gz")
 
 
+@pytest.mark.parametrize("all_corrupt", [True, False])
+@mock.patch("os.path.getctime")
+@mock.patch("cachito.workers.scm.Git.update_and_archive")
+@mock.patch("cachito.workers.scm.Git.clone_and_archive")
+def test_fetch_source_by_pull_corrupt_archive(
+    mock_clone_and_archive, mock_update_and_archive, mock_getctime, all_corrupt
+):
+    if all_corrupt:
+        mock_update_and_archive.side_effect = [git.exc.InvalidGitRepositoryError, OSError]
+    else:
+        mock_update_and_archive.side_effect = [tarfile.ExtractError, None]
+
+    mock_getctime.side_effect = [
+        datetime(2020, 3, 1, 20, 0, 0).timestamp(),
+        datetime(2020, 3, 4, 10, 13, 30).timestamp(),
+        datetime(2020, 3, 1, 20, 0, 0).timestamp(),
+    ]
+
+    scm_git = scm.Git(url, ref)
+
+    po = mock.patch.object
+    with po(scm_git.sources_dir.archive_path, "exists", return_value=False):
+        with po(
+            scm_git.sources_dir.package_dir, "glob", return_value=["29eh2a.tar.gz", "a8c2d2.tar.gz"]
+        ):
+            scm_git.fetch_source()
+
+    assert mock_update_and_archive.call_count == 2
+    calls = [mock.call("a8c2d2.tar.gz"), mock.call("29eh2a.tar.gz")]
+    mock_update_and_archive.assert_has_calls(calls)
+    if all_corrupt:
+        mock_clone_and_archive.assert_called_once()
+    else:
+        mock_clone_and_archive.assert_not_called()
+
+
 @mock.patch("tarfile.open")
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("git.Repo")
@@ -154,7 +191,7 @@ def test_update_and_archive(mock_repo, mock_temp_dir, mock_tarfile_open):
 @mock.patch("git.Repo")
 def test_update_and_archive_pull_error(mock_repo, mock_tarfile_open):
     repo = mock_repo.return_value
-    repo.remote.return_value.fetch.side_effect = IOError
+    repo.remote.return_value.fetch.side_effect = OSError
 
     with pytest.raises(CachitoError, match="Failed to fetch from the remote Git repository"):
         scm.Git(url, ref).update_and_archive("/tmp/1234567.tar.gz")
