@@ -77,12 +77,13 @@ def assert_packages_from_response(response_data, expected_packages):
         assert expected_pkg in packages
 
 
-def assert_expected_files(source_path, expected_file_urls=None):
+def assert_expected_files(source_path, expected_file_urls=None, check_content=True):
     """
     Check that the source path includes expected files.
 
     :param str source_path: local path for checking
     :param dict expected_file_urls: {"relative_path/file_name": "URL", ...}
+    :param bool check_content: The flag to check content of files
     """
     if expected_file_urls is None:
         expected_file_urls = {}
@@ -99,7 +100,10 @@ def assert_expected_files(source_path, expected_file_urls=None):
             expected_file = requests.get(file_url).content
             # Assert that content of source file is equal to expected
             with open(absolute_file_path, "rb") as f:
-                assert f.read() == expected_file
+                if check_content:
+                    assert f.read() == expected_file
+                else:
+                    assert f.read()
             files.append(relative_file_path)
 
     # Assert that there are no missing or extra files
