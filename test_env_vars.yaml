@@ -138,3 +138,46 @@ pip_packages:
       type: "pip"
       version: "1.0.0"
     purl: "pkg:pypi/cachito-pip-empty@1.0.0"
+  # pip package with dependencies in requirements.txt
+  # repo: The URL for the upstream git repository
+  # ref: A git reference at the given git repository
+  # expected_files: Expected source files <relative_path>: <file_URL>
+  # expected_deps_files: Expected dependencies files <relative_path>: <archive_URL>
+  # package: expected package from the Cachito response
+  # purl: PURL of the package
+  # dep_purls: PURLs if dependencies
+  with_deps:
+    repo: https://github.com/cachito-testing/cachito-pip-with-deps.git
+    ref: a9221b7db5da4261b06ca34f76c20d8b53e9ee1d
+    expected_files:
+      setup.cfg: https://raw.githubusercontent.com/cachito-testing/cachito-pip-with-deps/master/setup.cfg
+      requirements.txt: https://raw.githubusercontent.com/cachito-testing/cachito-pip-with-deps/master/requirements.txt
+    expected_deps_files:
+      pip/aiowsgi/aiowsgi-0.7.tar.gz: "https://github.com/gawel/aiowsgi/archive/0.7.tar.gz"
+      pip/external-appr/appr-external-sha256-ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c.zip: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip"
+      pip/github.com/quay/appr/appr-external-gitcommit-58c88e4952e95935c0dd72d4a24b0c44f2249f5b.tar.gz: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    package:
+      dependencies:
+      - dev: false
+        name: "appr"
+        replaces: null
+        type: "pip"
+        version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+      - dev: false
+        name: "appr"
+        replaces: null
+        type: "pip"
+        version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a85.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+      - dev: false
+        name: "aiowsgi"
+        replaces: null
+        type: "pip"
+        version: "0.7"
+      name: "cachito-pip-with-deps"
+      type: "pip"
+      version: "1.0.0"
+    purl: "pkg:pypi/cachito-pip-with-deps@1.0.0"
+    dep_purls:
+    - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a85.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+    - "pkg:generic/appr?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fquay%2Fappr.git%4058c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    - "pkg:pypi/aiowsgi@0.7"
