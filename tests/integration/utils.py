@@ -201,3 +201,66 @@ def assert_content_manifest_schema(response_data):
     icm_spec = response_data["metadata"]["icm_spec"]
     schema = requests.get(icm_spec, timeout=30).json()
     assert validate_json(schema, response_data)
+
+
+def assert_packages_from_response(response_data, expected_packages):
+    """
+    Check amount and params of packages in the response data.
+
+    :param dict response_data: response data from the Cachito request
+    :param list expected_packages: expected params of packages
+    """
+    packages = response_data["packages"]
+    assert len(packages) == len(expected_packages)
+    for expected_pkg in expected_packages:
+        assert expected_pkg in packages
+
+
+def assert_expected_files(source_path, expected_file_urls=None):
+    """
+    Check that the source path includes expected files.
+
+    :param str source_path: local path for checking
+    :param dict expected_file_urls: {"relative_path/file_name": "URL", ...}
+    """
+    if expected_file_urls is None:
+        expected_file_urls = {}
+    assert os.path.exists(source_path) and os.path.isdir(source_path)
+    files = []
+    # Go through all files in source_code_path and it's subdirectories
+    for root, _, source_files in os.walk(source_path):
+        for file_name in source_files:
+            # Get path to file in the project
+            absolute_file_path = os.path.join(root, file_name)
+            relative_file_path = os.path.relpath(absolute_file_path, start=source_path)
+            file_url = expected_file_urls[relative_file_path]
+            # Download expected file
+            expected_file = requests.get(file_url).content
+            # Assert that content of source file is equal to expected
+            with open(absolute_file_path, "rb") as f:
+                assert f.read() == expected_file
+            files.append(relative_file_path)
+
+    # Assert that there are no missing or extra files
+    assert set(files) == set(list(expected_file_urls))
+
+
+def assert_content_manifest(client, request_id, image_contents):
+    """
+    Check that the content manifest is successfully generated and contains correct content.
+
+    Checks:
+    * Check that status of content-manifest request is 200
+    * Validate content manifest schema
+    * Check image_contents from content-manifest
+
+    :param Client client: the Cachito API client
+    :param int request_id: The Cachito request id
+    :param list image_contents: expected image content part from content manifest
+    """
+    content_manifest_response = client.fetch_content_manifest(request_id)
+    assert content_manifest_response.status == 200
+
+    response_data = content_manifest_response.data
+    assert_content_manifest_schema(response_data)
+    assert image_contents == content_manifest_response.data["image_contents"]
