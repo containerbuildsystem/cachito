@@ -111,10 +111,11 @@ class Git(SCM):
             os.unlink(self.sources_dir.archive_path)
             raise
 
-    def clone_and_archive(self):
+    def clone_and_archive(self, gitsubmodule=False):
         """
         Clone the git repository and create the compressed source archive.
 
+        :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
         :raises CachitoError: if cloning the repository fails or if the archive can't be created
         """
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
@@ -133,13 +134,18 @@ class Git(SCM):
                 raise CachitoError("Cloning the Git repository failed")
 
             self._reset_git_head(repo)
+
+            if gitsubmodule:
+                self.update_git_submodules(repo)
+
             self._create_archive(repo.working_dir)
 
-    def update_and_archive(self, previous_archive):
+    def update_and_archive(self, previous_archive, gitsubmodule=False):
         """
         Update the existing Git history and create a source archive.
 
         :param str previous_archive: path to an archive file created before.
+        :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
         :raises CachitoError: if pulling the Git history from the remote repo or
             the checkout of the target Git ref fails.
         """
@@ -157,10 +163,19 @@ class Git(SCM):
                 raise CachitoError("Failed to fetch from the remote Git repository")
 
             self._reset_git_head(repo)
+            if gitsubmodule:
+                self.update_git_submodules(repo)
+
             self._create_archive(repo.working_dir)
 
-    def fetch_source(self):
-        """Fetch the repo, create a compressed tar file, and put it in long-term storage."""
+    def fetch_source(self, gitsubmodule=False):
+        """Fetch the repo, create a compressed tar file, and put it in long-term storage.
+
+        :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
+        """
+        if gitsubmodule:
+            self.sources_dir = SourcesDir(self.repo_name, f"{self.ref}-with-submodules")
+
         # If it already exists and isn't corrupt, don't download it again
         archive_path = self.sources_dir.archive_path
         if archive_path.exists():
@@ -180,8 +195,13 @@ class Git(SCM):
             self.sources_dir.package_dir.glob("*.tar.gz"), key=os.path.getctime, reverse=True
         )
         for previous_archive in previous_archives:
+            # Excluding previous archives with submodules since there is
+            # no straight-forward way to get rid of the previously included
+            # submodules
+            if "-with-submodules" in str(previous_archive):
+                continue
             try:
-                self.update_and_archive(previous_archive)
+                self.update_and_archive(previous_archive, gitsubmodule=gitsubmodule)
                 return
             except (
                 git.exc.InvalidGitRepositoryError,
@@ -190,7 +210,24 @@ class Git(SCM):
             ) as exc:
                 log.warning("Error handling archived artifact '%s': %s", previous_archive, exc)
 
-        self.clone_and_archive()
+        self.clone_and_archive(gitsubmodule=gitsubmodule)
+
+    def update_git_submodules(self, repo):
+        """Update git submodules.
+
+        For the given repo, update submodules. For Cachito request for `retrodep` repo and
+        `go-github` submodule, the dir structure would look like,
+        retrodep/go-github/<content_of_go-github_repo>
+
+        :param git.Repo repo: the repository object.
+        :raises CachitoError: if updating the git submodules fail.
+        """
+        try:
+            log.debug(f"Git submodules for the requested repo are: {repo.submodules}")
+            repo.submodule_update(recursive=False)
+        except Exception as e:
+            log.exception("Updating the Git submodule(s) from %s failed %s", self.url, e)
+            raise CachitoError("Updating the Git submodule(s) failed")
 
     @property
     def repo_name(self):

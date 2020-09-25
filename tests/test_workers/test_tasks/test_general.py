@@ -2,6 +2,7 @@
 import os
 import os.path
 import pathlib
+import shutil
 import tarfile
 from unittest import mock
 
@@ -13,12 +14,13 @@ from cachito.workers import tasks
 from cachito.workers.paths import RequestBundleDir, SourcesDir
 
 
+@pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_fetch_app_source(mock_set_request_state, fake_repo):
+def test_fetch_app_source(mock_set_request_state, fake_repo, gitsubmodule):
     request_id = 1
 
     repo_dir, repo_name = fake_repo
-    tasks.fetch_app_source(f"file://{repo_dir}", "master", request_id)
+    tasks.fetch_app_source(f"file://{repo_dir}", "master", request_id, gitsubmodule)
 
     # Verify the archive file is created from fetched app source.
     sources_dir = SourcesDir(repo_name, "master")
@@ -29,15 +31,19 @@ def test_fetch_app_source(mock_set_request_state, fake_repo):
     assert bundle_dir.joinpath("app", "readme.rst").exists()
     assert bundle_dir.joinpath("app", "main.py").exists()
 
+    # Clean up bundle dir after unpacking archive
+    shutil.rmtree(bundle_dir)
 
+
+@pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 @mock.patch("cachito.workers.tasks.general.Git")
-def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state):
+def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state, gitsubmodule):
     url = "https://github.com/release-engineering/retrodep.git"
     ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
     mock_git.return_value.fetch_source.side_effect = Timeout("The request timed out")
     with pytest.raises(CachitoError, match="The connection timed out while downloading the source"):
-        tasks.fetch_app_source(url, ref, 1)
+        tasks.fetch_app_source(url, ref, 1, gitsubmodule)
 
 
 @mock.patch("cachito.workers.requests.requests_auth_session")

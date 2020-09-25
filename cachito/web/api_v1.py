@@ -213,7 +213,9 @@ def create_request():
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)
     chain_tasks = [
-        tasks.fetch_app_source.s(request.repo, request.ref, request.id).on_error(error_callback)
+        tasks.fetch_app_source.s(
+            request.repo, request.ref, request.id, "git-submodule" in pkg_manager_names
+        ).on_error(error_callback)
     ]
 
     pkg_manager_to_dep_replacements = {}
