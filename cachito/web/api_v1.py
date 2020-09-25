@@ -17,7 +17,6 @@ from cachito.web.models import (
     ConfigFileBase64,
     Dependency,
     EnvironmentVariable,
-    Flag,
     Package,
     Request,
     RequestState,
@@ -244,14 +243,6 @@ def create_request():
         if pkg_manager_to_dep_replacements.get("pip"):
             raise ValidationError(
                 "Dependency replacements are not yet supported for the pip package manager"
-            )
-        # TODO: This filter can be removed after the pip feature is ready for GA
-        pip_flag = Flag.query.filter_by(name="pip-dev-preview").first()
-        if pip_flag.active and pip_flag.name not in payload.get("flags", []):
-            raise ValidationError(
-                "The pip package manager is not ready for production usage. "
-                "If you really intend to use it, set the 'pip-dev-preview' flag in your request "
-                "and contact your Cahito instance administrator. Aborting..."
             )
         pip_package_configs = package_configs.get("pip", {})
         chain_tasks.append(
