@@ -1667,7 +1667,7 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     if not have_raw_component:
         log.debug("Raw component not found, will fetch from git")
         repo = Git(git_info["url"], ref)
-        repo.fetch_source()
+        repo.fetch_source(gitsubmodule=False)
         # Copy downloaded archive to expected download path
         shutil.copy(repo.sources_dir.archive_path, download_path)
 

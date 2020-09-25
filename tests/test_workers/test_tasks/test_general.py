@@ -18,7 +18,7 @@ def test_fetch_app_source(mock_set_request_state, fake_repo):
     request_id = 1
 
     repo_dir, repo_name = fake_repo
-    tasks.fetch_app_source(f"file://{repo_dir}", "master", request_id)
+    tasks.fetch_app_source(f"file://{repo_dir}", "master", request_id, False)
 
     # Verify the archive file is created from fetched app source.
     sources_dir = SourcesDir(repo_name, "master")
@@ -37,7 +37,7 @@ def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state):
     ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
     mock_git.return_value.fetch_source.side_effect = Timeout("The request timed out")
     with pytest.raises(CachitoError, match="The connection timed out while downloading the source"):
-        tasks.fetch_app_source(url, ref, 1)
+        tasks.fetch_app_source(url, ref, 1, False)
 
 
 @mock.patch("cachito.workers.requests.requests_auth_session")
