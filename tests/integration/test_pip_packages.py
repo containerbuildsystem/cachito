@@ -28,14 +28,7 @@ def test_all_pip_packages(env_name, test_env, tmpdir):
     env_data = test_env["pip_packages"][env_name]
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     initial_response = client.create_new_request(
-        payload={
-            "repo": env_data["repo"],
-            "ref": env_data["ref"],
-            "pkg_managers": ["pip"],
-            # TODO: delete pip-dev-preview flag when
-            #  the pip package manager will be ready for production usage
-            "flags": ["pip-dev-preview"],
-        },
+        payload={"repo": env_data["repo"], "ref": env_data["ref"], "pkg_managers": ["pip"]}
     )
     completed_response = client.wait_for_complete_request(initial_response)
     assert completed_response.status == 200
@@ -88,14 +81,7 @@ def test_failing_pip_local_path(test_env):
     env_data = test_env["pip_packages"]["local_path"]
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     initial_response = client.create_new_request(
-        payload={
-            "repo": env_data["repo"],
-            "ref": env_data["ref"],
-            "pkg_managers": ["pip"],
-            # TODO: delete pip-dev-preview flag when
-            #  the pip package manager will be ready for production usage
-            "flags": ["pip-dev-preview"],
-        },
+        payload={"repo": env_data["repo"], "ref": env_data["ref"], "pkg_managers": ["pip"]}
     )
     completed_response = client.wait_for_complete_request(initial_response)
     assert completed_response.status == 200
