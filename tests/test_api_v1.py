@@ -32,16 +32,17 @@ RE_INVALID_PACKAGES_VALUE = (
 
 
 @pytest.mark.parametrize(
-    "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags",
+    "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags, gitsubmodule",
     (
-        ([], [], None, [], None),
-        ([], ["gomod"], None, ["gomod"], None),
+        ([], [], None, [], None, False),
+        ([], ["gomod", "git-submodule"], None, ["gomod"], None, True),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             ["gomod"],
             None,
             ["gomod"],
             None,
+            False,
         ),
         (
             [
@@ -52,14 +53,15 @@ RE_INVALID_PACKAGES_VALUE = (
                     "version": "v0.8.1",
                 }
             ],
-            ["gomod"],
+            ["gomod", "git-submodule"],
             None,
             ["gomod"],
             None,
+            True,
         ),
-        ([], [], "tom_hanks@DOMAIN.LOCAL", [], None),
-        ([], ["npm"], None, ["npm"], None),
-        ([], ["pip"], None, ["pip"], None),
+        ([], [], "tom_hanks@DOMAIN.LOCAL", [], None, False),
+        ([], ["npm"], None, ["npm"], None, False),
+        ([], ["pip"], None, ["pip"], None, False),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -74,6 +76,7 @@ def test_create_and_fetch_request(
     client,
     db,
     flags,
+    gitsubmodule,
 ):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
@@ -109,6 +112,7 @@ def test_create_and_fetch_request(
             "https://github.com/release-engineering/retrodep.git",
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
+            gitsubmodule,
         ).on_error(error_callback)
     ]
     if "gomod" in expected_pkg_managers:
@@ -155,6 +159,7 @@ def test_create_and_fetch_request_npm_package_configs(
             "https://github.com/release-engineering/web-terminal.git",
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
+            False,
         ).on_error(error_callback),
         fetch_npm_source.si(1, package_value["npm"]).on_error(error_callback),
         create_bundle_archive.si(1).on_error(error_callback),
@@ -195,6 +200,7 @@ def test_create_and_fetch_request_pip_package_configs(
             "https://github.com/release-engineering/web-terminal.git",
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
+            False,
         ).on_error(error_callback),
         fetch_pip_source.si(1, package_value["pip"]).on_error(error_callback),
         create_bundle_archive.si(1).on_error(error_callback),
@@ -245,6 +251,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
                 "https://github.com/release-engineering/retrodep.git",
                 "c50b93a32df1c9d700e3e80996845bc2e13be848",
                 1,
+                False,
             ).on_error(error_callback),
             fetch_gomod_source.si(1, []).on_error(error_callback),
             create_bundle_archive.si(1).on_error(error_callback),
@@ -1811,17 +1818,32 @@ def test_get_request_logs_not_configured(app, client, db, worker_auth_env):
     assert "logs" not in rv.json
 
 
+@pytest.mark.parametrize(
+    "data, gitsubmodule",
+    (
+        (
+            {
+                "repo": "https://github.com/release-engineering/retrodep.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["pip"],
+            },
+            False,
+        ),
+        (
+            {
+                "repo": "https://github.com/release-engineering/retrodep.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["pip", "git-submodule"],
+            },
+            True,
+        ),
+    ),
+)
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_and_fetch_request_with_pip_preview(
-    mock_chain, app, auth_env, client, db,
+    mock_chain, app, auth_env, client, db, data, gitsubmodule,
 ):
     db.session.commit()
-
-    data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["pip"],
-    }
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 201
@@ -1837,6 +1859,7 @@ def test_create_and_fetch_request_with_pip_preview(
                 "https://github.com/release-engineering/retrodep.git",
                 "c50b93a32df1c9d700e3e80996845bc2e13be848",
                 1,
+                gitsubmodule,
             ).on_error(error_callback),
             fetch_pip_source.si(1, {}).on_error(error_callback),
             create_bundle_archive.si(1).on_error(error_callback),

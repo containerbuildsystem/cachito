@@ -22,20 +22,21 @@ log = logging.getLogger(__name__)
 
 
 @app.task
-def fetch_app_source(url, ref, request_id):
+def fetch_app_source(url, ref, request_id, gitsubmodule=False):
     """
     Fetch the application source code that was requested and put it in long-term storage.
 
     :param str url: the source control URL to pull the source from
     :param str ref: the source control reference
     :param int request_id: the Cachito request ID this is for
+    :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
     """
     log.info('Fetching the source from "%s" at reference "%s"', url, ref)
     set_request_state(request_id, "in_progress", "Fetching the application source")
     try:
         # Default to Git for now
         scm = Git(url, ref)
-        scm.fetch_source()
+        scm.fetch_source(gitsubmodule=gitsubmodule)
     except requests.Timeout:
         raise CachitoError("The connection timed out while downloading the source")
     except CachitoError:
