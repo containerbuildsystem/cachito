@@ -19,6 +19,7 @@ def test_all_pip_packages(env_name, test_env, tmpdir):
     Checks:
     * Check that the request completes successfully
     * Check that expected pip packages are identified in response
+    * Check that expected pip dependencies are identified in response
     * Check response parameters of the package
     * Check that the source tarball includes the application source code
     * Check that the source tarball includes expected deps/pip directory
@@ -42,7 +43,9 @@ def test_all_pip_packages(env_name, test_env, tmpdir):
     assert completed_response.data["state_reason"] == "Completed successfully"
 
     expected_package_params = [env_data["package"]]
-    utils.assert_packages_from_response(completed_response.data, expected_package_params)
+    utils.assert_element_from_response(completed_response.data, expected_package_params, "packages")
+    expected_deps = env_data["dependencies"]
+    utils.assert_element_from_response(completed_response.data, expected_deps, "dependencies")
 
     # Download and extract source tarball
     source_name = tmpdir.join(f"download_{str(completed_response.id)}")
