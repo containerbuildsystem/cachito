@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from abc import ABC, abstractmethod
 import logging
 import os
-from abc import ABC, abstractmethod
-import urllib.parse
+import subprocess
 import tarfile
 import tempfile
+import urllib.parse
 
 import git
 
@@ -62,15 +63,53 @@ class Git(SCM):
                 f'of "{self.ref}" is valid.'
             )
 
+    def _verify_archive(self):
+        """
+        Verify the archive containing the git repository.
+
+        :raises CachitoError: if 'git fsck' fails for the extracted sources
+        """
+        log.debug("Verifying the archive at %s", self.sources_dir.archive_path)
+        if not os.path.exists(self.sources_dir.archive_path) or not tarfile.is_tarfile(
+            self.sources_dir.archive_path
+        ):
+            err_msg = f"No valid archive found at {self.sources_dir.archive_path}"
+            log.exception(err_msg)
+            raise CachitoError(err_msg)
+
+        with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
+            with tarfile.open(self.sources_dir.archive_path, mode="r:gz") as tar:
+                tar.extractall(temp_dir)
+
+            cmd = ["git", "fsck"]
+            repo_path = os.path.join(temp_dir, "app")
+            try:
+                subprocess.run(cmd, cwd=repo_path, check=True, capture_output=True)
+            except subprocess.CalledProcessError as exc:
+                log.error(
+                    "Cachito found an error when verifying the generated archive at '%s': %s - %s",
+                    self.sources_dir.archive_path,
+                    exc,
+                    exc.stderr,
+                )
+                raise CachitoError(f"Invalid archive at {self.sources_dir.archive_path!s}")
+
     def _create_archive(self, from_dir):
         """
-        Create an archive from a specified directory.
+        Create a verified archive from a specified directory.
 
         :param str from_dir: path to a directory from where to create the archive.
+        :raises CachitoError: if the archive verification fails
         """
         log.debug("Creating the archive at %s", self.sources_dir.archive_path)
         with tarfile.open(self.sources_dir.archive_path, mode="w:gz") as bundle_archive:
             bundle_archive.add(from_dir, "app")
+        try:
+            self._verify_archive()
+        except CachitoError:
+            log.debug("Removing invalid archive at %s", self.sources_dir.archive_path)
+            os.unlink(self.sources_dir.archive_path)
+            raise
 
     def clone_and_archive(self):
         """
@@ -124,9 +163,13 @@ class Git(SCM):
         """Fetch the repo, create a compressed tar file, and put it in long-term storage."""
         # If it already exists and isn't corrupt, don't download it again
         archive_path = self.sources_dir.archive_path
-        if archive_path.exists() and tarfile.is_tarfile(archive_path):
+        if archive_path.exists():
             log.debug('The archive already exists at "%s"', archive_path)
-            return
+            try:
+                self._verify_archive()
+                return
+            except CachitoError:
+                log.warning('The archive at "%s" is invalid and will be re-created', archive_path)
 
         # Find a previous archive created by a previous request
         #
