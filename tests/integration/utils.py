@@ -203,17 +203,24 @@ def assert_content_manifest_schema(response_data):
     assert validate_json(schema, response_data)
 
 
-def assert_packages_from_response(response_data, expected_packages):
+def assert_element_from_response(response_data, expected_element, element_name):
     """
-    Check amount and params of packages in the response data.
+    Check element from the response data.
+
+    In case the expected element is a list, every element in the list will be checked
+    (otherwise only equality between expected_element and element from response).
 
     :param dict response_data: response data from the Cachito request
-    :param list expected_packages: expected params of packages
+    :param expected_element: expected content of particular element in response
+    :param str element_name: name of the element (ex. "dependencies", "packages")
     """
-    packages = response_data["packages"]
-    assert len(packages) == len(expected_packages)
-    for expected_pkg in expected_packages:
-        assert expected_pkg in packages
+    response_element = response_data[element_name]
+    if isinstance(response_element, list):
+        assert len(response_element) == len(expected_element)
+        for e in expected_element:
+            assert e in response_element
+    else:
+        assert response_element == expected_element
 
 
 def assert_expected_files(source_path, expected_file_urls=None, check_content=True):
