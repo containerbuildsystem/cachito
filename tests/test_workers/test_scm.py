@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from datetime import datetime
 from unittest import mock
+import logging
+import os
 import tarfile
 
 import git
@@ -14,6 +16,12 @@ ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
 archive_path = f"/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz"
 
 
+def setup_module():
+    """Re-enable logging that was disabled at some point in previous tests."""
+    scm.log.disabled = False
+    scm.log.setLevel(logging.DEBUG)
+
+
 def test_repo_name():
     git_obj = scm.Git(url, ref)
     assert git_obj.repo_name == "release-engineering/retrodep"
@@ -22,8 +30,11 @@ def test_repo_name():
 @mock.patch("tarfile.open")
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("git.repo.Repo.clone_from")
-def test_clone_and_archive(mock_clone, mock_temp_dir, mock_tarfile_open):
+@mock.patch("subprocess.run")
+@mock.patch("os.path.exists")
+def test_clone_and_archive(mock_exists, mock_fsck, mock_clone, mock_temp_dir, mock_tarfile_open):
     # Mock the archive being created
+    mock_exists.return_value = True
     mock_tarfile = mock.Mock()
     mock_tarfile_open.return_value.__enter__.return_value = mock_tarfile
     # Mock the commit being returned from repo.commit(self.ref)
@@ -37,8 +48,9 @@ def test_clone_and_archive(mock_clone, mock_temp_dir, mock_tarfile_open):
     with mock.patch.object(git_obj.sources_dir, "archive_path", new=archive_path):
         git_obj.clone_and_archive()
 
-    # Verify the tempfile.TemporaryDirectory context manager was used
-    mock_temp_dir.return_value.__enter__.assert_called_once()
+    # Verify the tempfile.TemporaryDirectory context manager was used twice:
+    # once for _clone_and_archive and once for _verify_archive
+    assert mock_temp_dir.return_value.__enter__.call_count == 2
     # Verify the repo was cloned and checked out properly
     mock_clone.assert_called_once_with(
         url, "/tmp/cachito-temp/repo", no_checkout=True, env={"GIT_TERMINAL_PROMPT": "0"}
@@ -47,6 +59,8 @@ def test_clone_and_archive(mock_clone, mock_temp_dir, mock_tarfile_open):
     mock_clone.return_value.head.reset.assert_called_once_with(index=True, working_tree=True)
     # Verfiy the archive was created
     mock_tarfile.add.assert_called_once_with(mock_clone.return_value.working_dir, "app")
+    # Verify the archive was verified
+    mock_fsck.assert_called_once()
 
 
 @mock.patch("tempfile.TemporaryDirectory")
@@ -80,8 +94,8 @@ def test_clone_and_archive_checkout_failed(mock_git_clone, mock_temp_dir):
             git_obj.clone_and_archive()
 
 
-@mock.patch("tarfile.is_tarfile", return_value=True)
-def test_fetch_source_archive_exists(mock_is_tarfile):
+@mock.patch("cachito.workers.scm.Git._verify_archive")
+def test_fetch_source_archive_exists(mock_verify):
     scm_git = scm.Git(url, ref)
 
     po = mock.patch.object
@@ -162,8 +176,11 @@ def test_fetch_source_by_pull_corrupt_archive(
 @mock.patch("tarfile.open")
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("git.Repo")
-def test_update_and_archive(mock_repo, mock_temp_dir, mock_tarfile_open):
+@mock.patch("subprocess.run")
+@mock.patch("os.path.exists")
+def test_update_and_archive(mock_exists, mock_fsck, mock_repo, mock_temp_dir, mock_tarfile_open):
     # Mock the archive being created
+    mock_exists.return_value = True
     mock_tarfile = mock.Mock()
     mock_tarfile_open.return_value.__enter__.return_value = mock_tarfile
 
@@ -173,8 +190,9 @@ def test_update_and_archive(mock_repo, mock_temp_dir, mock_tarfile_open):
     # Test does not really extract this archive file. The filename could be arbitrary.
     scm.Git(url, ref).update_and_archive("/tmp/1234567.tar.gz")
 
-    # Verify the tempfile.TemporaryDirectory context manager was used
-    mock_temp_dir.return_value.__enter__.assert_called_once()
+    # Verify the tempfile.TemporaryDirectory context manager was used twice:
+    # once for _update_and_archive and once for _verify_archive
+    assert mock_temp_dir.return_value.__enter__.call_count == 2
 
     repo = mock_repo.return_value
     # Verify the changes are pulled.
@@ -185,6 +203,8 @@ def test_update_and_archive(mock_repo, mock_temp_dir, mock_tarfile_open):
     repo.head.reset.assert_called_once_with(index=True, working_tree=True)
 
     mock_tarfile.add.assert_called_once_with(mock_repo.return_value.working_dir, "app")
+    # Verify the archive was verified
+    mock_fsck.assert_called_once()
 
 
 @mock.patch("tarfile.open")
@@ -195,3 +215,85 @@ def test_update_and_archive_pull_error(mock_repo, mock_tarfile_open):
 
     with pytest.raises(CachitoError, match="Failed to fetch from the remote Git repository"):
         scm.Git(url, ref).update_and_archive("/tmp/1234567.tar.gz")
+
+
+def test_create_and_verify_archive(fake_repo, caplog):
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    git_obj._create_archive(repo_dir)
+    assert f"Verifying the archive at {git_obj.sources_dir.archive_path}" in caplog.text
+
+
+def test_clone_and_verify_archive(fake_repo, caplog):
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    git_obj.clone_and_archive()
+    assert f"Verifying the archive at {git_obj.sources_dir.archive_path}" in caplog.text
+
+
+def test_update_and_verify_archive(fake_repo, caplog):
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    git_obj.clone_and_archive()
+    caplog.clear()
+    git_obj.update_and_archive(git_obj.sources_dir.archive_path)
+    assert f"Verifying the archive at {git_obj.sources_dir.archive_path}" in caplog.text
+
+
+@mock.patch("tarfile.is_tarfile")
+def test_verify_invalid_archive(mock_istar, fake_repo):
+    mock_istar.return_value = False
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    err_msg = f"No valid archive found at {git_obj.sources_dir.archive_path}"
+    with pytest.raises(CachitoError, match=err_msg):
+        git_obj._verify_archive()
+
+
+def test_verify_archive_not_available():
+    git_obj = scm.Git("invalid", "ref")
+    err_msg = f"No valid archive found at {git_obj.sources_dir.archive_path}"
+    with pytest.raises(CachitoError, match=err_msg):
+        git_obj._verify_archive()
+
+
+def test_verify_invalid_repo(fake_repo, tmp_path):
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    # substitute the archive with a broken git repository
+    os.unlink(os.path.join(repo_dir, ".git", "HEAD"))
+    git_obj.sources_dir.archive_path = tmp_path / "archive.tar.gz"
+    with tarfile.open(git_obj.sources_dir.archive_path, mode="w:gz") as bundle_archive:
+        bundle_archive.add(repo_dir, "app")
+
+    err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
+    with pytest.raises(CachitoError, match=err_msg):
+        git_obj._verify_archive()
+
+
+def test_create_archive_verify_fails(fake_repo, caplog):
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    # substitute the archive with a broken git repository
+    os.unlink(os.path.join(repo_dir, ".git", "HEAD"))
+    err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
+    with pytest.raises(CachitoError, match=err_msg):
+        git_obj._create_archive(repo_dir)
+    # verify the archive was not created
+    assert f"Removing invalid archive at {git_obj.sources_dir.archive_path}" in caplog.text
+    assert not os.path.exists(git_obj.sources_dir.archive_path)
+
+
+@mock.patch("cachito.workers.scm.Git._verify_archive")
+@mock.patch("cachito.workers.scm.Git.clone_and_archive")
+def test_fetch_source_invalid_archive_exists(mock_clone, mock_verify, caplog):
+    mock_verify.side_effect = [CachitoError("stub"), None]
+    scm_git = scm.Git(url, ref)
+    po = mock.patch.object
+    with po(scm_git.sources_dir.archive_path, "exists", return_value=True):
+        with po(scm_git.sources_dir.package_dir, "glob") as glob:
+            scm_git.fetch_source()
+            glob.assert_called_once()
+    msg = f'The archive at "{scm_git.sources_dir.archive_path}" is invalid and will be re-created'
+    assert msg in caplog.text
+    mock_clone.assert_called_once()
