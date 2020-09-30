@@ -1059,7 +1059,7 @@ class PipRequirement:
             else:
                 raise ValidationError(
                     f"Direct references with {direct_access_kind!r} scheme are not supported, "
-                    "{to_be_parsed!r}"
+                    f"{to_be_parsed!r}"
                 )
         else:
             requirement.kind = "pypi"
