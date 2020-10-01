@@ -8,8 +8,23 @@ from cachito.errors import ContentManifestError
 from cachito.web.content_manifest import ContentManifest
 from cachito.web.models import Package, Request
 
+GIT_REPO = "https://github.com/namespace/repo"
+GIT_REF = "1798a59f297f5f3886e41bc054e538540581f8ce"
 
-def test_process_go():
+
+@pytest.fixture
+def default_request():
+    """Get default request to use in tests."""
+    return Request(repo=GIT_REPO, ref=GIT_REF)
+
+
+@pytest.fixture
+def default_toplevel_purl():
+    """Get VCS purl for default request."""
+    return f"pkg:github/namespace/repo@{GIT_REF}"
+
+
+def test_process_go(default_request):
     pkg = Package.from_json(
         {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"}
     )
@@ -24,7 +39,7 @@ def test_process_go():
         {"name": "example.com/anotherorg/project", "type": "gomod", "version": "3.3.3"}
     )
     expected_src_purl = "pkg:golang/example.com%2Fanotherorg%2Fproject@3.3.3"
-    cm = ContentManifest()
+    cm = ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._gomod_data.setdefault(pkg.name, [])
@@ -49,9 +64,9 @@ def test_process_go():
     assert cm._gopkg_data == expected_contents
 
 
-def test_process_npm():
+def test_process_npm(default_request, default_toplevel_purl):
     pkg = Package.from_json({"name": "grc-ui", "type": "npm", "version": "1.0.0"})
-    expected_purl = "pkg:npm/grc-ui@1.0.0"
+    expected_purl = default_toplevel_purl
 
     dep_commit_id = "7762177aacfb1ddf5ca45cebfe8de1da3b24f0ff"
     dep = Package.from_json(
@@ -67,7 +82,7 @@ def test_process_npm():
     expected_src_purl = "pkg:npm/%40types/events@3.0.0"
 
     src.dev = True
-    cm = ContentManifest()
+    cm = ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._npm_data.setdefault(
@@ -90,9 +105,9 @@ def test_process_npm():
     assert cm._npm_data == expected_contents
 
 
-def test_process_pip():
+def test_process_pip(default_request, default_toplevel_purl):
     pkg = Package.from_json({"name": "requests", "type": "pip", "version": "2.24.0"})
-    expected_purl = "pkg:pypi/requests@2.24.0"
+    expected_purl = default_toplevel_purl
 
     dep_commit_id = "58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
     dep = Package.from_json(
@@ -112,7 +127,7 @@ def test_process_pip():
     expected_src_purl = "pkg:pypi/setuptools@49.1.1"
 
     src.dev = True
-    cm = ContentManifest()
+    cm = ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._pip_data.setdefault(
@@ -161,8 +176,8 @@ def test_to_json(app, package):
 
 
 @pytest.mark.parametrize("contents", [None, [], "foobar", 42, OrderedDict({"egg": "bacon"})])
-def test_generate_icm(contents):
-    cm = ContentManifest()
+def test_generate_icm(contents, default_request):
+    cm = ContentManifest(default_request)
     expected = OrderedDict(
         {
             "image_contents": contents or [],
@@ -189,8 +204,8 @@ def test_generate_icm(contents):
     ],
 )
 @mock.patch("flask.current_app.logger.warning")
-def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn):
-    cm = ContentManifest()
+def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, default_request):
+    cm = ContentManifest(default_request)
 
     main_purl = "pkg:golang/a-package"
     cm._gopkg_data = {
@@ -356,3 +371,57 @@ def test_purl_conversion_bogus_forge():
     msg = f"Could not convert version {pkg.version} to purl"
     with pytest.raises(ContentManifestError, match=msg):
         pkg.to_purl()
+
+
+@pytest.mark.parametrize(
+    "repo_url, expected_purl",
+    [
+        ("http://github.com/org/repo-name", f"pkg:github/org/repo-name@{GIT_REF}"),
+        ("http://github.com/org/repo-name/", f"pkg:github/org/repo-name@{GIT_REF}"),
+        ("http://github.com:443/org/repo-name", f"pkg:github/org/repo-name@{GIT_REF}"),
+        ("http://user:pass@github.com/org/repo-name", f"pkg:github/org/repo-name@{GIT_REF}"),
+        ("http://github.com/org/repo-name.git", f"pkg:github/org/repo-name@{GIT_REF}"),
+        ("http://bitbucket.org/org/repo-name", f"pkg:bitbucket/org/repo-name@{GIT_REF}"),
+        (
+            # pkg:gitlab is not defined in the purl spec yet
+            "http://gitlab.com/org/repo-name",
+            f"pkg:generic/foo?vcs_url=http%3A%2F%2Fgitlab.com%2Forg%2Frepo-name%40{GIT_REF}",
+        ),
+        (
+            "http://gitlab.com/org/repo-name/",
+            f"pkg:generic/foo?vcs_url=http%3A%2F%2Fgitlab.com%2Forg%2Frepo-name%40{GIT_REF}",
+        ),
+        (
+            "http://gitlab.com/org/repo-name.git",
+            f"pkg:generic/foo?vcs_url=http%3A%2F%2Fgitlab.com%2Forg%2Frepo-name.git%40{GIT_REF}",
+        ),
+    ],
+)
+def test_vcs_purl_conversion(repo_url, expected_purl):
+    pkg = Package(name="foo")
+    assert pkg.to_vcs_purl(repo_url, GIT_REF) == expected_purl
+
+
+@pytest.mark.parametrize(
+    "pkg_type, purl_method, method_args",
+    [
+        ("gomod", "to_purl", []),
+        ("go-package", "to_purl", []),
+        ("npm", "to_vcs_purl", [GIT_REPO, GIT_REF]),
+        ("pip", "to_vcs_purl", [GIT_REPO, GIT_REF]),
+        ("bogus", None, None),
+    ],
+)
+def test_top_level_purl_conversion(pkg_type, purl_method, method_args, default_request):
+    pkg = Package(type=pkg_type)
+
+    if purl_method is None:
+        msg = f"{pkg_type!r} is not a valid top level package"
+        with pytest.raises(ContentManifestError, match=msg):
+            pkg.to_top_level_purl(default_request)
+    else:
+        with mock.patch.object(pkg, purl_method) as mock_purl_method:
+            purl = pkg.to_top_level_purl(default_request)
+
+        assert mock_purl_method.called_once_with(*method_args)
+        assert purl == mock_purl_method.return_value

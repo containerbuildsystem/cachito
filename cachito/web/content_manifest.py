@@ -14,7 +14,7 @@ class ContentManifest:
     )
     unknown_layer_index = -1
 
-    def __init__(self, request=None):
+    def __init__(self, request):
         """
         Initialize ContentManifest.
 
@@ -49,7 +49,7 @@ class ContentManifest:
         :param Dependency dependency: the go-package package dependency to process
         """
         if dependency.type == "go-package":
-            purl = package.to_purl()
+            purl = package.to_top_level_purl(self.request)
             icm_dependency = {"purl": dependency.to_purl()}
             self._gopkg_data[purl]["dependencies"].append(icm_dependency)
 
@@ -105,7 +105,7 @@ class ContentManifest:
         """
         pkg_type_data = getattr(self, f"_{pkg_type}_data")
 
-        purl = package.to_purl()
+        purl = package.to_top_level_purl(self.request)
         icm_dependency = {"purl": dependency.to_purl()}
         pkg_type_data[purl]["sources"].append(icm_dependency)
         if not dependency.dev:
@@ -126,14 +126,14 @@ class ContentManifest:
         # Address the possibility of packages having no dependencies
         for package in self.request.packages:
             if package.type == "go-package":
-                purl = package.to_purl()
+                purl = package.to_top_level_purl(self.request)
                 self._gopkg_data.setdefault(
                     purl, {"name": package.name, "purl": purl, "dependencies": [], "sources": []}
                 )
             elif package.type == "gomod":
                 self._gomod_data.setdefault(package.name, [])
             elif package.type in ("npm", "pip"):
-                purl = package.to_purl()
+                purl = package.to_top_level_purl(self.request)
                 data = getattr(self, f"_{package.type}_data")
                 data.setdefault(purl, {"purl": purl, "dependencies": [], "sources": []})
             else:

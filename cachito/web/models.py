@@ -4,13 +4,13 @@ from copy import deepcopy
 from enum import Enum
 import os
 import re
-import urllib.parse
 
 import flask
 from flask_login import UserMixin, current_user
 import pkg_resources
 import sqlalchemy
 import sqlalchemy.sql
+import urllib.parse
 from werkzeug.exceptions import Forbidden
 
 from cachito.web import content_manifest
@@ -256,6 +256,60 @@ class Package(db.Model):
 
         else:
             raise ContentManifestError(f"The PURL spec is not defined for {self.type} packages")
+
+    def to_vcs_purl(self, repo_url, ref):
+        """
+        Generate the vcs purl representation of the package.
+
+        Use the most specific purl type possible, e.g. pkg:github if repo comes from
+        github.com. Fall back to using pkg:generic with a ?vcs_url qualifier.
+
+        :param str repo_url: url of git repository for package
+        :param str ref: git ref of package
+        :return: the PURL string of the Package object
+        :rtype: str
+        """
+        repo_url = repo_url.rstrip("/")
+        parsed_url = urllib.parse.urlparse(repo_url)
+
+        pkg_type_for_hostname = {
+            "github.com": "github",
+            "bitbucket.org": "bitbucket",
+        }
+        pkg_type = pkg_type_for_hostname.get(parsed_url.hostname, "generic")
+
+        if pkg_type == "generic":
+            vcs_url = urllib.parse.quote(f"{repo_url}@{ref}", safe="")
+            purl = f"pkg:generic/{self.name}?vcs_url={vcs_url}"
+        else:
+            # pkg:github and pkg:bitbucket use the same format
+            namespace, repo = parsed_url.path.lstrip("/").rsplit("/", 1)
+            if repo.endswith(".git"):
+                repo = repo[: -len(".git")]
+            purl = f"pkg:{pkg_type}/{namespace.lower()}/{repo.lower()}@{ref}"
+
+        return purl
+
+    def to_top_level_purl(self, request):
+        """
+        Generate the purl representation of a top-level package (not a dependency).
+
+        In Cachito, all top-level packages come from the git repository that the user
+        requested. Generate a purl that properly conveys this information.
+
+        The relation between Package and Request is many-to-many, therefore the caller
+        must specify the request to use when generating the purl.
+
+        :param Request request: the request that contains this package
+        :return: the PURL string of the Package object
+        :rtype: str
+        """
+        if self.type in ("gomod", "go-package"):
+            return self.to_purl()
+        elif self.type in ("npm", "pip"):
+            return self.to_vcs_purl(request.repo, request.ref)
+        else:
+            raise ContentManifestError(f"{self.type!r} is not a valid top level package")
 
 
 class Dependency(Package):
