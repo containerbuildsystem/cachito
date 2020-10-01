@@ -147,7 +147,7 @@ pip_packages:
   # repo: The URL for the upstream git repository
   # ref: A git reference at the given git repository
   # expected_files: Expected source files <relative_path>: <file_URL>
-  # expected_deps_files: Expected dependencies files <relative_path>: <archive_URL>
+  # expected_deps_files: Expected dependencies files <relative_path>
   # dependencies: expected dependencies from the Cachito response
   # packages: expected packages from the Cachito response
   # purl: PURL of the package
@@ -160,9 +160,9 @@ pip_packages:
       setup.cfg: https://raw.githubusercontent.com/cachito-testing/cachito-pip-with-deps/master/setup.cfg
       requirements.txt: https://raw.githubusercontent.com/cachito-testing/cachito-pip-with-deps/master/requirements.txt
     expected_deps_files:
-      pip/aiowsgi/aiowsgi-0.7.tar.gz: "https://github.com/gawel/aiowsgi/archive/0.7.tar.gz"
-      pip/external-appr/appr-external-sha256-ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c.zip: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip"
-      pip/github.com/quay/appr/appr-external-gitcommit-58c88e4952e95935c0dd72d4a24b0c44f2249f5b.tar.gz: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+      - pip/aiowsgi/aiowsgi-0.7.tar.gz
+      - pip/external-appr/appr-external-sha256-ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c.zip
+      - pip/github.com/quay/appr/appr-external-gitcommit-58c88e4952e95935c0dd72d4a24b0c44f2249f5b.tar.gz
     dependencies:
       - dev: false
         name: "appr"
@@ -204,6 +204,10 @@ pip_packages:
     - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
     - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
     - "pkg:pypi/aiowsgi@0.7"
+    source_purls:
+      - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+      - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+      - "pkg:pypi/aiowsgi@0.7"
   local_path:
     repo: https://github.com/cachito-testing/cachito-pip-local-path.git
     ref: d66f7e029a15e8dc96ced65865344e6088c3fdd5
@@ -236,3 +240,110 @@ gomod_packages:
       go.mod: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-without-deps/master/go.mod
     expected_deps_files: null
     purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
+  with_deps:
+    repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
+    ref: 4c65d49cae6bfbada4d479b321d8c0109fa1aa97
+    pkg_managers: ["gomod"]
+    packages:
+      - dependencies:
+          - name: "rsc.io/sampler"
+            replaces: null
+            type: "gomod"
+            version: "v1.3.0"
+          - name: "rsc.io/quote"
+            replaces: null
+            type: "gomod"
+            version: "v1.5.2"
+          - name: "golang.org/x/text"
+            replaces: null
+            type: "gomod"
+            version: "v0.0.0-20170915032832-14c0d48ead0c"
+        name: "github.com/cachito-testing/cachito-gomod-with-deps"
+        type: "gomod"
+        version: "v0.0.0-20201001160613-4c65d49cae6b"
+      - dependencies:
+          - name: "rsc.io/quote"
+            replaces: null
+            type: "go-package"
+            version: "v1.5.2"
+          - name: "rsc.io/sampler"
+            replaces: null
+            type: "go-package"
+            version: "v1.3.0"
+          - name: "golang.org/x/text/language"
+            replaces: null
+            type: "go-package"
+            version: "v0.0.0-20170915032832-14c0d48ead0c"
+          - name: "golang.org/x/text/internal/tag"
+            replaces: null
+            type: "go-package"
+            version: "v0.0.0-20170915032832-14c0d48ead0c"
+        name: "github.com/cachito-testing/cachito-gomod-with-deps"
+        type: "go-package"
+        version: "v0.0.0-20201001160613-4c65d49cae6b"
+    dependencies:
+      - name: "rsc.io/quote"
+        replaces: null
+        type: "go-package"
+        version: "v1.5.2"
+      - name: "rsc.io/sampler"
+        replaces: null
+        type: "go-package"
+        version: "v1.3.0"
+      - name: "golang.org/x/text/language"
+        replaces: null
+        type: "go-package"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
+      - name: "golang.org/x/text/internal/tag"
+        replaces: null
+        type: "go-package"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
+      - name: "rsc.io/sampler"
+        replaces: null
+        type: "gomod"
+        version: "v1.3.0"
+      - name: "rsc.io/quote"
+        replaces: null
+        type: "gomod"
+        version: "v1.5.2"
+      - name: "golang.org/x/text"
+        replaces: null
+        type: "gomod"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
+    expected_files:
+      cachito_gomod.go: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-with-deps/master/cachito_gomod.go
+      cachito_gomod_test.go: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-with-deps/master/cachito_gomod_test.go
+      go.mod: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-with-deps/master/go.mod
+      go.sum: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-with-deps/master/go.sum
+    expected_deps_files:
+      - gomod/pkg/mod/cache/download/golang.org/x/text/@v/list
+      - gomod/pkg/mod/cache/download/golang.org/x/text/@v/list.lock
+      - gomod/pkg/mod/cache/download/golang.org/x/text/@v/v0.0.0-20170915032832-14c0d48ead0c.info
+      - gomod/pkg/mod/cache/download/golang.org/x/text/@v/v0.0.0-20170915032832-14c0d48ead0c.lock
+      - gomod/pkg/mod/cache/download/golang.org/x/text/@v/v0.0.0-20170915032832-14c0d48ead0c.mod
+      - gomod/pkg/mod/cache/download/golang.org/x/text/@v/v0.0.0-20170915032832-14c0d48ead0c.zip
+      - gomod/pkg/mod/cache/download/golang.org/x/text/@v/v0.0.0-20170915032832-14c0d48ead0c.ziphash
+      - gomod/pkg/mod/cache/download/rsc.io/quote/@v/list
+      - gomod/pkg/mod/cache/download/rsc.io/quote/@v/list.lock
+      - gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.info
+      - gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.lock
+      - gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.mod
+      - gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.zip
+      - gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.ziphash
+      - gomod/pkg/mod/cache/download/rsc.io/sampler/@v/list
+      - gomod/pkg/mod/cache/download/rsc.io/sampler/@v/list.lock
+      - gomod/pkg/mod/cache/download/rsc.io/sampler/@v/v1.3.0.info
+      - gomod/pkg/mod/cache/download/rsc.io/sampler/@v/v1.3.0.lock
+      - gomod/pkg/mod/cache/download/rsc.io/sampler/@v/v1.3.0.mod
+      - gomod/pkg/mod/cache/download/rsc.io/sampler/@v/v1.3.0.zip
+      - gomod/pkg/mod/cache/download/rsc.io/sampler/@v/v1.3.0.ziphash
+    purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@v0.0.0-20201001160613-4c65d49cae6b"
+    dep_purls:
+      - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
+      - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
+      - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+      - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+    source_purls:
+      - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
+      - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+      - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
