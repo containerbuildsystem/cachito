@@ -59,12 +59,12 @@ def test_all_pip_packages(env_name, test_env, tmpdir):
     expected_file_urls = env_data["expected_files"]
     # Check that the source tarball includes the application source code under the app directory.
     utils.assert_expected_files(path.join(source_name, "app"), expected_file_urls)
-    if "expected_deps_files" in env_data:
-        expected_deps_file_urls = env_data["expected_deps_files"]
-        # Check that the source tarball includes an empty deps directory.
-        utils.assert_expected_files(
-            path.join(source_name, "deps"), expected_deps_file_urls, check_content=False
-        )
+
+    expected_deps_file_urls = env_data["expected_deps_files"]
+    # Check that the source tarball includes an expected files in the deps directory.
+    utils.assert_expected_files(
+        path.join(source_name, "deps"), expected_deps_file_urls, check_content=False
+    )
     purl = env_data["purl"]
     if "dep_purls" in env_data:
         deps_purls = [{"purl": x} for x in env_data["dep_purls"]]
