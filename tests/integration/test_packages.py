@@ -56,9 +56,12 @@ def test_packages(env_package, env_name, test_env, tmpdir):
         path.join(source_name, "deps"), expected_deps_file_urls, check_content=False
     )
     purl = env_data["purl"]
+    deps_purls = []
+    source_purls = []
     if "dep_purls" in env_data:
         deps_purls = [{"purl": x} for x in env_data["dep_purls"]]
-    else:
-        deps_purls = []
-    image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": deps_purls}]
+    if "source_purls" in env_data:
+        source_purls = [{"purl": x} for x in env_data["source_purls"]]
+
+    image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": source_purls}]
     utils.assert_content_manifest(client, completed_response.id, image_contents)

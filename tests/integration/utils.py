@@ -265,9 +265,8 @@ def assert_expected_files(source_path, expected_file_urls=None, check_content=Tr
                     expected_file = requests.get(file_url).content
                     assert f.read() == expected_file
                 else:
-                    assert f.read()
+                    assert os.path.isfile(absolute_file_path)
             files.append(relative_file_path)
-
     # Assert that there are no missing or extra files
     assert set(files) == set(list(expected_file_urls))
 
