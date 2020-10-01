@@ -124,6 +124,7 @@ pip_packages:
   # repo: The URL for the upstream git repository
   # ref: A git reference at the given git repository
   # expected_files: Expected source files <relative_path>: <file_URL>
+  # expected_deps_files: Expected dependencies files (empty)
   # dependencies: expected dependencies from the Cachito response
   # package: expected package from the Cachito response
   # purl: PURL of the package
@@ -133,6 +134,7 @@ pip_packages:
     expected_files:
       setup.cfg: https://raw.githubusercontent.com/cachito-testing/cachito-pip-without-deps/master/setup.cfg
       setup.py: https://raw.githubusercontent.com/cachito-testing/cachito-pip-without-deps/master/setup.py
+    expected_deps_files: null
     dependencies: []
     package:
       dependencies: []
