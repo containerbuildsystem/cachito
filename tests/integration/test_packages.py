@@ -34,7 +34,7 @@ def test_all_pip_packages(env_name, test_env, tmpdir):
 
     utils.assert_properly_completed_response(completed_response)
 
-    expected_package_params = [env_data["package"]]
+    expected_package_params = env_data["packages"]
     expected_deps = env_data["dependencies"]
     utils.sort_pkgs_and_deps_in_place(expected_package_params, expected_deps)
     utils.assert_element_from_response(response_data, expected_package_params, "packages")
