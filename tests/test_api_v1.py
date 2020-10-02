@@ -24,6 +24,7 @@ from cachito.workers.tasks import (
     fetch_pip_source,
     failed_request_callback,
     create_bundle_archive,
+    add_git_submodules_as_package,
 )
 
 RE_INVALID_PACKAGES_VALUE = (
@@ -32,17 +33,16 @@ RE_INVALID_PACKAGES_VALUE = (
 
 
 @pytest.mark.parametrize(
-    "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags, gitsubmodule",
+    "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags",
     (
-        ([], [], None, [], None, False),
-        ([], ["gomod", "git-submodule"], None, ["gomod"], None, True),
+        ([], [], None, [], None,),
+        ([], ["gomod", "git-submodule"], None, ["gomod", "git-submodule"], None,),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             ["gomod"],
             None,
             ["gomod"],
             None,
-            False,
         ),
         (
             [
@@ -55,13 +55,12 @@ RE_INVALID_PACKAGES_VALUE = (
             ],
             ["gomod", "git-submodule"],
             None,
-            ["gomod"],
+            ["gomod", "git-submodule"],
             None,
-            True,
         ),
-        ([], [], "tom_hanks@DOMAIN.LOCAL", [], None, False),
-        ([], ["npm"], None, ["npm"], None, False),
-        ([], ["pip"], None, ["pip"], None, False),
+        ([], [], "tom_hanks@DOMAIN.LOCAL", [], None,),
+        ([], ["npm"], None, ["npm"], None,),
+        ([], ["pip"], None, ["pip"], None,),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -76,7 +75,6 @@ def test_create_and_fetch_request(
     client,
     db,
     flags,
-    gitsubmodule,
 ):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
@@ -112,7 +110,7 @@ def test_create_and_fetch_request(
             "https://github.com/release-engineering/retrodep.git",
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
-            gitsubmodule,
+            "git-submodule" in expected_pkg_managers,
         ).on_error(error_callback)
     ]
     if "gomod" in expected_pkg_managers:
@@ -125,6 +123,14 @@ def test_create_and_fetch_request(
         expected.append(fetch_npm_source.si(created_request["id"], {}).on_error(error_callback))
     if "pip" in expected_pkg_managers:
         expected.append(fetch_pip_source.si(created_request["id"], {}).on_error(error_callback))
+    if "git-submodule" in expected_pkg_managers:
+        expected.append(
+            add_git_submodules_as_package.si(
+                created_request["id"],
+                "https://github.com/release-engineering/retrodep.git",
+                "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            ).on_error(error_callback)
+        )
     expected.append(create_bundle_archive.si(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
 
