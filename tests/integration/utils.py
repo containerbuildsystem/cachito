@@ -200,7 +200,9 @@ def assert_content_manifest_schema(response_data):
     """Validate content manifest according with JSON schema."""
     icm_spec = response_data["metadata"]["icm_spec"]
     schema = requests.get(icm_spec, timeout=30).json()
-    assert validate_json(schema, response_data)
+    assert validate_json(
+        schema, response_data
+    ), f"ICM data not valid for schema at {response_data['metadata']['icm_spec']}: {response_data}"
 
 
 def assert_element_from_response(response_data, expected_element, element_name):
@@ -218,7 +220,9 @@ def assert_element_from_response(response_data, expected_element, element_name):
     if isinstance(response_element, list):
         assert len(response_element) == len(expected_element)
         for e in expected_element:
-            assert e in response_element
+            assert (
+                e in response_element
+            ), f"#{response_data['id']}: {e} should be in {response_element}"
     else:
         assert response_element == expected_element
 
@@ -233,7 +237,9 @@ def assert_expected_files(source_path, expected_file_urls=None, check_content=Tr
     """
     if expected_file_urls is None:
         expected_file_urls = {}
-    assert os.path.exists(source_path) and os.path.isdir(source_path)
+    assert os.path.exists(source_path) and os.path.isdir(
+        source_path
+    ), f"Invalid source_path: {source_path}"
     files = []
     # Go through all files in source_code_path and it's subdirectories
     for root, _, source_files in os.walk(source_path):
@@ -249,7 +255,7 @@ def assert_expected_files(source_path, expected_file_urls=None, check_content=Tr
                     expected_file = requests.get(file_url).content
                     assert f.read() == expected_file
                 else:
-                    assert f.read()
+                    assert f.read(), f"No contents in {absolute_file_path}"
             files.append(relative_file_path)
 
     # Assert that there are no missing or extra files
