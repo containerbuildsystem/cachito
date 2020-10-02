@@ -131,6 +131,7 @@ pip_packages:
   without_deps:
     repo: https://github.com/cachito-testing/cachito-pip-without-deps.git
     ref: fb07c8492432631d557aba15e1715af9cef9c844
+    pkg_managers: ["pip"]
     expected_files:
       setup.cfg: https://raw.githubusercontent.com/cachito-testing/cachito-pip-without-deps/master/setup.cfg
       setup.py: https://raw.githubusercontent.com/cachito-testing/cachito-pip-without-deps/master/setup.py
@@ -154,6 +155,7 @@ pip_packages:
   with_deps:
     repo: https://github.com/cachito-testing/cachito-pip-with-deps.git
     ref: 83b387568b6287f6829403cff1e1377b0fb2f5d8
+    pkg_managers: ["pip"]
     expected_files:
       setup.cfg: https://raw.githubusercontent.com/cachito-testing/cachito-pip-with-deps/master/setup.cfg
       requirements.txt: https://raw.githubusercontent.com/cachito-testing/cachito-pip-with-deps/master/requirements.txt
@@ -205,3 +207,32 @@ pip_packages:
   local_path:
     repo: https://github.com/cachito-testing/cachito-pip-local-path.git
     ref: d66f7e029a15e8dc96ced65865344e6088c3fdd5
+gomod_packages:
+  # gomod package without dependencies
+  # repo: The URL for the upstream git repository
+  # ref: A git reference at the given git repository
+  # expected_files: Expected source files <relative_path>: <file_URL>
+  # expected_deps_files: Expected dependencies files (empty)
+  # dependencies: expected dependencies from the Cachito response
+  # packages: expected packages from the Cachito response
+  # purl: PURL of the package
+  without_deps:
+    repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
+    ref: a888f7261b9a9683972fbd77da2d12fe86faef5e
+    pkg_managers: ["gomod"]
+    packages:
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        type: "gomod"
+        version: "v0.0.0-20200925115855-a888f7261b9a"
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        type: "go-package"
+        version: "v0.0.0-20200925115855-a888f7261b9a"
+    dependencies: []
+    expected_files:
+      hello.go: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-without-deps/master/hello.go
+      hello_test.go: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-without-deps/master/hello_test.go
+      go.mod: https://raw.githubusercontent.com/cachito-testing/cachito-gomod-without-deps/master/go.mod
+    expected_deps_files: null
+    purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
