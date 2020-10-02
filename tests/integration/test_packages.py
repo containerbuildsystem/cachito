@@ -2,31 +2,37 @@
 
 from os import path
 import pytest
-import tarfile
 
 import utils
 
 
 @pytest.mark.parametrize("env_name", ["without_deps", "with_deps"])
-def test_all_pip_packages(env_name, test_env, tmpdir):
+@pytest.mark.parametrize("env_package", ["pip_packages", "gomod_packages"])
+def test_packages(env_package, env_name, test_env, tmpdir):
     """
-    Validate data in the pip package request according to pytest env_name parameter.
+    Validate data in the package request according to pytest env_name and env_package parameter.
+
     Process:
     Send new request to the Cachito API
     Send request to check status of existing request
+
     Checks:
     * Check that the request completes successfully
-    * Check that expected pip packages are identified in response
-    * Check that expected pip dependencies are identified in response
+    * Check that expected packages are identified in response
+    * Check that expected dependencies are identified in response
     * Check response parameters of the package
     * Check that the source tarball includes the application source code
-    * Check that the source tarball includes expected deps/pip directory
+    * Check that the source tarball includes expected deps directory
     * Check: The content manifest is successfully generated and contains correct content
     """
-    env_data = test_env["pip_packages"][env_name]
+    env_data = test_env[env_package][env_name]
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     initial_response = client.create_new_request(
-        payload={"repo": env_data["repo"], "ref": env_data["ref"], "pkg_managers": ["pip"]}
+        payload={
+            "repo": env_data["repo"],
+            "ref": env_data["ref"],
+            "pkg_managers": env_data["pkg_managers"],
+        },
     )
     completed_response = client.wait_for_complete_request(initial_response)
     response_data = completed_response.data
