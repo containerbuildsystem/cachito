@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 import os
+import tarfile
 import time
 
 import jsonschema
@@ -76,6 +77,21 @@ class Client:
                     file.write(chunk)
 
         return Response(None, request_id, resp.status_code)
+
+    def download_and_extract_archive(self, request_id, tmpdir):
+        """
+        Download a bundle archive and extract it.
+
+        :param int request_id: ID of the request in Cachito
+        :param tmpdir: archive is extracted to this temporary directory
+        """
+        source_name = tmpdir.join(f"download_{str(request_id)}")
+        file_name_tar = tmpdir.join(f"download_{str(request_id)}.tar.gz")
+        resp = self.download_bundle(request_id, file_name_tar)
+        assert resp.status == 200
+        assert tarfile.is_tarfile(file_name_tar)
+        with tarfile.open(file_name_tar, "r:gz") as tar:
+            tar.extractall(source_name)
 
     def wait_for_complete_request(self, response):
         """
@@ -302,3 +318,14 @@ def assert_content_manifest(client, request_id, image_contents):
     response_data = content_manifest_response.data
     assert_content_manifest_schema(response_data)
     assert image_contents == content_manifest_response.data["image_contents"]
+
+
+def assert_properly_completed_response(completed_response):
+    """
+    Check that the request completed successfully.
+
+    :param Response completed_response: response from the Cachito API
+    """
+    assert completed_response.status == 200
+    assert completed_response.data["state"] == "complete"
+    assert completed_response.data["state_reason"] == "Completed successfully"
