@@ -31,14 +31,18 @@ def test_all_pip_packages(env_name, test_env, tmpdir):
         payload={"repo": env_data["repo"], "ref": env_data["ref"], "pkg_managers": ["pip"]}
     )
     completed_response = client.wait_for_complete_request(initial_response)
+    response_data = completed_response.data
+    utils.sort_pkgs_and_deps_in_place(response_data["packages"], response_data["dependencies"])
+
     assert completed_response.status == 200
-    assert completed_response.data["state"] == "complete"
-    assert completed_response.data["state_reason"] == "Completed successfully"
+    assert response_data["state"] == "complete"
+    assert response_data["state_reason"] == "Completed successfully"
 
     expected_package_params = [env_data["package"]]
-    utils.assert_element_from_response(completed_response.data, expected_package_params, "packages")
     expected_deps = env_data["dependencies"]
-    utils.assert_element_from_response(completed_response.data, expected_deps, "dependencies")
+    utils.sort_pkgs_and_deps_in_place(expected_package_params, expected_deps)
+    utils.assert_element_from_response(response_data, expected_package_params, "packages")
+    utils.assert_element_from_response(response_data, expected_deps, "dependencies")
 
     # Download and extract source tarball
     source_name = tmpdir.join(f"download_{str(completed_response.id)}")

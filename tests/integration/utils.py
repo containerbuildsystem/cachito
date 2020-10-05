@@ -196,6 +196,27 @@ def make_list_of_packages_hashable(data):
     return sorted([[i["name"], i["type"], i["version"]] for i in data])
 
 
+def sort_pkgs_and_deps_in_place(packages=None, dependencies=None):
+    """
+    Sorts lists of packages and dependencies in place.
+
+    Sorting order: name -> version -> type
+
+    :param list packages: the list of packages
+    :param list dependencies: the list of dependencies
+    """
+
+    def sort_helper(elements):
+        elements.sort(key=lambda x: (x["name"], x["version"], x["type"]))
+
+    if packages:
+        sort_helper(packages)
+        for package in packages:
+            sort_helper(package["dependencies"])
+    if dependencies:
+        sort_helper(dependencies)
+
+
 def assert_content_manifest_schema(response_data):
     """Validate content manifest according with JSON schema."""
     icm_spec = response_data["metadata"]["icm_spec"]
