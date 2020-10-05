@@ -141,7 +141,7 @@ pip_packages:
       name: "cachito-pip-empty"
       type: "pip"
       version: "1.0.0"
-    purl: "pkg:pypi/cachito-pip-empty@1.0.0"
+    purl: "pkg:github/cachito-testing/cachito-pip-without-deps@fb07c8492432631d557aba15e1715af9cef9c844"
   # pip package with dependencies in requirements.txt
   # repo: The URL for the upstream git repository
   # ref: A git reference at the given git repository
@@ -197,10 +197,10 @@ pip_packages:
       name: "cachito-pip-with-deps"
       type: "pip"
       version: "1.0.0"
-    purl: "pkg:pypi/cachito-pip-with-deps@1.0.0"
+    purl: "pkg:github/cachito-testing/cachito-pip-with-deps@83b387568b6287f6829403cff1e1377b0fb2f5d8"
     dep_purls:
     - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
-    - "pkg:generic/appr?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fquay%2Fappr.git%4058c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
     - "pkg:pypi/aiowsgi@0.7"
   local_path:
     repo: https://github.com/cachito-testing/cachito-pip-local-path.git
