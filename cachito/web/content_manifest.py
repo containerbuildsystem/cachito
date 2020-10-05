@@ -49,9 +49,8 @@ class ContentManifest:
         :param Dependency dependency: the go-package package dependency to process
         """
         if dependency.type == "go-package":
-            purl = package.to_top_level_purl(self.request)
             icm_dependency = {"purl": dependency.to_purl()}
-            self._gopkg_data[purl]["dependencies"].append(icm_dependency)
+            self._gopkg_data[package.id]["dependencies"].append(icm_dependency)
 
     def set_go_package_sources(self):
         """
@@ -62,19 +61,21 @@ class ContentManifest:
         in each content manifest entry, we associate each Go package to a Go
         module based on their names.
         """
-        for purl, pkg_data in self._gopkg_data.items():
+        for package_id, pkg_data in self._gopkg_data.items():
             if pkg_data["name"] in self._gomod_data:
-                self._gopkg_data[purl]["sources"] = self._gomod_data[pkg_data["name"]]
+                self._gopkg_data[package_id]["sources"] = self._gomod_data[pkg_data["name"]]
             else:
                 # We use the longest module available in the request that matches the package name
                 previous_length = 0
                 for mod_name, sources in self._gomod_data.items():
                     if pkg_data["name"].startswith(mod_name) and len(mod_name) > previous_length:
-                        self._gopkg_data[purl]["sources"] = sources
+                        self._gopkg_data[package_id]["sources"] = sources
                         previous_length = len(mod_name)
 
                 if not previous_length:
-                    flask.current_app.logger.warning("Could not find a Go module for %s", purl)
+                    flask.current_app.logger.warning(
+                        "Could not find a Go module for %s", pkg_data["purl"]
+                    )
             pkg_data.pop("name")
 
     def process_npm_package(self, package, dependency):
@@ -105,11 +106,10 @@ class ContentManifest:
         """
         pkg_type_data = getattr(self, f"_{pkg_type}_data")
 
-        purl = package.to_top_level_purl(self.request)
         icm_dependency = {"purl": dependency.to_purl()}
-        pkg_type_data[purl]["sources"].append(icm_dependency)
+        pkg_type_data[package.id]["sources"].append(icm_dependency)
         if not dependency.dev:
-            pkg_type_data[purl]["dependencies"].append(icm_dependency)
+            pkg_type_data[package.id]["dependencies"].append(icm_dependency)
 
     def to_json(self):
         """
@@ -128,14 +128,15 @@ class ContentManifest:
             if package.type == "go-package":
                 purl = package.to_top_level_purl(self.request)
                 self._gopkg_data.setdefault(
-                    purl, {"name": package.name, "purl": purl, "dependencies": [], "sources": []}
+                    package.id,
+                    {"name": package.name, "purl": purl, "dependencies": [], "sources": []},
                 )
             elif package.type == "gomod":
                 self._gomod_data.setdefault(package.name, [])
             elif package.type in ("npm", "pip"):
                 purl = package.to_top_level_purl(self.request)
                 data = getattr(self, f"_{package.type}_data")
-                data.setdefault(purl, {"purl": purl, "dependencies": [], "sources": []})
+                data.setdefault(package.id, {"purl": purl, "dependencies": [], "sources": []})
             else:
                 flask.current_app.logger.debug(
                     "No ICM implementation for '%s' packages", package.type

@@ -1609,7 +1609,7 @@ def test_fetch_request_content_manifest_npm_or_pip(
     image_contents = [
         {
             "dependencies": [],
-            "purl": f"pkg:{purl_type}/pkg-aa@1.0.0",
+            "purl": f"pkg:github/release-engineering/dummy@{data['ref']}",
             "sources": [
                 {"purl": f"pkg:{purl_type}/dep-aa@1.0.0"},
                 {"purl": f"pkg:{purl_type}/dep-bb@2.0.0"},
@@ -1617,7 +1617,7 @@ def test_fetch_request_content_manifest_npm_or_pip(
         },
         {
             "dependencies": [{"purl": f"pkg:{purl_type}/dep-dd@4.0.0"}],
-            "purl": f"pkg:{purl_type}/pkg-bb@1.0.0",
+            "purl": f"pkg:github/release-engineering/dummy@{data['ref']}",
             "sources": [
                 {"purl": f"pkg:{purl_type}/dep-cc@3.0.0"},
                 {"purl": f"pkg:{purl_type}/dep-dd@4.0.0"},

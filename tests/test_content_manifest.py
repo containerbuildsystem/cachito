@@ -28,23 +28,27 @@ def test_process_go(default_request):
     pkg = Package.from_json(
         {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"}
     )
+    pkg.id = 1
     expected_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
 
     dep = Package.from_json(
         {"name": "example.com/org/project/lib", "type": "go-package", "version": "2.2.2"}
     )
+    dep.id = 2
     expected_dep_purl = "pkg:golang/example.com%2Forg%2Fproject%2Flib@2.2.2"
 
     src = Package.from_json(
         {"name": "example.com/anotherorg/project", "type": "gomod", "version": "3.3.3"}
     )
+    src.id = 3
     expected_src_purl = "pkg:golang/example.com%2Fanotherorg%2Fproject@3.3.3"
+
     cm = ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._gomod_data.setdefault(pkg.name, [])
     cm._gopkg_data.setdefault(
-        expected_purl, {"name": pkg.name, "purl": expected_purl, "dependencies": [], "sources": []}
+        pkg.id, {"name": pkg.name, "purl": expected_purl, "dependencies": [], "sources": []}
     )
 
     cm.process_go_package(pkg, dep)
@@ -52,7 +56,7 @@ def test_process_go(default_request):
     cm.set_go_package_sources()
 
     expected_contents = {
-        expected_purl: {
+        pkg.id: {
             "purl": expected_purl,
             "dependencies": [{"purl": expected_dep_purl}],
             "sources": [{"purl": expected_src_purl}],
@@ -60,12 +64,13 @@ def test_process_go(default_request):
     }
 
     assert cm._gopkg_data
-    assert expected_purl in cm._gopkg_data
+    assert pkg.id in cm._gopkg_data
     assert cm._gopkg_data == expected_contents
 
 
 def test_process_npm(default_request, default_toplevel_purl):
     pkg = Package.from_json({"name": "grc-ui", "type": "npm", "version": "1.0.0"})
+    pkg.id = 1
     expected_purl = default_toplevel_purl
 
     dep_commit_id = "7762177aacfb1ddf5ca45cebfe8de1da3b24f0ff"
@@ -76,24 +81,24 @@ def test_process_npm(default_request, default_toplevel_purl):
             "version": f"github:open-cluster-management/security-middleware#{dep_commit_id}",
         }
     )
+    dep.id = 2
     expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{dep_commit_id}"
 
     src = Package.from_json({"name": "@types/events", "type": "npm", "version": "3.0.0"})
+    src.id = 3
+    src.dev = True
     expected_src_purl = "pkg:npm/%40types/events@3.0.0"
 
-    src.dev = True
     cm = ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
-    cm._npm_data.setdefault(
-        expected_purl, {"purl": expected_purl, "dependencies": [], "sources": []}
-    )
+    cm._npm_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
 
     cm.process_npm_package(pkg, dep)
     cm.process_npm_package(pkg, src)
 
     expected_contents = {
-        expected_purl: {
+        pkg.id: {
             "purl": expected_purl,
             "dependencies": [{"purl": expected_dep_purl}],
             "sources": [{"purl": expected_dep_purl}, {"purl": expected_src_purl}],
@@ -101,12 +106,13 @@ def test_process_npm(default_request, default_toplevel_purl):
     }
 
     assert cm._npm_data
-    assert expected_purl in cm._npm_data
+    assert pkg.id in cm._npm_data
     assert cm._npm_data == expected_contents
 
 
 def test_process_pip(default_request, default_toplevel_purl):
     pkg = Package.from_json({"name": "requests", "type": "pip", "version": "2.24.0"})
+    pkg.id = 1
     expected_purl = default_toplevel_purl
 
     dep_commit_id = "58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
@@ -117,25 +123,24 @@ def test_process_pip(default_request, default_toplevel_purl):
             "version": f"git+https://github.com/quay/appr@{dep_commit_id}",
         }
     )
-
+    dep.id = 2
     expected_dep_purl = f"pkg:github/quay/appr@{dep_commit_id}"
 
     src = Package.from_json({"name": "setuptools", "type": "pip", "version": "49.1.1"})
+    src.id = 3
+    src.dev = True
     expected_src_purl = "pkg:pypi/setuptools@49.1.1"
 
-    src.dev = True
     cm = ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
-    cm._pip_data.setdefault(
-        expected_purl, {"purl": expected_purl, "dependencies": [], "sources": []}
-    )
+    cm._pip_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
 
     cm.process_pip_package(pkg, dep)
     cm.process_pip_package(pkg, src)
 
     expected_contents = {
-        expected_purl: {
+        pkg.id: {
             "purl": expected_purl,
             "dependencies": [{"purl": expected_dep_purl}],
             "sources": [{"purl": expected_dep_purl}, {"purl": expected_src_purl}],
@@ -143,7 +148,7 @@ def test_process_pip(default_request, default_toplevel_purl):
     }
 
     assert cm._pip_data
-    assert expected_purl in cm._pip_data
+    assert pkg.id in cm._pip_data
     assert cm._pip_data == expected_contents
 
 
@@ -205,8 +210,10 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
     cm = ContentManifest(default_request)
 
     main_purl = "pkg:golang/a-package"
+    main_package_id = 1
+
     cm._gopkg_data = {
-        main_purl: {"name": pkg_name, "purl": main_purl, "sources": [], "dependencies": []}
+        main_package_id: {"name": pkg_name, "purl": main_purl, "sources": [], "dependencies": []}
     }
     cm._gomod_data = gomod_data
 
@@ -217,7 +224,7 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
         if any(k in pkg_name for k in gomod_data.keys()):
             sources += v
 
-    expected = {main_purl: {"purl": main_purl, "dependencies": [], "sources": sources}}
+    expected = {main_package_id: {"purl": main_purl, "dependencies": [], "sources": sources}}
 
     assert cm._gopkg_data == expected
 
