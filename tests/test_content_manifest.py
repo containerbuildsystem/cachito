@@ -118,10 +118,7 @@ def test_process_pip(default_request, default_toplevel_purl):
         }
     )
 
-    expected_dep_purl = (
-        f"pkg:generic/cnr-server?vcs_url="
-        f"git%2Bhttps%3A%2F%2Fgithub.com%2Fquay%2Fappr%40{dep_commit_id}"
-    )
+    expected_dep_purl = f"pkg:github/quay/appr@{dep_commit_id}"
 
     src = Package.from_json({"name": "setuptools", "type": "pip", "version": "49.1.1"})
     expected_src_purl = "pkg:pypi/setuptools@49.1.1"
@@ -327,7 +324,7 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
                 "type": "pip",
                 "version": "git+https://github.com/quay/appr@abcdef",
             },
-            "pkg:generic/cnr-server?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fquay%2Fappr%40abcdef",
+            "pkg:github/quay/appr@abcdef",
             True,
             True,
         ],

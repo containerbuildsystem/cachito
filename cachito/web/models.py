@@ -245,8 +245,10 @@ class Package(db.Model):
                 return f"pkg:pypi/{name}@{self.version}"
             elif parsed_url.scheme.startswith("git+"):
                 # Version is git+<git_url>
-                quoted_url = urllib.parse.quote(self.version, safe="")
-                return f"pkg:generic/{name}?vcs_url={quoted_url}"
+                scheme = parsed_url.scheme[len("git+") :]
+                vcs_url = f"{scheme}://{parsed_url.netloc}{parsed_url.path}"
+                repo_url, ref = vcs_url.rsplit("@", 1)
+                return self.to_vcs_purl(repo_url, ref)
             else:
                 # Version is a plain URL
                 fragments = urllib.parse.parse_qs(parsed_url.fragment)
