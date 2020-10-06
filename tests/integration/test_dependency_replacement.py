@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from os import path
-import tarfile
 
 import utils
 
@@ -32,7 +31,7 @@ def test_dependency_replacement(test_env, tmpdir):
         },
     )
     response = client.wait_for_complete_request(response_created_req)
-    assert response.data["state"] == "complete"
+    utils.assert_properly_completed_response(response)
 
     names_replaced_dependencies = {
         i["replaces"]["name"] for i in response.data["dependencies"] if i["replaces"] is not None
@@ -41,13 +40,7 @@ def test_dependency_replacement(test_env, tmpdir):
     assert names_replaced_dependencies == supposed_replaced_dependencies
 
     bundle_dir_name = tmpdir.join(f"download_{str(response.id)}")
-    bundle_archive = tmpdir.join(f"download_{str(response.id)}.tar.gz")
-    resp = client.download_bundle(response.id, bundle_archive)
-    assert resp.status == 200
-    assert tarfile.is_tarfile(bundle_archive)
-
-    with tarfile.open(bundle_archive, "r:gz") as tar:
-        tar.extractall(bundle_dir_name)
+    client.download_and_extract_archive(response.id, tmpdir)
 
     for dependency in dependency_replacements:
         dep_name = utils.escape_path_go(dependency["name"])

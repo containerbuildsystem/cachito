@@ -24,19 +24,11 @@ def test_check_downloaded_output(test_env, default_requests, tmpdir):
     * Check that the same full path filename is not duplicated
     """
     response = default_requests["gomod"].complete_response
-    assert response.status == 200
+    utils.assert_properly_completed_response(response)
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
-    assert response.data["state"] == "complete"
 
     file_name = tmpdir.join(f"download_{str(response.id)}")
-    file_name_tar = tmpdir.join(f"download_{str(response.id)}.tar.gz")
-
-    resp = client.download_bundle(response.id, file_name_tar)
-    assert resp.status == 200
-    assert tarfile.is_tarfile(file_name_tar)
-
-    with tarfile.open(file_name_tar, "r:gz") as tar:
-        tar.extractall(file_name)
+    client.download_and_extract_archive(response.id, tmpdir)
 
     pkg_managers = test_env["downloaded_output"]["pkg_managers"]
     dependencies_path = path.join("deps", "gomod", "pkg", "mod", "cache", "download")
@@ -64,6 +56,7 @@ def test_check_downloaded_output(test_env, default_requests, tmpdir):
         list_go_files.append(app_path)
     assert len(list_go_files) > 0
 
+    file_name_tar = tmpdir.join(f"download_{str(response.id)}.tar.gz")
     with tarfile.open(file_name_tar, mode="r:gz") as tar:
         members = tar.getmembers()
         path_names = set()
