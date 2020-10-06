@@ -3,7 +3,6 @@
 from os import path
 import shutil
 import subprocess
-import tarfile
 
 import pytest
 
@@ -27,19 +26,11 @@ def test_run_app_from_bundle(test_env, default_requests, tmpdir):
     * Check that the application runs successfully
     """
     response = default_requests["gomod"].complete_response
-    assert response.status == 200
-    assert response.data["state"] == "complete"
+    utils.assert_properly_completed_response(response)
 
-    file_name_tar = tmpdir.join(f"download_{str(response.id)}.tar.gz")
-    bundle_dir = tmpdir.mkdir(f"download_{str(response.id)}")
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
-    resp = client.download_bundle(response.id, file_name_tar)
-    assert resp.status == 200
-    assert tarfile.is_tarfile(file_name_tar)
-
-    with tarfile.open(file_name_tar, "r:gz") as tar:
-        tar.extractall(bundle_dir)
-
+    client.download_and_extract_archive(response.id, tmpdir)
+    bundle_dir = tmpdir.join(f"download_{str(response.id)}")
     app_name = test_env["run_app"]["app_name"]
     app_binary_file = str(tmpdir.join(app_name))
     subprocess.run(

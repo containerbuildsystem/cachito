@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from utils import make_list_of_packages_hashable, Client
+import utils
 
 
 def test_valid_data_in_request(test_env, default_requests):
@@ -20,11 +20,11 @@ def test_valid_data_in_request(test_env, default_requests):
     assert response.status == 200
     assert response.data["state"] == "complete"
 
-    response_dependencies = make_list_of_packages_hashable(response.data["dependencies"])
+    response_dependencies = utils.make_list_of_packages_hashable(response.data["dependencies"])
     expected_dependencies = test_env["get"]["gomod"]["dependencies"]
     assert response_dependencies == sorted(expected_dependencies)
 
-    response_packages = make_list_of_packages_hashable(response.data["packages"])
+    response_packages = utils.make_list_of_packages_hashable(response.data["packages"])
     expected_packages = test_env["get"]["gomod"]["packages"]
     assert response_packages == sorted(expected_packages)
 
@@ -48,10 +48,9 @@ def test_npm_basic(test_env, default_requests):
         and "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": "true" are set.
     """
     response = default_requests["npm"].complete_response
-    assert response.status == 200
-    assert response.data["state"] == "complete"
+    utils.assert_properly_completed_response(response)
 
-    response_packages = make_list_of_packages_hashable(response.data["packages"])
+    response_packages = utils.make_list_of_packages_hashable(response.data["packages"])
     expected_packages = test_env["get"]["npm"]["packages"]
     assert response_packages == expected_packages
 
@@ -71,7 +70,7 @@ def test_npm_basic(test_env, default_requests):
 
 
 def test_various_packages(test_env):
-    client = Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     for pkg_manager, package in test_env["various_packages"].items():
         initial_response = client.create_new_request(
             payload={
@@ -81,6 +80,6 @@ def test_various_packages(test_env):
             },
         )
         completed_response = client.wait_for_complete_request(initial_response)
-        assert completed_response.status == 200
+        utils.assert_properly_completed_response(completed_response)
 
         assert len(completed_response.data["dependencies"]) == package["dependencies_count"]

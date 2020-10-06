@@ -108,7 +108,7 @@ class TestCachedDependencies:
                 },
             )
             first_response = client.wait_for_complete_request(response)
-            assert first_response.data["state"] == "complete"
+            utils.assert_properly_completed_response(first_response)
             assert repo.git.branch("-a", "--contains", commit)
         finally:
             repo.git.push("--delete", remote.name, branch_name)
@@ -125,7 +125,7 @@ class TestCachedDependencies:
             },
         )
         second_response = client.wait_for_complete_request(response)
-        assert second_response.data["state"] == "complete"
+        utils.assert_properly_completed_response(second_response)
         assert first_response.data["ref"] == second_response.data["ref"]
         assert first_response.data["repo"] == second_response.data["repo"]
         assert set(first_response.data["pkg_managers"]) == set(second_response.data["pkg_managers"])
