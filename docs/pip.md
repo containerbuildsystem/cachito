@@ -160,12 +160,13 @@ There are two implications which may not be immediately obvious for build requir
    (recursively)
 2. you need to repeat the above for _all_ your recursive runtime dependencies
 
-Some of this can be achieved by pip-compiling a file containing your direct build dependencies,
-but in some cases, manual updates may be required.
+You can use the [pip_find_builddeps.py](../bin/pip_find_builddeps.py) script to find all the build
+dependencies you will need. Here is how you would use it:
 
-In practice, most build dependencies should have few dependencies of their own (if any) and the
-build dependencies of your runtime dependencies should mostly overlap, so you will often end up
-with `setuptools` and `wheel` as your only build dependencies.
+1. set up `requirements.txt` as described [above](#specifying-dependencies)
+2. if you have any direct build dependencies, put them in `requirements-build.in`
+3. run `pip_find_builddeps.py requirements.txt -o requirements-build.in --append`
+4. run `pip-compile requirements-build.in -o requirements-build.txt --allow-unsafe`
 
 When building your app using the Cachito-provided content, you will need to make sure build
 dependencies are installed before runtime dependencies. If you use a packaging system, specify
