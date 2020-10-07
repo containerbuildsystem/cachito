@@ -208,7 +208,16 @@ class Git(SCM):
                 tarfile.ExtractError,
                 OSError,  # raised by tarfile when an FS operation fails
             ) as exc:
-                log.warning("Error handling archived artifact '%s': %s", previous_archive, exc)
+                log.warning(
+                    "Error handling archived artifact '%s': %s - %s",
+                    previous_archive,
+                    repr(exc),
+                    exc,
+                )
+                log.info(
+                    "Existing archive at '%s' may be corrupted and will not be used. Recovering...",
+                    previous_archive,
+                )
 
         self.clone_and_archive(gitsubmodule=gitsubmodule)
 
