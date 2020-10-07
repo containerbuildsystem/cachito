@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import os
+
+import pytest
+
 import utils
 
 
@@ -69,6 +73,10 @@ def test_npm_basic(test_env, default_requests):
     assert env_variables["SKIP_SASS_BINARY_DOWNLOAD_FOR_CI"] == "true"
 
 
+@pytest.mark.skipif(
+    "cachito-prod" in str(os.environ.get("JOB_NAME")),
+    reason="Test is skipped in production environment",
+)
 def test_various_packages(test_env):
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     for pkg_manager, package in test_env["various_packages"].items():
