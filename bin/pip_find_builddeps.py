@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import contextlib
 import datetime
 import logging
 import re
@@ -56,47 +55,47 @@ def _filter_builddeps(pip_download_output_file):
     return sorted(builddeps)
 
 
-@contextlib.contextmanager
-def _remove_on_success(tmpdir):
-    """Remove tmpdir only if no exception is raised during context."""
-    try:
-        yield
-    except:  # noqa: E722
-        # Re-raise the exception but keep the tmpdir
-        raise
-    else:
-        shutil.rmtree(tmpdir)
-
-
-def find_builddeps(requirements_files, no_cache=False):
+def find_builddeps(requirements_files, no_cache=False, ignore_errors=False):
     """
     Find build dependencies for packages in requirements files.
 
     :param requirements_files: list of requirements file paths
     :param no_cache: do not use pip cache when downloading packages
-    :return: list of build dependencies (in requirements.txt format)
+    :param ignore_errors: generate partial output even if pip download fails
+    :return: list of build dependencies and bool whether output is partial
     """
     tmpdir = tempfile.mkdtemp(prefix=f"{SCRIPT_NAME}-")
+    pip_output_file = Path(tmpdir) / "pip-download-output.txt"
+    is_partial = False
 
-    with _remove_on_success(tmpdir):
-        pip_output_file = Path(tmpdir) / "pip-download-output.txt"
-
-        try:
-            log.info("Running pip download, this may take a while")
-            _pip_download(requirements_files, pip_output_file, tmpdir, no_cache)
-        except subprocess.CalledProcessError:
-            msg = f"pip download failed, see {pip_output_file} for more info"
+    try:
+        log.info("Running pip download, this may take a while")
+        _pip_download(requirements_files, pip_output_file, tmpdir, no_cache)
+    except subprocess.CalledProcessError:
+        msg = f"Pip download failed, see {pip_output_file} for more info"
+        if ignore_errors:
+            log.error(msg)
+            log.warning("Ignoring error...")
+            is_partial = True
+        else:
             raise FindBuilddepsError(msg)
 
-        log.info("Looking for build dependencies in the output of pip download")
-        return _filter_builddeps(pip_output_file)
+    log.info("Looking for build dependencies in the output of pip download")
+    builddeps = _filter_builddeps(pip_output_file)
+
+    # Remove tmpdir only if pip download was successful
+    if not is_partial:
+        shutil.rmtree(tmpdir)
+
+    return builddeps, is_partial
 
 
-def generate_file_content(builddeps):
+def generate_file_content(builddeps, is_partial):
     """
     Generate content to write to output file.
 
     :param builddeps: list of build dependencies to include in file
+    :param is_partial: indicates that list of build dependencies may be partial
     :return: file content
     """
     # Month Day Year HH:MM:SS
@@ -107,6 +106,9 @@ def generate_file_content(builddeps):
         lines.extend(builddeps)
     else:
         lines.append("# <no build dependencies found>")
+
+    if is_partial:
+        lines.append("# <pip download failed, output may be incomplete!>")
 
     file_content = "\n".join(lines)
     return file_content
@@ -130,6 +132,11 @@ def main():
         action="store_true",
         help="do not use pip cache when downloading packages",
     )
+    ap.add_argument(
+        "--ignore-errors",
+        action="store_true",
+        help="generate partial output even if pip download fails",
+    )
 
     args = ap.parse_args()
 
@@ -138,10 +145,16 @@ def main():
         "(see --help)"
     )
 
-    builddeps = find_builddeps(args.requirements_files, no_cache=args.no_cache)
-    file_content = generate_file_content(builddeps)
+    builddeps, is_partial = find_builddeps(
+        args.requirements_files,
+        no_cache=args.no_cache,
+        ignore_errors=args.ignore_errors,
+    )
+    file_content = generate_file_content(builddeps, is_partial)
 
     log.info("Make sure to pip-compile the output before submitting a Cachito request")
+    if is_partial:
+        log.warning("Pip download failed, output may be incomplete!")
 
     if args.output_file:
         mode = "a" if args.append else "w"
