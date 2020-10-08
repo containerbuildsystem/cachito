@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-
 from collections import namedtuple
+import filecmp
 import os
-import tarfile
+import shutil
 import time
 
 import jsonschema
 import requests
 from requests_kerberos import HTTPKerberosAuth
-
+import yaml
 
 Response = namedtuple("Response", "data id status")
 
@@ -59,25 +59,6 @@ class Client:
         resp.raise_for_status()
         return Response(resp.json(), resp.json()["id"], resp.status_code)
 
-    def download_bundle(self, request_id, file_name_tar):
-        """
-        Download a bundle archive.
-
-        :param str file_name_tar: Name of the downloaded bundle
-        :param int request_id:  ID of the request in Cachito
-        :return: Object that contains response from the Cachito API
-        :rtype: Response
-        :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
-        """
-        download_url = f"{self._cachito_api_url}/requests/{request_id}/download"
-        with requests.get(download_url, stream=True) as resp:
-            resp.raise_for_status()
-            with open(file_name_tar, "wb") as file:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    file.write(chunk)
-
-        return Response(None, request_id, resp.status_code)
-
     def download_and_extract_archive(self, request_id, tmpdir):
         """
         Download a bundle archive and extract it.
@@ -87,11 +68,9 @@ class Client:
         """
         source_name = tmpdir.join(f"download_{str(request_id)}")
         file_name_tar = tmpdir.join(f"download_{str(request_id)}.tar.gz")
-        resp = self.download_bundle(request_id, file_name_tar)
-        assert resp.status == 200
-        assert tarfile.is_tarfile(file_name_tar)
-        with tarfile.open(file_name_tar, "r:gz") as tar:
-            tar.extractall(source_name)
+        download_url = f"{self._cachito_api_url}/requests/{request_id}/download"
+        download_archive(download_url, file_name_tar)
+        shutil.unpack_archive(file_name_tar, source_name)
 
     def wait_for_complete_request(self, response):
         """
@@ -164,6 +143,20 @@ class Client:
         return {"auth": None}
 
 
+def download_archive(download_url, archive_path):
+    """
+    Download an archive.
+
+    :param download_url: URL to get the archive
+    :param archive_path: Path to the downloaded bundle
+    """
+    with requests.get(download_url, stream=True) as resp:
+        resp.raise_for_status()
+        with open(archive_path, "wb") as file:
+            for chunk in resp.iter_content(chunk_size=8192):
+                file.write(chunk)
+
+
 def escape_path_go(dependency):
     """
     Escape uppercase characters in names of Golang packages.
@@ -185,6 +178,22 @@ def escape_path_go(dependency):
         return package_name
     else:
         return dependency
+
+
+def load_test_data(file_name):
+    """
+    Load the test configuration.
+
+    :param str file_name: File with test data
+    :return: Test configuration for file_name.
+    :rtype:  dict
+    """
+    test_data_dir = os.getenv("CACHITO_TEST_DATA", "tests/integration/test_data")
+    test_data_file = os.path.join(test_data_dir, file_name)
+    assert os.path.isfile(test_data_file)
+    with open(test_data_file) as f:
+        test_data = yaml.safe_load(f)
+    return test_data
 
 
 def validate_json(json_schema, json_data):
@@ -242,62 +251,110 @@ def assert_content_manifest_schema(response_data):
     ), f"ICM data not valid for schema at {response_data['metadata']['icm_spec']}: {response_data}"
 
 
-def assert_element_from_response(response_data, expected_element, element_name):
+def assert_elements_from_response(response_data, expected_response_data):
     """
-    Check element from the response data.
+    Check elements from the response data.
 
     In case the expected element is a list, every element in the list will be checked
     (otherwise only equality between expected_element and element from response).
+    Elements "packages" and "dependencies" will be sorted for
+    response_data and expected_response_data.
 
     :param dict response_data: response data from the Cachito request
-    :param expected_element: expected content of particular element in response
-    :param str element_name: name of the element (ex. "dependencies", "packages")
+    :param expected_response_data: expected content of particular elements in response:
+        {<element_name> : <expected_data>}
     """
-    response_element = response_data[element_name]
-    if isinstance(response_element, list):
-        assert len(response_element) == len(expected_element)
-        for e in expected_element:
-            assert (
-                e in response_element
-            ), f"#{response_data['id']}: {e} should be in {response_element}"
-    else:
-        assert response_element == expected_element
+    sort_pkgs_and_deps_in_place(response_data["packages"], response_data["dependencies"])
+    if "packages" in expected_response_data:
+        sort_pkgs_and_deps_in_place(packages=expected_response_data["packages"])
+    if "dependencies" in expected_response_data:
+        sort_pkgs_and_deps_in_place(dependencies=expected_response_data["dependencies"])
+    for element_name, expected_data in expected_response_data.items():
+        assert response_data[element_name] == expected_data
 
 
-def assert_expected_files(source_path, expected_file_urls=None, check_content=True):
+def assert_directories_equal(dir_a, dir_b):
     """
-    Check that the source path includes expected files.
+    Check recursively directories have equal content.
+
+    :param dir_a: first directory to check
+    :param dir_b: second directory to check
+    """
+    dirs_cmp = filecmp.dircmp(dir_a, dir_b)
+    assert (
+        len(dirs_cmp.left_only) == 0
+    ), f"Found files: {dirs_cmp.left_only} in {dir_a}, but not {dir_b}."
+    assert (
+        len(dirs_cmp.right_only) == 0
+    ), f"Found files: {dirs_cmp.right_only} in {dir_b}, but not {dir_a}."
+    assert (
+        len(dirs_cmp.funny_files) == 0
+    ), f"Found files: {dirs_cmp.funny_files} in {dir_a}, {dir_b} which could not be compared."
+    (_, mismatch, errors) = filecmp.cmpfiles(dir_a, dir_b, dirs_cmp.common_files, shallow=False)
+    assert len(mismatch) == 0, f"Found mismatches: {mismatch} between {dir_a} {dir_b}."
+    assert len(errors) == 0, f"Found errors: {errors} between {dir_a} {dir_b}."
+
+    for common_dir in dirs_cmp.common_dirs:
+        inner_a = os.path.join(dir_a, common_dir)
+        inner_b = os.path.join(dir_b, common_dir)
+        assert_directories_equal(inner_a, inner_b)
+
+
+def assert_expected_files(source_path, expected_files, tmpdir):
+    """
+    Check that the source path includes expected files in directories.
+
+    Stages for not empty directory checks:
+    1. If we check `deps` directory, extract package in `deps`
+    2. Download and extract expected package from expected_files
+    3. Compare files recursively with expected ones
+    4. Delete downloaded and extracted temporary data
 
     :param str source_path: local path for checking
-    :param dict expected_file_urls: {"relative_path/file_name": "URL", ...}
-    :param bool check_content: The flag to check content of files
+    :param dict expected_files: Dict with expected file data:
+        {<directory_name>: <archive_URL>}
+    :param tmpdir: Testing function for providing temporary directory
     """
-    if expected_file_urls is None:
-        expected_file_urls = {}
-    assert os.path.exists(source_path) and os.path.isdir(
-        source_path
-    ), f"Invalid source_path: {source_path}"
-    files = []
-    # Go through all files in source_code_path and it's subdirectories
-    for root, _, source_files in os.walk(source_path):
-        for file_name in source_files:
-            # Get path to file in the project
-            absolute_file_path = os.path.join(root, file_name)
-            relative_file_path = os.path.relpath(absolute_file_path, start=source_path)
-            # Assert that content of source file is equal to expected
-            with open(absolute_file_path, "rb") as f:
-                if check_content:
-                    # Download expected file
-                    file_url = expected_file_urls[relative_file_path]
-                    expected_file = requests.get(file_url).content
-                    assert f.read() == expected_file
-                else:
-                    assert os.path.isfile(
-                        absolute_file_path
-                    ), f"File {absolute_file_path} does not exist"
-            files.append(relative_file_path)
-    # Assert that there are no missing or extra files
-    assert set(files) == set(list(expected_file_urls))
+    for dir_to_check, archive_url in expected_files.items():
+        # A directory path to check
+        test_path = os.path.join(source_path, dir_to_check)
+        # If there is no link to expected archive, the directory should be empty
+        if not archive_url:
+            assert (
+                len(os.listdir(test_path)) == 0
+            ), f"Directory: {test_path} not found or not empty as expected."
+        else:
+            dir_identifier = dir_to_check.replace("/", "_")
+            # A directory path with extracted deps
+            deps_data_path = os.path.join(tmpdir, f"test_source_{dir_identifier}")
+            # An archive path with expected data
+            expected_archive = os.path.join(tmpdir, f"archive_{dir_identifier}.tar.gz")
+            # A directory path with extracted expected data
+            expected_data_path = os.path.join(tmpdir, f"expected_data_{dir_identifier}")
+            # Dependencies instead of source code are saved as archives.
+            # Therefore we should extract it firstly
+            if os.path.isdir(test_path):
+                package_root_dir = test_path
+            else:
+                archive_path = test_path
+                shutil.unpack_archive(archive_path, deps_data_path)
+                # deps_data_path is unique and contains only one expected package
+                package_root_dir = os.path.join(deps_data_path, os.listdir(deps_data_path)[0])
+            download_archive(archive_url, expected_archive)
+            shutil.unpack_archive(expected_archive, expected_data_path)
+            # Root directory for expected data of package or dependency
+            expected_package_root_dir = os.path.join(
+                expected_data_path, os.listdir(expected_data_path)[0]
+            )
+            assert os.path.isdir(
+                expected_package_root_dir
+            ), f"Wrong directory path {expected_package_root_dir}."
+            # Compare and assert files in directory with expected data
+            assert_directories_equal(package_root_dir, expected_package_root_dir)
+            # Delete temporary data
+            for temp_data in [deps_data_path, expected_data_path, expected_archive]:
+                if os.path.exists(deps_data_path):
+                    shutil.rmtree(temp_data)
 
 
 def assert_content_manifest(client, request_id, image_contents):
