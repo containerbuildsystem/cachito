@@ -14,7 +14,7 @@ def test_failing_pip_local_path(test_env):
     Checks:
     * Check that the request fails with expected error
     """
-    env_data = test_env["pip_packages"]["local_path"]
+    env_data = utils.load_test_data("pip_packages.yaml")["local_path"]
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
     initial_response = client.create_new_request(
         payload={"repo": env_data["repo"], "ref": env_data["ref"], "pkg_managers": ["pip"]}
