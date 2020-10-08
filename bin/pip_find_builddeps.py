@@ -44,9 +44,12 @@ def _pip_download(requirements_files, output_file, tmpdir, no_cache):
 
 def _filter_builddeps(pip_download_output_file):
     """Find builddeps in output of pip download."""
-    # Leading whitespace => package is a build dependency
+    # Requirement is a sequence of non-whitespace, non-';' characters
+    # Example: package, package==1.0, package[extra]==1.0
+    requirement_re = r"[^\s;]+"
+    # Leading whitespace => requirement is a build dependency
     # (because all recursive runtime dependencies were present in input files)
-    builddep_re = re.compile(r"^\s+Collecting (\S+)")
+    builddep_re = re.compile(rf"^\s+Collecting ({requirement_re})")
 
     with open(pip_download_output_file) as f:
         matches = (builddep_re.match(line) for line in f)
