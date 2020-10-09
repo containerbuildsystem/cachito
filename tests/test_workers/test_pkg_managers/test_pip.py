@@ -2659,7 +2659,7 @@ class TestDownload:
             assert "Raw component not found, will fetch from git" in caplog.text
             mock_download_file.assert_not_called()
             mock_git.assert_called_once_with(f"https://github.com/spam/eggs", GIT_REF)
-            mock_git.return_value.fetch_source.assert_called_once()
+            mock_git.return_value.fetch_source.assert_called_once_with(gitsubmodule=False)
             mock_shutil_copy.assert_called_once_with(git_archive_path, download_path)
 
     @pytest.mark.parametrize(
