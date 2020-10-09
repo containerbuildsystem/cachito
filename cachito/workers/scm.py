@@ -235,7 +235,7 @@ class Git(SCM):
             log.debug(f"Git submodules for the requested repo are: {repo.submodules}")
             repo.submodule_update(recursive=False)
         except Exception as e:
-            log.exception("Updating the Git submodule(s) from %s failed %s", self.url, e)
+            log.exception("Updating the Git submodule(s) from '%s' failed %s", self.url, e)
             raise CachitoError("Updating the Git submodule(s) failed")
 
     @property
