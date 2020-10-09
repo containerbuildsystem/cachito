@@ -386,13 +386,10 @@ def test_fetch_source_invalid_archive_exists(mock_clone, mock_verify, caplog, gi
 
 @mock.patch("git.Repo")
 def test_update_git_submodules(mock_repo):
-    repo = mock_repo.return_value
     git_obj = scm.Git(url, ref)
-
-    git_obj.update_git_submodules(repo)
-
-    # Verify the git submodule update was called
-    repo.submodule_update.assert_called_once_with(recursive=False)
+    git_obj.update_git_submodules(mock_repo)
+    # Verify the git submodule update was called correctly
+    mock_repo.submodule_update.assert_called_once_with(recursive=False)
 
 
 @mock.patch("git.Repo")
