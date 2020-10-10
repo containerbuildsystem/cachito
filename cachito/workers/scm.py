@@ -136,7 +136,6 @@ class Git(SCM):
             self._reset_git_head(repo)
 
             if gitsubmodule:
-                print("called")
                 self.update_git_submodules(repo)
 
             self._create_archive(repo.working_dir)
@@ -233,7 +232,6 @@ class Git(SCM):
         :raises CachitoError: if updating the git submodules fail.
         """
         try:
-            print("called?????")
             log.debug(f"Git submodules for the requested repo are: {repo.submodules}")
             repo.submodule_update(recursive=False)
         except Exception as e:
