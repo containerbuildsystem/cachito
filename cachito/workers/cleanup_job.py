@@ -23,38 +23,53 @@ payload = {"state": state, "state_reason": state_reason}
 def main():
     """Mark all end of life requests as stale using the REST API."""
     for state in ("complete", "in_progress", "failed"):
-        url = f"{config.cachito_api_url.rstrip('/')}/requests"
-        while url:
-            try:
-                response = session.get(
-                    url, params={"state": state}, timeout=config.cachito_api_timeout
-                )
-            except requests.RequestException:
-                msg = f"The connection failed when querying {url}"
-                log.exception(msg)
-                raise CachitoError(msg)
+        stale_candidate_requests = find_all_requests_in_state(state)
+        identify_and_mark_stale_requests(stale_candidate_requests)
 
-            if not response.ok:
-                log.error(
-                    "The request to %s failed with the status code %d and the following text: %s",
-                    url,
-                    response.status_code,
-                    response.text,
-                )
-                raise CachitoError(
-                    "Could not reach the Cachito API to find the requests to be marked as stale"
-                )
 
-            json_response = response.json()
-            identify_and_mark_stale_requests(json_response["items"])
-            url = json_response["meta"]["next"]
+def find_all_requests_in_state(state):
+    """
+    Find all requests in specified state.
+
+    :param str state: state of request, e.g. 'complete', 'in_progress'
+    :return: list of Cachito requests (as JSON data) in specified state
+    """
+    found_requests = []
+
+    url = f"{config.cachito_api_url.rstrip('/')}/requests"
+    while url:
+        try:
+            response = session.get(url, params={"state": state}, timeout=config.cachito_api_timeout)
+        except requests.RequestException:
+            msg = f"The connection failed when querying {url}"
+            log.exception(msg)
+            raise CachitoError(msg)
+
+        if not response.ok:
+            log.error(
+                "The request to %s failed with the status code %d and the following text: %s",
+                url,
+                response.status_code,
+                response.text,
+            )
+            raise CachitoError(
+                "Could not reach the Cachito API to find the requests to be marked as stale"
+            )
+
+        json_response = response.json()
+        found_requests.extend(json_response["items"])
+        url = json_response["meta"]["next"]
+
+    # Remove potential duplicates found due to the dynamic behaviour of pagination
+    deduplicated = {request["id"]: request for request in found_requests}
+    return list(deduplicated.values())
 
 
 def identify_and_mark_stale_requests(requests_json):
     """
     Identify Cachito requests which have reached end of life and mark them as stale.
 
-    :param dict requests_json: the JSON representation of a Cachito API response page
+    :param list requests_json: list of Cachito requests (as JSON data)
     """
     current_time = datetime.utcnow()
     for request in requests_json:
