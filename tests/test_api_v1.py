@@ -1858,7 +1858,7 @@ def test_create_and_fetch_request_with_pip_preview(
                     1,
                     False,  # default value for gitsubmodule
                 ).on_error(error_callback),
-                fetch_pip_source.si(1, {}).on_error(error_callback),
+                fetch_pip_source.si(1, []).on_error(error_callback),
                 create_bundle_archive.si(1).on_error(error_callback),
             ]
         )
