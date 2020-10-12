@@ -120,9 +120,9 @@ def test_create_and_fetch_request(
             )
         )
     if "npm" in expected_pkg_managers:
-        expected.append(fetch_npm_source.si(created_request["id"], {}).on_error(error_callback))
+        expected.append(fetch_npm_source.si(created_request["id"], []).on_error(error_callback))
     if "pip" in expected_pkg_managers:
-        expected.append(fetch_pip_source.si(created_request["id"], {}).on_error(error_callback))
+        expected.append(fetch_pip_source.si(created_request["id"], []).on_error(error_callback))
     if "git-submodule" in expected_pkg_managers:
         expected.append(
             add_git_submodules_as_package.si(

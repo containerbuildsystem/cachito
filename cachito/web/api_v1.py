@@ -237,7 +237,7 @@ def create_request():
                 "Dependency replacements are not yet supported for the npm package manager"
             )
 
-        npm_package_configs = package_configs.get("npm", {})
+        npm_package_configs = package_configs.get("npm", [])
         chain_tasks.append(
             tasks.fetch_npm_source.si(request.id, npm_package_configs).on_error(error_callback)
         )
@@ -246,7 +246,7 @@ def create_request():
             raise ValidationError(
                 "Dependency replacements are not yet supported for the pip package manager"
             )
-        pip_package_configs = package_configs.get("pip", {})
+        pip_package_configs = package_configs.get("pip", [])
         chain_tasks.append(
             tasks.fetch_pip_source.si(request.id, pip_package_configs).on_error(error_callback)
         )
