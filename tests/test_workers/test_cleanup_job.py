@@ -108,6 +108,89 @@ mock_failed = {
 }
 
 
+class MockRequestsPagination:
+    """Mock pagination behaviour of the /requests endpoint."""
+
+    PER_PAGE = 10
+    SELF_URL = "http://example.org/api/v1/requests"
+
+    def __init__(self, total_complete_requests):
+        """
+        Initialize the instance.
+
+        :param int total_complete_requests: total number of requests in complete state
+        """
+        self.complete_ids = list(range(1, total_complete_requests + 1))
+        self.stale_ids = []
+        self.page = 1
+
+    @property
+    def _current_index(self):
+        return (self.page - 1) * self.PER_PAGE
+
+    def get(self, *args, params=None, **kwargs):
+        """
+        Get one page of requests data.
+
+        If `state` param is anything other than "complete", returns empty response.
+        """
+        if params != {"state": "complete"}:
+            response = mock.Mock(ok=True, json=lambda: {"items": [], "meta": {"next": None}})
+            return response
+
+        curr_index = self._current_index
+        if curr_index >= len(self.complete_ids):
+            raise ValueError(f"Page {self.page} does not exist")
+
+        self.page += 1
+        next_index = self._current_index
+
+        request_ids = self.complete_ids[curr_index:next_index]
+        json_data = {
+            "items": [
+                {"id": request_id, "state": "complete", "updated": "1970-01-01T01:00:00"}
+                for request_id in request_ids
+            ],
+            "meta": {"next": self.SELF_URL if next_index < len(self.complete_ids) else None},
+        }
+
+        response = mock.Mock(ok=True, json=lambda: json_data)
+        return response
+
+    def patch(self, url, *args, **kwargs):
+        """Mark a request as stale."""
+        request_id = int(url.rsplit("/", 1)[-1])
+        self.complete_ids.remove(request_id)
+        self.stale_ids.append(request_id)
+
+        response = mock.Mock(ok=True)
+        return response
+
+
+@mock.patch("cachito.workers.config.Config.cachito_request_lifetime", 1)
+@mock.patch("cachito.workers.cleanup_job.datetime")
+@mock.patch("cachito.workers.cleanup_job.auth_session")
+@mock.patch("cachito.workers.cleanup_job.session")
+def test_cleanup_job_pagination_behaviour(mock_basic_session, mock_auth_session, mock_dt):
+    """Test that marking requests as stale does not mess with pagination."""
+    mock_dt.utcnow = mock.Mock(return_value=datetime(2020, 10, 12))
+    mock_dt.strptime = mock.Mock(return_value=datetime(2019, 10, 12))
+
+    # 11 requests will be split into two pages (10 on the first page, 1 on the second page)
+    mock_paginated_session = MockRequestsPagination(total_complete_requests=11)
+
+    mock_basic_session.get = mock_paginated_session.get
+    mock_auth_session.patch = mock_paginated_session.patch
+
+    main()
+
+    # All complete requests should have been marked as stale
+    assert mock_paginated_session.complete_ids == []
+    assert mock_paginated_session.stale_ids == list(range(1, 12))
+    # We should be past the last page (last page is 2, we should be on page 3)
+    assert mock_paginated_session.page == 3
+
+
 @mock.patch("cachito.workers.config.Config.cachito_request_lifetime", 1)
 @mock.patch("cachito.workers.cleanup_job.datetime")
 @mock.patch("cachito.workers.cleanup_job.auth_session.patch")
