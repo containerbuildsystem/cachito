@@ -128,7 +128,9 @@ class ContentManifest:
         self._gitsubmodule_data = {}
 
         # Address the possibility of packages having no dependencies
-        for package in self.request.packages:
+        for request_package in self.request.request_packages:
+            package = request_package.package
+
             if package.type == "go-package":
                 purl = package.to_top_level_purl(self.request)
                 self._gopkg_data.setdefault(
