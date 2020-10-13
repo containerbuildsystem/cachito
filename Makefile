@@ -1,9 +1,14 @@
 CACHITO_COMPOSE_ENGINE ?= docker-compose
 PYTHON_VERSION_VENV ?= python3.8
 TOX_ENVLIST ?= py38
-TOX_ARGS ?= 
-ifeq ($(CACHITO_COMPOSE_ENGINE), docker-compose)
-	DOWN_OPTS=-v
+TOX_ARGS ?=
+
+# Older versions of podman-compose do not support deleting volumes via -v
+DOWN_HELP := $(shell ${CACHITO_COMPOSE_ENGINE} down --help)
+ifeq (,$(findstring volume,$(DOWN_HELP)))
+DOWN_OPTS :=
+else
+DOWN_OPTS := -v
 endif
 
 all: venv run-start
@@ -17,24 +22,6 @@ venv:
 
 # Keep run target for backwards compatibility
 run run-start:
-ifeq ($(CACHITO_COMPOSE_ENGINE), podman-compose)
-	# SELinux should not be enabled
-	@test "$(shell getenforce)" = "Enforcing" && { echo "SELinux is enforcing. Disable it before running with podman-compose (RE-ENABLE IT AFTERWARDS)"; exit 1; } || true
-	# Create the other directories for podman-compose compatibility
-	# See https://github.com/containers/podman-compose/issues/185
-	mkdir -p ./tmp/athens-storage
-	mkdir -p ./tmp/request-logs-volume
-endif
-	# Manually create this directory to allow the integration tests suite to create a local git
-	# repository in that directory. If this is not done here, docker will create the directory
-	# as root and python will not be able to create the local repository there.
-	mkdir -p ./tmp/cachito-archives
-	# Manually create the Nexus volume directory and allow others to write in it. The Nexus
-	# container runs as the "nexus" user, neither docker nor podman are able to change the
-	# owner of a host directory.
-	mkdir -p ./tmp/nexus-volume
-	setfacl -d -m other::rwx ./tmp/nexus-volume
-	setfacl -m other::rwx ./tmp/nexus-volume
 	$(CACHITO_COMPOSE_ENGINE) up
 
 run-down run-stop:

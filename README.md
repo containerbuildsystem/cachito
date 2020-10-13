@@ -79,15 +79,12 @@ make run
 
 Alternatively, you could also run the application with
 [podman-compose](https://github.com/containers/podman-compose) by setting the
-`CACHITO_COMPOSE_ENGINE` variable (for now SELinux must be set to the
-**Permissive** mode before running the make command):
-
-> :warning: **Disabling SELinux or running it in Permissive mode may be
-> dangerous. Do it at your own risk and make sure you re-enable it after
-> running your integration tests.**
+`CACHITO_COMPOSE_ENGINE` variable to the path of the `podman-compose` script.
+Unfortunately, the latest release of `podman-compose` contains various bugs making
+it unusable for running Cachito locally. Use the script from the `devel` branch instead:
 
 ```bash
-make run CACHITO_COMPOSE_ENGINE=podman-compose
+make run CACHITO_COMPOSE_ENGINE=<path to podman-compose.py script>
 ```
 
 Verify in the browser at [http://localhost:8080/](http://localhost:8080/)
