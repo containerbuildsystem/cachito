@@ -29,6 +29,9 @@ class ContentManifest:
         self._npm_data = {}
         # dict to store pip package data; uses the package purl as key to identify a package
         self._pip_data = {}
+        # dict to store gitsubmodule package level data; uses the package purl as key to identify a
+        # package
+        self._gitsubmodule_data = {}
 
     def process_gomod(self, package, dependency):
         """
@@ -122,6 +125,7 @@ class ContentManifest:
         self._gomod_data = {}
         self._npm_data = {}
         self._pip_data = {}
+        self._gitsubmodule_data = {}
 
         # Address the possibility of packages having no dependencies
         for package in self.request.packages:
@@ -137,6 +141,11 @@ class ContentManifest:
                 purl = package.to_top_level_purl(self.request)
                 data = getattr(self, f"_{package.type}_data")
                 data.setdefault(package.id, {"purl": purl, "dependencies": [], "sources": []})
+            elif package.type == "git-submodule":
+                purl = package.to_top_level_purl(self.request)
+                self._gitsubmodule_data.setdefault(
+                    package.id, {"purl": purl, "dependencies": [], "sources": []}
+                )
             else:
                 flask.current_app.logger.debug(
                     "No ICM implementation for '%s' packages", package.type
@@ -159,6 +168,7 @@ class ContentManifest:
             *self._gopkg_data.values(),
             *self._npm_data.values(),
             *self._pip_data.values(),
+            *self._gitsubmodule_data.values(),
         ]
         return self.generate_icm(top_level_packages)
 

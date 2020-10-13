@@ -256,6 +256,13 @@ class Package(db.Model):
                 quoted_url = urllib.parse.quote(self.version, safe="")
                 return f"pkg:generic/{name}?download_url={quoted_url}&checksum={checksum}"
 
+        elif self.type == "git-submodule":
+            # Version is a submodule repository url followed by `#` separator and
+            # `submodule-commit-ref`, e.g.
+            # https://github.com/org-name/submodule-name.git#522fb816eec295ad58bc488c74b2b46748d471b2
+            repo_url, ref = self.version.rsplit("#", 1)
+            return self.to_vcs_purl(repo_url, ref)
+
         else:
             raise ContentManifestError(f"The PURL spec is not defined for {self.type} packages")
 
@@ -306,7 +313,7 @@ class Package(db.Model):
         :return: the PURL string of the Package object
         :rtype: str
         """
-        if self.type in ("gomod", "go-package"):
+        if self.type in ("gomod", "go-package", "git-submodule"):
             return self.to_purl()
         elif self.type in ("npm", "pip"):
             return self.to_vcs_purl(request.repo, request.ref)
