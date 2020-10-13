@@ -177,6 +177,37 @@ def test_to_json(app, package):
     assert cm.to_json() == expected
 
 
+@pytest.mark.parametrize(
+    "packages",
+    [
+        [
+            {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"},
+            {
+                "name": "tour",
+                "type": "git-submodule",
+                "version": (
+                    "https://github.com/testrepo/tour.git#58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+                ),
+            },
+        ]
+    ],
+)
+@mock.patch("cachito.web.content_manifest.ContentManifest.generate_icm")
+def test_to_json_with_multiple_packages(mock_generate_icm, app, packages):
+    request = Request()
+    cm = ContentManifest(request)
+
+    image_contents = []
+    for package in packages:
+        pkg = Package.from_json(package)
+        request.packages.append(pkg)
+        content = {"purl": pkg.to_purl(), "dependencies": [], "sources": []}
+        image_contents.append(content)
+    res = cm.to_json()
+    mock_generate_icm.assert_called_once_with(image_contents)
+    assert res == mock_generate_icm.return_value
+
+
 @pytest.mark.parametrize("contents", [None, [], "foobar", 42, OrderedDict({"egg": "bacon"})])
 def test_generate_icm(contents, default_request):
     cm = ContentManifest(default_request)
@@ -353,6 +384,18 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
             True,
             True,
         ],
+        [
+            {
+                "name": "tour",
+                "type": "git-submodule",
+                "version": (
+                    "https://github.com/testrepo/tour.git#58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+                ),
+            },
+            "pkg:github/testrepo/tour@58c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+            True,
+            True,
+        ],
     ],
 )
 def test_purl_conversion(package, expected_purl, defined, known_protocol):
@@ -413,6 +456,7 @@ def test_vcs_purl_conversion(repo_url, expected_purl):
         ("go-package", "to_purl", []),
         ("npm", "to_vcs_purl", [GIT_REPO, GIT_REF]),
         ("pip", "to_vcs_purl", [GIT_REPO, GIT_REF]),
+        ("git-submodule", "to_purl", []),
         ("bogus", None, None),
     ],
 )
