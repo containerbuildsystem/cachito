@@ -6,7 +6,7 @@ import pytest
 
 from cachito.errors import ContentManifestError
 from cachito.web.content_manifest import ContentManifest
-from cachito.web.models import Package, Request
+from cachito.web.models import Package, Request, RequestPackage
 
 GIT_REPO = "https://github.com/namespace/repo"
 GIT_REF = "1798a59f297f5f3886e41bc054e538540581f8ce"
@@ -162,7 +162,8 @@ def test_to_json(app, package):
     image_contents = []
     if package:
         pkg = Package.from_json(package)
-        request.packages.append(pkg)
+        request_package = RequestPackage(package=pkg)
+        request.request_packages.append(request_package)
         content = {"purl": pkg.to_purl(), "dependencies": [], "sources": []}
         image_contents.append(content)
 
