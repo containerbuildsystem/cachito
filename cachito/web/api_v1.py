@@ -376,8 +376,7 @@ def patch_request(request_id):
     package_object = None
     if "package" in payload:
         package_object = Package.get_or_create(payload["package"])
-        if package_object not in request.packages:
-            request.packages.append(package_object)
+        request.add_package(package_object)
 
     for dep_and_replaces in payload.get("dependencies", []):
         dep = copy.deepcopy(dep_and_replaces)

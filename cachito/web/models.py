@@ -446,6 +446,9 @@ class RequestPackage(db.Model):
     # of the request repo, subpath will be null.
     subpath = db.Column(db.String, nullable=True)
 
+    request = db.relationship("Request", backref="request_packages")
+    package = db.relationship("Package", foreign_keys=[package_id], lazy="joined")
+
     __table_args__ = (db.UniqueConstraint("request_id", "package_id"),)
 
 
@@ -567,7 +570,6 @@ class Request(db.Model):
         db.Integer, db.ForeignKey("request_state.id"), index=True, unique=True
     )
     state = db.relationship("RequestState", foreign_keys=[request_state_id])
-    packages = db.relationship("Package", secondary=RequestPackage.__table__)
     pkg_managers = db.relationship(
         "PackageManager", secondary=request_pkg_manager_table, backref="requests"
     )
@@ -594,6 +596,28 @@ class Request(db.Model):
 
     def __repr__(self):
         return "<Request {0!r}>".format(self.id)
+
+    def add_package(self, package, subpath=None):
+        """
+        Associate a package with this request if the association doesn't exist.
+
+        Note that the association is added to the database session but not committed.
+
+        :param Package package: the Package object to associate with the request
+        :param str subpath: custom subpath for package within request repository
+        :raises ValidationError: if the association already exists with a different subpath
+        """
+        mapping = RequestPackage.query.filter_by(request=self, package=package).first()
+
+        if mapping:
+            if mapping.subpath != subpath:
+                raise ValidationError(
+                    f"Cannot change subpath for package {package.to_json()} "
+                    f"(from: {mapping.subpath!r}, to: {subpath!r})"
+                )
+            return
+
+        db.session.add(RequestPackage(request=self, package=package, subpath=subpath))
 
     def add_dependency(self, package, dependency, replaced_dependency=None):
         """
@@ -746,7 +770,8 @@ class Request(db.Model):
                 package_to_deps.setdefault(req_dep.package.id, []).append(dep_json)
 
             rv["packages"] = [
-                package.to_json(package_to_deps.get(package.id, [])) for package in self.packages
+                req_package.package.to_json(package_to_deps.get(req_package.package_id, []))
+                for req_package in self.request_packages
             ]
             if flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]:
                 rv["logs"] = {
