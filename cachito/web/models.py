@@ -442,6 +442,9 @@ class RequestPackage(db.Model):
     package_id = db.Column(
         db.Integer, db.ForeignKey("package.id"), autoincrement=False, index=True, primary_key=True
     )
+    # Each package in a request may have a custom subpath. If the package is located in the root
+    # of the request repo, subpath will be null.
+    subpath = db.Column(db.String, nullable=True)
 
     __table_args__ = (db.UniqueConstraint("request_id", "package_id"),)
 
