@@ -24,6 +24,7 @@ def test_cleanup_pip_request(mock_exec_script):
 
 @pytest.mark.parametrize("with_cert", [True, False])
 @pytest.mark.parametrize("with_req", [True, False])
+@pytest.mark.parametrize("package_subpath", [None, ".", "some/path"])
 @mock.patch("cachito.workers.tasks.pip.resolve_pip")
 @mock.patch("cachito.workers.tasks.pip.finalize_nexus_for_pip_request")
 @mock.patch("cachito.workers.tasks.pip.prepare_nexus_for_pip_request")
@@ -47,6 +48,7 @@ def test_fetch_pip_source(
     mock_resolve,
     with_cert,
     with_req,
+    package_subpath,
     tmp_path,
 ):
     pkg_data = {
@@ -71,15 +73,20 @@ def test_fetch_pip_source(
     cert_contents = "stub_cert"
     cfg_contents = []
     if with_req:
-        pkg_data["requirements"].append(str(RequestBundleDir(1).source_dir / "requirements.txt"))
+        requirements_path = (
+            RequestBundleDir(1).app_subpath(package_subpath or ".").source_dir / "requirements.txt"
+        )
+        pkg_data["requirements"].append(str(requirements_path))
         mock_get_raw_asset_url.return_value = "http://fake-raw-asset-url.dev"
         req_contents = f"mypkg @ git+https://www.github.com/cachito/mypkg.git@{'f'*40}?egg=mypkg\n"
         mock_read.return_value = [req_contents]
         b64_req_contents = base64.b64encode(
             f"mypkg @ http://{username}:{password}@fake-raw-asset-url.dev".encode()
         ).decode()
+
+        requirements_relpath = requirements_path.relative_to(RequestBundleDir(1))
         cfg_contents.append(
-            {"content": b64_req_contents, "path": "app/requirements.txt", "type": "base64"}
+            {"content": b64_req_contents, "path": str(requirements_relpath), "type": "base64"}
         )
     if with_cert:
         mock_cert.return_value = cert_contents
@@ -93,9 +100,16 @@ def test_fetch_pip_source(
     mock_finalize_nexus.return_value = password
     mock_set_state.return_value = request
 
-    pip.fetch_pip_source(request["id"])
+    if package_subpath:
+        package_configs = [{"path": package_subpath}]
+    else:
+        package_configs = None
 
-    mock_update_pkg.assert_called_once_with(request["id"], pkg_data["package"], env_vars)
+    pip.fetch_pip_source(request["id"], package_configs=package_configs)
+
+    mock_update_pkg.assert_called_once_with(
+        request["id"], pkg_data["package"], env_vars, package_subpath=package_subpath or "."
+    )
     mock_update_deps.assert_called_once_with(
         request["id"],
         pkg_data["package"],
