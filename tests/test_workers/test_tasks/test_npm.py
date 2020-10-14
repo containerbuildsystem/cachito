@@ -65,6 +65,10 @@ def test_cleanup_npm_request(mock_exec_script):
 @pytest.mark.parametrize("package_json", (None, {"name": "han-solo"}))
 @pytest.mark.parametrize("lock_file", (None, {"dependencies": []}))
 @pytest.mark.parametrize("ca_file", (None, "some CA file contents"))
+@pytest.mark.parametrize(
+    "package_subpath, subpath_as_path_component, reverse_path_component",
+    [(None, "", ""), (".", "", ""), ("some/path", "some/path/", "../../")],
+)
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.npm._verify_npm_files")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
@@ -91,6 +95,9 @@ def test_fetch_npm_source(
     ca_file,
     lock_file,
     package_json,
+    package_subpath,
+    subpath_as_path_component,
+    reverse_path_component,
 ):
     request_id = 6
     request = {"id": request_id}
@@ -114,19 +121,24 @@ def test_fetch_npm_source(
     mock_gcc.return_value = ca_file
     mock_gnc.return_value = "some npmrc"
 
-    npm.fetch_npm_source(request_id)
+    if package_subpath:
+        package_configs = [{"path": package_subpath}]
+    else:
+        package_configs = None
 
-    mock_vnf.assert_called_once_with(mock_rbd.return_value, ["."])
+    npm.fetch_npm_source(request_id, package_configs=package_configs)
+
+    mock_vnf.assert_called_once_with(mock_rbd.return_value, [package_subpath or "."])
     assert mock_srs.call_count == 3
     mock_pnfjr.assert_called_once_with("cachito-npm-6")
-    lock_file_path = str(mock_rbd().app_subpath(".").source_dir)
+    lock_file_path = str(mock_rbd().app_subpath(package_subpath or ".").source_dir)
     mock_rn.assert_called_once_with(lock_file_path, request, skip_deps=set())
     if ca_file:
         mock_gnc.assert_called_once_with(
             "http://nexus:8081/repository/cachito-npm-6/",
             username,
             password,
-            custom_ca_path="registry-ca.pem",
+            custom_ca_path=f"{reverse_path_component}registry-ca.pem",
         )
     else:
         mock_gnc.assert_called_once_with(
@@ -138,7 +150,7 @@ def test_fetch_npm_source(
         expected_config_files.append(
             {
                 "content": "ewogICJuYW1lIjogImhhbi1zb2xvIgp9",
-                "path": "app/package.json",
+                "path": f"app/{subpath_as_path_component}package.json",
                 "type": "base64",
             }
         )
@@ -147,7 +159,7 @@ def test_fetch_npm_source(
         expected_config_files.append(
             {
                 "content": "ewogICJkZXBlbmRlbmNpZXMiOiBbXQp9",
-                "path": "app/package-lock.json",
+                "path": f"app/{subpath_as_path_component}package-lock.json",
                 "type": "base64",
             }
         )
@@ -162,7 +174,11 @@ def test_fetch_npm_source(
         )
 
     expected_config_files.append(
-        {"content": "c29tZSBucG1yYw==", "path": "app/.npmrc", "type": "base64"}
+        {
+            "content": "c29tZSBucG1yYw==",
+            "path": f"app/{subpath_as_path_component}.npmrc",
+            "type": "base64",
+        }
     )
     mock_urwcf.assert_called_once_with(request_id, expected_config_files)
     mock_urwp.assert_called_once_with(
@@ -172,6 +188,7 @@ def test_fetch_npm_source(
             "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
             "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"value": "true", "kind": "literal"},
         },
+        package_subpath=package_subpath or ".",
     )
     mock_urwd.assert_called_once_with(request_id, package, deps)
 
@@ -296,8 +313,9 @@ def test_fetch_npm_source_multiple_paths(
                     "CHROMEDRIVER_SKIP_DOWNLOAD": {"kind": "literal", "value": "true"},
                     "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"kind": "literal", "value": "true"},
                 },
+                package_subpath="old-client",
             ),
-            mock.call(request_id, package_two, None),
+            mock.call(request_id, package_two, None, package_subpath="new-client/client"),
         )
     )
     mock_urwd.assert_has_calls(
