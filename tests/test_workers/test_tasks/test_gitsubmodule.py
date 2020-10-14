@@ -20,6 +20,6 @@ def test_add_git_submodules_as_package(mock_update_with_package, mock_repo):
         "name": "tour",
         "version": "https://github.com/user/tour.git#522fb816eec295ad58bc488c74b2b46748d471b2",
     }
-    gitsubmodule.add_git_submodules_as_package(3, url, ref)
+    gitsubmodule.add_git_submodules_as_package(3)
     # Verify that update_request_with_package was called correctly
     mock_update_with_package.assert_called_once_with(3, package)

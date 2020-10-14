@@ -126,11 +126,7 @@ def test_create_and_fetch_request(
         expected.append(fetch_pip_source.si(created_request["id"], []).on_error(error_callback))
     if "git-submodule" in expected_pkg_managers:
         expected.append(
-            add_git_submodules_as_package.si(
-                created_request["id"],
-                "https://github.com/release-engineering/retrodep.git",
-                "c50b93a32df1c9d700e3e80996845bc2e13be848",
-            ).on_error(error_callback)
+            add_git_submodules_as_package.si(created_request["id"]).on_error(error_callback)
         )
     expected.append(create_bundle_archive.si(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)

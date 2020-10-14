@@ -12,13 +12,11 @@ log = logging.getLogger(__name__)
 
 
 @app.task
-def add_git_submodules_as_package(request_id, url, ref):
+def add_git_submodules_as_package(request_id):
     """
     Add git submodules as package to the Cachtio request.
 
     :param int request_id: the Cachito request ID this is for
-    :param str url: the source control URL to pull the source from
-    :param str ref: the source control reference
     :raises CachitoError: if adding submodules as a package fail.
     """
     bundle_dir = RequestBundleDir(request_id)
