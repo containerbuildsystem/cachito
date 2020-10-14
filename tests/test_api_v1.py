@@ -14,6 +14,7 @@ from cachito.web.models import (
     Flag,
     Package,
     Request,
+    RequestPackage,
     RequestStateMapping,
 )
 from cachito.workers.paths import RequestBundleDir
@@ -1104,7 +1105,12 @@ def test_add_dep_twice_diff_replaces(app, client, db, worker_auth_env):
     assert "can't have a new replacement set" in patch_rv.json["error"]
 
 
-def test_set_package(app, client, db, sample_package, worker_auth_env):
+@pytest.mark.parametrize(
+    "package_subpath, subpath_in_db", [(None, None), (".", None), ("some/path", "some/path")]
+)
+def test_set_package(
+    package_subpath, subpath_in_db, app, client, db, sample_package, worker_auth_env
+):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -1116,13 +1122,87 @@ def test_set_package(app, client, db, sample_package, worker_auth_env):
     db.session.commit()
 
     payload = {"package": sample_package}
+    if package_subpath is not None:
+        payload["package_subpath"] = package_subpath
+
     patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
     assert patch_rv.status_code == 200
+
+    request_package = RequestPackage.query.filter_by(request_id=1).first()
+    assert request_package
+    assert request_package.subpath == subpath_in_db
 
     get_rv = client.get("/api/v1/requests/1")
     assert get_rv.status_code == 200
     sample_package["dependencies"] = []
     assert get_rv.json["packages"] == [sample_package]
+
+
+@pytest.mark.parametrize(
+    "subpath_1, subpath_2, is_conflict",
+    [
+        ("some/path", "some/path", False),
+        # "" and "." are stored as null, so the following are not conflicts
+        (None, "", False),
+        (None, ".", False),
+        ("", ".", False),
+        (".", "", False),
+        # If subpath is not part of payload, there is never a conflict
+        (None, None, False),
+        (".", None, False),
+        ("some/path", None, False),
+        # Different subpath is a conflict
+        (None, "some/path", True),
+        (".", "some/path", True),
+        ("some/path", ".", True),
+        ("some/path", "some/other/path", True),
+    ],
+)
+def test_set_package_subpath_conflict(
+    subpath_1, subpath_2, is_conflict, app, client, db, sample_package, worker_auth_env
+):
+    data = {
+        "repo": "https://github.com/release-engineering/retrodep.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    payload_1 = {"package": sample_package}
+    if subpath_1 is not None:
+        payload_1["package_subpath"] = subpath_1
+
+    rv_1 = client.patch("/api/v1/requests/1", json=payload_1, environ_base=worker_auth_env)
+    assert rv_1.status_code == 200
+
+    payload_2 = {"package": sample_package}
+    if subpath_2 is not None:
+        payload_2["package_subpath"] = subpath_2
+
+    rv_2 = client.patch("/api/v1/requests/1", json=payload_2, environ_base=worker_auth_env)
+
+    def normalize(subpath):
+        if not subpath or subpath == ".":
+            return None
+        return subpath
+
+    if is_conflict:
+        assert rv_2.status_code == 400
+        assert rv_2.json == {
+            "error": (
+                f"Cannot change subpath for package {sample_package!r} "
+                f"(from: {normalize(subpath_1)!r}, to: {normalize(subpath_2)!r})"
+            )
+        }
+    else:
+        assert rv_2.status_code == 200
+        # Check that subpath was not modified
+        request_package = RequestPackage.query.filter_by(request_id=1).first()
+        assert request_package
+        assert request_package.subpath == normalize(subpath_1)
 
 
 def test_set_state_not_logged_in(client, db):
@@ -1328,6 +1408,13 @@ def test_set_state_not_logged_in(client, db):
             },
             400,
             'The "package" object must also be provided if the "dependencies" array is provided',
+        ),
+        (1, {"package_subpath": None}, 400, 'The value for "package_subpath" must be a string'),
+        (
+            1,
+            {"package_subpath": "some/path"},
+            400,
+            'The "package" object must also be provided if "package_subpath" is provided',
         ),
     ),
 )

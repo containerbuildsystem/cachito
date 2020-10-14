@@ -597,20 +597,37 @@ class Request(db.Model):
     def __repr__(self):
         return "<Request {0!r}>".format(self.id)
 
-    def add_package(self, package, subpath=None):
+    def add_package(self, package, **association_attrs):
         """
         Associate a package with this request if the association doesn't exist.
 
         Note that the association is added to the database session but not committed.
 
+        Additional attributes to set on the RequestPackage association may be passed via keyword
+        arguments. Currently, only "subpath" is recognized, with the following semantics:
+
+                           | subpath provided           | subpath not provided |
+        |------------------|----------------------------|----------------------|
+        | existing package | check that subpath matches | do nothing           |
+        | new package      | set subpath to value       | set subpath to null  |
+
+        Note that a subpath value of None, "" or "." will be stored as null in the database.
+
         :param Package package: the Package object to associate with the request
-        :param str subpath: custom subpath for package within request repository
+        :param association_attrs: additional attributes to set on the RequestPackage association
         :raises ValidationError: if the association already exists with a different subpath
         """
+        subpath_provided = "subpath" in association_attrs
+
+        subpath = association_attrs.get("subpath")
+        # os.curdir is the constant that the OS uses to refer to the current directory - "."
+        if not subpath or subpath == os.curdir:
+            subpath = None
+
         mapping = RequestPackage.query.filter_by(request=self, package=package).first()
 
         if mapping:
-            if mapping.subpath != subpath:
+            if subpath_provided and mapping.subpath != subpath:
                 raise ValidationError(
                     f"Cannot change subpath for package {package.to_json()} "
                     f"(from: {mapping.subpath!r}, to: {subpath!r})"
