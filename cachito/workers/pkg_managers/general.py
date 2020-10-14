@@ -114,7 +114,7 @@ def update_request_with_deps(request_id, package, deps):
             raise CachitoError(f"Setting the dependencies on request {request_id} failed")
 
 
-def update_request_with_package(request_id, package, env_vars=None):
+def update_request_with_package(request_id, package, env_vars=None, package_subpath=None):
     """
     Update the request with the resolved packages and corresponding metadata.
 
@@ -122,6 +122,7 @@ def update_request_with_package(request_id, package, env_vars=None):
     :param dict env_vars: mapping of environment variables to record. The keys represent
         the environment variable name, and its value should be another map wth the "value" and
         "kind" attributes, e.g. {"NAME": {"value": "VALUE", "kind": "KIND"}}.
+    :param str package_subpath: relative path from root of repository to package directory
     :raise CachitoError: if the request to the Cachito API fails
     """
     log.info('Adding the package "%r" to the request %d', package, request_id)
@@ -130,6 +131,10 @@ def update_request_with_package(request_id, package, env_vars=None):
     if env_vars:
         log.info("Also adding environment variables to the request %d: %s", request_id, env_vars)
         payload["environment_variables"] = env_vars
+
+    if package_subpath and package_subpath != os.curdir:
+        log.info("Also setting a subpath for the package %r: %r", package["name"], package_subpath)
+        payload["package_subpath"] = package_subpath
 
     # Import this here to avoid a circular import
     from cachito.workers.requests import requests_auth_session

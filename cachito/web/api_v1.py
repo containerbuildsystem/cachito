@@ -315,6 +315,7 @@ def patch_request(request_id):
         "dependencies",
         "environment_variables",
         "package",
+        "package_subpath",
         "state",
         "state_reason",
     }
@@ -344,6 +345,11 @@ def patch_request(request_id):
                 EnvironmentVariable.validate_json(env_var_name, env_var_info)
         elif not isinstance(value, str):
             raise ValidationError('The value for "{}" must be a string'.format(key))
+
+    if "package_subpath" in payload and "package" not in payload:
+        raise ValidationError(
+            'The "package" object must also be provided if "package_subpath" is provided'
+        )
 
     if "state" in payload and "state_reason" not in payload:
         raise ValidationError('The "state_reason" key is required when "state" is supplied')
@@ -376,7 +382,16 @@ def patch_request(request_id):
     package_object = None
     if "package" in payload:
         package_object = Package.get_or_create(payload["package"])
-        request.add_package(package_object)
+
+        package_attrs = {}
+        # The presence of "package_subpath" in payload indicates whether to modify the subpath.
+        # This is only allowed when creating a new package, so when the PATCH API is used to
+        # modify an existing package, the user must make sure to use the same subpath (or no
+        # subpath).
+        if "package_subpath" in payload:
+            package_attrs["subpath"] = payload["package_subpath"]
+
+        request.add_package(package_object, **package_attrs)
 
     for dep_and_replaces in payload.get("dependencies", []):
         dep = copy.deepcopy(dep_and_replaces)

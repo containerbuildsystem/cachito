@@ -42,8 +42,11 @@ def test_update_request_with_deps(mock_requests, sample_deps_replace, sample_pac
     mock_requests.patch.assert_has_calls(calls)
 
 
+@pytest.mark.parametrize(
+    "package_subpath, include_subpath", [(None, False), (".", False), ("some/path", True)],
+)
 @mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_package(mock_requests):
+def test_update_request_with_package(mock_requests, package_subpath, include_subpath):
     mock_requests.patch.return_value.ok = True
     package = {
         "name": "helloworld",
@@ -58,7 +61,10 @@ def test_update_request_with_package(mock_requests):
         "environment_variables": env_vars,
         "package": package,
     }
-    update_request_with_package(1, package, env_vars)
+    if include_subpath:
+        expected_json["package_subpath"] = package_subpath
+
+    update_request_with_package(1, package, env_vars, package_subpath=package_subpath)
     mock_requests.patch.assert_called_once_with(
         "http://cachito.domain.local/api/v1/requests/1", json=expected_json, timeout=60
     )
