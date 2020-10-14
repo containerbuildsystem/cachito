@@ -29,4 +29,4 @@ def add_git_submodules_as_package(request_id):
             "version": f"{sm.url}#{sm.hexsha}",
         }
         log.debug("Adding submodule '%s' as a package for Cachito request", sm.name)
-        update_request_with_package(request_id, package)
+        update_request_with_package(request_id, package, package_subpath=sm.path)
