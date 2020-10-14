@@ -118,8 +118,11 @@ def fetch_pip_source(request_id, package_configs=None):
     env_vars.update(worker_config.cachito_default_environment_variables.get("pip", {}))
 
     # Finally, perform DB operations
-    for pkg_data in packages_data:
-        update_request_with_package(request_id, pkg_data["package"], env_vars)
+    for pkg_cfg, pkg_data in zip(package_configs, packages_data):
+        pkg_subpath = os.path.normpath(pkg_cfg.get("path", "."))
+        update_request_with_package(
+            request_id, pkg_data["package"], env_vars, package_subpath=pkg_subpath
+        )
         update_request_with_deps(request_id, pkg_data["package"], pkg_data["dependencies"])
 
     if pip_config_files:
