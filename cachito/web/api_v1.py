@@ -252,9 +252,7 @@ def create_request():
         )
     if "git-submodule" in pkg_manager_names:
         chain_tasks.append(
-            tasks.add_git_submodules_as_package.si(request.id, request.repo, request.ref).on_error(
-                error_callback
-            )
+            tasks.add_git_submodules_as_package.si(request.id).on_error(error_callback)
         )
 
     chain_tasks.append(tasks.create_bundle_archive.si(request.id).on_error(error_callback))
