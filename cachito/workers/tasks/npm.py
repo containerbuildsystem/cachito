@@ -168,7 +168,7 @@ def fetch_npm_source(request_id, package_configs=None):
         else:
             env_vars = None
         package = package_and_deps_info["package"]
-        update_request_with_package(request_id, package, env_vars)
+        update_request_with_package(request_id, package, env_vars, package_subpath=subpath)
         update_request_with_deps(request_id, package, package_and_deps_info["deps"])
 
     log.info("Finalizing the Nexus configuration for npm for the request %d", request_id)
