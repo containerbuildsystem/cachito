@@ -636,3 +636,63 @@ Compared to gomod and npm, Cachito support for pip has restrictions and limitati
 not expect. For more details, see the [Cachito pip documentation](docs/pip.md).
 
 [nexus-docs]: https://help.sonatype.com/repomanager3
+
+### git-submodule
+
+With git-submodule as a package manager, Cachito is able to fetch git submodules within given Cachito
+requested repo and make them available in the Cachito API request response. The git submodules are
+fetched before any other package managers are processed.
+
+Cachito will produce a bundle that is downloadable at `/api/v1/requests/<id>/download`. This
+bundle will contain the application source code in the `app` directory. When `git-submodule`
+is passed as a `pkg_managers` argument for any Cachito request, the available git submodules
+within the requested repo will also become available as part of the downloadable bundle. If the
+repo contains multiple submodules, Cachito will fetch them all. Although, recursion is not supported
+and hence only one level of submodules will be fetched.
+
+The git submodules information will be included in the Cachito API request response at the
+`/api/v1/requests/<id>` endpoint as packages with the `git-submodule` type.
+
+Finally, the packages information will be used to compose Content Manifests shipped at the
+`/api/v1/requests/<id>/content-manifest` API endpoint.
+
+Examples:
+
+```bash
+curl -X POST -H "Content-Type: application/json" http://localhost:8080/api/v1/requests \
+-d '{
+      "repo": "https://github.com/nirzari/retrodep.git",
+      "ref": "18002daac67f82f1a0f3b1f41beb3469f23116ea",
+      "pkg_managers": ["gomod", "git-submodule"]
+    }'
+```
+
+In the above case, submodules `tour` and `go-github` within specified `retrodep` repo are fetched
+as part of the downloadable bundle. They would also be available as packages for Cachito API request
+response. Further, they become part of the Content Manifest.
+
+If paths to specific git submodules are provided as part of the `packages` configuration,
+Cachito would fetch the submodules and then process them as regular packages.
+
+```bash
+curl "localhost:8080/api/v1/requests" \
+    -X POST \
+    -H 'content-type: application/json' \
+    -d '{
+          "repo": "https://github.com/chmeliik/cachito-sample-pip-package/",
+          "ref": "1ca07be3001450dbc4f0224e0f763c60353d0f01",
+          "pkg_managers": ["git-submodule", "pip", "npm"],
+          "packages": {
+            "pip": [
+              {"path": "cachito-pip-with-deps"}
+            ],
+            "npm": [
+              {"path": "cachito-npm-test"}
+            ]
+          }
+        }'
+```
+
+In the above case, Cachito would fetch the submodules `cachito-pip-with-deps`, `cachito-npm-test` and
+then process them as a regular pip and npm package respectively.
+
