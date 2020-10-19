@@ -299,7 +299,7 @@ class Package(db.Model):
 
         return purl
 
-    def to_top_level_purl(self, request):
+    def to_top_level_purl(self, request, subpath=None):
         """
         Generate the purl representation of a top-level package (not a dependency).
 
@@ -310,15 +310,22 @@ class Package(db.Model):
         must specify the request to use when generating the purl.
 
         :param Request request: the request that contains this package
+        :param str subpath: relative path to package from root of repository
         :return: the PURL string of the Package object
         :rtype: str
         """
         if self.type in ("gomod", "go-package", "git-submodule"):
-            return self.to_purl()
+            purl = self.to_purl()
         elif self.type in ("npm", "pip"):
-            return self.to_vcs_purl(request.repo, request.ref)
+            purl = self.to_vcs_purl(request.repo, request.ref)
         else:
             raise ContentManifestError(f"{self.type!r} is not a valid top level package")
+
+        # purls for git submodules point to a different repo, subpath is neither needed nor valid
+        if subpath and self.type != "git-submodule":
+            purl = f"{purl}#{subpath}"
+
+        return purl
 
 
 class Dependency(Package):

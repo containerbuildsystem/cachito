@@ -132,7 +132,7 @@ class ContentManifest:
             package = request_package.package
 
             if package.type == "go-package":
-                purl = package.to_top_level_purl(self.request)
+                purl = package.to_top_level_purl(self.request, subpath=request_package.subpath)
                 self._gopkg_data.setdefault(
                     package.id,
                     {"name": package.name, "purl": purl, "dependencies": [], "sources": []},
@@ -140,11 +140,11 @@ class ContentManifest:
             elif package.type == "gomod":
                 self._gomod_data.setdefault(package.name, [])
             elif package.type in ("npm", "pip"):
-                purl = package.to_top_level_purl(self.request)
+                purl = package.to_top_level_purl(self.request, subpath=request_package.subpath)
                 data = getattr(self, f"_{package.type}_data")
                 data.setdefault(package.id, {"purl": purl, "dependencies": [], "sources": []})
             elif package.type == "git-submodule":
-                purl = package.to_top_level_purl(self.request)
+                purl = package.to_top_level_purl(self.request, subpath=request_package.subpath)
                 self._gitsubmodule_data.setdefault(
                     package.id, {"purl": purl, "dependencies": [], "sources": []}
                 )
