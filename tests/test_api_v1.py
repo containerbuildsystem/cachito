@@ -1131,6 +1131,8 @@ def test_set_package(
     get_rv = client.get("/api/v1/requests/1")
     assert get_rv.status_code == 200
     sample_package["dependencies"] = []
+    if subpath_in_db is not None:
+        sample_package["path"] = subpath_in_db
     assert get_rv.json["packages"] == [sample_package]
 
 

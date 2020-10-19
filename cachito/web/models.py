@@ -153,18 +153,21 @@ class Package(db.Model):
         cls.validate_json(package)
         return cls(**package)
 
-    def to_json(self, dependencies=None):
+    def to_json(self, dependencies=None, subpath=None):
         """
         Generate the JSON representation of the package.
 
         :param list dependencies: the JSON representation of the dependencies associated with this
             package
+        :param str subpath: relative path to package from root of repository
         :return: the JSON form of the Package object
         :rtype: dict
         """
         rv = {"name": self.name, "type": self.type, "version": self.version}
         if dependencies is not None:
             rv["dependencies"] = dependencies
+        if subpath:
+            rv["path"] = subpath
         return rv
 
     @classmethod
@@ -794,7 +797,10 @@ class Request(db.Model):
                 package_to_deps.setdefault(req_dep.package.id, []).append(dep_json)
 
             rv["packages"] = [
-                req_package.package.to_json(package_to_deps.get(req_package.package_id, []))
+                req_package.package.to_json(
+                    dependencies=package_to_deps.get(req_package.package_id, []),
+                    subpath=req_package.subpath,
+                )
                 for req_package in self.request_packages
             ]
             if flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]:
