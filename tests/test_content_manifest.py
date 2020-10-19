@@ -153,18 +153,30 @@ def test_process_pip(default_request, default_toplevel_purl):
 
 
 @pytest.mark.parametrize(
-    "package", [None, {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"}]
+    "package",
+    [
+        None,
+        {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"},
+        {"name": "grc-ui", "type": "npm", "version": "1.0.0"},
+        {"name": "requests", "type": "pip", "version": "2.24.0"},
+    ],
 )
-def test_to_json(app, package):
+@pytest.mark.parametrize("subpath", [None, "some/path"])
+@mock.patch("cachito.web.models.Package.to_top_level_purl")
+def test_to_json(mock_top_level_purl, app, package, subpath):
     request = Request()
     cm = ContentManifest(request)
 
     image_contents = []
     if package:
         pkg = Package.from_json(package)
-        request_package = RequestPackage(package=pkg)
+        request_package = RequestPackage(package=pkg, subpath=subpath)
         request.request_packages.append(request_package)
-        content = {"purl": pkg.to_purl(), "dependencies": [], "sources": []}
+        content = {
+            "purl": mock_top_level_purl.return_value,
+            "dependencies": [],
+            "sources": [],
+        }
         image_contents.append(content)
 
     expected = {
@@ -176,6 +188,9 @@ def test_to_json(app, package):
         "image_contents": image_contents,
     }
     assert cm.to_json() == expected
+
+    if package:
+        mock_top_level_purl.assert_called_once_with(request, subpath=subpath)
 
 
 @pytest.mark.parametrize(
@@ -462,7 +477,10 @@ def test_vcs_purl_conversion(repo_url, expected_purl):
         ("bogus", None, None),
     ],
 )
-def test_top_level_purl_conversion(pkg_type, purl_method, method_args, default_request):
+@pytest.mark.parametrize("has_subpath", [False, True])
+def test_top_level_purl_conversion(
+    pkg_type, purl_method, method_args, default_request, has_subpath
+):
     pkg = Package(type=pkg_type)
 
     if purl_method is None:
@@ -471,7 +489,13 @@ def test_top_level_purl_conversion(pkg_type, purl_method, method_args, default_r
             pkg.to_top_level_purl(default_request)
     else:
         with mock.patch.object(pkg, purl_method) as mock_purl_method:
-            purl = pkg.to_top_level_purl(default_request)
+            mock_purl_method.return_value = "pkg:generic/foo"
+            purl = pkg.to_top_level_purl(
+                default_request, subpath="some/path" if has_subpath else None
+            )
 
         assert mock_purl_method.called_once_with(*method_args)
-        assert purl == mock_purl_method.return_value
+        if has_subpath and pkg_type != "git-submodule":
+            assert purl == "pkg:generic/foo#some/path"
+        else:
+            assert purl == "pkg:generic/foo"
