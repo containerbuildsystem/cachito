@@ -6,10 +6,12 @@ RUN dnf -y install \
     --setopt=deltarpm=0 \
     --setopt=install_weak_deps=false \
     --setopt=tsflags=nodocs \
-    golang \
+    gettext \
     git-core \
+    golang \
     mercurial \
     npm \
+    nss_wrapper \
     python3-celery \
     python3-GitPython \
     python3-packaging \
@@ -22,4 +24,5 @@ RUN dnf -y install \
 COPY . .
 RUN pip3 install . --no-deps
 EXPOSE 8080
+ENTRYPOINT ["/src/docker/docker-entrypoint.sh"]
 CMD ["/bin/celery-3", "-A", "cachito.workers.tasks", "worker", "--loglevel=info"]
