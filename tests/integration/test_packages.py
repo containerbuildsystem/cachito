@@ -5,8 +5,16 @@ import pytest
 import utils
 
 
-@pytest.mark.parametrize("env_name", ["without_deps", "with_deps"])
-@pytest.mark.parametrize("env_package", ["pip_packages", "gomod_packages"])
+@pytest.mark.parametrize(
+    "env_package,env_name",
+    [
+        ("pip_packages", "without_deps"),
+        ("pip_packages", "with_deps"),
+        ("gomod_packages", "without_deps"),
+        ("gomod_packages", "with_deps"),
+        ("gomod_packages", "vendored_with_flag"),
+    ],
+)
 def test_packages(env_package, env_name, test_env, tmpdir):
     """
     Validate data in the package request according to pytest env_name and env_package parameter.
@@ -31,6 +39,7 @@ def test_packages(env_package, env_name, test_env, tmpdir):
             "repo": env_data["repo"],
             "ref": env_data["ref"],
             "pkg_managers": env_data["pkg_managers"],
+            "flags": env_data.get("flags", []),
         },
     )
     completed_response = client.wait_for_complete_request(initial_response)
