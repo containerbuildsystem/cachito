@@ -23,6 +23,13 @@ RUN dnf -y install \
     && dnf clean all
 COPY . .
 RUN pip3 install . --no-deps
+
+# Set git user configuration for GitPython
+ENV GIT_COMMITTER_NAME=cachito \
+    GIT_COMMITTER_EMAIL=cachito@localhost \
+    GIT_AUTHOR_NAME=cachito \
+    GIT_AUTHOR_EMAIL=cachito@localhost
+
 EXPOSE 8080
 ENTRYPOINT ["/src/docker/docker-entrypoint.sh"]
 CMD ["/bin/celery-3", "-A", "cachito.workers.tasks", "worker", "--loglevel=info"]
