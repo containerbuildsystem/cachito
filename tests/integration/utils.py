@@ -66,8 +66,8 @@ class Client:
         :param int request_id: ID of the request in Cachito
         :param tmpdir: archive is extracted to this temporary directory
         """
-        source_name = tmpdir.join(f"download_{str(request_id)}")
-        file_name_tar = tmpdir.join(f"download_{str(request_id)}.tar.gz")
+        source_name = os.path.join(tmpdir, f"download_{str(request_id)}")
+        file_name_tar = os.path.join(tmpdir, f"download_{str(request_id)}.tar.gz")
         download_url = f"{self._cachito_api_url}/requests/{request_id}/download"
         download_archive(download_url, file_name_tar)
         shutil.unpack_archive(file_name_tar, source_name)
