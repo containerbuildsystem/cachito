@@ -5,6 +5,8 @@ api_url: http://localhost:8080/api/v1
 api_auth_type: null
 # Time in minutes at which the request must be completed
 timeout: 15
+# The flag cachito_gomod_strict_vendor is enabled on the environment
+strict_mode_enabled: false
 # Package that will be used for testing
 packages:
   # repo: The URL for the upstream git repository

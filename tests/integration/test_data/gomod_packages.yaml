@@ -196,3 +196,9 @@ vendored_with_flag:
   - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
   - "pkg:golang/rsc.io%2Fquote@v1.5.2"
   - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+# The test data for gomod package with vendor directory
+# and without `gomod-vendor` flag.
+vendored_without_flag:
+  repo: https://github.com/cachito-testing/gomod-vendored.git
+  ref:  ff1960095dd158d3d2a4f31d15b244c24930248b
+  pkg_managers: ["gomod"]
