@@ -6,6 +6,7 @@ import subprocess
 import tarfile
 import tempfile
 import urllib.parse
+import zlib
 
 import git
 
@@ -77,22 +78,26 @@ class Git(SCM):
             log.exception(err_msg)
             raise CachitoError(err_msg)
 
+        err_msg = {
+            "log": "Cachito found an error when verifying the generated archive at %s. %s",
+            "exception": f"Invalid archive at {self.sources_dir.archive_path!s}",
+        }
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
-            with tarfile.open(self.sources_dir.archive_path, mode="r:gz") as tar:
-                tar.extractall(temp_dir)
-
             cmd = ["git", "fsck"]
             repo_path = os.path.join(temp_dir, "app")
             try:
+                with tarfile.open(self.sources_dir.archive_path, mode="r:gz") as tar:
+                    tar.extractall(temp_dir)
+            except (tarfile.ExtractError, zlib.error, OSError) as exc:
+                log.error(err_msg["log"], self.sources_dir.archive_path, exc)
+                raise CachitoError(err_msg["exception"])
+
+            try:
                 subprocess.run(cmd, cwd=repo_path, check=True, capture_output=True)
-            except subprocess.CalledProcessError as exc:
-                log.error(
-                    "Cachito found an error when verifying the generated archive at '%s': %s - %s",
-                    self.sources_dir.archive_path,
-                    exc,
-                    exc.stderr,
-                )
-                raise CachitoError(f"Invalid archive at {self.sources_dir.archive_path!s}")
+            except (subprocess.CalledProcessError) as exc:
+                msg = f"{err_msg['log']}. STDERR: %s"
+                log.error(msg, self.sources_dir.archive_path, exc, exc.stderr)
+                raise CachitoError(err_msg["exception"])
 
     def _create_archive(self, from_dir):
         """

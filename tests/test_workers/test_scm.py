@@ -4,7 +4,9 @@ from unittest import mock
 import logging
 import os
 import re
+import subprocess
 import tarfile
+import zlib
 
 import git
 import pytest
@@ -316,6 +318,41 @@ def test_verify_invalid_archive(mock_istar, fake_repo):
     repo_dir, _ = fake_repo
     git_obj = scm.Git(f"file://{repo_dir}", "master")
     err_msg = f"No valid archive found at {git_obj.sources_dir.archive_path}"
+    with pytest.raises(CachitoError, match=err_msg):
+        git_obj._verify_archive()
+
+
+@pytest.mark.parametrize("exception_type", [OSError, zlib.error, tarfile.ExtractError])
+@mock.patch("tarfile.TarFile.extractall")
+def test_verify_corrupted_archive(mock_extract, fake_repo, exception_type, tmp_path):
+    mock_extract.side_effect = exception_type("Something wrong with the tar archive")
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    stub_file = tmp_path / "fake_contents"
+    with open(stub_file, "w") as f:
+        f.write("stub\n")
+
+    with tarfile.open(git_obj.sources_dir.archive_path, "w:gz") as tar:
+        tar.add(stub_file)
+
+    err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
+    with pytest.raises(CachitoError, match=err_msg):
+        git_obj._verify_archive()
+
+
+@mock.patch("subprocess.run")
+def test_verify_corrupted_git_repo(mock_fsck, fake_repo, tmp_path):
+    mock_fsck.side_effect = subprocess.CalledProcessError(0, "stub command")
+    repo_dir, _ = fake_repo
+    git_obj = scm.Git(f"file://{repo_dir}", "master")
+    stub_file = tmp_path / "fake_contents"
+    with open(stub_file, "w") as f:
+        f.write("stub\n")
+
+    with tarfile.open(git_obj.sources_dir.archive_path, "w:gz") as tar:
+        tar.add(stub_file)
+
+    err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
     with pytest.raises(CachitoError, match=err_msg):
         git_obj._verify_archive()
 
