@@ -33,12 +33,24 @@ def test_repo_name():
 @pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("tarfile.open")
 @mock.patch("tempfile.TemporaryDirectory")
+@mock.patch("tempfile.NamedTemporaryFile")
 @mock.patch("git.repo.Repo.clone_from")
 @mock.patch("subprocess.run")
 @mock.patch("os.path.exists")
 @mock.patch("cachito.workers.scm.Git.update_git_submodules")
+@mock.patch("os.link")
+@mock.patch("os.fsync")
 def test_clone_and_archive(
-    mock_ugs, mock_exists, mock_fsck, mock_clone, mock_temp_dir, mock_tarfile_open, gitsubmodule
+    mock_fsync,
+    mock_link,
+    mock_ugs,
+    mock_exists,
+    mock_fsck,
+    mock_clone,
+    mock_temp_file,
+    mock_temp_dir,
+    mock_tarfile_open,
+    gitsubmodule,
 ):
     # Mock the archive being created
     mock_exists.return_value = True
@@ -49,6 +61,10 @@ def test_clone_and_archive(
     mock_clone.return_value.commit.return_value = mock_commit
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = "/tmp/cachito-temp"
+    # Mock the tempfile.NamedTemporaryFile context manager
+    mock_temp_file.return_value.__enter__.return_value = mock.Mock(
+        name="/dev/null", fileno=lambda: -1
+    )
 
     git_obj = scm.Git(url, ref)
 
@@ -292,8 +308,19 @@ def test_update_and_archive_pull_error(mock_repo, mock_tarfile_open, gitsubmodul
 def test_create_and_verify_archive(fake_repo, caplog):
     repo_dir, _ = fake_repo
     git_obj = scm.Git(f"file://{repo_dir}", "master")
+    verify_log_msg = f"Verifying the archive at {git_obj.sources_dir.archive_path}"
+    already_created_log_msg = (
+        f"{git_obj.sources_dir.archive_path} was created while this task was running. "
+        "Will proceed with that archive"
+    )
     git_obj._create_archive(repo_dir)
-    assert f"Verifying the archive at {git_obj.sources_dir.archive_path}" in caplog.text
+    assert verify_log_msg in caplog.text
+    assert already_created_log_msg not in caplog.text
+    caplog.clear()
+    # create archive again to simulate race condition. This should not generate errors
+    git_obj._create_archive(repo_dir)
+    assert verify_log_msg in caplog.text
+    assert already_created_log_msg in caplog.text
 
 
 def test_clone_and_verify_archive(fake_repo, caplog):
