@@ -8,6 +8,7 @@ import flask
 import kombu.exceptions
 import pytest
 
+from cachito.errors import CachitoError
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -31,6 +32,30 @@ from cachito.workers.tasks import (
 RE_INVALID_PACKAGES_VALUE = (
     r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'
 )
+
+
+@mock.patch("cachito.web.api_v1.status")
+def test_get_status(mock_status, client):
+    mock_status.return_value = {"can_process": {}, "services": [], "workers": []}
+    rv = client.get("api/v1/status")
+    assert rv.status_code == 200
+    assert rv.json == mock_status.return_value
+    mock_status.assert_called_once()
+
+
+@pytest.mark.parametrize("error", [None, "something is wrong"])
+@mock.patch("cachito.web.api_v1.status")
+def test_get_status_short(mock_status, error, client):
+    if error:
+        mock_status.side_effect = [CachitoError(error)]
+    rv = client.get("api/v1/status/short")
+
+    if error:
+        assert rv.json == {"ok": False, "reason": error}
+        assert rv.status_code == 503
+    else:
+        assert rv.json == {"ok": True}
+        assert rv.status_code == 200
 
 
 @pytest.mark.parametrize(
