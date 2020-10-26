@@ -103,12 +103,39 @@ class Git(SCM):
         """
         Create a verified archive from a specified directory.
 
+        We first create the archive in a temporary path so other tasks will not
+        use it while it is being written. Note that this operation must be done
+        in the same filesystem to avoid copy operations to be performed, which
+        would result in the same issue as writting the archive directly to the
+        final path
+
         :param str from_dir: path to a directory from where to create the archive.
         :raises CachitoError: if the archive verification fails
         """
-        log.debug("Creating the archive at %s", self.sources_dir.archive_path)
-        with tarfile.open(self.sources_dir.archive_path, mode="w:gz") as bundle_archive:
-            bundle_archive.add(from_dir, "app")
+        temp_archive_prefix = "tmp-archive-"
+        # files ending in .tar.gz will be used by update_and_archive
+        temp_archive_suffix = ".tgz.temp"
+        with tempfile.NamedTemporaryFile(
+            "wb",
+            prefix=temp_archive_prefix,
+            suffix=temp_archive_suffix,
+            dir=self.sources_dir.package_dir,
+        ) as tmp:
+            log.debug("Creating the archive at %s", tmp.name)
+            with tarfile.open(fileobj=tmp, mode="w:gz") as bundle_archive:
+                bundle_archive.add(from_dir, "app")
+            # Make sure the file is written before linking it
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            try:
+                log.debug("Moving the archive to %s", self.sources_dir.archive_path)
+                os.link(tmp.name, self.sources_dir.archive_path)
+            except FileExistsError:
+                # This may happen often for large archives. It should be safe to proceed
+                log.warning(
+                    "%s was created while this task was running. Will proceed with that archive",
+                    self.sources_dir.archive_path,
+                )
         try:
             self._verify_archive()
         except CachitoError:
