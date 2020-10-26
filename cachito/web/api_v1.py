@@ -22,11 +22,30 @@ from cachito.web.models import (
     RequestState,
     RequestStateMapping,
 )
+from cachito.web.status import status
 from cachito.web.utils import pagination_metadata, str_to_bool
 from cachito.workers import tasks
 from cachito.paths import RequestBundleDir
 
 api_v1 = flask.Blueprint("api_v1", __name__)
+
+
+@api_v1.route("/status", methods=["GET"])
+def get_status():
+    """Return status of Cachito workers and services that Cachito depends on."""
+    return flask.jsonify(status())
+
+
+@api_v1.route("/status/short", methods=["GET"])
+def get_status_short():
+    """Return 200 if all workers and services seem to be ok, 503 otherwise."""
+    try:
+        status(short=True)
+        retval = {"ok": True}
+    except CachitoError as e:
+        retval = {"ok": False, "reason": str(e)}
+
+    return flask.jsonify(retval), 200 if retval["ok"] else 503
 
 
 @api_v1.route("/requests", methods=["GET"])
