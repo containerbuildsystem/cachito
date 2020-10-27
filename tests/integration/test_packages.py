@@ -13,6 +13,7 @@ import utils
         ("gomod_packages", "without_deps"),
         ("gomod_packages", "with_deps"),
         ("gomod_packages", "vendored_with_flag"),
+        ("gomod_packages", "implicit_gomod"),
     ],
 )
 def test_packages(env_package, env_name, test_env, tmpdir):
@@ -34,14 +35,17 @@ def test_packages(env_package, env_name, test_env, tmpdir):
     """
     env_data = utils.load_test_data(f"{env_package}.yaml")[env_name]
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
-    initial_response = client.create_new_request(
-        payload={
-            "repo": env_data["repo"],
-            "ref": env_data["ref"],
-            "pkg_managers": env_data["pkg_managers"],
-            "flags": env_data.get("flags", []),
-        },
-    )
+
+    payload = {
+        "repo": env_data["repo"],
+        "ref": env_data["ref"],
+        "pkg_managers": env_data.get("pkg_managers", []),
+        "flags": env_data.get("flags", []),
+    }
+    if env_name == "implicit_gomod":
+        payload.pop("pkg_managers")
+
+    initial_response = client.create_new_request(payload=payload)
     completed_response = client.wait_for_complete_request(initial_response)
     response_data = completed_response.data
     expected_response_data = env_data["response_expectations"]
