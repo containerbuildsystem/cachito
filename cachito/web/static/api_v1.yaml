@@ -9,6 +9,87 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /status:
+    get:
+      summary: Get Cachito status
+      description: >
+        Return status of Cachito workers and services that Cachito depends on.
+        Includes information about which package managers can currently be processed.
+      responses:
+        "200":
+          description: Status information (as JSON)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  can_process:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+                      description: Requests with this package manager can be processed
+                    example: { "git-submodule": false, "gomod": false, "npm": false, "pip": false }
+                  services:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Name of service
+                          example: nexus
+                        ok:
+                          type: boolean
+                          description: Service seems to be working
+                          example: false
+                        reason:
+                          type: string
+                          description: Reason why service is not working
+                          example: "503: Service Unavailable"
+                      required:
+                        - name
+                        - ok
+                  workers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Name of worker
+                          example: celery@5ed43ee7bba5
+                        ok:
+                          type: boolean
+                          description: Worker seems to be functional
+                          example: false
+                        reason:
+                          type: string
+                          description: Reason why worker is not functional
+                          example: Node did not respond to ping
+                      required:
+                        - name
+                        - ok
+                required:
+                  - can_process
+                  - services
+                  - workers
+  /status/short:
+    get:
+      summary: Get Cachito status (short)
+      description: >
+        If everything is working correctly (i.e. all package managers can be processed),
+        return 200. Otherwise, return 503.
+      responses:
+        "200":
+          description: Everything is working correctly
+          content:
+            application/json:
+              example: { "ok": true }
+        "503":
+          description: Some issues were found, at least one package manager cannot be processed
+          content:
+            application/json:
+              example: { "ok": false, "reason": "no workers are available" }
   /requests:
     get:
       description: Return all the Cachito requests
