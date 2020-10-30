@@ -62,9 +62,15 @@ def test_npm_basic(test_env, default_requests):
 
     for item in response.data["dependencies"]:
         if item["name"] not in test_env["get"]["npm"]["non_dev_dependencies"]:
-            assert item["dev"]
+            assert item["dev"], (
+                f"dependency {item['name']} is not listed as non-dev in the test expectations,"
+                f"but is listed as non-dev in the response"
+            )
         else:
-            assert not item["dev"]
+            assert not item["dev"], (
+                f"dependency {item['name']} is listed as non-dev in the test expectations,"
+                f"but is not listed as non-dev in the response"
+            )
 
     env_variables = response.data["environment_variables"]
     assert env_variables["CHROMEDRIVER_SKIP_DOWNLOAD"] == "true"

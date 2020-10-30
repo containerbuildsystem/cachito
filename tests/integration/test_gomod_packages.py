@@ -26,6 +26,9 @@ def test_gomod_vendor_without_flag(test_env):
         error_msg = (
             'The "gomod-vendor" flag must be set when your repository has vendored dependencies'
         )
-        assert error_msg in completed_response.data["state_reason"]
+        assert error_msg in completed_response.data["state_reason"], (
+            f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
+            f"{completed_response.data['state_reason']}. Expected message was: {error_msg}"
+        )
     else:
         utils.assert_properly_completed_response(completed_response)

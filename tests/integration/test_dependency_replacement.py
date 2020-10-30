@@ -56,13 +56,21 @@ def test_dependency_replacement(test_env, tmpdir):
             "@v",
             "list",
         )
-        assert path.exists(dependency_version_file)
+        assert path.exists(dependency_version_file), (
+            f"#{response.id}: Path for version of dependency "
+            f"{dep_name} does not exist: {dependency_version_file}"
+        )
         with open(dependency_version_file, "r") as file:
             lines = {line.rstrip() for line in file.readlines()}
-            assert dependency["version"] in lines
+            assert dependency["version"] in lines, (
+                f"#{response.id}: File {dependency_version_file} does not contain"
+                f" version {dependency['version']} that should have replaced the original one."
+            )
 
     go_mod_path = path.join(bundle_dir_name, "app", "go.mod")
-    assert path.exists(go_mod_path)
+    assert path.exists(
+        go_mod_path
+    ), f"#{response.id}: File go.mod does not exist in location: {go_mod_path}"
     with open(go_mod_path, "r") as file:
         go_mod_replace = []
         for line in file:

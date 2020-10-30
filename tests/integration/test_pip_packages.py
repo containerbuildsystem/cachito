@@ -23,4 +23,7 @@ def test_failing_pip_local_path(test_env):
     assert completed_response.status == 200
     assert completed_response.data["state"] == "failed"
     error_msg = "Direct references with 'file' scheme are not supported"
-    assert error_msg in completed_response.data["state_reason"]
+    assert error_msg in completed_response.data["state_reason"], (
+        f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
+        f"{completed_response.data['state_reason']}. Expected message was: {error_msg}"
+    )
