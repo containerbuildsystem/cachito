@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from collections import namedtuple
 import filecmp
+import json
 import os
 import shutil
 import time
@@ -190,7 +191,9 @@ def load_test_data(file_name):
     """
     test_data_dir = os.getenv("CACHITO_TEST_DATA", "tests/integration/test_data")
     test_data_file = os.path.join(test_data_dir, file_name)
-    assert os.path.isfile(test_data_file)
+    assert os.path.isfile(
+        test_data_file
+    ), f"File {file_name} does not exist in path: {test_data_file}"
     with open(test_data_file) as f:
         test_data = yaml.safe_load(f)
     return test_data
@@ -270,7 +273,12 @@ def assert_elements_from_response(response_data, expected_response_data):
     if "dependencies" in expected_response_data:
         sort_pkgs_and_deps_in_place(dependencies=expected_response_data["dependencies"])
     for element_name, expected_data in expected_response_data.items():
-        assert response_data[element_name] == expected_data
+        assert response_data[element_name] == expected_data, (
+            f"#{response_data['id']}: elements in reponse differs from test expactations. \n"
+            f"Response elements: "
+            f"{json.dumps(response_data[element_name], indent=4, sort_keys=True)}, \n"
+            f"Test expectations: {json.dumps(expected_data, indent=4, sort_keys=True)}"
+        )
 
 
 def assert_directories_equal(dir_a, dir_b):
@@ -371,11 +379,18 @@ def assert_content_manifest(client, request_id, image_contents):
     :param list image_contents: expected image content part from content manifest
     """
     content_manifest_response = client.fetch_content_manifest(request_id)
-    assert content_manifest_response.status == 200
+    assert (
+        content_manifest_response.status == 200
+    ), f"#{content_manifest_response.id}: response status {content_manifest_response.status} != 200"
 
     response_data = content_manifest_response.data
     assert_content_manifest_schema(response_data)
-    assert image_contents == content_manifest_response.data["image_contents"]
+    assert image_contents == content_manifest_response.data["image_contents"], (
+        f"#{content_manifest_response.id}: image content in reponse differs from test expactations."
+        f"\nResponse image content: "
+        f"{json.dumps(content_manifest_response.data['image_contents'], indent=4, sort_keys=True)},"
+        f"\nTest expectations: {json.dumps(image_contents, indent=4, sort_keys=True)}"
+    )
 
 
 def assert_properly_completed_response(completed_response):
@@ -384,6 +399,13 @@ def assert_properly_completed_response(completed_response):
 
     :param Response completed_response: response from the Cachito API
     """
-    assert completed_response.status == 200
-    assert completed_response.data["state"] == "complete"
-    assert completed_response.data["state_reason"] == "Completed successfully"
+    assert (
+        completed_response.status == 200
+    ), f"#{completed_response.id}: response status {completed_response.status} != 200"
+    assert (
+        completed_response.data["state"] == "complete"
+    ), f"#{completed_response.id}: response state is {completed_response.data['state']}"
+    assert completed_response.data["state_reason"] == "Completed successfully", (
+        f"#{completed_response.id}: response state_reason is "
+        f"{completed_response.data['state_reason']}"
+    )

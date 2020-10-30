@@ -36,10 +36,14 @@ def test_check_downloaded_output(test_env, default_requests, tmpdir):
     for dependency in names:
         package_name = utils.escape_path_go(dependency)
         dependency_path = path.join(file_name, dependencies_path, package_name)
-        assert path.exists(dependency_path)
+        assert path.exists(
+            dependency_path
+        ), f"#{response.id}: Dependency path does not exist: {dependency_path}"
 
     go_mod_path = path.join(file_name, "app", "go.mod")
-    assert path.exists(go_mod_path)
+    assert path.exists(
+        go_mod_path
+    ), f"#{response.id}: File go.mod does not exist in location: {go_mod_path}"
     with open(go_mod_path, "r") as file:
         module_names = []
         for line in file:
@@ -61,5 +65,8 @@ def test_check_downloaded_output(test_env, default_requests, tmpdir):
         members = tar.getmembers()
         path_names = set()
         for dependency in members:
-            assert dependency.name not in path_names
+            assert dependency.name not in path_names, (
+                f"#{response.id}: There is an unexpected duplicate {dependency.name} "
+                f"in archive {file_name_tar}"
+            )
             path_names.add(dependency.name)

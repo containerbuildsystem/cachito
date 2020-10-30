@@ -74,12 +74,20 @@ def assert_no_requests_in_progress_state(client: utils.Client, requests_amount, 
     response = client.fetch_all_requests(query_params, all_pages=False)
     assert response.status == 200
 
-    assert all(item["state"] == "in_progress" for item in response.data["items"])
+    assert all(
+        item["state"] == "in_progress" for item in response.data["items"]
+    ), f"At least one of requests was not in in_progress state"
 
     response_ids = set(item["id"] for item in response.data["items"])
     # Check there are no completed requests in the response.
-    assert not any(request_id in response_ids for request_id in submitted_requests)
-    assert 0 <= len(response.data["items"]) <= requests_amount
+    assert not any(request_id in response_ids for request_id in submitted_requests), (
+        f"At least one of requests {response_ids} was in completed state. ",
+        f"All requests are expected to be in other state than completed.",
+    )
+    assert 0 <= len(response.data["items"]) <= requests_amount, (
+        f"Number of obtained responses ({len(response.data['items'])}) "
+        f"is not in the range from 0 to {requests_amount}"
+    )
 
 
 def assert_completed_requests(client: utils.Client, submitted_ids):

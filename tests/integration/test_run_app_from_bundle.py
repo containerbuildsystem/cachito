@@ -43,6 +43,8 @@ def test_run_app_from_bundle(test_env, default_requests, tmpdir):
         check=True,
     )
 
-    assert path.exists(app_binary_file)
+    assert path.exists(
+        app_binary_file
+    ), f"#{response.id}: Path for application binary file {app_binary_file} does not exist"
     sp = subprocess.run([app_binary_file, "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     assert sp.returncode == 0

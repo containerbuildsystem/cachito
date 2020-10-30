@@ -21,7 +21,7 @@ def create_local_repository(repo_path):
     """
     bare_repo_dir = Path(repo_path)
     bare_repo = git.Repo.init(str(bare_repo_dir), bare=True)
-    assert bare_repo.bare
+    assert bare_repo.bare, f"{bare_repo} is not bare repository"
     # We need to expand this for later usage from the original repo directory
     return str(bare_repo_dir.resolve())
 
@@ -79,7 +79,7 @@ class TestCachedDependencies:
         remote = repo.create_remote(
             "test", url=self.test_env["cached_dependencies"]["test_repo"]["ssh_url"]
         )
-        assert remote.exists()
+        assert remote.exists(), f"Remote {remote.name} does not exist"
 
         # set user configuration, if available
         if self.git_user:
@@ -109,13 +109,18 @@ class TestCachedDependencies:
             )
             first_response = client.wait_for_complete_request(response)
             utils.assert_properly_completed_response(first_response)
-            assert repo.git.branch("-a", "--contains", commit)
+            assert repo.git.branch(
+                "-a", "--contains", commit
+            ), f"Commit {commit} is not in branches (it should be there)."
+
         finally:
             repo.git.push("--delete", remote.name, branch_name)
 
         repo.heads.master.checkout()
         repo.git.branch("-D", branch_name)
-        assert not repo.git.branch("-a", "--contains", commit)
+        assert not repo.git.branch(
+            "-a", "--contains", commit
+        ), f"Commit {commit} is still in a branch (it shouldn't be there at this point)."
 
         response = client.create_new_request(
             payload={
