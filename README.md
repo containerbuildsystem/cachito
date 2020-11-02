@@ -151,6 +151,14 @@ allows modifying the source code directly without needing to reinstall Cachito. 
 useful for syntax highlighting in your IDE, however, it's not practical to use as a development
 environment since Cachito has dependencies on other services.
 
+*NOTE:* you may need to ensure that you have some packages installed. In Fedora, you will need
+
+```
+yum install python3.8 python3-devel python3-virtualenv gcc krb5-devel
+```
+
+where `python3.8` is the version of python required based on `tox.ini`.
+
 ### docker-compose
 
 You may create and run the containerized development environment with
@@ -176,6 +184,18 @@ The will automatically create and run the following containers:
 * **rabbitmq** - the RabbitMQ instance for communicating between the API and the worker. The
   management UI is accessible at [http://localhost:8081](http://localhost:8081). The username is
   `cachito` and the password is `cachito`.
+
+After the development environment is running, you can submit jobs to it with `curl` requests
+
+```bash
+curl -X POST -H "Content-Type: application/json" http://localhost:8080/api/v1/requests -d \
+'{
+"repo": "https://github.com/athos-ribeiro/cachito-sample-pip-package.git",
+"ref": "51ffb9c2412d50953ed9732c67267e5d2ff9aa68",
+"pkg_managers": ["pip"]
+"packages": {"pip": [{"path": "."}, {"path": "subpackage"}]}
+}'
+```
 
 The REST API and the worker will restart if the source code is modified. Please note that the REST
 API may stop restarting if there is a syntax error.
@@ -315,7 +335,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_gomod_ignore_missing_gomod_file` - if `True` and the request specifies the `gomod`
   package manager but there is no `go.mod` file present in the repository, Cachito will skip
   the `gomod` package manager for the request. If `False`, the request will fail if the `go.mod`
-  file is missing. This defaults to `False`.
+  file is missing. This is only supported if a single path is provided to the `gomod` package manager.
+  This defaults to `False`.
 * `cachito_gomod_strict_vendor` - the bool to disable/enable the strict vendor mode. This defaults
   to `False`. For a repo that has gomod dependencies, if the `vendor` directory exists and this config
   option is set to `True`, Cachito will fail the request.
@@ -496,7 +517,7 @@ Content Manifest        | ✓     | ✓   | ✓   |
 Dependency Replacements | ✓     | x   | x   |
 Dev Dependencies        | ✓     | ✓   | ✓   |
 External Dependencies   | N/A   | ✓   | ✓   |
-Multiple Paths          | x     | ✓   | ✓   |
+Multiple Paths          | ✓     | ✓   | ✓   |
 Nested Dependencies     | ✓     | ✓   | x   |
 Offline Installations   | ✓     | x   | x   |
 
@@ -513,7 +534,8 @@ Offline Installations   | ✓     | x   | x   |
   Manifest JSON document that describes the application's dependencies and sources.
 * **Dependency Replacements** - Dependency replacements can be specified when creating a Cachito
   request. This is a convenient feature to allow dependencies to be swapped without making changes
-  in the source repository.
+  in the source repository. Dependency replacement is only supported if a single package is referenced
+  in the repository.
 * **Dev Dependencies** - Cachito can distinguish between dependencies used for running the
   application and building/testing the application. For example, for the `npm` package manager, the
   application may require `webpack` to minify their JavaScript and CSS files but that is not
@@ -551,8 +573,10 @@ cache when building the application.
 #### Go package level dependencies and the go-package Cachito package type
 
 On top of finding the Go module and its dependencies, and providing their sources and the proper
-environment variables for a successful build from such sources, Cachito will also discover the top
-level Go packages in the source repository and their (package level) dependencies.
+environment variables for a successful build from such sources, Cachito will also discover Go 
+packages in the source repository and their (package level) dependencies. By default, the top
+level package is discovered, but optional `path`s can be provided to point Cachito to the package(s)
+to discover.
 
 These package level dependencies will be included in the Cachito API request response at the
 `/api/v1/requests/<id>` endpoint as packages with the `go-package` type.
