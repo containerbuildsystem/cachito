@@ -1066,7 +1066,11 @@ class PipRequirement:
 
         try:
             parsed = list(pkg_resources.parse_requirements(to_be_parsed))
-        except pkg_resources.RequirementParseError as exc:
+        except (
+            pkg_resources.RequirementParseError,
+            pkg_resources.extern.packaging.requirements.InvalidRequirement,
+        ) as exc:
+            # see https://github.com/pypa/setuptools/pull/2137
             raise ValidationError(f"Unable to parse the requirement {to_be_parsed!r}: {exc}")
 
         if not parsed:
