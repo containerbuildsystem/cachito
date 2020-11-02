@@ -1,14 +1,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
 import tarfile
+from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
 from unittest import mock
 
 import pytest
 
-from cachito.workers.pkg_managers.gomod import get_golang_version, resolve_gomod
+from cachito.workers.pkg_managers.gomod import (
+    get_golang_version,
+    resolve_gomod,
+    _merge_bundle_dirs,
+    _merge_files,
+)
 from cachito.errors import CachitoError
 from cachito.workers.paths import RequestBundleDir
+from tests.helper_utils import assert_directories_equal, write_file_tree
 
 url = "https://github.com/release-engineering/retrodep.git"
 ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
@@ -87,11 +94,11 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
 )
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
 @mock.patch("subprocess.run")
-@mock.patch("shutil.copytree")
 def test_resolve_gomod(
-    mock_copytree,
     mock_run,
+    mock_merge_tree,
     mock_temp_dir,
     mock_golang_version,
     dep_replacement,
@@ -147,7 +154,7 @@ def test_resolve_gomod(
     assert gomod["module"] == sample_package
     assert gomod["module_deps"] == expected_deps
 
-    mock_copytree.assert_called_once_with(
+    mock_merge_tree.assert_called_once_with(
         os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
         str(RequestBundleDir(request["id"]).gomod_download_dir),
     )
@@ -226,15 +233,15 @@ def test_resolve_gomod_strict_mode_raise_error(
 
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
 @mock.patch("subprocess.run")
 @mock.patch("os.makedirs")
 @mock.patch("os.path.exists")
-@mock.patch("shutil.copytree")
 def test_resolve_gomod_no_deps(
-    mock_copytree,
     mock_exists,
     mock_makedirs,
     mock_run,
+    mock_merge_tree,
     mock_temp_dir,
     mock_golang_version,
     tmpdir,
@@ -276,7 +283,7 @@ def test_resolve_gomod_no_deps(
     )
 
     bundle_dir = RequestBundleDir(request["id"])
-    mock_copytree.assert_called_once_with(
+    mock_merge_tree.assert_called_once_with(
         os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
         str(bundle_dir.gomod_download_dir),
     )
@@ -384,3 +391,113 @@ def test_get_golang_version(tmpdir, module_suffix, ref, expected):
     module_name = f"github.com/mprahl/test-golang-pseudo-versions{module_suffix}"
     version = get_golang_version(module_name, repo_path, ref)
     assert version == expected
+
+
+@pytest.mark.parametrize(
+    "tree_1, tree_2, result_tree, merge_file_executions",
+    (
+        (
+            {"foo": {"bar": {"baz": "buzz"}}},
+            {"foo": {"baz": {"bar": "buzz"}}},
+            {"foo": {"baz": {"bar": "buzz"}, "bar": {"baz": "buzz"}}},
+            0,
+        ),
+        (
+            {"foo": {"bar": {"list.lock": ""}}},
+            {"foo": {"bar": {"list.lock": ""}}},
+            {"foo": {"bar": {"list.lock": ""}}},
+            0,
+        ),
+        (
+            {"foo": {"bar": {"list": "buzz v0.0.1", "list.lock": ""}}},
+            {"foo": {"baz": {"list": "buzz v0.0.2", "list.lock": ""}}},
+            {
+                "foo": {
+                    "baz": {"list": "buzz v0.0.2", "list.lock": ""},
+                    "bar": {"list": "buzz v0.0.1", "list.lock": ""},
+                }
+            },
+            0,
+        ),
+        (
+            # If a file exists in both directories, the destination will not be overwritten
+            {"foo": {"bar": {"list": "buzz v0.0.1"}}},
+            {"foo": {"bar": {"list": "buzz v0.0.2"}}},
+            {"foo": {"bar": {"list": "buzz v0.0.2"}}},
+            0,
+        ),
+        (
+            # This has a valid merging of list, but the file is not going to be
+            # actually merged since we are mocking it out. The content of the file
+            # will be identical to the destination file.
+            {"foo": {"bar": {"list": "buzz v0.0.1", "list.lock": ""}}},
+            {"foo": {"bar": {"list": "buzz v0.0.2", "list.lock": ""}}},
+            {"foo": {"bar": {"list": "buzz v0.0.2", "list.lock": ""}}},
+            1,
+        ),
+    ),
+)
+@mock.patch("cachito.workers.pkg_managers.gomod._merge_files")
+def test_merge_bundle_dirs(mock_merge_files, tree_1, tree_2, result_tree, merge_file_executions):
+    with tempDir() as dir_1, tempDir() as dir_2, tempDir() as dir_3:
+        write_file_tree(tree_1, dir_1)
+        write_file_tree(tree_2, dir_2)
+        write_file_tree(result_tree, dir_3)
+        _merge_bundle_dirs(dir_1, dir_2)
+        assert_directories_equal(dir_2, dir_3)
+    assert mock_merge_files.call_count == merge_file_executions
+
+
+@pytest.mark.parametrize(
+    "file_1_content, file_2_content, result_file_content",
+    (
+        (
+            dedent(
+                """\
+                package1: v1.0.0
+                package2 -- 1.2.3-gah!
+                """
+            ),
+            dedent(
+                """\
+                package1: v1.0.0
+                package3: v0.1.0-incompatible
+                """
+            ),
+            dedent(
+                """\
+                package1: v1.0.0
+                package2 -- 1.2.3-gah!
+                package3: v0.1.0-incompatible
+                """
+            ),
+        ),
+        (
+            dedent(
+                """\
+                package1: v1.0.0\n
+                """
+            ),
+            dedent(
+                """\
+                package1: v1.0.0 """
+            ),
+            dedent(
+                """\
+                package1: v1.0.0
+                """
+            ),
+        ),
+    ),
+)
+def test_merge_files(file_1_content, file_2_content, result_file_content):
+    with tempDir() as dir_1, tempDir() as dir_2, tempDir() as dir_3:
+        write_file_tree({"list": file_1_content}, dir_1)
+        write_file_tree({"list": file_2_content}, dir_2)
+        write_file_tree({"list": result_file_content}, dir_3)
+        _merge_files("{}/list".format(dir_1), "{}/list".format(dir_2))
+        with open("{}/list".format(dir_2), "r") as f:
+            print(f.read())
+        with open("{}/list".format(dir_3), "r") as f:
+            print(f.read())
+        assert_directories_equal(dir_2, dir_3)

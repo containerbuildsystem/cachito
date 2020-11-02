@@ -14,6 +14,7 @@ from cachito.errors import CachitoError, ValidationError
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import pip, general
 from cachito.workers.requests import requests_session
+from tests.helper_utils import write_file_tree
 
 
 GIT_REF = "9a557920b2a6d4110f838506120904a6fda421a2"
@@ -23,23 +24,6 @@ def setup_module():
     """Re-enable logging that was disabled at some point in previous tests."""
     pip.log.disabled = False
     pip.log.setLevel(logging.DEBUG)
-
-
-def write_file_tree(tree_def, rooted_at):
-    """
-    Write a file tree to disk.
-
-    :param dict tree_def: Definition of file tree, see usage for intuitive examples
-    :param (str | Path) rooted_at: Root of file tree, must be an existing directory
-    """
-    root = Path(rooted_at)
-    for entry, value in tree_def.items():
-        entry_path = root / entry
-        if isinstance(value, str):
-            entry_path.write_text(value)
-        else:
-            entry_path.mkdir()
-            write_file_tree(value, entry_path)
 
 
 @pytest.mark.parametrize("py_exists", [True, False])
