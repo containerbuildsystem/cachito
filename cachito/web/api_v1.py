@@ -245,9 +245,10 @@ def create_request():
 
     package_configs = payload.get("packages", {})
     if "gomod" in pkg_manager_names:
+        go_package_configs = package_configs.get("gomod", [])
         chain_tasks.append(
             tasks.fetch_gomod_source.si(
-                request.id, pkg_manager_to_dep_replacements.get("gomod", [])
+                request.id, pkg_manager_to_dep_replacements.get("gomod", []), go_package_configs
             ).on_error(error_callback)
         )
     if "npm" in pkg_manager_names:

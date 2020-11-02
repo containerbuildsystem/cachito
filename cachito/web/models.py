@@ -530,7 +530,7 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
             + ", ".join(invalid_package_managers)
         )
 
-    supported_packages_configs = {"npm", "pip"}
+    supported_packages_configs = {"npm", "pip", "gomod"}
     unsupported_packages_managers = packages_configs.keys() - supported_packages_configs
     if unsupported_packages_managers:
         raise ValidationError(
@@ -543,6 +543,7 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
     valid_package_config_keys = {
         "npm": {"path"},
         "pip": {"path", "requirements_build_files", "requirements_files"},
+        "gomod": {"path"},
     }
     for pkg_manager, packages_config in packages_configs.items():
         invalid_format_error = (

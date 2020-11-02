@@ -40,7 +40,7 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
             super().__exit__(exc, value, tb)
 
 
-def resolve_gomod(app_source_path, request, dep_replacements=None):
+def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=None):
     """
     Resolve and fetch gomod dependencies for given app source archive.
 
@@ -48,6 +48,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
     :param dict request: the Cachito request this is for
     :param list dep_replacements: dependency replacements with the keys "name" and "version"; this
         results in a series of `go mod edit -replace` commands
+    :param dict git_dir_path: the full path to the application's git repository
     :return: a dict containing the Go module itself ("module" key), the list of dictionaries
         representing the dependencies ("module_deps" key), the top package level dependency
         ("pkg" key), and a list of dictionaries representing the package level dependencies
@@ -55,6 +56,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
     :rtype: dict
     :raises CachitoError: if fetching dependencies fails
     """
+    if git_dir_path is None:
+        git_dir_path = app_source_path
     if not dep_replacements:
         dep_replacements = []
 
@@ -165,8 +168,10 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
             # This should never occur, but it's here as a precaution
             raise CachitoError(go_module_name_error)
 
+        # NOTE: If there are multiple go modules in a single git repo, they will
+        #   all be versioned identically.
         module_version = get_golang_version(
-            module_name, app_source_path, request["ref"], update_tags=True
+            module_name, git_dir_path, request["ref"], update_tags=True
         )
         module = {"name": module_name, "type": "gomod", "version": module_version}
 
@@ -189,7 +194,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
                 tmp_download_cache_dir,
                 bundle_dir.gomod_download_dir,
             )
-            shutil.copytree(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
+            _merge_bundle_dirs(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
         log.info("Retrieving the list of package level dependencies")
         list_pkgs_cmd = ("go", "list", "-find", "./...")
@@ -252,6 +257,67 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
             packages.append({"pkg": pkg, "pkg_deps": pkg_level_deps})
 
         return {"module": module, "module_deps": module_level_deps, "packages": packages}
+
+
+def _merge_bundle_dirs(root_src_dir, root_dst_dir):
+    """
+    Merge two bundle directories together.
+
+    The contents of root_src_dir will be copied into root_dst_dir, overwriting any files
+    that might already be present. For a description of the algorithm, see
+    https://lukelogbook.tech/2018/01/25/merging-two-folders-in-python/
+
+    In addition to that merge algorithm, however, we also need to make sure that we merge
+    the list file to ensure all versions are represented. In order to protect against merging
+    extra files, we are also checking for the presence of the list.lock file since it should
+    be present according to https://github.com/golang/go/issues/29434
+
+    :param str root_src_dir: the root path to the source directory
+    :param str root_dst_dir: the root path to the destination directory
+    :return: None
+    """
+    for src_dir, dirs, files in os.walk(root_src_dir):
+        dst_dir = src_dir.replace(root_src_dir, root_dst_dir, 1)
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_ in files:
+            src_file = os.path.join(src_dir, file_)
+            dst_file = os.path.join(dst_dir, file_)
+            if os.path.exists(dst_file):
+                # check to see if we are trying to merge the `list` file
+                # since we have to treat that seperately. We don't want to
+                # delete it or overwrite it -- we need to merge it.
+                if (
+                    file_ == "list"
+                    and os.path.isfile(src_file)
+                    and os.path.exists("{}.lock".format(src_file))
+                ):
+                    _merge_files(src_file, dst_file)
+                continue
+            shutil.copy2(src_file, dst_dir)
+
+
+def _merge_files(src_file, dst_file):
+    """
+    Merge two files so that we ensure that all packages are represented.
+
+    The dst_file will be updated by inserting the lines from the src_file,
+    sorting all lines, and removing duplicate lines.
+
+    :param str src_file: the source file (to be merged)
+    :param str dst_file: the destination file (to be merged into)
+    :return: None
+    """
+    with open(src_file, "r") as file1:
+        source_content = [line.rstrip() for line in file1.readlines()]
+    with open(dst_file, "r") as file2:
+        dest_content = [line.rstrip() for line in file2.readlines()]
+
+    with open(dst_file, "w") as target:
+        for line in sorted(set(source_content + dest_content)):
+            if line == "":
+                continue
+            target.write(str(line) + "\n")
 
 
 def _get_golang_pseudo_version(commit, tag=None, module_major_version=None):

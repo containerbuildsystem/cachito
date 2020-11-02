@@ -141,7 +141,7 @@ def test_create_and_fetch_request(
     ]
     if "gomod" in expected_pkg_managers:
         expected.append(
-            fetch_gomod_source.si(created_request["id"], dependency_replacements).on_error(
+            fetch_gomod_source.si(created_request["id"], dependency_replacements, []).on_error(
                 error_callback
             )
         )
@@ -164,6 +164,35 @@ def test_create_and_fetch_request(
     assert created_request == fetched_request
     assert fetched_request["state"] == "in_progress"
     assert fetched_request["state_reason"] == "The request was initiated"
+
+
+@mock.patch("cachito.web.api_v1.chain")
+def test_create_and_fetch_request_gomod_package_configs(
+    mock_chain, app, auth_env, client, db,
+):
+    package_value = {"gomod": [{"path": "."}, {"path": "proxy"}]}
+    data = {
+        "repo": "https://github.com/release-engineering/web-terminal.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "packages": package_value,
+        "pkg_managers": ["gomod"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 201
+
+    error_callback = failed_request_callback.s(1)
+    expected = [
+        fetch_app_source.s(
+            "https://github.com/release-engineering/web-terminal.git",
+            "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            1,
+            False,
+        ).on_error(error_callback),
+        fetch_gomod_source.si(1, [], package_value["gomod"]).on_error(error_callback),
+        create_bundle_archive.si(1).on_error(error_callback),
+    ]
+    mock_chain.assert_called_once_with(expected)
 
 
 @mock.patch("cachito.web.api_v1.chain")
@@ -281,7 +310,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
                 1,
                 False,
             ).on_error(error_callback),
-            fetch_gomod_source.si(1, []).on_error(error_callback),
+            fetch_gomod_source.si(1, [], []).on_error(error_callback),
             create_bundle_archive.si(1).on_error(error_callback),
         ]
     )
@@ -595,10 +624,37 @@ def test_create_request_invalid_dependency_replacement(
             ["npm"],
             'The following package managers in the "packages" object do not apply: gomod',
         ),
+        ({"gomod": {"path": "client"}}, ["gomod"], RE_INVALID_PACKAGES_VALUE),
+        ({"gomod": ["path"]}, ["gomod"], RE_INVALID_PACKAGES_VALUE),
+        ({"gomod": [{}]}, ["gomod"], RE_INVALID_PACKAGES_VALUE),
         (
-            {"gomod": [{"path": "client"}]},
+            {"npm": [{"path": "client"}]},
             ["gomod"],
-            'The following package managers in the "packages" object are unsupported: gomod',
+            'The following package managers in the "packages" object do not apply: npm',
+        ),
+        (
+            {"gomod": [{"path": ""}]},
+            ["gomod"],
+            (
+                'The "path" values in the "packages.gomod" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"gomod": [{"path": "/foo/bar"}]},
+            ["gomod"],
+            (
+                'The "path" values in the "packages.gomod" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"gomod": [{"path": "../foo"}]},
+            ["gomod"],
+            (
+                'The "path" values in the "packages.gomod" value must be to a relative path in the '
+                "source repository"
+            ),
         ),
         ({"npm": {"path": "client"}}, ["npm"], RE_INVALID_PACKAGES_VALUE),
         ({"npm": ["path"]}, ["npm"], RE_INVALID_PACKAGES_VALUE),
