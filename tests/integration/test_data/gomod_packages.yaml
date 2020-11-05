@@ -113,7 +113,7 @@ with_deps:
 # and with `gomod-vendor` flag.
 vendored_with_flag:
   repo: https://github.com/cachito-testing/gomod-vendored.git
-  ref:  3604a4d7990f5c9279f26dda783b7b9bce617ed4
+  ref:  ff1960095dd158d3d2a4f31d15b244c24930248b
   flags: ["gomod-vendor"]
   pkg_managers: ["gomod"]
   response_expectations:
@@ -133,7 +133,7 @@ vendored_with_flag:
         version: "v0.0.0-20170915032832-14c0d48ead0c"
       name: "github.com/cachito-testing/gomod-vendored"
       type: "gomod"
-      version: "v0.0.0-20201021173631-3604a4d7990f"
+      version: "v0.0.0-20200916135625-ff1960095dd1"
     - dependencies:
       - name: "rsc.io/quote"
         replaces: null
@@ -153,7 +153,7 @@ vendored_with_flag:
         version: "v0.0.0-20170915032832-14c0d48ead0c"
       name: "github.com/cachito-testing/gomod-vendored"
       type: "go-package"
-      version: "v0.0.0-20201021173631-3604a4d7990f"
+      version: "v0.0.0-20200916135625-ff1960095dd1"
     dependencies:
     - name: "rsc.io/quote"
       replaces: null
@@ -184,9 +184,9 @@ vendored_with_flag:
       type: "gomod"
       version: "v0.0.0-20170915032832-14c0d48ead0c"
   expected_files:
-    app: https://github.com/cachito-testing/gomod-vendored/tarball/3604a4d7990f5c9279f26dda783b7b9bce617ed4
+    app: https://github.com/cachito-testing/gomod-vendored/tarball/ff1960095dd158d3d2a4f31d15b244c24930248b
     deps/gomod/pkg/mod/cache/download: null
-  purl: "pkg:golang/github.com%2Fcachito-testing%2Fgomod-vendored@v0.0.0-20201021173631-3604a4d7990f"
+  purl: "pkg:golang/github.com%2Fcachito-testing%2Fgomod-vendored@v0.0.0-20200916135625-ff1960095dd1"
   dep_purls:
   - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
   - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
