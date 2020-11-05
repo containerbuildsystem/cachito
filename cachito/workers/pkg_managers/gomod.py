@@ -100,8 +100,9 @@ def resolve_gomod(app_source_path, request, dep_replacements=None):
         if dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
         # module level dependencies
+        output_format = "{{.Path}} {{.Version}} {{.Replace}}"
         go_list_output = run_gomod_cmd(
-            ("go", "list", "-m", "-f", "{{.Path}} {{.Version}} {{.Replace}}", "all"), run_params
+            ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"), run_params
         )
 
         module_level_deps = []
