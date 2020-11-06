@@ -425,6 +425,10 @@ Custom configuration for the API:
 * `CACHITO_DEFAULT_PACKAGE_MANAGERS` - the default package managers to use when no package managers
   are specified on a request. This defaults to `["gomod"]`.
 * `CACHITO_MAX_PER_PAGE` - the maximum amount of items in a page for paginated results.
+* `CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS` - the list of pairs of mutually exclusive package
+   managers (e.g. `[("npm", "yarn"), ("gomod", "git-submodule")]`). If two package managers are
+   configured as mutually exclusive, then Cachito will validate that they do not process the same
+   package in a request.
 * `CACHITO_PACKAGE_MANAGERS` - the list of enabled package managers. This defaults to `["gomod"]`.
 * `CACHITO_REQUEST_FILE_LOGS_DIR` - the directory to load the request specific log files. If `None`, per
   request log files information will not appear in the API response. This defaults to `None`.
