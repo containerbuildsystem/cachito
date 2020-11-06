@@ -2,7 +2,12 @@
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
 
-from cachito.errors import CachitoError, ContentManifestError, ValidationError
+from cachito.errors import (
+    CachitoError,
+    ContentManifestError,
+    ValidationError,
+    CachitoNotImplementedError,
+)
 
 
 def json_error(error):
@@ -28,6 +33,9 @@ def json_error(error):
         elif isinstance(error, ContentManifestError):
             # If the request was completed and a ICM cannot be generated,
             # some package type or corner case is not yet implemented
+            status_code = 501
+        elif isinstance(error, CachitoNotImplementedError):
+            # If the request asks for not implemented functionality
             status_code = 501
         elif isinstance(error, CachitoError):
             # If a generic exception is raised, assume the service is unavailable
