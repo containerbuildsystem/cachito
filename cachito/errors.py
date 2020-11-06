@@ -15,3 +15,7 @@ class ConfigError(CachitoError):
 
 class ContentManifestError(CachitoError, ValueError):
     """An error was encountered during content manifest generation."""
+
+
+class CachitoNotImplementedError(CachitoError, ValueError):
+    """An error was encountered during request validation."""

@@ -2161,3 +2161,15 @@ def test_validate_package_manager_exclusivity(
             _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
     else:
         _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
+
+
+def test_create_request_with_yarn(auth_env, client):
+    data = {
+        "repo": "https://github.com/seriousManual/dedupe",
+        "ref": "955aa2f0d2dedf1b04814e38ad80deb17a602b9c",
+        "pkg_managers": ["yarn"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 501
+    assert rv.json == {"error": "Yarn is not yet supported"}

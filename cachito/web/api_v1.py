@@ -11,7 +11,7 @@ from flask_login import current_user, login_required
 import kombu.exceptions
 from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import CachitoError, ValidationError, CachitoNotImplementedError
 from cachito.web import db
 from cachito.web.models import (
     ConfigFileBase64,
@@ -274,6 +274,8 @@ def create_request():
         chain_tasks.append(
             tasks.add_git_submodules_as_package.si(request.id).on_error(error_callback)
         )
+    if "yarn" in pkg_manager_names:
+        raise CachitoNotImplementedError("Yarn is not yet supported")
 
     chain_tasks.append(tasks.create_bundle_archive.si(request.id).on_error(error_callback))
 
