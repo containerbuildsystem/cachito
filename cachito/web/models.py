@@ -539,7 +539,6 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
         )
 
     # Validate the values for each package manager configuration (e.g. packages.npm)
-    valid_package_config_keys = {"path", "requirements_build_files", "requirements_files"}
     valid_package_config_keys = {
         "npm": {"path"},
         "pip": {"path", "requirements_build_files", "requirements_files"},
