@@ -15,7 +15,9 @@ directory of this repo.
 
 Tests can be triggered from the top-level directory of this repository with:
 
-    tox -e integration
+```bash
+make test-integration
+```
 
 The integration environment is not part of the default `tox` envlist.
 

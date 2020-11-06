@@ -159,13 +159,13 @@ yum install python3.8 python3-devel python3-virtualenv gcc krb5-devel
 
 where `python3.8` is the version of python required based on `tox.ini`.
 
-### docker-compose
+### Run a Containerized Development Environment
 
 You may create and run the containerized development environment with
 [docker-compose](https://docs.docker.com/compose/) with the following command:
 
 ```bash
-make run
+make run-start
 ```
 
 The will automatically create and run the following containers:
@@ -200,13 +200,29 @@ curl -X POST -H "Content-Type: application/json" http://localhost:8080/api/v1/re
 The REST API and the worker will restart if the source code is modified. Please note that the REST
 API may stop restarting if there is a syntax error.
 
+#### Rebuilding Images
+
+If you suspect that the images used for [`docker-compose`](#run-a-containerized-development-environment) are out of date, you can
+run the containerized development environment while forcing a rebuild of the images with the following
+command:
+
+```bash
+make run-build-start
+```
+
+If you just want to force a rebuild of the images without running them, you can use
+
+```bash
+make run-build
+```
+
 ### Unit Tests
 
 To run the unit tests with [tox](https://tox.readthedocs.io/en/latest/), you may run the following
 command:
 
 ```bash
-make test
+make test-unit
 ```
 
 ### Integration Tests
@@ -215,11 +231,43 @@ To run the integration tests with [tox](https://tox.readthedocs.io/en/latest/), 
 following command:
 
 ```bash
-tox -e integration
+make test-integration
 ```
 
 By default, some tests will require custom configuration and will run against your local development
-environment. Read the [integration tests read me](tests/integration/README.md) for more information.
+environment. Read the [integration tests readme](tests/integration/README.md) for more information.
+
+**NOTE:** The [containerized development environment](#run-a-containerized-development-environment) 
+needs to be running before the integration tests can pass.
+
+### Running Specific Tests
+
+Instead of running the entire unit/integration test suite, you can also run a specific set of tests.
+
+```bash
+make test-suite TOX_ARGS=<test-suite-identifier>
+```
+
+The `test-suite-identifier` can be pulled from the test result in the `tox` output or constructed from
+the filepath filepath and test function. For example, if you want to run 
+[`test_fetch_gomod_source`](https://github.com/release-engineering/cachito/blob/983349b2c45326def8e20f36cbe2a1fee7dabf0e/tests/test_workers/test_tasks/test_gomod.py#L24),
+you would call:
+
+```bash
+make test-suite TOX_ARGS=tests/test_workers/test_tasks/test_gomod.py::test_fetch_gomod_source
+```
+
+Omitting the `TOX_ARGS` will run all tests without performing `black`/`flake8` validation.
+
+In addition to running specific tests, parameters can be passed into `tox` with `TOX_ARGS` and the
+environment can be configured with `TOX_ENVLIST`. 
+
+```bash
+make test-suite TOX_ARGS="-x --no-cov tests/test_workers/test_tasks/test_gomod.py"
+```
+
+By default, `TOX_ENVLIST` is set to `py38` indicating that it should run with Python 3.8. If adding
+environment parameters to `tox`, ensure that you are setting the Python version if needed.
 
 ### Clean Up
 
