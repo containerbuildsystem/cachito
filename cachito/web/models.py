@@ -2,6 +2,7 @@
 from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
+import itertools
 import os
 import re
 
@@ -566,6 +567,74 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
                 _validate_configuration_path_value(pkg_manager, "requirements_files", path)
             for path in package_config.get("requirements_build_files", []):
                 _validate_configuration_path_value(pkg_manager, "requirements_build_files", path)
+
+    _validate_package_manager_exclusivity(
+        pkg_managers_names,
+        packages_configs,
+        flask.current_app.config["CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS"],
+    )
+
+
+def _validate_package_manager_exclusivity(pkg_manager_names, package_configs, mutually_exclusive):
+    """
+    Ensure that no package gets processed by two or more mutually exclusive package managers.
+
+    Note: git-submodule is a special case, because we always fetch all submodules. Therefore
+    we do not know which subpaths are actually submodules prior to processing the request, and
+    we have to assume that any non-root path is a submodule.
+
+    :param list pkg_manager_names: the list of package manager names for the request
+    :param dict package_configs: the "packages" parameter in a request
+    :param list mutually_exclusive: list of pairs of mutually exclusive package managers
+    :raises ValidationError: if the package configuration has conflicting paths (even implicitly)
+    """
+    mutually_exclusive = set((a, b) for a, b in mutually_exclusive)
+
+    pkg_manager_paths = {
+        pkg_manager: set(
+            os.path.normpath(pkg_cfg.get("path", "."))
+            for pkg_cfg in package_configs.get(pkg_manager, [{}])
+        )
+        for pkg_manager in pkg_manager_names
+        if pkg_manager != "git-submodule"
+    }
+
+    if "git-submodule" in pkg_manager_names:
+        _validate_gitsubmodule_exclusivity(pkg_manager_paths, mutually_exclusive)
+
+    # Check all package manager pairs
+    for a, b in itertools.combinations(pkg_manager_paths, 2):
+        if not ((a, b) in mutually_exclusive or (b, a) in mutually_exclusive):
+            continue
+
+        conflicting_paths = pkg_manager_paths[a] & pkg_manager_paths[b]
+        if conflicting_paths:
+            msg = (
+                f"The following paths cannot be processed by both '{a}' and '{b}': "
+                f"{', '.join(sorted(conflicting_paths))}"
+            )
+            raise ValidationError(msg)
+
+
+def _validate_gitsubmodule_exclusivity(pkg_manager_paths, mutually_exclusive):
+    """
+    Validate exclusivity of git-submodule with other package managers.
+
+    :param dict pkg_manager_paths: mapping of package managers and their paths in a request
+    :param set mutually_exclusive: set of pairs of mutually exclusive package managers
+    :raises ValidationError: if any package manager conflicts with git-submodule
+    """
+    for pkg_manager, paths in pkg_manager_paths.items():
+        a, b = pkg_manager, "git-submodule"
+        if not ((a, b) in mutually_exclusive or (b, a) in mutually_exclusive):
+            continue
+
+        if any(path != "." for path in paths):
+            msg = (
+                f"Cannot process non-root packages with '{pkg_manager}' "
+                "when 'git-submodule' is also set"
+            )
+            raise ValidationError(msg)
 
 
 class Request(db.Model):

@@ -17,6 +17,8 @@ class Config(object):
     CACHITO_LOG_LEVEL = "INFO"
     CACHITO_LOG_FORMAT = "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
     CACHITO_MAX_PER_PAGE = 100
+    # Pairs of mutually exclusive package managers (cannot process the same package)
+    CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS = []
     CACHITO_PACKAGE_MANAGERS = ["gomod"]
     CACHITO_REQUEST_FILE_LOGS_DIR = None
     # Users that are allowed to use the "user" property when creating a request
@@ -81,6 +83,7 @@ def validate_cachito_config(config, cli=False):
         "CACHITO_DEFAULT_PACKAGE_MANAGERS",
         "CACHITO_LOG_LEVEL",
         "CACHITO_MAX_PER_PAGE",
+        "CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS",
         "CACHITO_LOG_FORMAT",
         "CACHITO_BUNDLES_DIR",
         "SQLALCHEMY_DATABASE_URI",
@@ -96,6 +99,17 @@ def validate_cachito_config(config, cli=False):
             if not required_dir or not os.path.isdir(required_dir):
                 raise ConfigError(
                     f'The configuration "{config_var}" must be set to an existing directory'
+                )
+        elif config_var == "CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS":
+            mutually_exclusive = config.get(config_var)
+            if mutually_exclusive is None:
+                raise ConfigError(f'The configuration "{config_var}" must be set')
+
+            if not all(
+                isinstance(pair, (tuple, list)) and len(pair) == 2 for pair in mutually_exclusive
+            ):
+                raise ConfigError(
+                    f'All values in "{config_var}" must be pairs (2-tuples or 2-item lists)'
                 )
         elif not config.get(config_var):
             raise ConfigError(f'The configuration "{config_var}" must be set')

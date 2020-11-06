@@ -23,6 +23,7 @@ def test_validate_cachito_config_success(mock_isdir, app):
         "CACHITO_DEFAULT_PACKAGE_MANAGERS",
         "CACHITO_LOG_LEVEL",
         "CACHITO_MAX_PER_PAGE",
+        "CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS",
         "CACHITO_LOG_FORMAT",
         "SQLALCHEMY_DATABASE_URI",
     ),
@@ -40,3 +41,29 @@ def test_validate_cachito_config_failure(mock_isdir, app, variable_name):
 def test_validate_cachito_config_cli(mock_isdir, app):
     validate_cachito_config(app.config, cli=True)
     mock_isdir.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "value, is_valid",
+    [
+        ([], True),
+        (["gomod"], False),
+        ([("gomod", "git-submodule")], True),
+        ([["gomod", "git-submodule"]], True),
+        ([("gomod",)], False),
+        ([["gomod"]], False),
+    ],
+)
+def test_validate_mutually_exclusive_package_managers(app, value, is_valid):
+    config = app.config.copy()
+    config["CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS"] = value
+
+    if is_valid:
+        validate_cachito_config(config)
+    else:
+        expected = (
+            r'All values in "CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS" '
+            r"must be pairs \(2-tuples or 2-item lists\)"
+        )
+        with pytest.raises(ConfigError, match=expected):
+            validate_cachito_config(config)

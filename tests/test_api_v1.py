@@ -8,7 +8,7 @@ import flask
 import kombu.exceptions
 import pytest
 
-from cachito.errors import CachitoError
+from cachito.errors import CachitoError, ValidationError
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -17,6 +17,7 @@ from cachito.web.models import (
     Request,
     RequestPackage,
     RequestStateMapping,
+    _validate_package_manager_exclusivity,
 )
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import (
@@ -90,7 +91,9 @@ def test_get_status_short(mock_status, error, client):
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
+@mock.patch("cachito.web.models._validate_package_manager_exclusivity")
 def test_create_and_fetch_request(
+    mock_validate_exclusivity,
     mock_chain,
     dependency_replacements,
     pkg_managers,
@@ -164,6 +167,10 @@ def test_create_and_fetch_request(
     assert created_request == fetched_request
     assert fetched_request["state"] == "in_progress"
     assert fetched_request["state_reason"] == "The request was initiated"
+
+    mock_validate_exclusivity.assert_called_once_with(
+        pkg_managers, {}, app.config["CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS"]
+    )
 
 
 @mock.patch("cachito.web.api_v1.chain")
@@ -2034,3 +2041,123 @@ def test_create_and_fetch_request_with_pip_preview(
         fetched_request = rv.json
         assert fetched_request["state"] == "in_progress"
         assert fetched_request["state_reason"] == "The request was initiated"
+
+
+@pytest.mark.parametrize(
+    "mutually_exclusive, pkg_managers, package_configs, expect_error",
+    [
+        (
+            # npm and yarn have an implicit conflict
+            [("npm", "yarn")],
+            ["npm", "yarn"],
+            {},
+            "The following paths cannot be processed by both 'npm' and 'yarn': .",
+        ),
+        (
+            # npm and yarn have an explicit conflict
+            [("npm", "yarn")],
+            ["npm", "yarn"],
+            {"npm": [{"path": "same/path"}], "yarn": [{"path": "same/path"}]},
+            "The following paths cannot be processed by both 'npm' and 'yarn': same/path",
+        ),
+        (
+            # npm and yarn have a 1/2 explicit conflict
+            [("npm", "yarn")],
+            ["npm", "yarn"],
+            {"yarn": [{"path": "."}]},
+            "The following paths cannot be processed by both 'npm' and 'yarn': .",
+        ),
+        (
+            # npm and yarn have a 1/4 explicit conflict
+            [("npm", "yarn")],
+            ["npm", "yarn"],
+            {"yarn": [{}]},
+            "The following paths cannot be processed by both 'npm' and 'yarn': .",
+        ),
+        (
+            # npm and yarn have multiple conflicts
+            [("npm", "yarn")],
+            ["npm", "yarn"],
+            {
+                "npm": [{"path": "1"}, {"path": "2"}, {"path": "3"}],
+                "yarn": [{"path": "2"}, {"path": "3"}, {"path": "4"}],
+            },
+            "The following paths cannot be processed by both 'npm' and 'yarn': 2, 3",
+        ),
+        (
+            # npm and yarn do not have a conflict
+            [("npm", "yarn")],
+            ["npm", "yarn"],
+            {"npm": [{"path": "some/path"}], "yarn": [{"path": "other/path"}]},
+            None,
+        ),
+        (
+            # npm and yarn do not have a conflict, 1/2 implicitly
+            [("npm", "yarn")],
+            ["npm", "yarn"],
+            {"yarn": [{"path": "not/root"}]},
+            None,
+        ),
+        (
+            # gomod and git-submodule have a conflict
+            [("gomod", "git-submodule")],
+            ["gomod", "git-submodule"],
+            {"gomod": [{"path": "not/root"}]},
+            "Cannot process non-root packages with 'gomod' when 'git-submodule' is also set",
+        ),
+        (
+            # gomod and git-submodule do not have a conflict, implicitly
+            [("gomod", "git-submodule")],
+            ["gomod", "git-submodule"],
+            {},
+            None,
+        ),
+        (
+            # gomod and git-submodule do not have a conflict, explicitly
+            [("gomod", "git-submodule")],
+            ["gomod", "git-submodule"],
+            {"gomod": [{"path": "."}]},
+            None,
+        ),
+        (
+            # no mutual exclusivity, no conflict
+            [],
+            ["npm", "yarn"],
+            {"npm": [{"path": "same/path"}], "yarn": [{"path": "same/path"}]},
+            None,
+        ),
+        (
+            # mutual exclusivity does not apply, no conflict
+            [("npm", "yarn")],
+            ["npm", "pip"],
+            {"npm": [{"path": "same/path"}], "pip": [{"path": "same/path"}]},
+            None,
+        ),
+        (
+            # mutual exclusivity does not apply, no conflict
+            [("gomod", "git-submodule")],
+            ["pip", "git-submodule"],
+            {"pip": [{"path": "not/root"}]},
+            None,
+        ),
+        (
+            # pairs can also be 2-item lists (not recommended, but possible)
+            [["npm", "yarn"]],
+            ["npm", "yarn"],
+            {},
+            "The following paths cannot be processed by both 'npm' and 'yarn': .",
+        ),
+    ],
+)
+@pytest.mark.parametrize("flip_relation", [False, True])
+def test_validate_package_manager_exclusivity(
+    mutually_exclusive, pkg_managers, package_configs, expect_error, flip_relation
+):
+    if flip_relation:
+        mutually_exclusive = [(b, a) for a, b in mutually_exclusive]
+
+    if expect_error:
+        with pytest.raises(ValidationError, match=expect_error):
+            _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
+    else:
+        _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
