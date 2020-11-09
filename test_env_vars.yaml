@@ -70,26 +70,6 @@ dep_replacement:
   - name: github.com/Masterminds/semver
     type: gomod
     version: v1.4.0
-# Test data for the Using cached dependencies test
-cached_dependencies:
-  # The upstream git repository
-  seed_repo:
-    https_url: "https://github.com/release-engineering/retrodep.git"
-  # Repository that will be used for the test
-  test_repo:
-    # Use local bare remote repository
-    # If this is used, the git urls below should be paths and should be available for the workers
-    use_local: True
-    # The tracked repository (remote)
-    ssh_url: "./tmp/cachito-archives/integration-tests-git-repo.git"
-    # The URL of the repository
-    https_url: "./tmp/cachito-archives/integration-tests-git-repo.git"
-    # test repo user
-    git_user: "Arthur Dent"
-    # test repo user email
-    git_email: "dent42@cachito.rocks"
-    # Package managers
-    pkg_managers: ["gomod"]
 # Test data for the HTTP GET_ALL test
 http_get_all:
   requests_amount: 2
