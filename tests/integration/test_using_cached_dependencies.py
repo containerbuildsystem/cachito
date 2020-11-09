@@ -33,24 +33,21 @@ class TestCachedDependencies:
     def setup_method_fixture(self, test_env):
         """Create bare git repo and a pool for removing shared directories."""
         self.directories = []
-        self.git_user = test_env["cached_dependencies"]["test_repo"].get("git_user")
-        self.git_email = test_env["cached_dependencies"]["test_repo"].get("git_email")
-        if test_env["cached_dependencies"]["test_repo"].get("use_local"):
-            repo_path = create_local_repository(
-                test_env["cached_dependencies"]["test_repo"]["ssh_url"]
-            )
-            test_env["cached_dependencies"]["test_repo"]["ssh_url"] = repo_path
+        self.env_data = utils.load_test_data("cached_dependencies.yaml")
+        self.git_user = self.env_data["test_repo"].get("git_user")
+        self.git_email = self.env_data["test_repo"].get("git_email")
+        if self.env_data["test_repo"].get("use_local"):
+            repo_path = create_local_repository(self.env_data["test_repo"]["ssh_url"])
+            self.env_data["test_repo"]["ssh_url"] = repo_path
             # Defer cleanups
             self.directories.append(repo_path)
-
-        self.test_env = test_env
 
     def teardown_method(self, method):
         """Remove shared directories in the pool."""
         for directory in self.directories:
             shutil.rmtree(directory)
 
-    def test_using_cached_dependencies(self, tmpdir):
+    def test_using_cached_dependencies(self, tmpdir, test_env):
         """
         Check that the cached dependencies are used instead of downloading them from repo again.
 
@@ -73,12 +70,8 @@ class TestCachedDependencies:
             random.choice(string.ascii_letters + string.digits) for x in range(10)
         )
         branch_name = f"test-{generated_suffix}"
-        repo = git.repo.Repo.clone_from(
-            self.test_env["cached_dependencies"]["seed_repo"]["https_url"], tmpdir
-        )
-        remote = repo.create_remote(
-            "test", url=self.test_env["cached_dependencies"]["test_repo"]["ssh_url"]
-        )
+        repo = git.repo.Repo.clone_from(self.env_data["seed_repo"]["https_url"], tmpdir)
+        remote = repo.create_remote("test", url=self.env_data["test_repo"]["ssh_url"])
         assert remote.exists(), f"Remote {remote.name} does not exist"
 
         # set user configuration, if available
@@ -94,17 +87,13 @@ class TestCachedDependencies:
             commit = repo.head.commit.hexsha
 
             client = utils.Client(
-                self.test_env["api_url"],
-                self.test_env["api_auth_type"],
-                self.test_env.get("timeout"),
+                test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"),
             )
             response = client.create_new_request(
                 payload={
-                    "repo": self.test_env["cached_dependencies"]["test_repo"]["https_url"],
+                    "repo": self.env_data["test_repo"]["https_url"],
                     "ref": commit,
-                    "pkg_managers": self.test_env["cached_dependencies"]["test_repo"][
-                        "pkg_managers"
-                    ],
+                    "pkg_managers": self.env_data["test_repo"]["pkg_managers"],
                 },
             )
             first_response = client.wait_for_complete_request(response)
@@ -124,9 +113,9 @@ class TestCachedDependencies:
 
         response = client.create_new_request(
             payload={
-                "repo": self.test_env["cached_dependencies"]["test_repo"]["https_url"],
+                "repo": self.env_data["test_repo"]["https_url"],
                 "ref": commit,
-                "pkg_managers": self.test_env["cached_dependencies"]["test_repo"]["pkg_managers"],
+                "pkg_managers": self.env_data["test_repo"]["pkg_managers"],
             },
         )
         second_response = client.wait_for_complete_request(response)
