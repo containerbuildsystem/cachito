@@ -14,6 +14,7 @@ import utils
         ("gomod_packages", "with_deps"),
         ("gomod_packages", "vendored_with_flag"),
         ("gomod_packages", "implicit_gomod"),
+        ("gomod_packages", "missing_gomod"),
     ],
 )
 def test_packages(env_package, env_name, test_env, tmpdir):
@@ -56,7 +57,7 @@ def test_packages(env_package, env_name, test_env, tmpdir):
     expected_files = env_data["expected_files"]
     utils.assert_expected_files(source_path, expected_files, tmpdir)
 
-    purl = env_data["purl"]
+    purl = env_data.get("purl", "")
     deps_purls = []
     source_purls = []
     if "dep_purls" in env_data:
@@ -64,5 +65,8 @@ def test_packages(env_package, env_name, test_env, tmpdir):
     if "source_purls" in env_data:
         source_purls = [{"purl": x} for x in env_data["source_purls"]]
 
-    image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": source_purls}]
+    if purl:
+        image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": source_purls}]
+    else:
+        image_contents = env_data["image_contents"]
     utils.assert_content_manifest(client, completed_response.id, image_contents)

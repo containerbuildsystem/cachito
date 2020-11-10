@@ -30,7 +30,7 @@ class Config(object):
     }
     cachito_deps_patch_batch_size = 50
     cachito_download_timeout = 120
-    cachito_gomod_ignore_missing_gomod_file = False
+    cachito_gomod_ignore_missing_gomod_file = True
     cachito_gomod_strict_vendor = False
     cachito_log_level = "INFO"
     cachito_js_download_batch_size = 30

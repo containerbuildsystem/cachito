@@ -286,3 +286,15 @@ implicit_gomod:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+# The test data for gomod package manager test: missing go.mod file
+missing_gomod:
+  repo: https://github.com/cachito-testing/cachito-missing-gomod-file.git
+  ref: 0ae32a94a2a4f17b6702f8dddb1ddb88154f4473
+  pkg_managers: ["gomod"]
+  response_expectations:
+    packages: []
+    dependencies: []
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-missing-gomod-file/tarball/0ae32a94a2a4f17b6702f8dddb1ddb88154f4473
+    deps: null
+  image_contents: []
