@@ -37,6 +37,7 @@ class DevelopmentConfig(Config):
 
     CACHITO_BUNDLES_DIR = os.path.join(tempfile.gettempdir(), "cachito-archives", "bundles")
     CACHITO_LOG_LEVEL = "DEBUG"
+    CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS = [("npm", "yarn"), ("gomod", "git-submodule")]
     CACHITO_PACKAGE_MANAGERS = ["gomod", "npm", "pip", "git-submodule"]
     CACHITO_REQUEST_FILE_LOGS_DIR = "/var/log/cachito/requests"
     SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://cachito:cachito@db:5432/cachito"
