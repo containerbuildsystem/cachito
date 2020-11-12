@@ -18,7 +18,7 @@ class Config(object):
     CACHITO_LOG_FORMAT = "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
     CACHITO_MAX_PER_PAGE = 100
     # Pairs of mutually exclusive package managers (cannot process the same package)
-    CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS = []
+    CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS = [("npm", "yarn")]
     CACHITO_PACKAGE_MANAGERS = ["gomod"]
     CACHITO_REQUEST_FILE_LOGS_DIR = None
     # Users that are allowed to use the "user" property when creating a request
