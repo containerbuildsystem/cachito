@@ -3,6 +3,18 @@ PYTHON_VERSION_VENV ?= python3.8
 TOX_ENVLIST ?= py38
 TOX_ARGS ?=
 
+PODMAN_COMPOSE_AUTO_URL ?= https://raw.githubusercontent.com/containers/podman-compose/devel/podman_compose.py
+PODMAN_COMPOSE_TMP ?= tmp/podman_compose.py
+
+ifeq (podman-compose-auto,$(CACHITO_COMPOSE_ENGINE))
+ifeq (,$(wildcard $(PODMAN_COMPOSE_TMP)))
+$(shell mkdir -p `dirname $(PODMAN_COMPOSE_TMP)`)
+$(shell curl -sL $(PODMAN_COMPOSE_AUTO_URL) -o $(PODMAN_COMPOSE_TMP))
+$(shell chmod +x $(PODMAN_COMPOSE_TMP))
+endif
+override CACHITO_COMPOSE_ENGINE = $(PODMAN_COMPOSE_TMP)
+endif
+
 # Older versions of podman-compose do not support deleting volumes via -v
 DOWN_HELP := $(shell ${CACHITO_COMPOSE_ENGINE} down --help)
 ifeq (,$(findstring volume,$(DOWN_HELP)))

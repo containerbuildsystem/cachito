@@ -81,10 +81,15 @@ Alternatively, you could also run the application with
 [podman-compose](https://github.com/containers/podman-compose) by setting the
 `CACHITO_COMPOSE_ENGINE` variable to the path of the `podman-compose` script.
 Unfortunately, the latest release of `podman-compose` contains various bugs making
-it unusable for running Cachito locally. Use the script from the `devel` branch instead:
+it unusable for running Cachito locally. Use the script from the `devel` branch instead.
+To facilitate this, set `CACHITO_COMPOSE_ENGINE` to the special value `podman-compose-auto`.
+which will instruct the Makefile to download and use the correct version of `podman-compose`.
+Be sure to pre-install the dependencies required by `podman-compose`, currently `PyYAML`.
+The script is available in `./tmp/podman_compose.py`. You may use this script to interact with
+the local deployment.
 
 ```bash
-make run CACHITO_COMPOSE_ENGINE=<path to podman-compose.py script>
+make run CACHITO_COMPOSE_ENGINE=podman-compose-auto
 ```
 
 Verify in the browser at [http://localhost:8080/](http://localhost:8080/)
@@ -178,8 +183,8 @@ The will automatically create and run the following containers:
 * **cachito-worker** - the Cachito Celery worker. This container is also responsible for configuring
   Nexus at startup.
 * **db** - the Postgresql database used by the Cachito REST API.
-* **flower** - the [Flower](https://flower.readthedocs.io/en/latest/) instance for monitoring and 
-  managing Celery. The instance is accessible at [http://localhost:8083](http://http://localhost:8083). 
+* **flower** - the [Flower](https://flower.readthedocs.io/en/latest/) instance for monitoring and
+  managing Celery. The instance is accessible at [http://localhost:8083](http://http://localhost:8083).
   The username is `cachito` and the password is `cachito`.
 * **nexus** - the [Sonatype Nexus Repository Manager](https://www.sonatype.com/nexus-repository-oss)
   instance that is responsible for permanently storing dependencies for the `npm` package manager.
