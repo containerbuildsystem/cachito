@@ -105,6 +105,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             env_vars = {
                 "GOCACHE": {"value": "deps/gomod", "kind": "path"},
                 "GOPATH": {"value": "deps/gomod", "kind": "path"},
+                "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
             }
             env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
         else:

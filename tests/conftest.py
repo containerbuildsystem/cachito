@@ -224,6 +224,7 @@ def sample_package():
 def sample_env_vars():
     sample = {}
     sample["GOPATH"] = sample["GOCACHE"] = {"value": "deps/gomod", "kind": "path"}
+    sample["GOMODCACHE"] = {"value": "deps/gomod/pkg/mod", "kind": "path"}
     return sample
 
 
