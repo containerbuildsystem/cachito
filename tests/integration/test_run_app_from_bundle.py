@@ -38,6 +38,7 @@ def test_run_app_from_bundle(test_env, default_requests, tmpdir):
         env={
             "GOPATH": str(bundle_dir.join("deps", "gomod")),
             "GOCACHE": str(bundle_dir.join("deps", "gomod")),
+            "GOMODCACHE": "{}/pkg/mod".format(str(bundle_dir.join("deps", "gomod"))),
         },
         cwd=str(bundle_dir.join("app")),
         check=True,

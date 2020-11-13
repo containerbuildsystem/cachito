@@ -56,6 +56,7 @@ def test_update_request_with_package(mock_requests, package_subpath, include_sub
     env_vars = {
         "GOCACHE": {"value": "deps/gomod", "kind": "path"},
         "GOPATH": {"value": "deps/gomod", "kind": "path"},
+        "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
     }
     expected_json = {
         "environment_variables": env_vars,
