@@ -26,6 +26,8 @@ RUN dnf -y install \
     && dnf clean all
 COPY . .
 COPY ./docker/cachito-httpd.conf /etc/httpd/conf/httpd.conf
-RUN pip3 install . --no-deps
+# All the requirements except pyarn should already be installed
+RUN pip3 install "pyarn @ git+https://github.com/containerbuildsystem/pyarn.git" && \
+    pip3 install . --no-deps
 EXPOSE 8080
 CMD ["/usr/sbin/httpd", "-DFOREGROUND"]
