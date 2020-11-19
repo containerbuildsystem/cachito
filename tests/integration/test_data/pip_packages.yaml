@@ -5,7 +5,7 @@
 # expected_files: Expected source files <relative_path>: <file_URL>
 # expected_deps_files: Expected dependencies files (empty)
 # response_expectations: Parts of the Cachito response to check
-# purl: PURL of the package
+# content_manifest: PURLs for image contents part
 without_deps:
   repo: https://github.com/cachito-testing/cachito-pip-without-deps.git
   ref: fb07c8492432631d557aba15e1715af9cef9c844
@@ -20,15 +20,15 @@ without_deps:
         name: "cachito-pip-empty"
         type: "pip"
         version: "1.0.0"
-  purl: "pkg:github/cachito-testing/cachito-pip-without-deps@fb07c8492432631d557aba15e1715af9cef9c844"
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-pip-without-deps@fb07c8492432631d557aba15e1715af9cef9c844"
 # pip package with dependencies in requirements.txt
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
 # expected_files: Expected source files <relative_path>: <file_URL>
 # expected_deps_files: Expected dependencies files <relative_path>
 # response_expectations: Parts of the Cachito response to check
-# purl: PURL of the package
-# dep_purls: PURLs if dependencies
+# content_manifest: PURLs for image contents part
 with_deps:
   repo: https://github.com/cachito-testing/cachito-pip-with-deps.git
   ref: 83b387568b6287f6829403cff1e1377b0fb2f5d8
@@ -75,15 +75,19 @@ with_deps:
         name: "cachito-pip-with-deps"
         type: "pip"
         version: "1.0.0"
-  purl: "pkg:github/cachito-testing/cachito-pip-with-deps@83b387568b6287f6829403cff1e1377b0fb2f5d8"
-  dep_purls:
-  - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
-  - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-  - "pkg:pypi/aiowsgi@0.7"
-  source_purls:
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-pip-with-deps@83b387568b6287f6829403cff1e1377b0fb2f5d8"
+    dep_purls:
     - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
     - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
     - "pkg:pypi/aiowsgi@0.7"
+    source_purls:
+      - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+      - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+      - "pkg:pypi/aiowsgi@0.7"
+# pip package with local path
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
 local_path:
   repo: https://github.com/cachito-testing/cachito-pip-local-path.git
   ref: d66f7e029a15e8dc96ced65865344e6088c3fdd5
