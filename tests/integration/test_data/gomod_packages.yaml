@@ -5,7 +5,7 @@
 # expected_files: Expected source files <relative_path>: <file_URL>
 # expected_deps_files: Expected dependencies files (empty)
 # response_expectations: Parts of the Cachito response to check
-# purl: PURL of the package
+# content_manifest: PURLs for image contents part
 without_deps:
   repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
   ref: a888f7261b9a9683972fbd77da2d12fe86faef5e
@@ -24,7 +24,8 @@ without_deps:
   expected_files:
     app: https://github.com/cachito-testing/cachito-gomod-without-deps/tarball/a888f7261b9a9683972fbd77da2d12fe86faef5e
     deps/gomod/pkg/mod/cache/download: null
-  purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
 with_deps:
   repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
   ref: 4c65d49cae6bfbada4d479b321d8c0109fa1aa97
@@ -99,13 +100,14 @@ with_deps:
   expected_files:
     app: https://github.com/cachito-testing/cachito-gomod-with-deps/tarball/4c65d49cae6bfbada4d479b321d8c0109fa1aa97
     deps/gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.zip: https://github.com/cachito-testing/test_files/raw/master/test_gomod_with_deps_quote.tar.gz
-  purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@v0.0.0-20201001160613-4c65d49cae6b"
-  dep_purls:
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@v0.0.0-20201001160613-4c65d49cae6b"
+    dep_purls:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
-  source_purls:
+    source_purls:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
@@ -186,16 +188,17 @@ vendored_with_flag:
   expected_files:
     app: https://github.com/cachito-testing/gomod-vendored/tarball/ff1960095dd158d3d2a4f31d15b244c24930248b
     deps/gomod/pkg/mod/cache/download: null
-  purl: "pkg:golang/github.com%2Fcachito-testing%2Fgomod-vendored@v0.0.0-20200916135625-ff1960095dd1"
-  dep_purls:
-  - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
-  - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
-  - "pkg:golang/rsc.io%2Fquote@v1.5.2"
-  - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
-  source_purls:
-  - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
-  - "pkg:golang/rsc.io%2Fquote@v1.5.2"
-  - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fgomod-vendored@v0.0.0-20200916135625-ff1960095dd1"
+    dep_purls:
+    - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+    - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+    source_purls:
+    - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+    - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
 # The test data for gomod package with vendor directory
 # and without `gomod-vendor` flag.
 vendored_without_flag:
@@ -276,13 +279,14 @@ implicit_gomod:
   expected_files:
     app: https://github.com/cachito-testing/cachito-gomod-with-deps/tarball/4c65d49cae6bfbada4d479b321d8c0109fa1aa97
     deps/gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.zip: https://github.com/cachito-testing/test_files/raw/master/test_gomod_with_deps_quote.tar.gz
-  purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@v0.0.0-20201001160613-4c65d49cae6b"
-  dep_purls:
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@v0.0.0-20201001160613-4c65d49cae6b"
+    dep_purls:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
-  source_purls:
+    source_purls:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
@@ -297,4 +301,4 @@ missing_gomod:
   expected_files:
     app: https://github.com/cachito-testing/cachito-missing-gomod-file/tarball/0ae32a94a2a4f17b6702f8dddb1ddb88154f4473
     deps: null
-  image_contents: []
+  content_manifest: []

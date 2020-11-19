@@ -43,6 +43,7 @@ def test_packages(env_package, env_name, test_env, tmpdir):
         "pkg_managers": env_data.get("pkg_managers", []),
         "flags": env_data.get("flags", []),
     }
+
     if env_name == "implicit_gomod":
         payload.pop("pkg_managers")
 
@@ -57,16 +58,17 @@ def test_packages(env_package, env_name, test_env, tmpdir):
     expected_files = env_data["expected_files"]
     utils.assert_expected_files(source_path, expected_files, tmpdir)
 
-    purl = env_data.get("purl", "")
-    deps_purls = []
-    source_purls = []
-    if "dep_purls" in env_data:
-        deps_purls = [{"purl": x} for x in env_data["dep_purls"]]
-    if "source_purls" in env_data:
-        source_purls = [{"purl": x} for x in env_data["source_purls"]]
-
-    if purl:
-        image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": source_purls}]
-    else:
-        image_contents = env_data["image_contents"]
+    image_contents = []
+    for pkg in env_data.get("content_manifest"):
+        purl = pkg.get("purl", "")
+        dep_purls = []
+        source_purls = []
+        if "dep_purls" in pkg:
+            dep_purls = [{"purl": x} for x in pkg["dep_purls"]]
+        if "source_purls" in pkg:
+            source_purls = [{"purl": x} for x in pkg["source_purls"]]
+        if purl:
+            image_contents.append(
+                {"dependencies": dep_purls, "purl": purl, "sources": source_purls}
+            )
     utils.assert_content_manifest(client, completed_response.id, image_contents)
