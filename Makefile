@@ -10,7 +10,7 @@ clean:
 	rm -rf venv && rm -rf *.egg-info && rm -rf dist && rm -rf *.log* && rm -rf .tox && rm -rf tmp
 
 venv:
-	virtualenv --python=python3 venv && venv/bin/python setup.py develop && venv/bin/pip install -r requirements.txt -r requirements-web.txt tox
+	virtualenv --python=python3 venv && venv/bin/pip install -r requirements.txt -r requirements-web.txt tox && venv/bin/python setup.py develop
 
 run:
 ifeq ($(CACHITO_COMPOSE_ENGINE), podman-compose)

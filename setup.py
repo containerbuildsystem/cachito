@@ -2,26 +2,6 @@
 from setuptools import setup, find_packages
 
 
-def get_requirements(req_file):
-    """
-    Get the requirements listed in a requirements file.
-
-    :param str req_file: the path to the requirements file, relative to this file
-    :return: the list of requirements
-    :rtype: list
-    """
-    with open(req_file) as fd:
-        lines = fd.readlines()
-
-    dependencies = []
-    for line in lines:
-        dep = line.strip()
-        # Skip comments and inclusion of other requirements files
-        if not dep.startswith("#") and not dep.startswith("-r"):
-            dependencies.append(dep)
-    return dependencies
-
-
 setup(
     name="cachito",
     version="1.0",
@@ -29,8 +9,25 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
-    install_requires=get_requirements("requirements.txt"),
-    extras_require={"web": get_requirements("requirements-web.txt")},
+    install_requires=[
+        "celery<5",
+        "gitpython",
+        "kombu<5",  # A celery dependency but it's directly imported
+        "packaging",
+        "requests_kerberos",
+        "requests",
+        "semver",
+        "setuptools",
+    ],
+    extras_require={
+        "web": [
+            "Flask",
+            "flask-login",
+            "Flask-Migrate",
+            "Flask-SQLAlchemy",
+            "psycopg2-binary",
+        ],
+    },
     entry_points={
         "console_scripts": [
             "cachito=cachito.web.manage:cli",
