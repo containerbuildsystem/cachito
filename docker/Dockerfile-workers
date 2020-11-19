@@ -22,7 +22,9 @@ RUN dnf -y install \
     python3-setuptools \
     && dnf clean all
 COPY . .
-RUN pip3 install . --no-deps
+# All the requirements except pyarn should already be installed
+RUN pip3 install "pyarn @ git+https://github.com/containerbuildsystem/pyarn.git" && \
+    pip3 install . --no-deps
 
 # Set git user configuration for GitPython
 ENV GIT_COMMITTER_NAME=cachito \

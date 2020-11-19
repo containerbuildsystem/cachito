@@ -1,10 +1,23 @@
 import logging
 
+from pyarn.lockfile import Lockfile
+
 from cachito.workers.config import get_worker_config
 
 __all__ = ["get_yarn_proxy_repo_name", "get_yarn_proxy_repo_url", "get_yarn_proxy_repo_username"]
 
 log = logging.getLogger(__name__)
+
+
+def get_packages_from_lockfile(lockfile_path):
+    """
+    Get list of packages declared in a yarn.lock file.
+
+    :param (str | Path) lockfile_path: path to yarn.lock file
+    :return: all packages declared in said file
+    :rtype: list[pyarn.lockfile.Package]
+    """
+    return Lockfile.from_file(str(lockfile_path)).packages()
 
 
 def get_yarn_proxy_repo_name(request_id):

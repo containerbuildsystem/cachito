@@ -2,6 +2,7 @@ celery<5
 gitpython
 kombu<5 # A celery dependency but it's directly imported
 packaging
+pyarn @ git+https://github.com/containerbuildsystem/pyarn.git
 requests_kerberos
 requests
 semver
