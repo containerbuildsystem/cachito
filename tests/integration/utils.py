@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from collections import namedtuple
+import hashlib
 import json
 import os
 import shutil
@@ -180,6 +181,29 @@ def escape_path_go(dependency):
         return package_name
     else:
         return dependency
+
+
+def get_sha256_hash_from_file(filename):
+    """
+    Return sha256 hash of file.
+
+    :param str filename: The path to file
+    :return: sha256 hash of file
+    :rtype: str
+    """
+    # make a hash object
+    h = hashlib.sha256()
+
+    # open file for reading in binary mode
+    with open(filename, "rb") as file:
+        # loop till the end of the file, 1024 bytes at a time
+        chunk = file.read(1024)
+        while chunk:
+            h.update(chunk)
+            chunk = file.read(1024)
+
+    # return the hex representation of digest
+    return h.hexdigest()
 
 
 def load_test_data(file_name):
