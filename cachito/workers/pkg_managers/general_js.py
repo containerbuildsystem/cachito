@@ -11,13 +11,14 @@ import shutil
 import tarfile
 import tempfile
 import textwrap
+from dataclasses import dataclass
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers.pkg_managers.general import run_cmd, verify_checksum
+from cachito.workers.pkg_managers.general import run_cmd, verify_checksum, ChecksumInfo
 
 __all__ = [
     "download_dependencies",
@@ -29,6 +30,8 @@ __all__ = [
     "get_npm_component_info_from_nexus",
     "prepare_nexus_for_js_request",
     "upload_non_registry_dependency",
+    "process_non_registry_dependency",
+    "JSDependency",
 ]
 
 log = logging.getLogger(__name__)
@@ -457,3 +460,133 @@ def upload_non_registry_dependency(
 
         repo_name = get_js_hosted_repo_name()
         nexus.upload_asset_only_component(repo_name, "npm", modified_dep_archive)
+
+
+@dataclass(frozen=True)
+class JSDependency:
+    """Holds package-manager-independent data about a JavaScript dependency."""
+
+    # The name of the dependency
+    # In package-lock.json these are the keys in the "dependencies" object
+    # In yarn.lock, these are the top-level keys in the file (the keys are <name>@<version>)
+    name: str
+
+    # The source of the dependency, i.e. resolved url or relative path.
+    # In package-lock.json, this is either the "resolved" key or the "version" key
+    # In yarn.lock, this is either the "resolved" key or the filepath in the top-level key
+    source: str
+
+    # The actual semver version of the dependency
+    # In package-lock.json, this either the "version" key or not present
+    # In yarn.lock, this is always the "version" key
+    version: str = None
+
+    # The hash algorithm and base64-encoded checksum of the dependency
+    # In package-lock.json, this is the "integrity" key and will always be present for registry
+    # deps and tarball deps (it is not relevant for the other types).
+    # In yarn.lock, the "integrity" key seems to be present only for registry deps by default, but
+    # all resolved urls also have a SHA1 checksum in the fragment part. It is unclear how yarn
+    # decides whether to check the integrity value or the checksum in the url when both are present.
+    integrity: str = None
+
+
+def process_non_registry_dependency(js_dep):
+    """
+    Convert the input dependency not from the NPM registry to a Nexus hosted dependency.
+
+    :param JSDependency js_dep: the dependency to be converted
+    :return: information about the replacement dependency in Nexus
+    :rtype: JSDependency
+    :raise CachitoError: if the dependency is from an unsupported location
+        or has an unexpected format
+    """
+    git_prefixes = {
+        "git://",
+        "git+http://",
+        "git+https://",
+        "git+ssh://",
+        "github:",
+        "bitbucket:",
+        "gitlab:",
+    }
+    http_prefixes = {"http://", "https://"}
+    verify_scripts = False
+    checksum_info = None
+    if any(js_dep.source.startswith(prefix) for prefix in git_prefixes):
+        try:
+            _, commit_hash = js_dep.source.rsplit("#", 1)
+        except ValueError:
+            msg = f"The dependency {js_dep.source} was in an unexpected format"
+            log.error(msg)
+            raise CachitoError(msg)
+        # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
+        # of `<version>-gitcommit-<commit hash>`
+        version_suffix = f"-external-gitcommit-{commit_hash}"
+        # Dangerous scripts might be required to be executed by `npm pack` since this is a Git
+        # dependency. If those scripts are present, Cachito will fail the request since it will not
+        # execute those scripts when packing the dependency.
+        verify_scripts = True
+    elif any(js_dep.source.startswith(prefix) for prefix in http_prefixes):
+        if not js_dep.integrity:
+            msg = f"The dependency {js_dep.source} is missing the integrity value"
+            log.error(msg)
+            raise CachitoError(msg)
+
+        checksum_info = convert_integrity_to_hex_checksum(js_dep.integrity)
+        # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
+        # of `<version>-external-<checksum algorithm>-<hex checksum>`
+        version_suffix = f"-external-{checksum_info.algorithm}-{checksum_info.hexdigest}"
+    else:
+        raise CachitoError(f"The dependency {js_dep.source} is hosted in an unsupported location")
+
+    component_info = get_npm_component_info_from_nexus(js_dep.name, f"*{version_suffix}")
+    if not component_info:
+        upload_non_registry_dependency(js_dep.source, version_suffix, verify_scripts, checksum_info)
+        component_info = get_npm_component_info_from_nexus(
+            js_dep.name, f"*{version_suffix}", max_attempts=5
+        )
+        if not component_info:
+            raise CachitoError(
+                f"The dependency {js_dep.source} was uploaded to Nexus but is not accessible"
+            )
+
+    return JSDependency(
+        name=js_dep.name,
+        source=component_info["assets"][0]["downloadUrl"],
+        version=component_info["version"],
+        integrity=convert_hex_sha_to_npm(
+            component_info["assets"][0]["checksum"]["sha512"], "sha512"
+        ),
+    )
+
+
+def convert_hex_sha_to_npm(hex_sha, algorithm):
+    """
+    Convert the input sha checksum in hex to the format an npm/yarn lock file uses.
+
+    Note: does not verify that the input checksum is valid for the specified algorithm.
+
+    :param str hex_sha: the sha checksum in hex
+    :param str algorithm: the sha algorithm to use
+    :return: the sha checksum in npm/yarn lock file format
+    :rtype: str
+    """
+    bytes_sha = bytes.fromhex(hex_sha)
+    base64_sha = base64.b64encode(bytes_sha).decode("utf-8")
+    return f"{algorithm}-{base64_sha}"
+
+
+def convert_integrity_to_hex_checksum(integrity):
+    """
+    Convert the input integrity value of a dependency to a hex checksum.
+
+    The integrity is a key in an npm/yarn lock file that contains the checksum of the dependency
+    in the format of ``<algorithm>-<base64 of the binary hash>``.
+
+    :param str integrity: the integrity from the npm/yarn lock file
+    :return: a tuple where the first item is the algorithm used and second is the hex value of
+        the checksum
+    :rtype: (str, str)
+    """
+    algorithm, checksum = integrity.split("-", 1)
+    return ChecksumInfo(algorithm, base64.b64decode(checksum).hex())

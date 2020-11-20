@@ -8,8 +8,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
-from cachito.workers.pkg_managers import npm
-from cachito.workers.pkg_managers.general import ChecksumInfo
+from cachito.workers.pkg_managers import npm, general_js
 
 
 @pytest.fixture()
@@ -340,61 +339,8 @@ def test_get_deps_allowlisted_file_dep():
     assert replacements == []
 
 
-def test_convert_hex_sha512_to_npm():
-    checksum = (
-        "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bfaac8e48f344"
-        "dc650c8df0f8182c0271ed9fa233aa32c329839"
-    )
-    rv = npm.convert_hex_sha512_to_npm(checksum)
-
-    expected = (
-        "sha512-Ml8Hhh4KuIjZBgaxB0/elW/TlU3MTG5Bjb/52KqDQrVQdIFAiDK/qsjkjzRNxlDI3w+BgsAnHtn6Izqj"
-        "LDKYOQ=="
-    )
-    assert rv == expected
-
-
-def convert_integrity_to_hex_checksum():
-    integrity = (
-        "sha512-Ml8Hhh4KuIjZBgaxB0/elW/TlU3MTG5Bjb/52KqDQrVQdIFAiDK/qsjkjzRNxlDI3w+BgsAnHtn6Izqj"
-        "LDKYOQ=="
-    )
-
-    rv = npm.convert_integrity_to_hex_checksum(integrity)
-
-    expected = (
-        "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bfaac8e48f344"
-        "dc650c8df0f8182c0271ed9fa233aa32c329839"
-    )
-    assert rv == expected
-
-
-@pytest.mark.parametrize("exists", (False, True))
-@mock.patch("cachito.workers.pkg_managers.npm.get_npm_component_info_from_nexus")
-@mock.patch("cachito.workers.pkg_managers.npm.upload_non_registry_dependency")
-def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
-    checksum = (
-        "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bfaac8e48f344"
-        "dc650c8df0f8182c0271ed9fa233aa32c329839"
-    )
-    # The information returned from Nexus of the uploaded component
-    nexus_component_info = {
-        "assets": [
-            {
-                "checksum": {"sha512": checksum},
-                "downloadUrl": (
-                    "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-                    "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
-                ),
-            }
-        ],
-        "version": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-    }
-    if exists:
-        mock_gncifn.return_value = nexus_component_info
-    else:
-        mock_gncifn.side_effect = [None, nexus_component_info]
-
+@mock.patch("cachito.workers.pkg_managers.npm.process_non_registry_dependency")
+def test_convert_to_nexus_hosted(mock_process_non_registry_dep):
     dep_name = "rxjs"
     # The information from the lock file
     dep_info = {
@@ -402,170 +348,16 @@ def test_convert_to_nexus_hosted_github(mock_unrd, mock_gncifn, exists):
         "from": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
         "requires": {"tslib": "^1.9.0"},
     }
-    new_dep_info = npm.convert_to_nexus_hosted(dep_name, dep_info)
 
-    # Verify the information to update the lock file with is correct
-    assert new_dep_info == {
-        "integrity": (
-            "sha512-Ml8Hhh4KuIjZBgaxB0/elW/TlU3MTG5Bjb/52KqDQrVQdIFAiDK/qsjkjzRNxlDI3w+BgsAnHtn6I"
-            "zqjLDKYOQ=="
-        ),
-        "requires": {"tslib": "^1.9.0"},
-        "resolved": (
-            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/rxjs-6.5.5-"
-            "external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
-        ),
-        "version": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+    assert npm.convert_to_nexus_hosted(dep_name, dep_info) == {
+        "integrity": mock_process_non_registry_dep.return_value.integrity,
+        "resolved": mock_process_non_registry_dep.return_value.source,
+        "version": mock_process_non_registry_dep.return_value.version,
+        "requires": dep_info["requires"],
     }
-    if exists:
-        mock_gncifn.assert_called_once_with(
-            "rxjs", "*-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"
-        )
-        # Verify no upload occurs when the component already exists in Nexus
-        mock_unrd.assert_not_called()
-    else:
-        assert mock_gncifn.call_count == 2
-        mock_gncifn.assert_has_calls(
-            [
-                mock.call("rxjs", "*-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"),
-                mock.call(
-                    "rxjs",
-                    "*-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-                    max_attempts=5,
-                ),
-            ]
-        )
-        mock_unrd.assert_called_once_with(
-            "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-            "-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-            True,
-            None,
-        )
-
-
-@pytest.mark.parametrize("exists", (False, True))
-@mock.patch("cachito.workers.pkg_managers.npm.get_npm_component_info_from_nexus")
-@mock.patch("cachito.workers.pkg_managers.npm.upload_non_registry_dependency")
-def test_convert_to_nexus_hosted_http(mock_unrd, mock_gncifn, exists):
-    checksum = (
-        "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bfaac8e48f344"
-        "dc650c8df0f8182c0271ed9fa233aa32c329839"
+    mock_process_non_registry_dep.assert_called_once_with(
+        general_js.JSDependency(name=dep_name, source=dep_info["version"], integrity=None)
     )
-    nexus_component_info = {
-        "assets": [
-            {
-                "checksum": {"sha512": checksum},
-                "downloadUrl": (
-                    "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-                    "rxjs-6.5.5-external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418d"
-                    "bff9d8aa8342b5507481408832bfaac8e48f344.tgz"
-                ),
-            }
-        ],
-        "version": (
-            "6.5.5-external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342"
-            "b5507481408832bfaac8e48f344"
-        ),
-    }
-    if exists:
-        mock_gncifn.return_value = nexus_component_info
-    else:
-        mock_gncifn.side_effect = [None, nexus_component_info]
-
-    dep_name = "rxjs"
-    dep_info = {
-        "version": "https://github.com/ReactiveX/rxjs/archive/6.5.5.tar.gz",
-        "requires": {"tslib": "^1.9.0"},
-        "integrity": (
-            "sha512-Ml8Hhh4KuIjZBgaxB0/elW/TlU3MTG5Bjb/52KqDQrVQdIFAiDK/qsjkjzRNxlDI3w+BgsAnHtn6I"
-            "zqjLDKYOQ=="
-        ),
-    }
-    new_dep_info = npm.convert_to_nexus_hosted(dep_name, dep_info)
-
-    assert new_dep_info == {
-        "integrity": (
-            "sha512-Ml8Hhh4KuIjZBgaxB0/elW/TlU3MTG5Bjb/52KqDQrVQdIFAiDK/qsjkjzRNxlDI3w+BgsAnHtn6I"
-            "zqjLDKYOQ=="
-        ),
-        "requires": {"tslib": "^1.9.0"},
-        "resolved": (
-            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/rxjs-6.5.5-"
-            "external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b55074"
-            "81408832bfaac8e48f344.tgz"
-        ),
-        "version": (
-            "6.5.5-external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8"
-            "aa8342b5507481408832bfaac8e48f344"
-        ),
-    }
-
-    suffix = (
-        "-external-sha512-325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5"
-        "507481408832bfaac8e48f344dc650c8df0f8182c0271ed9fa233aa32c329839"
-    )
-
-    suffix_search = f"*{suffix}"
-    if exists:
-        mock_gncifn.assert_called_once_with("rxjs", suffix_search)
-        # Verify no upload occurs when the component already exists in Nexus
-        mock_unrd.assert_not_called()
-    else:
-        assert mock_gncifn.call_count == 2
-        mock_gncifn.assert_has_calls(
-            [mock.call("rxjs", suffix_search), mock.call("rxjs", suffix_search, max_attempts=5)]
-        )
-        mock_unrd.assert_called_once_with(
-            "https://github.com/ReactiveX/rxjs/archive/6.5.5.tar.gz",
-            suffix,
-            False,
-            ChecksumInfo(
-                "sha512",
-                "325f07861e0ab888d90606b1074fde956fd3954dcc4c6e418dbff9d8aa8342b5507481408832bf"
-                "aac8e48f344dc650c8df0f8182c0271ed9fa233aa32c329839",
-            ),
-        )
-
-
-def test_convert_to_nexus_hosted_http_integrity_missing():
-    dep_identifier = "https://github.com/ReactiveX/rxjs/archive/6.5.5.tar.gz"
-    dep_name = "rxjs"
-    dep_info = {
-        "version": dep_identifier,
-        "requires": {"tslib": "^1.9.0"},
-    }
-    expected = f"The dependency {dep_identifier} is missing the integrity value in the lock file"
-    with pytest.raises(CachitoError, match=expected):
-        npm.convert_to_nexus_hosted(dep_name, dep_info)
-
-
-def test_convert_to_nexus_hosted_invalid_location():
-    dep_identifier = "file:rxjs-6.5.5.tar.gz"
-    dep_name = "rxjs"
-    dep_info = {
-        "version": dep_identifier,
-        "requires": {"tslib": "^1.9.0"},
-    }
-    expected = f"The dependency {dep_identifier} is hosted in an unsupported location"
-    with pytest.raises(CachitoError, match=expected):
-        npm.convert_to_nexus_hosted(dep_name, dep_info)
-
-
-@mock.patch("cachito.workers.pkg_managers.npm.get_npm_component_info_from_nexus")
-@mock.patch("cachito.workers.pkg_managers.npm.upload_non_registry_dependency")
-def test_convert_to_nexus_hosted_github_not_in_nexus(mock_unrd, mock_gncifn):
-    mock_gncifn.return_value = None
-
-    dep_identifier = "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5"
-    dep_name = "rxjs"
-    dep_info = {
-        "version": dep_identifier,
-        "from": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-        "requires": {"tslib": "^1.9.0"},
-    }
-    expected = f"The dependency {dep_identifier} was uploaded to Nexus but is not accessible"
-    with pytest.raises(CachitoError, match=expected):
-        npm.convert_to_nexus_hosted(dep_name, dep_info)
 
 
 def test_get_deps_unsupported_non_registry_dep():

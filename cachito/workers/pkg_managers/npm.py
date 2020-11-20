@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import base64
 import copy
 import json
 import logging
@@ -7,16 +6,13 @@ import os
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
-from cachito.workers.pkg_managers.general import ChecksumInfo
 from cachito.workers.pkg_managers.general_js import (
     download_dependencies,
-    get_npm_component_info_from_nexus,
-    upload_non_registry_dependency,
+    process_non_registry_dependency,
+    JSDependency,
 )
 
 __all__ = [
-    "convert_hex_sha512_to_npm",
-    "convert_integrity_to_hex_checksum",
     "convert_to_nexus_hosted",
     "get_npm_proxy_repo_name",
     "get_npm_proxy_repo_url",
@@ -122,37 +118,6 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None):
     return _name_to_deps, nexus_replacements
 
 
-def convert_hex_sha512_to_npm(hex_sha512):
-    """
-    Convert the input sha512 checksum in hex to the format that an npm lock file uses.
-
-    This is useful for converting sha512 checksums from Nexus.
-
-    :param str hex_sha512: the sha512 checksum in hex
-    :return: the sha512 checksum in npm package-lock.json file format
-    :rtype: str
-    """
-    bytes_sha512 = bytes.fromhex(hex_sha512)
-    base64_sha512 = base64.b64encode(bytes_sha512).decode("utf-8")
-    return f"sha512-{base64_sha512}"
-
-
-def convert_integrity_to_hex_checksum(integrity):
-    """
-    Convert the input integrity value of a dependency to a hex checksum.
-
-    The integrity is a key in an npm lock file that contains the checksum of the dependency in the
-    format of ``<algorithm>-<base64 of the binary hash>``.
-
-    :param str integrity: the integrity from the npm lock file
-    :return: a tuple where the first item is the algorithm used and second is the hex value of
-        the checksum
-    :rtype: (str, str)
-    """
-    algorithm, checksum = integrity.split("-", 1)
-    return ChecksumInfo(algorithm, base64.b64decode(checksum).hex())
-
-
 def convert_to_nexus_hosted(dep_name, dep_info):
     """
     Convert the input dependency not from the NPM registry to a Nexus hosted dependency.
@@ -164,16 +129,6 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     :raise CachitoError: if the dependency is from an unsupported location or has an unexpected
         format in the lock file
     """
-    git_prefixes = {
-        "git://",
-        "git+http://",
-        "git+https://",
-        "git+ssh://",
-        "github:",
-        "bitbucket:",
-        "gitlab:",
-    }
-    http_prefixes = {"http://", "https://"}
     # The version value for a dependency outside of the npm registry is the identifier to use for
     # commands such as `npm pack` or `npm install`
     # Examples of version values:
@@ -181,60 +136,18 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     #   github:ReactiveX/rxjs#78032157f5c1655436829017bbda787565b48c30
     #   https://github.com/jsplumb/jsplumb/archive/2.10.2.tar.gz
     dep_identifier = dep_info["version"]
-    verify_scripts = False
-    checksum_info = None
-    if any(dep_identifier.startswith(prefix) for prefix in git_prefixes):
-        try:
-            _, commit_hash = dep_identifier.rsplit("#", 1)
-        except ValueError:
-            msg = (
-                f"The dependency {dep_identifier} in the npm lock file was in an unexpected format"
-            )
-            log.error(msg)
-            raise CachitoError(msg)
-        # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
-        # of `<version>-gitcommit-<commit hash>`
-        version_suffix = f"-external-gitcommit-{commit_hash}"
-        # Dangerous scripts might be required to be executed by `npm pack` since this is a Git
-        # dependency. If those scripts are present, Cachito will fail the request since it will not
-        # execute those scripts when packing the dependency.
-        verify_scripts = True
-    elif any(dep_identifier.startswith(prefix) for prefix in http_prefixes):
-        if "integrity" not in dep_info:
-            msg = f"The dependency {dep_identifier} is missing the integrity value in the lock file"
-            log.error(msg)
-            raise CachitoError(msg)
 
-        checksum_info = convert_integrity_to_hex_checksum(dep_info["integrity"])
-        # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
-        # of `<version>-external-<checksum algorithm>-<hex checksum>`
-        version_suffix = f"-external-{checksum_info.algorithm}-{checksum_info.hexdigest}"
-    else:
-        raise CachitoError(f"The dependency {dep_identifier} is hosted in an unsupported location")
-
-    component_info = get_npm_component_info_from_nexus(dep_name, f"*{version_suffix}")
-    if not component_info:
-        upload_non_registry_dependency(
-            dep_identifier, version_suffix, verify_scripts, checksum_info
-        )
-        component_info = get_npm_component_info_from_nexus(
-            dep_name, f"*{version_suffix}", max_attempts=5
-        )
-        if not component_info:
-            raise CachitoError(
-                f"The dependency {dep_identifier} was uploaded to Nexus but is not accessible"
-            )
+    dep = JSDependency(name=dep_name, source=dep_identifier, integrity=dep_info.get("integrity"))
+    dep_in_nexus = process_non_registry_dependency(dep)
 
     converted_dep_info = copy.deepcopy(dep_info)
     # The "from" value is the original value from package.json for some locations
     converted_dep_info.pop("from", None)
     converted_dep_info.update(
         {
-            "integrity": convert_hex_sha512_to_npm(
-                component_info["assets"][0]["checksum"]["sha512"]
-            ),
-            "resolved": component_info["assets"][0]["downloadUrl"],
-            "version": component_info["version"],
+            "integrity": dep_in_nexus.integrity,
+            "resolved": dep_in_nexus.source,
+            "version": dep_in_nexus.version,
         }
     )
     return converted_dep_info
