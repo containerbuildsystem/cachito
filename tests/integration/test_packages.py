@@ -10,6 +10,7 @@ import utils
     [
         ("pip_packages", "without_deps"),
         ("pip_packages", "with_deps"),
+        ("pip_packages", "multiple"),
         ("gomod_packages", "without_deps"),
         ("gomod_packages", "with_deps"),
         ("gomod_packages", "vendored_with_flag"),
@@ -43,6 +44,9 @@ def test_packages(env_package, env_name, test_env, tmpdir):
         "pkg_managers": env_data.get("pkg_managers", []),
         "flags": env_data.get("flags", []),
     }
+    # Add packages to Cachito request if possible
+    if "packages" in env_data:
+        payload["packages"] = env_data["packages"]
 
     if env_name == "implicit_gomod":
         payload.pop("pkg_managers")

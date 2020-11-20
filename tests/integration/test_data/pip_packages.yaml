@@ -91,3 +91,78 @@ with_deps:
 local_path:
   repo: https://github.com/cachito-testing/cachito-pip-local-path.git
   ref: d66f7e029a15e8dc96ced65865344e6088c3fdd5
+# Multiple pip packages
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files <relative_path>
+# response_expectations: Parts of the Cachito response to check
+# purl: PURL of the package
+# dep_purls: PURLs if dependencies
+multiple:
+  repo: https://github.com/cachito-testing/cachito-pip-multiple.git
+  ref: 93c6c44b36075454a509d595850b81be29e53db0
+  pkg_managers: ["pip"]
+  packages:
+    pip: [{"path": "first_pkg"}, {"path": "second_pkg"}]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-pip-multiple/tarball/93c6c44b36075454a509d595850b81be29e53db0
+    deps/pip/aiowsgi/aiowsgi-0.7.tar.gz : https://files.pythonhosted.org/packages/f4/3d/1933776c5215c61e38968fedd73c41251e8752736e1cd9fbb73db44ff4e1/aiowsgi-0.7.tar.gz
+    deps/pip/external-appr/appr-external-sha256-ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c.zip: https://github.com/quay/appr/tarball/37ff9a487a54ad41b59855ecd76ee092fe206a84
+    deps/pip/github.com/quay/appr/appr-external-gitcommit-58c88e4952e95935c0dd72d4a24b0c44f2249f5b.tar.gz: https://github.com/quay/appr/tarball/58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+  response_expectations:
+    dependencies:
+    - dev: false
+      name: "appr"
+      replaces: null
+      type: "pip"
+      version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    - dev: false
+      name: "appr"
+      replaces: null
+      type: "pip"
+      version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+    - dev: false
+      name: "aiowsgi"
+      replaces: null
+      type: "pip"
+      version: "0.7"
+    packages:
+    - dependencies:
+      - dev: false
+        name: "appr"
+        replaces: null
+        type: "pip"
+        version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+      - dev: false
+        name: "aiowsgi"
+        replaces: null
+        type: "pip"
+        version: "0.7"
+      name: "first_pkg"
+      path: "first_pkg"
+      type: "pip"
+      version: "1.0.0"
+    - dependencies:
+      - dev: false
+        name: "appr"
+        replaces: null
+        type: "pip"
+        version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+      name: "second_pkg"
+      path: "second_pkg"
+      type: "pip"
+      version: "1.0.0"
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-pip-multiple@93c6c44b36075454a509d595850b81be29e53db0#first_pkg"
+    dep_purls:
+    - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+    - "pkg:pypi/aiowsgi@0.7"
+    source_purls:
+    - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+    - "pkg:pypi/aiowsgi@0.7"
+  - purl: "pkg:github/cachito-testing/cachito-pip-multiple@93c6c44b36075454a509d595850b81be29e53db0#second_pkg"
+    dep_purls:
+    - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    source_purls:
+    - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
