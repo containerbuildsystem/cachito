@@ -170,6 +170,7 @@ class Git(SCM):
             if gitsubmodule:
                 self.update_git_submodules(repo)
 
+            repo.git.gc("--prune=now")
             self._create_archive(repo.working_dir)
 
     def update_and_archive(self, previous_archive, gitsubmodule=False):
@@ -198,6 +199,7 @@ class Git(SCM):
             if gitsubmodule:
                 self.update_git_submodules(repo)
 
+            repo.git.gc("--prune=now")
             self._create_archive(repo.working_dir)
 
     def fetch_source(self, gitsubmodule=False):
