@@ -19,7 +19,7 @@ cached_package:
     # Package managers
     pkg_managers: ["gomod"]
 # Test pip with cached dependencies
-cached_deps:
+pip_cached_deps:
   # Use local version of repos.
   # <use_local: True> is not supported and will be skipped.
   use_local: True

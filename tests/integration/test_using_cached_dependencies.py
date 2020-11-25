@@ -110,8 +110,8 @@ class TestCachedPackage:
         assert first_deps == second_deps
 
 
-class TestPipCachedDependencies:
-    """Test class for pip cached dependencies."""
+class TestCachedDependencies:
+    """Test class for cached dependencies."""
 
     def teardown_method(self, method):
         """Delete branch with commit in the main repo."""
@@ -120,9 +120,10 @@ class TestPipCachedDependencies:
                 self.branch, self.cloned_main_repo, self.main_repo_origin, [self.main_repo_commit]
             )
 
-    def test_pip_with_cached_deps(self, test_env, tmpdir):
+    @pytest.mark.parametrize("env_name", ["pip_cached_deps"])
+    def test_package_with_cached_deps(self, test_env, tmpdir, env_name):
         """
-        Test pip package with cached dependency.
+        Test a package with cached dependency.
 
         The test verifies that even after deleting dependency
         Cachito will provide cached version.
@@ -140,15 +141,15 @@ class TestPipCachedDependencies:
         5. Create Cachito request and verify it [1]
         [1] Verifications:
         * The request completes successfully.
-        * A single pip package is identified.
+        * A single package is identified.
         Dependencies are correctly listed under “.dependencies”
-        and under “.packages | select(.type == “pip”) | .dependencies”.
+        and under “.packages | select(.type == “<pkg_manager>”) | .dependencies”.
         * The source tarball includes the application source code under the app directory.
         * The source tarball includes the dependencies and dev dependencies source code
-        under deps/pip directory.
+        under deps/<pkg_manager> directory.
         * The content manifest is successfully generated and contains correct content.
         """
-        env_data = utils.load_test_data("cached_dependencies.yaml")["cached_deps"]
+        env_data = utils.load_test_data("cached_dependencies.yaml")[env_name]
         self.use_local = env_data["use_local"]
         if self.use_local:
             pytest.skip("The local repos are not supported for the test")
@@ -188,14 +189,6 @@ class TestPipCachedDependencies:
         self.dep_repo_origin = self.cloned_dep_repo.remote(name="origin")
         self.dep_repo_origin.push(self.branch)
 
-        # Download the archive with first commit changes
-        archive_name = os.path.join(tmpdir, f"{new_dep_commits[0]}.zip")
-        utils.download_archive(
-            f"{env_data['dep_archive_baseurl']}{new_dep_commits[0]}.zip", archive_name
-        )
-        # Get the archive hash
-        dep_hash = utils.get_sha256_hash_from_file(archive_name)
-
         # Download the main repo into a new dir
         main_repo_dir = os.path.join(tmpdir, "main")
         self.cloned_main_repo = clone_repo_in_new_dir(
@@ -208,19 +201,16 @@ class TestPipCachedDependencies:
                 "user", "email", self.git_email
             ).release()
 
-        # Add new dependencies into the main repo
-        with open(os.path.join(main_repo_dir, "requirements.txt"), "a") as f:
-            f.write(
-                f"{env_data['dep_archive_baseurl']}{new_dep_commits[0]}"
-                f".zip#egg=appr&cachito_hash=sha256:{dep_hash}\n"
-            )
-            f.write(f"git+{env_data['https_dep_repo']}@{new_dep_commits[1]}#egg=appr\n")
         diff_files = self.cloned_main_repo.git.diff(None, name_only=True)
         self.cloned_main_repo.git.add(diff_files)
         self.cloned_main_repo.git.commit("-m", "test commit")
         self.main_repo_commit = self.cloned_main_repo.head.object.hexsha
         self.main_repo_origin = self.cloned_main_repo.remote(name="origin")
         self.main_repo_origin.push(self.branch)
+
+        replace_rules = {"MAIN_REPO_COMMIT": self.main_repo_commit}
+        replace_rules.update(update_main_repo(env_data, main_repo_dir, new_dep_commits))
+        update_expected_data(env_data, replace_rules)
 
         # Create new Cachito request
         client = utils.Client(
@@ -240,13 +230,6 @@ class TestPipCachedDependencies:
                 self.branch, self.cloned_dep_repo, self.dep_repo_origin, new_dep_commits
             )
 
-        replace_rules = {
-            "FIRST_DEP_COMMIT": new_dep_commits[0],
-            "SECOND_DEP_COMMIT": new_dep_commits[1],
-            "FIRST_DEP_HASH": dep_hash,
-            "MAIN_REPO_COMMIT": self.main_repo_commit,
-        }
-        update_expected_data(env_data, replace_rules)
         assert_successful_cached_request(completed_response, env_data, tmpdir, client)
         # Create new Cachito request to test cached deps
         initial_response = client.create_new_request(payload=payload)
@@ -387,3 +370,45 @@ def update_expected_data(env_data, replace_rules):
         env_data["dep_purls"][i] = replace_by_rules(p, replace_rules)
     for i, p in enumerate(env_data["source_purls"]):
         env_data["source_purls"][i] = replace_by_rules(p, replace_rules)
+
+
+def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits):
+    """
+    Update main repo with new dependencies and return replacement rules.
+
+    Changes depend on package manager:
+    pip:
+        * download dep archive and calculate a hash
+        * update requirements.txt with 2 deps (https + VCS)
+        * return replacement rules based on commits and hash
+
+    :param dict env_data: the test data
+    :param str repo_dir: path to the main repository
+    :param tmpdir: temporary test directory
+    :param list new_dep_commits: list of 2 dep commits
+    :return: replacement rules
+    :rtype: dict
+    """
+    if env_data["pkg_managers"] == ["pip"]:
+        # Download the archive with first commit changes
+        archive_name = os.path.join(tmpdir, f"{new_dep_commits[0]}.zip")
+        utils.download_archive(
+            f"{env_data['dep_archive_baseurl']}{new_dep_commits[0]}.zip", archive_name
+        )
+        # Get the archive hash
+        dep_hash = utils.get_sha256_hash_from_file(archive_name)
+
+        # Add new dependencies into the main repo
+        with open(os.path.join(repo_dir, "requirements.txt"), "a") as f:
+            f.write(
+                f"{env_data['dep_archive_baseurl']}{new_dep_commits[0]}"
+                f".zip#egg=appr&cachito_hash=sha256:{dep_hash}\n"
+            )
+            f.write(f"git+{env_data['https_dep_repo']}@{new_dep_commits[1]}#egg=appr\n")
+
+        # return replacement rules
+        return {
+            "FIRST_DEP_COMMIT": new_dep_commits[0],
+            "SECOND_DEP_COMMIT": new_dep_commits[1],
+            "FIRST_DEP_HASH": dep_hash,
+        }
