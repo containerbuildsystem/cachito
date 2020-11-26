@@ -48,6 +48,7 @@ class Config(object):
     cachito_nexus_timeout = 60
     cachito_nexus_username = "cachito"
     cachito_npm_file_deps_allowlist = {}
+    cachito_yarn_file_deps_allowlist = {}
     cachito_request_file_logs_dir = None
     cachito_request_file_logs_format = (
         "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
