@@ -21,7 +21,7 @@ cached_package:
 # Test pip with cached dependencies
 pip_cached_deps:
   # Use local version of repos.
-  # <use_local: True> is not supported and will be skipped.
+  # <use_local: True> is not supported in local environment and will be skipped.
   use_local: True
   # test repo user
   git_user: "Arthur Dent"
@@ -100,19 +100,100 @@ pip_cached_deps:
       name: "cachito-pip-with-deps"
       type: "pip"
       version: "1.0.0"
-  # PURL of the package
-  purl: "pkg:github/cachito-testing/cachito-pip-with-deps@MAIN_REPO_COMMIT"
-  # PURLs of dependencies
-  dep_purls:
-  - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fcachito-testing%2Fcachito-pip-without-deps%2Farchive%2FFIRST_DEP_COMMIT.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3AFIRST_DEP_HASH&checksum=sha256:FIRST_DEP_HASH"
-  - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
-  - "pkg:github/cachito-testing/cachito-pip-without-deps@SECOND_DEP_COMMIT"
-  - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-  - "pkg:pypi/aiowsgi@0.7"
-  # PURLs of source data
-  source_purls:
-  - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fcachito-testing%2Fcachito-pip-without-deps%2Farchive%2FFIRST_DEP_COMMIT.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3AFIRST_DEP_HASH&checksum=sha256:FIRST_DEP_HASH"
-  - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
-  - "pkg:github/cachito-testing/cachito-pip-without-deps@SECOND_DEP_COMMIT"
-  - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-  - "pkg:pypi/aiowsgi@0.7"
+  # Expected content manifest data
+  content_manifest:
+    # PURL of the package
+    purl: "pkg:github/cachito-testing/cachito-pip-with-deps@MAIN_REPO_COMMIT"
+    # PURLs of dependencies
+    dep_purls:
+    - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fcachito-testing%2Fcachito-pip-without-deps%2Farchive%2FFIRST_DEP_COMMIT.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3AFIRST_DEP_HASH&checksum=sha256:FIRST_DEP_HASH"
+    - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+    - "pkg:github/cachito-testing/cachito-pip-without-deps@SECOND_DEP_COMMIT"
+    - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    - "pkg:pypi/aiowsgi@0.7"
+    # PURLs of source data
+    source_purls:
+    - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fcachito-testing%2Fcachito-pip-without-deps%2Farchive%2FFIRST_DEP_COMMIT.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3AFIRST_DEP_HASH&checksum=sha256:FIRST_DEP_HASH"
+    - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+    - "pkg:github/cachito-testing/cachito-pip-without-deps@SECOND_DEP_COMMIT"
+    - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+    - "pkg:pypi/aiowsgi@0.7"
+# Test gomod with cached dependencies
+gomod_cached_deps:
+  # Use local version of repos.
+  # <use_local: True> is not supported in local environment and will be skipped.
+  use_local: True
+  # test repo user
+  git_user: "Arthur Dent"
+  # test repo user email
+  git_email: "dent42@cachito.rocks"
+  # HTTPS and SSH links to main and dependency repos respectively
+  https_main_repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
+  https_dep_repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
+  ssh_main_repo: "git@github.com:cachito-testing/cachito-gomod-with-deps.git"
+  ssh_dep_repo: "git@github.com:cachito-testing/cachito-gomod-without-deps.git"
+  pkg_managers: [ "gomod" ]
+  # Parts of the Cachito response to check
+  response_expectations:
+    packages:
+    - dependencies:
+      - name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        replaces: null
+        type: "gomod"
+        version: "DEP_VERSION"
+      name: "github.com/cachito-testing/cachito-gomod-with-deps"
+      type: "gomod"
+      version: "MAIN_VERSION"
+    - dependencies:
+      - name: "rsc.io/quote"
+        replaces: null
+        type: "go-package"
+        version: "v1.5.2"
+      - name: "rsc.io/sampler"
+        replaces: null
+        type: "go-package"
+        version: "v1.3.0"
+      - name: "golang.org/x/text/language"
+        replaces: null
+        type: "go-package"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
+      - name: "golang.org/x/text/internal/tag"
+        replaces: null
+        type: "go-package"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
+      name: "github.com/cachito-testing/cachito-gomod-with-deps"
+      type: "go-package"
+      version: "MAIN_VERSION"
+    dependencies:
+    - name: "golang.org/x/text/internal/tag"
+      replaces: null
+      type: "go-package"
+      version: "v0.0.0-20170915032832-14c0d48ead0c"
+    - name: "golang.org/x/text/language"
+      replaces: null
+      type: "go-package"
+      version: "v0.0.0-20170915032832-14c0d48ead0c"
+    - name: "rsc.io/sampler"
+      replaces: null
+      type: "go-package"
+      version: "v1.3.0"
+    - name: "rsc.io/quote"
+      replaces: null
+      type: "go-package"
+      version: "v1.5.2"
+    - name: "github.com/cachito-testing/cachito-gomod-without-deps"
+      replaces: null
+      type: "gomod"
+      version: "DEP_VERSION"
+  # Expected files
+  expected_files: []
+  # Expected content manifest data
+  content_manifest:
+    purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@MAIN_VERSION"
+    dep_purls:
+    - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+    - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+    source_purls:
+    - "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@DEP_VERSION"
