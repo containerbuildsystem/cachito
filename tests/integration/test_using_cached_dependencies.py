@@ -120,7 +120,7 @@ class TestCachedDependencies:
                 self.branch, self.cloned_main_repo, self.main_repo_origin, [self.main_repo_commit]
             )
 
-    @pytest.mark.parametrize("env_name", ["pip_cached_deps"])
+    @pytest.mark.parametrize("env_name", ["pip_cached_deps", "gomod_cached_deps"])
     def test_package_with_cached_deps(self, test_env, tmpdir, env_name):
         """
         Test a package with cached dependency.
@@ -201,15 +201,21 @@ class TestCachedDependencies:
                 "user", "email", self.git_email
             ).release()
 
+        replace_rules = update_main_repo(
+            env_data, main_repo_dir, tmpdir, new_dep_commits, self.cloned_dep_repo
+        )
+
         diff_files = self.cloned_main_repo.git.diff(None, name_only=True)
         self.cloned_main_repo.git.add(diff_files)
         self.cloned_main_repo.git.commit("-m", "test commit")
         self.main_repo_commit = self.cloned_main_repo.head.object.hexsha
         self.main_repo_origin = self.cloned_main_repo.remote(name="origin")
         self.main_repo_origin.push(self.branch)
+        main_version = get_pseudo_version(self.cloned_main_repo, self.main_repo_commit)
 
-        replace_rules = {"MAIN_REPO_COMMIT": self.main_repo_commit}
-        replace_rules.update(update_main_repo(env_data, main_repo_dir, new_dep_commits))
+        replace_rules.update(
+            {"MAIN_REPO_COMMIT": self.main_repo_commit, "MAIN_VERSION": main_version}
+        )
         update_expected_data(env_data, replace_rules)
 
         # Create new Cachito request
@@ -258,13 +264,13 @@ def assert_successful_cached_request(response, env_data, tmpdir, client):
     expected_files = env_data["expected_files"]
     utils.assert_expected_files(source_path, expected_files, tmpdir)
 
-    purl = env_data["purl"]
+    purl = env_data["content_manifest"]["purl"]
     deps_purls = []
     source_purls = []
-    if "dep_purls" in env_data:
-        deps_purls = [{"purl": x} for x in env_data["dep_purls"]]
-    if "source_purls" in env_data:
-        source_purls = [{"purl": x} for x in env_data["source_purls"]]
+    if "dep_purls" in env_data["content_manifest"]:
+        deps_purls = [{"purl": x} for x in env_data["content_manifest"]["dep_purls"]]
+    if "source_purls" in env_data["content_manifest"]:
+        source_purls = [{"purl": x} for x in env_data["content_manifest"]["source_purls"]]
 
     image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": source_purls}]
     utils.assert_content_manifest(client, response.id, image_contents)
@@ -320,6 +326,20 @@ def delete_branch_and_check(branch, repo, remote, commits):
         ), f"Commit {commit} is still in a branch (it shouldn't be there at this point)."
 
 
+def get_pseudo_version(repo, commit):
+    """
+    Get go pseudo version.
+
+    Go pseudo version based on commit and commit time.
+    :param repo: git repo with go project
+    :param str commit: git commit
+    :return: string with pseudo version
+    :rtype: str
+    """
+    commit_time = repo.git.show("-s", "--format=%cd", "--date=format:%Y%m%d%H%M%S", commit)
+    return f"v0.0.0-{commit_time}-{commit[:12]}"
+
+
 def replace_by_rules(orig_str, replace_rules):
     """
     Replace elements in string according to replace rules.
@@ -350,12 +370,16 @@ def update_expected_data(env_data, replace_rules):
         {<ORIG_PART>: <NEW_PART>}
     """
     new_expected_files = {}
-    for file, url in env_data["expected_files"].items():
-        new_expected_files[replace_by_rules(file, replace_rules)] = replace_by_rules(
-            url, replace_rules
-        )
+    if env_data["expected_files"]:
+        for file, url in env_data["expected_files"].items():
+            new_expected_files[replace_by_rules(file, replace_rules)] = replace_by_rules(
+                url, replace_rules
+            )
     env_data["expected_files"] = new_expected_files
-
+    for pkg_idx in range(len(env_data["response_expectations"]["packages"])):
+        env_data["response_expectations"]["packages"][pkg_idx]["version"] = replace_by_rules(
+            env_data["response_expectations"]["packages"][pkg_idx]["version"], replace_rules
+        )
     for i, dep in enumerate(env_data["response_expectations"]["dependencies"]):
         env_data["response_expectations"]["dependencies"][i]["version"] = replace_by_rules(
             dep["version"], replace_rules
@@ -365,14 +389,16 @@ def update_expected_data(env_data, replace_rules):
             "version"
         ] = replace_by_rules(dep["version"], replace_rules)
 
-    env_data["purl"] = replace_by_rules(env_data["purl"], replace_rules)
-    for i, p in enumerate(env_data["dep_purls"]):
-        env_data["dep_purls"][i] = replace_by_rules(p, replace_rules)
-    for i, p in enumerate(env_data["source_purls"]):
-        env_data["source_purls"][i] = replace_by_rules(p, replace_rules)
+    env_data["content_manifest"]["purl"] = replace_by_rules(
+        env_data["content_manifest"]["purl"], replace_rules
+    )
+    for i, p in enumerate(env_data["content_manifest"]["dep_purls"]):
+        env_data["content_manifest"]["dep_purls"][i] = replace_by_rules(p, replace_rules)
+    for i, p in enumerate(env_data["content_manifest"]["source_purls"]):
+        env_data["content_manifest"]["source_purls"][i] = replace_by_rules(p, replace_rules)
 
 
-def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits):
+def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
     """
     Update main repo with new dependencies and return replacement rules.
 
@@ -382,10 +408,17 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits):
         * update requirements.txt with 2 deps (https + VCS)
         * return replacement rules based on commits and hash
 
+    gomod:
+        * get a pseudo-version for dependency commit
+        * replace a `require` string with old dependency
+          with new one in the go.mod file
+        * return replacement rules based on commit and pseudo-version
+
     :param dict env_data: the test data
     :param str repo_dir: path to the main repository
     :param tmpdir: temporary test directory
     :param list new_dep_commits: list of 2 dep commits
+    :param dep_repo: Dependency git repository
     :return: replacement rules
     :rtype: dict
     """
@@ -411,4 +444,22 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits):
             "FIRST_DEP_COMMIT": new_dep_commits[0],
             "SECOND_DEP_COMMIT": new_dep_commits[1],
             "FIRST_DEP_HASH": dep_hash,
+        }
+    elif env_data["pkg_managers"] == ["gomod"]:
+        dep_version = get_pseudo_version(dep_repo, new_dep_commits[0])
+
+        with open(os.path.join(repo_dir, "go.mod"), "r") as f:
+            base_gomod_file = [
+                line for line in f.read().split("\n") if not line.startswith("require")
+            ]
+        with open(os.path.join(repo_dir, "go.mod"), "w+") as f:
+            for line in base_gomod_file:
+                f.write(f"{line}\n")
+            go_dep = env_data["https_dep_repo"][len("https://") :]
+            if go_dep.endswith(".git"):
+                go_dep = go_dep[: -len(".git")]
+            f.write(f"require {go_dep} {dep_version} \n")
+        return {
+            "FIRST_DEP_COMMIT": new_dep_commits[0],
+            "DEP_VERSION": dep_version,
         }
