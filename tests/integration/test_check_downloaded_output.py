@@ -70,3 +70,76 @@ def test_check_downloaded_output(test_env, default_requests, tmpdir):
                 f"in archive {file_name_tar}"
             )
             path_names.add(dependency.name)
+
+
+def test_git_dir_not_included_by_default(test_env, default_requests, tmpdir):
+    """
+    Check that the bundle does not include the .git file objects by default.
+
+    Process:
+    * Send new request to Cachito API
+    * Send request to download appropriate bundle from Cachito
+
+    Checks:
+    * Check that response code is 200
+    * Check that state is "complete"
+    * Check the downloaded data are in gzip format and valid
+    * Check that downloaded data does not contain any .git files
+    """
+    response = default_requests["gomod"].complete_response
+    utils.assert_properly_completed_response(response)
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+
+    client.download_and_extract_archive(response.id, tmpdir)
+    file_name_tar = tmpdir.join(f"download_{str(response.id)}.tar.gz")
+
+    with tarfile.open(file_name_tar, mode="r:gz") as tar:
+        git_files = {
+            member.name for member in tar.getmembers() if path.basename(member.name) == ".git"
+        }
+
+    assert not git_files, (
+        f"#{response.id}: There are unexpected .git files in archive {file_name_tar}: "
+        f"{git_files}"
+    )
+
+
+def test_git_dir_included_by_flag(test_env, tmpdir):
+    """
+    Check that the bundle includes the .git file objects when include-git-dir flag is used.
+
+    Process:
+    * Send new request to Cachito API
+    * Send request to download appropriate bundle from Cachito
+
+    Checks:
+    * Check that response code is 200
+    * Check that state is "complete"
+    * Check the downloaded data are in gzip format and valid
+    * Check that downloaded data contains app/.git file object, directory
+    """
+    package_info = test_env["packages"]["gomod"]
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+    initial_response = client.create_new_request(
+        payload={
+            "repo": package_info["repo"],
+            "ref": package_info["ref"],
+            "pkg_managers": package_info["pkg_managers"],
+            "flags": ["include-git-dir"],
+        },
+    )
+    response = client.wait_for_complete_request(initial_response)
+    utils.assert_properly_completed_response(response)
+
+    client.download_and_extract_archive(response.id, tmpdir)
+    file_name_tar = tmpdir.join(f"download_{str(response.id)}.tar.gz")
+
+    with tarfile.open(file_name_tar, mode="r:gz") as tar:
+        git_files = {
+            member.name for member in tar.getmembers() if path.basename(member.name) == ".git"
+        }
+
+    assert git_files == {"app/.git", }, (
+        f"#{response.id}: There are unexpected, or missing, .git files in archive {file_name_tar}: "
+        f"{git_files}"
+    )

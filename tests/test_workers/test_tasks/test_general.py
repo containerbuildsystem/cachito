@@ -87,9 +87,13 @@ def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
 
 
 @pytest.mark.parametrize("deps_present", (True, False))
+@pytest.mark.parametrize("include_git_dir", (True, False))
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 @mock.patch("cachito.workers.paths.get_worker_config")
-def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir):
+def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, include_git_dir, tmpdir):
+    flags = ["include-git-dir"] if include_git_dir else []
+    mock_set_request.return_value = {"flags": flags}
+
     # Make the bundles and sources dir configs point to under the pytest managed temp dir
     bundles_dir = tmpdir.mkdir("bundles")
     mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
@@ -132,7 +136,7 @@ def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir)
             [
                 path
                 for path in bundle_archive.getnames()
-                if pathlib.Path(path).suffix in (".go", ".zip")
+                if pathlib.Path(path).suffix in (".go", ".zip") or os.path.basename(path) == ".git"
             ]
         )
 
@@ -140,8 +144,9 @@ def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir)
         assert "deps" in bundle_archive.getnames()
 
     expected = set(app_archive_contents.keys())
-    # The .git folder must be excluded
-    expected.remove("app/.git")
+    if not include_git_dir:
+        # The .git folder must be excluded unless flag is used
+        expected.remove("app/.git")
     if deps_present:
         expected |= set(deps_archive_contents.keys())
 
