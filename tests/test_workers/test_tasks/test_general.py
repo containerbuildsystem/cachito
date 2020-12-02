@@ -146,7 +146,8 @@ def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, tmpdir)
         expected |= set(deps_archive_contents.keys())
 
     assert bundle_contents == expected
-    call1 = (request_id, "in_progress", "Assembling the bundle archive")
-    call2 = (request_id, "complete", "Completed successfully")
-    assert mock_set_request.call_count == len([call1, call2])
-    mock_set_request.assert_has_calls(mock_set_request(call1), mock_set_request(call2))
+    call1 = mock.call(request_id, "in_progress", "Assembling the bundle archive")
+    call2 = mock.call(request_id, "complete", "Completed successfully")
+    calls = [call1, call2]
+    assert mock_set_request.call_count == len(calls)
+    mock_set_request.assert_has_calls(calls)
