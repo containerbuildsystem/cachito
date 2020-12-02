@@ -237,7 +237,7 @@ make test-integration
 By default, some tests will require custom configuration and will run against your local development
 environment. Read the [integration tests readme](tests/integration/README.md) for more information.
 
-**NOTE:** The [containerized development environment](#run-a-containerized-development-environment) 
+**NOTE:** The [containerized development environment](#run-a-containerized-development-environment)
 needs to be running before the integration tests can pass.
 
 ### Running Specific Tests
@@ -249,7 +249,7 @@ make test-suite TOX_ARGS=<test-suite-identifier>
 ```
 
 The `test-suite-identifier` can be pulled from the test result in the `tox` output or constructed from
-the filepath filepath and test function. For example, if you want to run 
+the filepath filepath and test function. For example, if you want to run
 [`test_fetch_gomod_source`](https://github.com/release-engineering/cachito/blob/983349b2c45326def8e20f36cbe2a1fee7dabf0e/tests/test_workers/test_tasks/test_gomod.py#L24),
 you would call:
 
@@ -260,7 +260,7 @@ make test-suite TOX_ARGS=tests/test_workers/test_tasks/test_gomod.py::test_fetch
 Omitting the `TOX_ARGS` will run all tests without performing `black`/`flake8` validation.
 
 In addition to running specific tests, parameters can be passed into `tox` with `TOX_ARGS` and the
-environment can be configured with `TOX_ENVLIST`. 
+environment can be configured with `TOX_ENVLIST`.
 
 ```bash
 make test-suite TOX_ARGS="-x --no-cov tests/test_workers/test_tasks/test_gomod.py"
@@ -630,7 +630,7 @@ cache when building the application.
 #### Go package level dependencies and the go-package Cachito package type
 
 On top of finding the Go module and its dependencies, and providing their sources and the proper
-environment variables for a successful build from such sources, Cachito will also discover Go 
+environment variables for a successful build from such sources, Cachito will also discover Go
 packages in the source repository and their (package level) dependencies. By default, the top
 level package is discovered, but optional `path`s can be provided to point Cachito to the package(s)
 to discover.
