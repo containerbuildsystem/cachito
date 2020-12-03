@@ -139,7 +139,7 @@ def test_git_dir_included_by_flag(test_env, tmpdir):
             member.name for member in tar.getmembers() if path.basename(member.name) == ".git"
         }
 
-    assert git_files == {"app/.git", }, (
+    assert git_files == {"app/.git"}, (
         f"#{response.id}: There are unexpected, or missing, .git files in archive {file_name_tar}: "
         f"{git_files}"
     )
