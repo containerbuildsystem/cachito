@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from datetime import datetime
 import os
 from pathlib import Path
 import random
@@ -336,7 +337,10 @@ def get_pseudo_version(repo, commit):
     :return: string with pseudo version
     :rtype: str
     """
-    commit_time = repo.git.show("-s", "--format=%cd", "--date=format:%Y%m%d%H%M%S", commit)
+    commit_time_str = repo.git.show("-s", "--format=%ci", commit)
+    commit_time = datetime.utcfromtimestamp(
+        datetime.strptime(commit_time_str, "%Y-%m-%d %H:%M:%S %z").timestamp()
+    ).strftime("%Y%m%d%H%M%S")
     return f"v0.0.0-{commit_time}-{commit[:12]}"
 
 
