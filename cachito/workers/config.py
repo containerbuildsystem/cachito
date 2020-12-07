@@ -270,6 +270,12 @@ def validate_npm_config():
         )
 
 
+# yarn and npm use the same configuration options including `cachito_npm_proxy_repo_url`;
+#   in Cachito, yarn uses the same proxy repo as npm - like the official yarn registry which
+#   is just a CNAME to the npm registry
+validate_yarn_config = validate_npm_config
+
+
 def validate_pip_config():
     """
     Perform validation on the Celery configuration for the pip package manager.
