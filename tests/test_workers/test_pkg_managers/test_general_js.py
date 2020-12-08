@@ -15,6 +15,7 @@ from cachito.workers.paths import RequestBundleDir
 
 
 @pytest.mark.parametrize("nexus_ca_cert_exists", (True, False))
+@pytest.mark.parametrize("pkg_manager", ["npm", "yarn"])
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("os.path.exists")
 @mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
@@ -29,6 +30,7 @@ def test_download_dependencies(
     mock_exists,
     mock_td,
     nexus_ca_cert_exists,
+    pkg_manager,
     tmpdir,
 ):
     bundles_dir = tmpdir.mkdir("bundles")
@@ -91,9 +93,9 @@ def test_download_dependencies(
     ]
     request_id = 1
     request_bundle_dir = bundles_dir.mkdir("temp").mkdir(str(request_id))
-    npm_dir_path = os.path.join(request_bundle_dir, "deps/npm")
+    deps_path = os.path.join(request_bundle_dir, f"deps/{pkg_manager}")
     proxy_repo_url = npm.get_npm_proxy_repo_url(request_id)
-    general_js.download_dependencies(request_id, deps, proxy_repo_url)
+    general_js.download_dependencies(request_id, deps, proxy_repo_url, pkg_manager=pkg_manager)
 
     mock_npm_rc_path = str(mock_td_path.join(".npmrc"))
     if nexus_ca_cert_exists:
@@ -126,27 +128,25 @@ def test_download_dependencies(
     run_cmd_env_vars = mock_run_cmd.call_args[0][1]["env"]
     assert run_cmd_env_vars["NPM_CONFIG_CACHE"] == str(mock_td_path.join("cache"))
     assert run_cmd_env_vars["NPM_CONFIG_USERCONFIG"] == mock_npm_rc_path
-    assert mock_run_cmd.call_args[0][1]["cwd"] == f"{npm_dir_path}"
-    dep1_source_path = RequestBundleDir(f"{npm_dir_path}/angular-devkit-architect-0.803.26.tgz")
+    assert mock_run_cmd.call_args[0][1]["cwd"] == f"{deps_path}"
+    dep1_source_path = RequestBundleDir(f"{deps_path}/angular-devkit-architect-0.803.26.tgz")
     dep1_dest_path = RequestBundleDir(
-        f"{npm_dir_path}/@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz"
+        f"{deps_path}/@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz"
     )
-    dep2_source_path = RequestBundleDir(f"{npm_dir_path}/angular-animations-8.2.14.tgz")
+    dep2_source_path = RequestBundleDir(f"{deps_path}/angular-animations-8.2.14.tgz")
     dep2_dest_path = RequestBundleDir(
-        f"{npm_dir_path}/@angular/animations/angular-animations-8.2.14.tgz"
+        f"{deps_path}/@angular/animations/angular-animations-8.2.14.tgz"
     )
     dep3_source_path = RequestBundleDir(
-        f"{npm_dir_path}/rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz"
+        f"{deps_path}/rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz"
     )
     dep3_dest_path = RequestBundleDir(
-        f"{npm_dir_path}/github/ReactiveX/rxjs/rxjs-6.5.5-external-gitcommit-"
+        f"{deps_path}/github/ReactiveX/rxjs/rxjs-6.5.5-external-gitcommit-"
         "78032157f5c1655436829017bbda787565b48c30.tgz"
     )
-    dep4_source_path = RequestBundleDir(
-        f"{npm_dir_path}/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
-    )
+    dep4_source_path = RequestBundleDir(f"{deps_path}/exsp-2.10.2-external-sha512-abcdefg.tar.gz")
     dep4_dest_path = RequestBundleDir(
-        f"{npm_dir_path}/external-exsp/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
+        f"{deps_path}/external-exsp/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
     )
     mock_move.assert_has_calls(
         [

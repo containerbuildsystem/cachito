@@ -37,7 +37,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
+def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None, pkg_manager="npm"):
     """
     Download the list of npm dependencies using npm pack to the deps bundle directory.
 
@@ -53,6 +53,8 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
     :param str proxy_repo_url: the Nexus proxy repository URL to use as the registry
     :param set skip_deps: a set of dependency identifiers to not download because they've already
         been downloaded for this request
+    :param str pkg_manager: the name of the package manager to download dependencies for, affects
+        destination directory and logging output (npm is used to do the actual download regardless)
     :return: a set of dependency identifiers that were downloaded
     :rtype: set
     :raises CachitoError: if any of the downloads fail
@@ -89,11 +91,18 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
             "PATH": os.environ.get("PATH", ""),
         }
         bundle_dir = RequestBundleDir(request_id)
-        bundle_dir.npm_deps_dir.mkdir(exist_ok=True)
-        # Download the dependencies directly in the deps/npm bundle directory
-        run_params = {"env": env, "cwd": str(bundle_dir.npm_deps_dir)}
+        if pkg_manager == "npm":
+            deps_download_dir = bundle_dir.npm_deps_dir
+        elif pkg_manager == "yarn":
+            deps_download_dir = bundle_dir.yarn_deps_dir
+        else:
+            raise ValueError(f"Invalid package manager: {pkg_manager!r}")
 
-        log.info("Processing %d npm dependencies to stage in Nexus", len(deps))
+        deps_download_dir.mkdir(exist_ok=True)
+        # Download the dependencies directly in the bundle directory
+        run_params = {"env": env, "cwd": str(deps_download_dir)}
+
+        log.info("Processing %d %s dependencies to stage in Nexus", len(deps), pkg_manager)
         downloaded_deps = set()
         # This must be done in batches to prevent Nexus from erroring with "Header is too large"
         deps_batches = []
@@ -132,10 +141,14 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
             # from the list of tuples
             dep_batch_download = [i[0] for i in dep_batch]
             log.debug(
-                "Downloading the following npm dependencies: %s", ", ".join(dep_batch_download)
+                "Downloading the following %s dependencies: %s",
+                pkg_manager,
+                ", ".join(dep_batch_download),
             )
             npm_pack_args = ["npm", "pack"] + dep_batch_download
-            output = run_cmd(npm_pack_args, run_params, "Failed to download the npm dependencies")
+            output = run_cmd(
+                npm_pack_args, run_params, f"Failed to download the {pkg_manager} dependencies"
+            )
 
             # Move dependencies to their respective folders
             # Iterate through the tuples made of dependency tarball and dep_identifier
@@ -162,10 +175,10 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None):
                         dir_path = f"external-{dir_path}"
 
                 # Create the target directory for the dependency
-                dep_dir = bundle_dir.npm_deps_dir.joinpath(*dir_path.split("/", 1))
+                dep_dir = deps_download_dir.joinpath(*dir_path.split("/", 1))
                 dep_dir.mkdir(exist_ok=True, parents=True)
                 # Move the dependency into the target directory
-                shutil.move(bundle_dir.npm_deps_dir.joinpath(tarball), dep_dir.joinpath(tarball))
+                shutil.move(deps_download_dir.joinpath(tarball), dep_dir.joinpath(tarball))
 
         return downloaded_deps
 
