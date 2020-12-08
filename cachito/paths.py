@@ -52,6 +52,8 @@ class RequestBundleDir(type(Path())):
 
         self.pip_deps_dir = self.joinpath("deps", "pip")
 
+        self.yarn_deps_dir = self.joinpath("deps", "yarn")
+
         self.bundle_archive_file = Path(root, f"{request_id}.tar.gz")
 
         return self
