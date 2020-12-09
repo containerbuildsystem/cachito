@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from typing import List
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus
@@ -167,23 +168,50 @@ def fetch_npm_source(request_id, package_configs=None):
     password = finalize_nexus_for_js_request(username, repo_name)
 
     log.info("Generating the .npmrc file(s)")
+    proxy_repo_url = get_npm_proxy_repo_url(request_id)
+    npm_config_files.extend(
+        generate_npmrc_config_files(proxy_repo_url, username, password, subpaths)
+    )
+
+    update_request_with_config_files(request_id, npm_config_files)
+
+
+def generate_npmrc_config_files(
+    proxy_repo_url: str, username: str, password: str, subpaths: List[str],
+) -> List[dict]:
+    """
+    Generate one .npmrc config file for each subpath in request.
+
+    If Nexus has a CA cert, it will also be added as a configuration file.
+
+    The contents of all .nmprc files are the same except for the 'cafile' option, which defines
+    the relative path from the app directory to the CA cert.
+
+    :param str proxy_repo_url: url of the npm proxy repo
+    :param str username: username with read access to the proxy repo
+    :param str password: the password for the corresponding username
+    :param list[str] subpaths: list of package subpaths in request
+    :return: list of config files to be added to the request
+    """
+    config_files = []
+
     ca_cert = nexus.get_ca_cert()
     if ca_cert:
         # The custom CA will be called registry-ca.pem in the "app" directory
         ca_path = os.path.join("app", "registry-ca.pem")
-        npm_config_files.append(make_base64_config_file(ca_cert, ca_path))
+        config_files.append(make_base64_config_file(ca_cert, ca_path))
 
     for subpath in subpaths:
-        proxy_repo_url = get_npm_proxy_repo_url(request_id)
         if ca_cert:
             # Determine the relative path to the registry-ca.pem file
             custom_ca_path = os.path.relpath("registry-ca.pem", start=subpath)
         else:
             custom_ca_path = None
+
         npm_rc = generate_npmrc_content(
             proxy_repo_url, username, password, custom_ca_path=custom_ca_path
         )
         npm_rc_path = os.path.normpath(os.path.join("app", subpath, ".npmrc"))
-        npm_config_files.append(make_base64_config_file(npm_rc, npm_rc_path))
+        config_files.append(make_base64_config_file(npm_rc, npm_rc_path))
 
-    update_request_with_config_files(request_id, npm_config_files)
+    return config_files

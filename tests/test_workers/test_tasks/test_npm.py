@@ -339,3 +339,55 @@ def test_fetch_npm_source_resolve_fails(mock_rn, mock_pnfjr, mock_srs, mock_vnf,
 
     assert mock_srs.call_count == 2
     mock_pnfjr.assert_called_once_with("cachito-npm-6")
+
+
+@mock.patch("cachito.workers.tasks.npm.nexus.get_ca_cert")
+@mock.patch("cachito.workers.tasks.npm.make_base64_config_file")
+@mock.patch("cachito.workers.tasks.npm.generate_npmrc_content")
+@pytest.mark.parametrize("has_ca_cert", [True, False])
+def test_generate_npmrc_config_files(
+    mock_generate_content, mock_make_config_file, mock_get_cert, has_ca_cert
+):
+    url = "http://example.org"
+    username = "nicola"
+    password = "tesla"
+    subpaths = [".", "foo", "foo/bar"]
+
+    npmrc_contents = [mock.Mock(), mock.Mock(), mock.Mock()]
+    mock_generate_content.side_effect = npmrc_contents
+
+    expected_configs = [mock.Mock(), mock.Mock(), mock.Mock()]
+    expected_make_cfg_calls = [
+        mock.call(npmrc_contents[0], "app/.npmrc"),
+        mock.call(npmrc_contents[1], "app/foo/.npmrc"),
+        mock.call(npmrc_contents[2], "app/foo/bar/.npmrc"),
+    ]
+
+    if has_ca_cert:
+        mock_get_cert.return_value = "some CA cert"
+        expected_ca_pem = mock.Mock()
+        expected_configs.insert(0, expected_ca_pem)
+        expected_make_cfg_calls.insert(
+            0, mock.call(mock_get_cert.return_value, "app/registry-ca.pem")
+        )
+        expected_content_calls = [
+            mock.call(url, username, password, custom_ca_path="registry-ca.pem"),
+            mock.call(url, username, password, custom_ca_path="../registry-ca.pem"),
+            mock.call(url, username, password, custom_ca_path="../../registry-ca.pem"),
+        ]
+    else:
+        mock_get_cert.return_value = None
+        expected_content_calls = [
+            mock.call(url, username, password, custom_ca_path=None),
+            mock.call(url, username, password, custom_ca_path=None),
+            mock.call(url, username, password, custom_ca_path=None),
+        ]
+
+    mock_make_config_file.side_effect = expected_configs
+
+    rv = npm.generate_npmrc_config_files(url, username, password, subpaths)
+    assert rv == expected_configs
+
+    mock_get_cert.assert_called_once()
+    mock_generate_content.assert_has_calls(expected_content_calls)
+    mock_make_config_file.assert_has_calls(expected_make_cfg_calls)
