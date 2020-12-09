@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import base64
 import json
 import logging
 import os
@@ -26,6 +25,7 @@ from cachito.workers.pkg_managers.npm import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
+from cachito.workers.tasks.utils import make_base64_config_file
 
 
 __all__ = ["cleanup_npm_request", "fetch_npm_source"]
@@ -144,24 +144,14 @@ def fetch_npm_source(request_id, package_configs=None):
         remote_package_source_path = os.path.normpath(os.path.join("app", subpath))
         if package_and_deps_info["package.json"]:
             package_json_str = json.dumps(package_and_deps_info["package.json"], indent=2)
-            npm_config_files.append(
-                {
-                    "content": base64.b64encode(package_json_str.encode("utf-8")).decode("utf-8"),
-                    "path": os.path.join(remote_package_source_path, "package.json"),
-                    "type": "base64",
-                }
-            )
+            package_json_path = os.path.join(remote_package_source_path, "package.json")
+            npm_config_files.append(make_base64_config_file(package_json_str, package_json_path))
 
         if package_and_deps_info["lock_file"]:
             package_lock_str = json.dumps(package_and_deps_info["lock_file"], indent=2)
             lock_file_name = package_and_deps_info["lock_file_name"]
-            npm_config_files.append(
-                {
-                    "content": base64.b64encode(package_lock_str.encode("utf-8")).decode("utf-8"),
-                    "path": os.path.join(remote_package_source_path, lock_file_name),
-                    "type": "base64",
-                }
-            )
+            lock_file_path = os.path.join(remote_package_source_path, lock_file_name)
+            npm_config_files.append(make_base64_config_file(package_lock_str, lock_file_path))
 
         if i == 0:
             env_vars = get_worker_config().cachito_default_environment_variables.get("npm", {})
@@ -180,13 +170,8 @@ def fetch_npm_source(request_id, package_configs=None):
     ca_cert = nexus.get_ca_cert()
     if ca_cert:
         # The custom CA will be called registry-ca.pem in the "app" directory
-        npm_config_files.append(
-            {
-                "content": base64.b64encode(ca_cert.encode("utf-8")).decode("utf-8"),
-                "path": os.path.join("app", "registry-ca.pem"),
-                "type": "base64",
-            }
-        )
+        ca_path = os.path.join("app", "registry-ca.pem")
+        npm_config_files.append(make_base64_config_file(ca_cert, ca_path))
 
     for subpath in subpaths:
         proxy_repo_url = get_npm_proxy_repo_url(request_id)
@@ -198,12 +183,7 @@ def fetch_npm_source(request_id, package_configs=None):
         npm_rc = generate_npmrc_content(
             proxy_repo_url, username, password, custom_ca_path=custom_ca_path
         )
-        npm_config_files.append(
-            {
-                "content": base64.b64encode(npm_rc.encode("utf-8")).decode("utf-8"),
-                "path": os.path.normpath(os.path.join("app", subpath, ".npmrc")),
-                "type": "base64",
-            }
-        )
+        npm_rc_path = os.path.normpath(os.path.join("app", subpath, ".npmrc"))
+        npm_config_files.append(make_base64_config_file(npm_rc, npm_rc_path))
 
     update_request_with_config_files(request_id, npm_config_files)

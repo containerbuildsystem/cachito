@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from pathlib import Path
-import base64
 import logging
 import os
 
@@ -27,6 +26,7 @@ from cachito.workers.pkg_managers.pip import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
+from cachito.workers.tasks.utils import make_base64_config_file
 
 
 log = logging.getLogger(__name__)
@@ -106,13 +106,7 @@ def fetch_pip_source(request_id, package_configs=None):
     if ca_cert:
         ca_cert_path = os.path.join("app", "package-index-ca.pem")
         env_vars["PIP_CERT"] = {"value": ca_cert_path, "kind": "path"}
-        pip_config_files.append(
-            {
-                "content": base64.b64encode(ca_cert.encode("utf-8")).decode("utf-8"),
-                "path": ca_cert_path,
-                "type": "base64",
-            }
-        )
+        pip_config_files.append(make_base64_config_file(ca_cert, ca_cert_path))
 
     worker_config = get_worker_config()
     env_vars.update(worker_config.cachito_default_environment_variables.get("pip", {}))
@@ -197,8 +191,4 @@ def _get_custom_requirement_config_file(
     )
     req_str = "\n".join(final_contents)
     final_path = Path("app") / Path(requirement_file_path).relative_to(source_dir)
-    return {
-        "content": base64.b64encode(req_str.encode("utf-8")).decode("utf-8"),
-        "path": str(final_path),
-        "type": "base64",
-    }
+    return make_base64_config_file(req_str, final_path)
