@@ -10,9 +10,9 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        "celery<5",
+        "celery>=5",
         "gitpython",
-        "kombu<5",  # A celery dependency but it's directly imported
+        "kombu>=5",  # A celery dependency but it's directly imported
         "packaging",
         "pyarn",
         "requests_kerberos",
