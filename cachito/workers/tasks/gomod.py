@@ -12,6 +12,7 @@ from cachito.workers.pkg_managers.gomod import resolve_gomod
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.paths import RequestBundleDir
+from cachito.workers.utils import ensure_all_local
 
 __all__ = ["fetch_gomod_source"]
 log = logging.getLogger(__name__)
@@ -61,6 +62,8 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     if not subpaths:
         # Default to the root of the application source
         subpaths = [os.curdir]
+
+    ensure_all_local(subpaths, bundle_dir.source_root_dir)
 
     invalid_gomod_files = _find_missing_gomod_files(bundle_dir, subpaths)
     if invalid_gomod_files:

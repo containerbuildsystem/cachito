@@ -27,6 +27,7 @@ from cachito.workers.pkg_managers.pip import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
+from cachito.workers.utils import ensure_local, ensure_all_local
 
 
 log = logging.getLogger(__name__)
@@ -67,6 +68,11 @@ def fetch_pip_source(request_id, package_configs=None):
     requirement_file_paths = []
     for pkg_cfg in package_configs:
         pkg_path = pkg_cfg.get("path", ".")
+
+        ensure_local(pkg_path, bundle_dir.source_root_dir)
+        ensure_all_local(pkg_cfg.get("requirements_files", []), bundle_dir.source_root_dir)
+        ensure_all_local(pkg_cfg.get("requirements_build_files", []), bundle_dir.source_root_dir)
+
         source_dir = bundle_dir.app_subpath(pkg_path).source_dir
         request = set_request_state(
             request_id, "in_progress", f"Fetching dependencies at the {pkg_path!r} directory",

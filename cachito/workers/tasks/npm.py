@@ -26,6 +26,7 @@ from cachito.workers.pkg_managers.npm import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
+from cachito.workers.utils import ensure_all_local
 
 
 __all__ = ["cleanup_npm_request", "fetch_npm_source"]
@@ -109,6 +110,7 @@ def fetch_npm_source(request_id, package_configs=None):
         # Default to the root of the application source
         subpaths = [os.curdir]
 
+    ensure_all_local(subpaths, bundle_dir.source_root_dir)
     _verify_npm_files(bundle_dir, subpaths)
 
     log.info("Configuring Nexus for npm for the request %d", request_id)
