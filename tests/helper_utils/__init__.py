@@ -30,6 +30,14 @@ def assert_directories_equal(dir_a, dir_b):
         assert_directories_equal(inner_a, inner_b)
 
 
+class Symlink(str):
+    """
+    Use this to create symlinks via write_file_tree().
+
+    The value of a Symlink instance is the target path (path to make a symlink to).
+    """
+
+
 def write_file_tree(tree_def, rooted_at):
     """
     Write a file tree to disk.
@@ -40,7 +48,9 @@ def write_file_tree(tree_def, rooted_at):
     root = Path(rooted_at)
     for entry, value in tree_def.items():
         entry_path = root / entry
-        if isinstance(value, str):
+        if isinstance(value, Symlink):
+            os.symlink(value, entry_path)
+        elif isinstance(value, str):
             entry_path.write_text(value)
         else:
             entry_path.mkdir()
