@@ -3,10 +3,11 @@ import logging
 import os
 import shutil
 import tarfile
+from pathlib import Path
 
 import requests
 
-from cachito.errors import CachitoError
+from cachito.errors import CachitoError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
@@ -49,6 +50,30 @@ def fetch_app_source(url, ref, request_id, gitsubmodule=False):
     bundle_dir = RequestBundleDir(request_id)
     log.debug("Extracting %s to %s", scm.sources_dir.archive_path, bundle_dir)
     shutil.unpack_archive(str(scm.sources_dir.archive_path), str(bundle_dir))
+    _enforce_sandbox(bundle_dir.source_root_dir)
+
+
+def _enforce_sandbox(repo_root):
+    """
+    Check that there are no symlinks that try to leave the cloned repository.
+
+    :param (str | Path) repo_root: absolute path to root of cloned repository
+    :raises ValidationError: if any symlink points outside of cloned repository
+    """
+    for dirpath, subdirs, files in os.walk(repo_root):
+        dirpath = Path(dirpath)
+
+        for entry in subdirs + files:
+            full_path = dirpath / entry
+            real_path = full_path.resolve()
+            try:
+                real_path.relative_to(repo_root)
+            except ValueError:
+                # Unlike the real path, the full path is always relative to the root
+                relative_path = str(full_path.relative_to(repo_root))
+                raise ValidationError(
+                    f"The destination of {relative_path!r} is outside of cloned repository"
+                )
 
 
 @app.task

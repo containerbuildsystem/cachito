@@ -9,14 +9,18 @@ from unittest import mock
 import pytest
 from requests import Timeout
 
-from cachito.errors import CachitoError
+from cachito.errors import CachitoError, ValidationError
 from cachito.workers import tasks
 from cachito.workers.paths import RequestBundleDir, SourcesDir
+from cachito.workers.tasks.general import _enforce_sandbox
+
+from tests.helper_utils import Symlink, write_file_tree
 
 
 @pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_fetch_app_source(mock_set_request_state, fake_repo, gitsubmodule):
+@mock.patch("cachito.workers.tasks.general._enforce_sandbox")
+def test_fetch_app_source(mock_enforce_sandbox, mock_set_request_state, fake_repo, gitsubmodule):
     request_id = 1
 
     repo_dir, repo_name = fake_repo
@@ -31,8 +35,44 @@ def test_fetch_app_source(mock_set_request_state, fake_repo, gitsubmodule):
     assert bundle_dir.joinpath("app", "readme.rst").exists()
     assert bundle_dir.joinpath("app", "main.py").exists()
 
+    mock_enforce_sandbox.assert_called_once_with(bundle_dir.source_root_dir)
+
     # Clean up bundle dir after unpacking archive
     shutil.rmtree(bundle_dir)
+
+
+@pytest.mark.parametrize(
+    "file_tree, error",
+    [
+        ({}, None),
+        ({"symlink_to_self": Symlink(".")}, None),
+        ({"subdir": {"symlink_to_parent": Symlink("..")}}, None),
+        ({"symlink_to_subdir": Symlink("subdir/some_file"), "subdir": {"some_file": "foo"}}, None),
+        (
+            {"symlink_to_parent": Symlink("..")},
+            "The destination of 'symlink_to_parent' is outside of cloned repository",
+        ),
+        (
+            {"symlink_to_root": Symlink("/")},
+            "The destination of 'symlink_to_root' is outside of cloned repository",
+        ),
+        (
+            {"subdir": {"symlink_to_parent_parent": Symlink("../..")}},
+            "The destination of 'subdir/symlink_to_parent_parent' is outside of cloned repository",
+        ),
+        (
+            {"subdir": {"symlink_to_root": Symlink("/")}},
+            "The destination of 'subdir/symlink_to_root' is outside of cloned repository",
+        ),
+    ],
+)
+def test_enforce_sandbox(file_tree, error, tmp_path):
+    write_file_tree(file_tree, tmp_path)
+    if error is not None:
+        with pytest.raises(ValidationError, match=error):
+            _enforce_sandbox(tmp_path)
+    else:
+        _enforce_sandbox(tmp_path)
 
 
 @pytest.mark.parametrize("gitsubmodule", [True, False])
