@@ -7,13 +7,15 @@ import shutil
 import time
 
 import jsonschema
-import requests
 from requests_kerberos import HTTPKerberosAuth
 import yaml
 
+from cachito.workers.requests import get_requests_session
 from tests.helper_utils import assert_directories_equal
 
 Response = namedtuple("Response", "data id status")
+
+requests_session = get_requests_session()
 
 
 class Client:
@@ -40,7 +42,7 @@ class Client:
         :rtype: Response
         :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
         """
-        resp = requests.get(f"{self._cachito_api_url}/requests/{request_id}")
+        resp = requests_session.get(f"{self._cachito_api_url}/requests/{request_id}")
         resp.raise_for_status()
         return Response(resp.json(), resp.json()["id"], resp.status_code)
 
@@ -53,7 +55,7 @@ class Client:
         :rtype: Response
         :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
         """
-        resp = requests.post(
+        resp = requests_session.post(
             f"{self._cachito_api_url}/requests",
             headers={"Content-Type": "application/json"},
             json=payload,
@@ -111,7 +113,7 @@ class Client:
         request_url = f"{self._cachito_api_url}/requests"
         all_items = []
         while request_url:
-            resp = requests.get(request_url, params=query_params, timeout=15)
+            resp = requests_session.get(request_url, params=query_params, timeout=15)
             resp.raise_for_status()
             all_items += resp.json()["items"]
             if not all_pages:
@@ -128,7 +130,9 @@ class Client:
         :return: An object that contains the response from the Cachito API
         :rtype: Response
         """
-        resp = requests.get(f"{self._cachito_api_url}/requests/{request_id}/content-manifest")
+        resp = requests_session.get(
+            f"{self._cachito_api_url}/requests/{request_id}/content-manifest"
+        )
         resp.raise_for_status()
         return Response(resp.json(), request_id, resp.status_code)
 
@@ -153,7 +157,7 @@ def download_archive(download_url, archive_path):
     :param download_url: URL to get the archive
     :param archive_path: Path to the downloaded bundle
     """
-    with requests.get(download_url, stream=True) as resp:
+    with requests_session.get(download_url, stream=True) as resp:
         resp.raise_for_status()
         with open(archive_path, "wb") as file:
             for chunk in resp.iter_content(chunk_size=8192):
@@ -273,7 +277,7 @@ def sort_pkgs_and_deps_in_place(packages=None, dependencies=None):
 def assert_content_manifest_schema(response_data):
     """Validate content manifest according with JSON schema."""
     icm_spec = response_data["metadata"]["icm_spec"]
-    schema = requests.get(icm_spec, timeout=30).json()
+    schema = requests_session.get(icm_spec, timeout=30).json()
     assert validate_json(
         schema, response_data
     ), f"ICM data not valid for schema at {response_data['metadata']['icm_spec']}: {response_data}"
