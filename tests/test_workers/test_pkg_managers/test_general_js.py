@@ -669,7 +669,10 @@ def test_process_non_registry_dependency_http_integrity_missing():
     }
     dep = general_js.JSDependency(dep_name, source=dep_info["version"])
 
-    expected = f"The dependency {dep_identifier} is missing the integrity value"
+    expected = (
+        f"The dependency {dep_name}@{dep_identifier} is missing the integrity value. "
+        'Is the "integrity" key missing in your lockfile?'
+    )
     with pytest.raises(CachitoError, match=expected):
         general_js.process_non_registry_dependency(dep)
 
@@ -683,7 +686,7 @@ def test_process_non_registry_dependency_invalid_location():
     }
     dep = general_js.JSDependency(dep_name, source=dep_info["version"])
 
-    expected = f"The dependency {dep_identifier} is hosted in an unsupported location"
+    expected = f"The dependency {dep_name}@{dep_identifier} is hosted in an unsupported location"
     with pytest.raises(CachitoError, match=expected):
         general_js.process_non_registry_dependency(dep)
 
@@ -702,7 +705,9 @@ def test_process_non_registry_dependency_github_not_in_nexus(mock_unrd, mock_gnc
     }
     dep = general_js.JSDependency(dep_name, source=dep_info["version"])
 
-    expected = f"The dependency {dep_identifier} was uploaded to Nexus but is not accessible"
+    expected = (
+        f"The dependency {dep_name}@{dep_identifier} was uploaded to Nexus but is not accessible"
+    )
     with pytest.raises(CachitoError, match=expected):
         general_js.process_non_registry_dependency(dep)
 
