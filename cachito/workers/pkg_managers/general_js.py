@@ -489,6 +489,15 @@ class JSDependency:
     # decides whether to check the integrity value or the checksum in the url when both are present.
     integrity: str = None
 
+    @property
+    def qualified_name(self):
+        """
+        Get the <name>@<source> of this dependency.
+
+        Used primarily as user-facing representation of non-registry dependencies.
+        """
+        return f"{self.name}@{self.source}"
+
 
 def process_non_registry_dependency(js_dep):
     """
@@ -516,7 +525,10 @@ def process_non_registry_dependency(js_dep):
         try:
             _, commit_hash = js_dep.source.rsplit("#", 1)
         except ValueError:
-            msg = f"The dependency {js_dep.source} was in an unexpected format"
+            msg = (
+                f"The url for the dependency {js_dep.qualified_name} was in an unexpected format "
+                "(expected <git_url>#<commit_hash>)"
+            )
             log.error(msg)
             raise CachitoError(msg)
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
@@ -528,7 +540,10 @@ def process_non_registry_dependency(js_dep):
         verify_scripts = True
     elif any(js_dep.source.startswith(prefix) for prefix in http_prefixes):
         if not js_dep.integrity:
-            msg = f"The dependency {js_dep.source} is missing the integrity value"
+            msg = (
+                f"The dependency {js_dep.qualified_name} is missing the integrity value. "
+                'Is the "integrity" key missing in your lockfile?'
+            )
             log.error(msg)
             raise CachitoError(msg)
 
@@ -537,7 +552,9 @@ def process_non_registry_dependency(js_dep):
         # of `<version>-external-<checksum algorithm>-<hex checksum>`
         version_suffix = f"-external-{checksum_info.algorithm}-{checksum_info.hexdigest}"
     else:
-        raise CachitoError(f"The dependency {js_dep.source} is hosted in an unsupported location")
+        raise CachitoError(
+            f"The dependency {js_dep.qualified_name} is hosted in an unsupported location"
+        )
 
     component_info = get_npm_component_info_from_nexus(js_dep.name, f"*{version_suffix}")
     if not component_info:
@@ -547,7 +564,8 @@ def process_non_registry_dependency(js_dep):
         )
         if not component_info:
             raise CachitoError(
-                f"The dependency {js_dep.source} was uploaded to Nexus but is not accessible"
+                f"The dependency {js_dep.qualified_name} was uploaded to Nexus but is not "
+                "accessible"
             )
 
     return JSDependency(

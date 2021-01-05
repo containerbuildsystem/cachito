@@ -379,7 +379,7 @@ def test_get_deps_unsupported_non_registry_dep():
             ),
         },
     }
-    expected = "The dependency file:tslib.tar.gz is hosted in an unsupported location"
+    expected = "The dependency tslib@file:tslib.tar.gz is hosted in an unsupported location"
     with pytest.raises(CachitoError, match=expected):
         npm._get_deps(package_lock_deps, set(), {})
 
