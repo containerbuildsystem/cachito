@@ -7,15 +7,14 @@ import shutil
 import time
 
 import jsonschema
+import requests
+from requests.packages.urllib3.util.retry import Retry
 from requests_kerberos import HTTPKerberosAuth
 import yaml
 
-from cachito.workers.requests import get_requests_session
 from tests.helper_utils import assert_directories_equal
 
 Response = namedtuple("Response", "data id status")
-
-requests_session = get_requests_session()
 
 
 class Client:
@@ -42,6 +41,7 @@ class Client:
         :rtype: Response
         :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
         """
+        requests_session = get_requests_session()
         resp = requests_session.get(f"{self._cachito_api_url}/requests/{request_id}")
         resp.raise_for_status()
         return Response(resp.json(), resp.json()["id"], resp.status_code)
@@ -55,6 +55,7 @@ class Client:
         :rtype: Response
         :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
         """
+        requests_session = get_requests_session()
         resp = requests_session.post(
             f"{self._cachito_api_url}/requests",
             headers={"Content-Type": "application/json"},
@@ -112,6 +113,7 @@ class Client:
             query_params = {}
         request_url = f"{self._cachito_api_url}/requests"
         all_items = []
+        requests_session = get_requests_session()
         while request_url:
             resp = requests_session.get(request_url, params=query_params, timeout=15)
             resp.raise_for_status()
@@ -130,6 +132,7 @@ class Client:
         :return: An object that contains the response from the Cachito API
         :rtype: Response
         """
+        requests_session = get_requests_session()
         resp = requests_session.get(
             f"{self._cachito_api_url}/requests/{request_id}/content-manifest"
         )
@@ -157,6 +160,7 @@ def download_archive(download_url, archive_path):
     :param download_url: URL to get the archive
     :param archive_path: Path to the downloaded bundle
     """
+    requests_session = get_requests_session()
     with requests_session.get(download_url, stream=True) as resp:
         resp.raise_for_status()
         with open(archive_path, "wb") as file:
@@ -185,6 +189,23 @@ def escape_path_go(dependency):
         return package_name
     else:
         return dependency
+
+
+def get_requests_session():
+    """
+    Get a request session with a retry option.
+
+    :return: the requests session
+    :rtype: requests.Session
+    """
+    session = requests.Session()
+    retry = Retry(
+        total=5, read=5, connect=5, backoff_factor=1.3, status_forcelist=(500, 502, 503, 504)
+    )
+    adapter = requests.adapters.HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 
 def get_sha256_hash_from_file(filename):
@@ -277,6 +298,7 @@ def sort_pkgs_and_deps_in_place(packages=None, dependencies=None):
 def assert_content_manifest_schema(response_data):
     """Validate content manifest according with JSON schema."""
     icm_spec = response_data["metadata"]["icm_spec"]
+    requests_session = get_requests_session()
     schema = requests_session.get(icm_spec, timeout=30).json()
     assert validate_json(
         schema, response_data
