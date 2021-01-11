@@ -448,6 +448,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_npm_file_deps_allowlist` - the npm "file" dependencies that are allowed in the lock file
   for the "npm" package manager. This configuration is a dictionary with the keys as package names
   and the values as lists of dependency names. This defaults to `{}`.
+* `cachito_yarn_file_deps_allowlist` - the yarn "file" dependencies that are allowed in the lock file
+  for the "yarn" package manager. See `cachito_npm_file_deps_allowlist`.
 * `cachito_request_file_logs_dir` - the directory to write the request specific log files. If `None`, per
   request log files are not created. This defaults to `None`.
 * `cachito_request_file_logs_format` - the format for the log messages of the request specific log files.
