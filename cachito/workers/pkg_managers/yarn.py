@@ -113,7 +113,7 @@ def _get_deps(yarn_lock, file_deps_allowlist):
 
         dep = {
             "bundled": False,  # yarn.lock does not seem to contain bundled deps at all
-            "dev": False,  # yarn.lock does not state whether a dependency is dev
+            # "dev": <yarn.lock does not state whether a dependency is dev>
             "name": package.name,
             "version_in_nexus": nexus_replacement["version"] if nexus_replacement else None,
             "type": "yarn",
