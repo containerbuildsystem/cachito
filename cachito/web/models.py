@@ -203,7 +203,7 @@ class Package(db.Model):
             purl_name = urllib.parse.quote(self.name, safe="")
             return f"pkg:golang/{purl_name}@{self.version}"
 
-        elif self.type == "npm":
+        elif self.type == "npm" or self.type == "yarn":
             purl_name = urllib.parse.quote(self.name)
             match = re.match(
                 r"(?P<protocol>[^:]+):(?P<has_authority>//)?(?P<suffix>.+)", self.version
@@ -233,7 +233,7 @@ class Package(db.Model):
                 return f"pkg:generic/{purl_name}?download_url={qualifier}"
             else:
                 raise ContentManifestError(
-                    f"Unknown protocol in npm package version: {self.version}"
+                    f"Unknown protocol in {self.type} package version: {self.version}"
                 )
 
         elif self.type == "pip":
@@ -320,7 +320,7 @@ class Package(db.Model):
         """
         if self.type in ("gomod", "go-package", "git-submodule"):
             purl = self.to_purl()
-        elif self.type in ("npm", "pip"):
+        elif self.type in ("npm", "pip", "yarn"):
             purl = self.to_vcs_purl(request.repo, request.ref)
         else:
             raise ContentManifestError(f"{self.type!r} is not a valid top level package")
