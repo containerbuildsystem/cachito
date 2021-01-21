@@ -29,6 +29,8 @@ class ContentManifest:
         self._npm_data = {}
         # dict to store pip package data; uses the package purl as key to identify a package
         self._pip_data = {}
+        # dict to store yarn package data; uses the package purl as key to identify a package
+        self._yarn_data = {}
         # dict to store gitsubmodule package level data; uses the package purl as key to identify a
         # package
         self._gitsubmodule_data = {}
@@ -101,6 +103,16 @@ class ContentManifest:
         if dependency.type == "pip":
             self._process_standard_package("pip", package, dependency)
 
+    def process_yarn_package(self, package, dependency):
+        """
+        Process yarn package.
+
+        :param Package package: the yarn package to process
+        :param Dependency dependency: the yarn package dependency to process
+        """
+        if dependency.type == "yarn":
+            self._process_standard_package("yarn", package, dependency)
+
     def _process_standard_package(self, pkg_type, package, dependency):
         """
         Process a standard package (standard = does not require the same magic as go packages).
@@ -125,6 +137,7 @@ class ContentManifest:
         self._gomod_data = {}
         self._npm_data = {}
         self._pip_data = {}
+        self._yarn_data = {}
         self._gitsubmodule_data = {}
 
         # Address the possibility of packages having no dependencies
@@ -139,7 +152,7 @@ class ContentManifest:
                 )
             elif package.type == "gomod":
                 self._gomod_data.setdefault(package.name, [])
-            elif package.type in ("npm", "pip"):
+            elif package.type in ("npm", "pip", "yarn"):
                 purl = package.to_top_level_purl(self.request, subpath=request_package.subpath)
                 data = getattr(self, f"_{package.type}_data")
                 data.setdefault(package.id, {"purl": purl, "dependencies": [], "sources": []})
@@ -162,6 +175,8 @@ class ContentManifest:
                 self.process_npm_package(req_dep.package, req_dep.dependency)
             elif req_dep.package.type == "pip":
                 self.process_pip_package(req_dep.package, req_dep.dependency)
+            elif req_dep.package.type == "yarn":
+                self.process_yarn_package(req_dep.package, req_dep.dependency)
 
         # Adjust source level dependencies for go packages
         self.set_go_package_sources()
@@ -170,6 +185,7 @@ class ContentManifest:
             *self._gopkg_data.values(),
             *self._npm_data.values(),
             *self._pip_data.values(),
+            *self._yarn_data.values(),
             *self._gitsubmodule_data.values(),
         ]
         return self.generate_icm(top_level_packages)

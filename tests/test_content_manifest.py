@@ -110,6 +110,48 @@ def test_process_npm(default_request, default_toplevel_purl):
     assert cm._npm_data == expected_contents
 
 
+def test_process_yarn(default_request, default_toplevel_purl):
+    pkg = Package.from_json({"name": "grc-ui", "type": "yarn", "version": "1.0.0"})
+    pkg.id = 1
+    expected_purl = default_toplevel_purl
+
+    dep_commit_id = "7762177aacfb1ddf5ca45cebfe8de1da3b24f0ff"
+    dep = Package.from_json(
+        {
+            "name": "security-middleware",
+            "type": "yarn",
+            "version": f"github:open-cluster-management/security-middleware#{dep_commit_id}",
+        }
+    )
+    dep.id = 2
+    expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{dep_commit_id}"
+
+    src = Package.from_json({"name": "@types/events", "type": "yarn", "version": "3.0.0"})
+    src.id = 3
+    src.dev = True
+    expected_src_purl = "pkg:npm/%40types/events@3.0.0"
+
+    cm = ContentManifest(default_request)
+
+    # emulate to_json behavior to setup internal packages cache
+    cm._yarn_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
+
+    cm.process_yarn_package(pkg, dep)
+    cm.process_yarn_package(pkg, src)
+
+    expected_contents = {
+        pkg.id: {
+            "purl": expected_purl,
+            "dependencies": [{"purl": expected_dep_purl}],
+            "sources": [{"purl": expected_dep_purl}, {"purl": expected_src_purl}],
+        }
+    }
+
+    assert cm._yarn_data
+    assert pkg.id in cm._yarn_data
+    assert cm._yarn_data == expected_contents
+
+
 def test_process_pip(default_request, default_toplevel_purl):
     pkg = Package.from_json({"name": "requests", "type": "pip", "version": "2.24.0"})
     pkg.id = 1
@@ -159,6 +201,7 @@ def test_process_pip(default_request, default_toplevel_purl):
         {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"},
         {"name": "grc-ui", "type": "npm", "version": "1.0.0"},
         {"name": "requests", "type": "pip", "version": "2.24.0"},
+        {"name": "grc-ui", "type": "yarn", "version": "1.0.0"},
     ],
 )
 @pytest.mark.parametrize("subpath", [None, "some/path"])
@@ -413,6 +456,74 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
             True,
             True,
         ],
+        [
+            {"name": "grc-ui", "type": "yarn", "version": "1.0.0"},
+            "pkg:npm/grc-ui@1.0.0",
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "security-middleware",
+                "type": "yarn",
+                "version": "github:open-cluster-management/security-middleware#i0am0a0commit0hash",
+            },
+            "pkg:github/open-cluster-management/security-middleware@i0am0a0commit0hash",
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "security-middleware",
+                "type": "yarn",
+                "version": "gitlab:deep/nested/repo/security-middleware#i0am0a0commit0hash",
+            },
+            "pkg:gitlab/deep/nested/repo/security-middleware@i0am0a0commit0hash",
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "fromgit",
+                "type": "yarn",
+                "version": "git://some.domain/my/project/repo.git#i0am0a0commit0hash",
+            },
+            (
+                "pkg:generic/fromgit?vcs_url=git%3A%2F%2Fsome.domain%2Fmy%2Fproject%2Frepo.git"
+                "%23i0am0a0commit0hash"
+            ),
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "fromweb",
+                "type": "yarn",
+                "version": "https://some.domain/my/project/package.tar.gz",
+            },
+            (
+                "pkg:generic/fromweb?download_url=https%3A%2F%2Fsome.domain%2Fmy%2Fproject"
+                "%2Fpackage.tar.gz"
+            ),
+            True,
+            True,
+        ],
+        [
+            {"name": "fromfile", "type": "yarn", "version": "file:client-default"},
+            "generic/fromfile?file%3Aclient-default",
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "fromunknown",
+                "type": "yarn",
+                "version": "unknown://some.domain/my/project/package.tar.gz",
+            },
+            None,
+            True,
+            False,
+        ],
     ],
 )
 def test_purl_conversion(package, expected_purl, defined, known_protocol):
@@ -423,7 +534,7 @@ def test_purl_conversion(package, expected_purl, defined, known_protocol):
     else:
         msg = f"The PURL spec is not defined for {pkg.type} packages"
         if defined:
-            msg = f"Unknown protocol in npm package version: {pkg.version}"
+            msg = f"Unknown protocol in {pkg.type} package version: {pkg.version}"
         with pytest.raises(ContentManifestError, match=msg):
             pkg.to_purl()
 
@@ -473,6 +584,7 @@ def test_vcs_purl_conversion(repo_url, expected_purl):
         ("go-package", "to_purl", []),
         ("npm", "to_vcs_purl", [GIT_REPO, GIT_REF]),
         ("pip", "to_vcs_purl", [GIT_REPO, GIT_REF]),
+        ("yarn", "to_vcs_purl", [GIT_REPO, GIT_REF]),
         ("git-submodule", "to_purl", []),
         ("bogus", None, None),
     ],
