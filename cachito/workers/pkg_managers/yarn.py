@@ -3,9 +3,10 @@ import json
 import logging
 from os.path import normpath
 from pathlib import Path
-from urllib.parse import urlparse
+from typing import Dict, Optional
 
 import pyarn.lockfile
+from urllib.parse import urlparse
 
 from cachito.errors import CachitoError
 from cachito.workers.pkg_managers.general_js import (
@@ -251,6 +252,42 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
     }
 
 
+def _expand_replacements(nexus_replacements: Dict[str, dict]) -> Dict[str, dict]:
+    """
+    Expand all N:1 keys in the Nexus replacements dict into N 1:1 keys.
+
+    In the original dict, 1 key may in fact be N comma-separated keys. These N keys all have the
+    same value, making them N:1 keys. In the expanded dict, these will be turned into N 1:1 keys.
+
+    Does not make copies of the original values => when an N:1 key is split, the N new keys will
+    all point to the same object (which is also the same object as the original value).
+
+    :param dict nexus_replacements: a dict of nexus replacements which may contain N:1 keys
+    :return: a dict of nexus replacements where all N:1 keys have been expanded to N 1:1 keys
+    """
+    expanded_replacements = {
+        key: nexus_replacements[multi_key]
+        for multi_key in nexus_replacements
+        for key in map(str.strip, multi_key.split(","))
+    }
+    return expanded_replacements
+
+
+def _match_to_new_version(
+    dep_name: str, dep_version: str, expanded_replacements: Dict[str, dict]
+) -> Optional[str]:
+    """
+    Match the name and version of a dependency to the new version in an expanded replacements dict.
+
+    :param str dep_name: dependency name
+    :param str dep_version: dependency version
+    :param dict expanded_replacements: expanded dict of Nexus replacements, see _expand_replacements
+    :return: new version (str) or None
+    """
+    dep_identifier = f"{dep_name}@{dep_version}"
+    return expanded_replacements.get(dep_identifier, {}).get("version")
+
+
 def _replace_deps_in_package_json(package_json, nexus_replacements):
     """
     Replace non-registry dependencies in package.json with their versions in Nexus.
@@ -260,26 +297,17 @@ def _replace_deps_in_package_json(package_json, nexus_replacements):
         {<dependency identifier>: <dependency info>}
     :return: copy of package.json data with replacements applied (or None if no replacements match)
     """
-    expanded_replacements = {}
-
-    for deps_identifier, nexus_replacement in nexus_replacements.items():
-        # The dependency identifier is a line that may contain multiple comma-separated
-        # dependencies (different ways to specify the same dependency)
-        deps = map(str.strip, deps_identifier.split(","))
-        for d in deps:
-            expanded_replacements[d] = nexus_replacement
+    expanded_replacements = _expand_replacements(nexus_replacements)
 
     package_json_new = copy.deepcopy(package_json)
     modified = False
 
     for dep_type in ("dependencies", "devDependencies"):
         for dep_name, dep_version in package_json.get(dep_type, {}).items():
-            dep_identifier = f"{dep_name}@{dep_version}"
-
-            if dep_identifier not in expanded_replacements:
+            new_version = _match_to_new_version(dep_name, dep_version, expanded_replacements)
+            if not new_version:
                 continue
 
-            new_version = expanded_replacements[dep_identifier]["version"]
             log.info(
                 "Replacing the version of %s in %s from %s to %s in package.json",
                 dep_name,
@@ -297,13 +325,38 @@ def _replace_deps_in_yarn_lock(yarn_lock, nexus_replacements):
     """
     Replace non-registry dependencies in yarn.lock with their versions in Nexus.
 
+    This function must also replace *top level keys* in the lockfile, not just their values.
+    The new key has to be {name}@{version_in_nexus}. Reason being that yarn matches the name and
+    version from package.json to the {name}@{version} key in the lockfile. We update the versions
+    in package.json => we must also update the keys in yarn.lock.
+
     :param dict yarn_lock: parsed yarn.lock data
     :param dict nexus_replacements: modified subset of yarn.lock data, a dict in the format:
         {<dependency identifier>: <dependency info>}
     :return: copy of yarn.lock data with replacements applied
     """
-    yarn_lock_new = copy.deepcopy(yarn_lock)
-    yarn_lock_new.update(copy.deepcopy(nexus_replacements))
+    expanded_replacements = _expand_replacements(nexus_replacements)
+    yarn_lock_new = {}
+
+    for key, value in yarn_lock.items():
+        # The top level keys match the non-expanded replacements
+        replacement = nexus_replacements.get(key)
+        if replacement:
+            pkg_name = pyarn.lockfile.Package.from_dict(key, value).name
+            new_key = f"{pkg_name}@{replacement['version']}"
+            new_value = copy.deepcopy(replacement)
+        else:
+            new_key = key
+            new_value = copy.deepcopy(value)
+
+        for dep_name, dep_version in new_value.get("dependencies", {}).items():
+            # The values in "dependencies" match the expanded replacements
+            new_version = _match_to_new_version(dep_name, dep_version, expanded_replacements)
+            if new_version:
+                new_value["dependencies"][dep_name] = new_version
+
+        yarn_lock_new[new_key] = new_value
+
     return yarn_lock_new
 
 

@@ -498,16 +498,48 @@ def test_replace_deps_in_yarn_lock():
             "resolved": REGISTRY_DEP_URL,
             "integrity": MOCK_INTEGRITY,
         },
-        f"fecha@{HTTP_DEP_URL}": {
+        f"fecha@{http_dep_nexus_version}": {
             "version": http_dep_nexus_version,
             "resolved": http_dep_nexus_url,
             "integrity": http_dep_nexus_integrity,
         },
-        f"leftpad@{GIT_DEP_URL}": {
+        f"leftpad@{git_dep_nexus_version}": {
             "version": git_dep_nexus_version,
             "resolved": git_dep_nexus_url,
             "integrity": git_dep_nexus_integrity,
         },
+    }
+
+
+def test_replace_deps_in_yarn_lock_dependencies():
+    original = {
+        "foo@not-external-1": {"version": "not-external-1", "dependencies": {"bar": "external-2"}},
+        "bar@external-1, bar@external-2": {
+            "version": "external-1",
+            "dependencies": {"baz": "external-3"},
+        },
+        "baz@external-3": {"version": "external-3"},
+    }
+
+    nexus_replacements = {
+        "bar@external-1, bar@external-2": {
+            "version": "external-in-nexus-1",
+            "dependencies": original["bar@external-1, bar@external-2"]["dependencies"],
+        },
+        "baz@external-3": {"version": "external-in-nexus-2"},
+    }
+
+    replaced = yarn._replace_deps_in_yarn_lock(original, nexus_replacements)
+    assert replaced == {
+        "foo@not-external-1": {
+            "version": "not-external-1",
+            "dependencies": {"bar": "external-in-nexus-1"},
+        },
+        "bar@external-in-nexus-1": {
+            "version": "external-in-nexus-1",
+            "dependencies": {"baz": "external-in-nexus-2"},
+        },
+        "baz@external-in-nexus-2": {"version": "external-in-nexus-2"},
     }
 
 
