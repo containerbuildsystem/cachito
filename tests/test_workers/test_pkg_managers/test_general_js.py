@@ -313,8 +313,10 @@ def test_get_js_hosted_repo_name():
 
 
 @pytest.mark.parametrize("group", ("@reactive", None))
+@pytest.mark.parametrize("repository", ("cachito-js-hosted", "cachito-yarn-1"))
+@pytest.mark.parametrize("is_hosted", (True, False))
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.get_component_info_from_nexus")
-def test_get_npm_component_info_from_nexus(mock_gcifn, group):
+def test_get_js_component_info_from_nexus(mock_gcifn, group, repository, is_hosted):
     if group:
         identifier = f"{group}/rxjs"
     else:
@@ -322,7 +324,7 @@ def test_get_npm_component_info_from_nexus(mock_gcifn, group):
 
     component = {
         "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6ZDQ4MTE3NTQxZGNiODllYzYxM2IyMzk3MzIwMWQ3YmE",
-        "repository": "cachito-js-hosted",
+        "repository": repository,
         "format": "npm",
         "group": group[1:] if group else None,
         "name": "rxjs",
@@ -330,31 +332,58 @@ def test_get_npm_component_info_from_nexus(mock_gcifn, group):
     }
     mock_gcifn.return_value = component
 
-    rv = general_js.get_npm_component_info_from_nexus(
+    rv = general_js._get_js_component_info_from_nexus(
         identifier,
         "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
+        repository,
+        is_hosted,
         max_attempts=3,
     )
 
     assert rv == component
     if group:
         mock_gcifn.assert_called_once_with(
-            "cachito-js-hosted",
+            repository,
             "npm",
             "rxjs",
             "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
             "reactive",
             3,
+            from_nexus_hoster=is_hosted,
         )
     else:
         mock_gcifn.assert_called_once_with(
-            "cachito-js-hosted",
+            repository,
             "npm",
             "rxjs",
             "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
             None,
             3,
+            from_nexus_hoster=is_hosted,
         )
+
+
+@mock.patch("cachito.workers.pkg_managers.general_js.get_js_hosted_repo_name")
+@mock.patch("cachito.workers.pkg_managers.general_js._get_js_component_info_from_nexus")
+def test_get_npm_component_info_from_nexus(mock_get_js_component, mock_get_hosted_repo):
+    mock_get_hosted_repo.return_value = "cachito-js-hosted"
+
+    general_js.get_npm_component_info_from_nexus("foo", "1.0.0-external", max_attempts=5)
+
+    mock_get_hosted_repo.assert_called_once()
+    mock_get_js_component.assert_called_once_with(
+        "foo", "1.0.0-external", "cachito-js-hosted", is_hosted=True, max_attempts=5
+    )
+
+
+@mock.patch("cachito.workers.pkg_managers.general_js._get_js_component_info_from_nexus")
+def test_get_yarn_component_info_from_non_hosted_nexus(mock_get_js_component):
+    general_js.get_yarn_component_info_from_non_hosted_nexus(
+        "foo", "1.0.0-external", "cachito-yarn-1", max_attempts=5
+    )
+    mock_get_js_component.assert_called_once_with(
+        "foo", "1.0.0-external", "cachito-yarn-1", is_hosted=False, max_attempts=5
+    )
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.execute_script")

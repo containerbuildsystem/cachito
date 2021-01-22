@@ -12,6 +12,7 @@ import tarfile
 import tempfile
 import textwrap
 from dataclasses import dataclass
+from typing import Optional
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus
@@ -317,13 +318,17 @@ def get_js_hosted_repo_name():
     return config.cachito_nexus_js_hosted_repo_name
 
 
-def get_npm_component_info_from_nexus(name, version, max_attempts=1):
+def _get_js_component_info_from_nexus(
+    name: str, version: str, repository: str, is_hosted: bool, max_attempts: int = 1
+) -> Optional[dict]:
     """
-    Get the NPM component information from the NPM hosted repository using Nexus' REST API.
+    Get the JS component information a Nexus repository using Nexus' REST API.
 
     :param str name: the name of the dependency including the scope if present
     :param str version: the version of the dependency; a wildcard can be specified but it should
         not match more than a single version
+    :param str repository: the name of the Nexus repository to get information from
+    :param bool is_hosted: is the repository in the hosted Nexus instance?
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
     :return: the JSON about the NPM component or None
     :rtype: dict or None
@@ -337,9 +342,53 @@ def get_npm_component_info_from_nexus(name, version, max_attempts=1):
         component_name = name
         component_group = None
 
-    repository = get_js_hosted_repo_name()
     return nexus.get_component_info_from_nexus(
-        repository, "npm", component_name, version, component_group, max_attempts
+        repository,
+        "npm",
+        component_name,
+        version,
+        component_group,
+        max_attempts,
+        from_nexus_hoster=is_hosted,
+    )
+
+
+def get_npm_component_info_from_nexus(
+    name: str, version: str, max_attempts: int = 1
+) -> Optional[dict]:
+    """
+    Get the NPM component information from the NPM hosted repository using Nexus' REST API.
+
+    :param str name: the name of the dependency including the scope if present
+    :param str version: the version of the dependency; a wildcard can be specified but it should
+        not match more than a single version
+    :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
+    :return: the JSON about the NPM component or None
+    :rtype: dict or None
+    :raise CachitoError: if the search fails or more than one component is returned
+    """
+    return _get_js_component_info_from_nexus(
+        name, version, get_js_hosted_repo_name(), is_hosted=True, max_attempts=max_attempts
+    )
+
+
+def get_yarn_component_info_from_non_hosted_nexus(
+    name: str, version: str, repository: str, max_attempts: int = 1
+) -> Optional[dict]:
+    """
+    Get the Yarn component information from a non-hosted Nexus repository.
+
+    :param str name: the name of the dependency including the scope if present
+    :param str version: the version of the dependency; a wildcard can be specified but it should
+        not match more than a single version
+    :param str repository: the name of the non-hosted Nexus repository to get information from
+    :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
+    :return: the JSON about the Yarn component or None
+    :rtype: dict or None
+    :raise CachitoError: if the search fails or more than one component is returned
+    """
+    return _get_js_component_info_from_nexus(
+        name, version, repository, is_hosted=False, max_attempts=max_attempts
     )
 
 
