@@ -12,9 +12,13 @@ REGISTRY_DEP_URL = "https://registry.yarnpkg.com/chai/-/chai-4.2.0.tgz"
 
 HTTP_DEP_URL = "https://example.org/fecha.tar.gz"
 HTTP_DEP_URL_WITH_CHECKSUM = f"{HTTP_DEP_URL}#123456"
+HTTP_DEP_NEXUS_VERSION = "1.0.0-external"
+HTTP_DEP_NEXUS_URL = "http://nexus.example.org/repository/js/fecha.tar.gz"
 
 GIT_DEP_URL = "git+https://github.com/example/leftpad.git"
 GIT_DEP_URL_WITH_REF = f"{GIT_DEP_URL}#abcdef"
+GIT_DEP_NEXUS_VERSION = "2.0.0-external"
+GIT_DEP_NEXUS_URL = "http://nexus.example.org/repository/js/leftpad.tar.gz"
 
 MOCK_INTEGRITY = "sha1-abcdefghijklmnopqrstuvwxyzo="
 MOCK_NEXUS_VERSION = "1.0.0-external"
@@ -351,17 +355,8 @@ def test_get_deps_disallowed_file_dep(mock_convert_hosted):
 @mock.patch.object(yarn.pyarn.lockfile.Lockfile, "from_file")
 @mock.patch("cachito.workers.pkg_managers.yarn.get_worker_config")
 @mock.patch("cachito.workers.pkg_managers.yarn._get_deps")
-@mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_package_json")
-@mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_yarn_lock")
-@pytest.mark.parametrize("have_nexus_replacements", [True, False])
 def test_get_package_and_deps(
-    mock_replace_yarnlock,
-    mock_replace_packjson,
-    mock_get_deps,
-    mock_get_config,
-    mock_lockfile_fromfile,
-    have_nexus_replacements,
-    tmp_path,
+    mock_get_deps, mock_get_config, mock_lockfile_fromfile, tmp_path,
 ):
     packjson_path = tmp_path / "package-lock.json"
     packjson_path.write_text('{"name": "foo", "version": "1.0.0"}')
@@ -371,10 +366,7 @@ def test_get_package_and_deps(
     mock_get_config.return_value.cachito_yarn_file_deps_allowlist = {"foo": ["bar"]}
 
     mock_deps = mock.Mock()
-    if have_nexus_replacements:
-        mock_replacements = {"some-dep@^1.0.0": mock.Mock()}
-    else:
-        mock_replacements = {}
+    mock_replacements = {"some-dep@^1.0.0": mock.Mock()}
 
     mock_get_deps.return_value = (mock_deps, mock_replacements)
 
@@ -382,22 +374,63 @@ def test_get_package_and_deps(
     assert rv == {
         "package": {"name": "foo", "version": "1.0.0", "type": "yarn"},
         "deps": mock_deps,
-        "package.json": mock_replace_packjson.return_value if have_nexus_replacements else None,
-        "lock_file": mock_replace_yarnlock.return_value if have_nexus_replacements else None,
+        "package.json": {"name": "foo", "version": "1.0.0"},
+        "lock_file": mock_lockfile_fromfile.return_value.data,
+        "nexus_replacements": mock_replacements,
     }
 
     mock_lockfile_fromfile.assert_called_once_with(str(yarnlock_path))
     mock_get_config.asssert_called_once()
     expected_lockfile = mock_lockfile_fromfile.return_value.data
     mock_get_deps.assert_called_once_with(expected_lockfile, {"bar"})
-    if have_nexus_replacements:
-        mock_replace_packjson.assert_called_once_with(
-            {"name": "foo", "version": "1.0.0"}, mock_replacements
-        )
-        mock_replace_yarnlock.assert_called_once_with(expected_lockfile, mock_replacements)
+
+
+@pytest.mark.parametrize("components_exist", [True, False])
+@mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_component_info_from_non_hosted_nexus")
+def test_set_non_hosted_resolved_urls(mock_get_component, components_exist):
+    nexus_replacements = {
+        f"fecha@{HTTP_DEP_URL}": {
+            "version": HTTP_DEP_NEXUS_VERSION,
+            "resolved": HTTP_DEP_NEXUS_URL,
+        },
+        f"leftpad@{GIT_DEP_URL}": {
+            "version": GIT_DEP_NEXUS_VERSION,
+            "resolved": GIT_DEP_NEXUS_URL,
+        },
+    }
+
+    non_hosted_url_1 = "http://nexus.example.org/repository/cachito-yarn-42/fecha.tar.gz"
+    non_hosted_url_2 = "http://nexus.example.org/repository/cachito-yarn-42/leftpad.tar.gz"
+
+    component_1 = {"assets": [{"downloadUrl": non_hosted_url_1}]}
+    component_2 = {"assets": [{"downloadUrl": non_hosted_url_2}]}
+
+    if components_exist:
+        mock_get_component.side_effect = [component_1, component_2]
+        expected_calls = [
+            mock.call("fecha", HTTP_DEP_NEXUS_VERSION, "cachito-yarn-42", max_attempts=5),
+            mock.call("leftpad", GIT_DEP_NEXUS_VERSION, "cachito-yarn-42", max_attempts=5),
+        ]
     else:
-        mock_replace_packjson.assert_not_called()
-        mock_replace_yarnlock.assert_not_called()
+        mock_get_component.side_effect = [None, component_2]
+        expected_calls = [
+            mock.call("fecha", HTTP_DEP_NEXUS_VERSION, "cachito-yarn-42", max_attempts=5)
+        ]
+
+    if components_exist:
+        yarn._set_non_hosted_resolved_urls(nexus_replacements, "cachito-yarn-42")
+        assert nexus_replacements[f"fecha@{HTTP_DEP_URL}"]["resolved"] == non_hosted_url_1
+        assert nexus_replacements[f"leftpad@{GIT_DEP_URL}"]["resolved"] == non_hosted_url_2
+    else:
+        err_msg = (
+            f"The dependency fecha@{HTTP_DEP_NEXUS_VERSION} was uploaded to the Nexus hosted "
+            "repository but is not available in cachito-yarn-42"
+        )
+        with pytest.raises(CachitoError, match=err_msg):
+            yarn._set_non_hosted_resolved_urls(nexus_replacements, "cachito-yarn-42")
+
+    mock_get_component.assert_has_calls(expected_calls)
+    assert mock_get_component.call_count == len(expected_calls)
 
 
 @pytest.mark.parametrize(
@@ -470,23 +503,18 @@ def test_replace_deps_in_yarn_lock():
         f"leftpad@{GIT_DEP_URL}": {"version": "2.0.0", "resolved": GIT_DEP_URL_WITH_REF},
     }
 
-    http_dep_nexus_url = "http://nexus.example.org/repository/js/fecha.tar.gz"
-    http_dep_nexus_version = "1.0.0-external"
     http_dep_nexus_integrity = "sha512-placeholder-1"
-
-    git_dep_nexus_url = "http://nexus.example.org/repository/js/leftpad.tar.gz"
-    git_dep_nexus_version = "2.0.0-external"
     git_dep_nexus_integrity = "sha512-placeholder-2"
 
     replacements = {
         f"fecha@{HTTP_DEP_URL}": {
-            "version": http_dep_nexus_version,
-            "resolved": http_dep_nexus_url,
+            "version": HTTP_DEP_NEXUS_VERSION,
+            "resolved": HTTP_DEP_NEXUS_URL,
             "integrity": http_dep_nexus_integrity,
         },
         f"leftpad@{GIT_DEP_URL}": {
-            "version": git_dep_nexus_version,
-            "resolved": git_dep_nexus_url,
+            "version": GIT_DEP_NEXUS_VERSION,
+            "resolved": GIT_DEP_NEXUS_URL,
             "integrity": git_dep_nexus_integrity,
         },
     }
@@ -498,14 +526,14 @@ def test_replace_deps_in_yarn_lock():
             "resolved": REGISTRY_DEP_URL,
             "integrity": MOCK_INTEGRITY,
         },
-        f"fecha@{http_dep_nexus_version}": {
-            "version": http_dep_nexus_version,
-            "resolved": http_dep_nexus_url,
+        f"fecha@{HTTP_DEP_NEXUS_VERSION}": {
+            "version": HTTP_DEP_NEXUS_VERSION,
+            "resolved": HTTP_DEP_NEXUS_URL,
             "integrity": http_dep_nexus_integrity,
         },
-        f"leftpad@{git_dep_nexus_version}": {
-            "version": git_dep_nexus_version,
-            "resolved": git_dep_nexus_url,
+        f"leftpad@{GIT_DEP_NEXUS_VERSION}": {
+            "version": GIT_DEP_NEXUS_VERSION,
+            "resolved": GIT_DEP_NEXUS_URL,
             "integrity": git_dep_nexus_integrity,
         },
     }
@@ -543,10 +571,24 @@ def test_replace_deps_in_yarn_lock_dependencies():
     }
 
 
+@pytest.mark.parametrize("have_nexus_replacements", [True, False])
 @mock.patch("cachito.workers.pkg_managers.yarn._get_package_and_deps")
 @mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_proxy_repo_url")
 @mock.patch("cachito.workers.pkg_managers.yarn.download_dependencies")
-def test_resolve_yarn(mock_download_deps, mock_get_repo_url, mock_get_package_and_deps):
+@mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_proxy_repo_name")
+@mock.patch("cachito.workers.pkg_managers.yarn._set_non_hosted_resolved_urls")
+@mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_package_json")
+@mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_yarn_lock")
+def test_resolve_yarn(
+    mock_replace_yarnlock,
+    mock_replace_packjson,
+    mock_set_non_hosted,
+    mock_get_repo_name,
+    mock_download_deps,
+    mock_get_repo_url,
+    mock_get_package_and_deps,
+    have_nexus_replacements,
+):
     n_pop_calls = 0
 
     def dict_pop_mocker():
@@ -567,11 +609,26 @@ def test_resolve_yarn(mock_download_deps, mock_get_repo_url, mock_get_package_an
     mock_deps = [mock.Mock()]
     for mock_dep in mock_deps:
         mock_dep.pop.side_effect = dict_pop_mocker()
+    mock_package_json = mock.Mock()
+    mock_yarn_lock = mock.Mock()
+    mock_nexus_replacements = {"foo": {}} if have_nexus_replacements else {}
 
-    mock_get_package_and_deps.return_value = {"package": mock_package, "deps": mock_deps}
+    mock_get_package_and_deps.return_value = {
+        "package": mock_package,
+        "deps": mock_deps,
+        "package.json": mock_package_json,
+        "lock_file": mock_yarn_lock,
+        "nexus_replacements": mock_nexus_replacements,
+    }
 
     rv = yarn.resolve_yarn("/some/path", {"id": 1}, skip_deps={"foobar"})
-    assert rv == mock_get_package_and_deps.return_value
+    assert rv == {
+        "package": mock_package,
+        "deps": mock_deps,
+        "downloaded_deps": mock_download_deps.return_value,
+        "package.json": mock_replace_packjson.return_value if have_nexus_replacements else None,
+        "lock_file": mock_replace_yarnlock.return_value if have_nexus_replacements else None,
+    }
 
     mock_get_package_and_deps.assert_called_once_with(
         Path("/some/path/package.json"), Path("/some/path/yarn.lock")
@@ -581,3 +638,11 @@ def test_resolve_yarn(mock_download_deps, mock_get_repo_url, mock_get_package_an
         1, mock_deps, mock_get_repo_url.return_value, skip_deps={"foobar"}, pkg_manager="yarn"
     )
     assert n_pop_calls == len(mock_deps) * 2
+
+    if have_nexus_replacements:
+        mock_get_repo_name.assert_called_once_with(1)
+        mock_set_non_hosted.assert_called_once_with(
+            mock_nexus_replacements, mock_get_repo_name.return_value
+        )
+        mock_replace_packjson.assert_called_once_with(mock_package_json, mock_nexus_replacements)
+        mock_replace_yarnlock.assert_called_once_with(mock_yarn_lock, mock_nexus_replacements)

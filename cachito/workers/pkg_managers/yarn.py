@@ -13,6 +13,7 @@ from cachito.workers.pkg_managers.general_js import (
     convert_hex_sha_to_npm,
     download_dependencies,
     process_non_registry_dependency,
+    get_yarn_component_info_from_non_hosted_nexus,
     JSDependency,
 )
 from cachito.workers.config import get_worker_config
@@ -211,10 +212,12 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
 
     :param (str | Path) package_json_path: the path to the package.json file
     :param (str | Path) yarn_lock_path: the path to the lock file
-    :return: a dictionary that has the keys "deps" which is the list of dependencies,
-        "lock_file" which is the lock file if it was modified (as a dict!), "package" which is the
-        dictionary describing the main package, and "package.json" which is the package.json file if
-        it was modified.
+    :return: a dictionary that has the following keys:
+        "package": the dictionary describing the main package
+        "deps": the list of dependencies
+        "package.json": the parsed package.json file (as a dict)
+        "lock_file": the parsed yarn.lock file (as a dict)
+        "nexus_replacements": dict of replaced external dependencies
     :rtype: dict
     """
     with open(package_json_path) as f:
@@ -236,20 +239,43 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
     )
 
     deps, nexus_replacements = _get_deps(yarn_lock, file_deps_allowlist)
-
-    if nexus_replacements:
-        package_json_replaced = _replace_deps_in_package_json(package_json, nexus_replacements)
-        yarn_lock_replaced = _replace_deps_in_yarn_lock(yarn_lock, nexus_replacements)
-    else:
-        package_json_replaced = None
-        yarn_lock_replaced = None
-
     return {
         "package": package,
         "deps": deps,
-        "package.json": package_json_replaced,
-        "lock_file": yarn_lock_replaced,
+        "package.json": package_json,
+        "lock_file": yarn_lock,
+        "nexus_replacements": nexus_replacements,
     }
+
+
+def _set_non_hosted_resolved_urls(nexus_replacements: Dict[str, dict], proxy_repo_name: str):
+    """
+    Set the "resolved" urls for all external dependencies, make them point to the proxy repo.
+
+    The original "resolved" urls point to the Nexus hosted repository, which users do not have
+    access to. The only reason this works for NPM is that NPM does not use the "resolved" values
+    for downloading (unlike Yarn).
+
+    This must be called *after* Cachito downloads the dependencies, before that they do not yet
+    exist in the cachito-yarn-{request_id} proxy repo.
+
+    :param dict nexus_replacements: the replaced external dependencies, will be *modified in-place*
+    :param str proxy_repo_name: the proxy repo name, cachito-yarn-{request_id}
+    """
+    for dep_identifier, dep_data in nexus_replacements.items():
+        pkg_name = pyarn.lockfile.Package.from_dict(dep_identifier, dep_data).name
+        pkg_version = dep_data["version"]
+
+        component_info = get_yarn_component_info_from_non_hosted_nexus(
+            pkg_name, pkg_version, proxy_repo_name, max_attempts=5
+        )
+        if not component_info:
+            raise CachitoError(
+                f"The dependency {pkg_name}@{pkg_version} was uploaded to the Nexus hosted "
+                f"repository but is not available in {proxy_repo_name}"
+            )
+
+        dep_data["resolved"] = component_info["assets"][0]["downloadUrl"]
 
 
 def _expand_replacements(nexus_replacements: Dict[str, dict]) -> Dict[str, dict]:
@@ -385,7 +411,7 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
     package_and_deps_info = _get_package_and_deps(package_json_path, yarn_lock_path)
 
     # By downloading the dependencies, it stores the tarballs in the bundle and also stages the
-    # content in the npm repository for the request
+    # content in the yarn repository for the request
     proxy_repo_url = get_yarn_proxy_repo_url(request["id"])
     package_and_deps_info["downloaded_deps"] = download_dependencies(
         request["id"],
@@ -394,6 +420,20 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
         skip_deps=skip_deps,
         pkg_manager="yarn",
     )
+
+    # Now that content has been staged in the yarn repository, we can update and apply replacements
+    nexus_replacements = package_and_deps_info.pop("nexus_replacements")
+    if nexus_replacements:
+        _set_non_hosted_resolved_urls(nexus_replacements, get_yarn_proxy_repo_name(request["id"]))
+        package_and_deps_info["package.json"] = _replace_deps_in_package_json(
+            package_and_deps_info["package.json"], nexus_replacements
+        )
+        package_and_deps_info["lock_file"] = _replace_deps_in_yarn_lock(
+            package_and_deps_info["lock_file"], nexus_replacements
+        )
+    else:
+        package_and_deps_info["package.json"] = None
+        package_and_deps_info["lock_file"] = None
 
     # Remove all the "bundled" and "version_in_nexus" keys since they are implementation details
     for dep in package_and_deps_info["deps"]:
