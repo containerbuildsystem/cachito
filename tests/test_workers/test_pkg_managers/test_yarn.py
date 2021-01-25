@@ -136,12 +136,9 @@ def test_convert_to_nexus_hosted(
 
     rv = yarn._convert_to_nexus_hosted(dep_name, dep_source, dep_info)
     assert rv == {
-        **dep_info,
         "version": mock_process_dep.return_value.version,
-        "resolved": mock_process_dep.return_value.source,
         "integrity": mock_process_dep.return_value.integrity,
     }
-    assert rv is not dep_info  # make sure original dict was copied
 
     mock_process_dep.assert_called_once_with(expected_jsdep)
     if "integrity" in dep_info:
@@ -389,14 +386,8 @@ def test_get_package_and_deps(
 @mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_component_info_from_non_hosted_nexus")
 def test_set_non_hosted_resolved_urls(mock_get_component, components_exist):
     nexus_replacements = {
-        f"fecha@{HTTP_DEP_URL}": {
-            "version": HTTP_DEP_NEXUS_VERSION,
-            "resolved": HTTP_DEP_NEXUS_URL,
-        },
-        f"leftpad@{GIT_DEP_URL}": {
-            "version": GIT_DEP_NEXUS_VERSION,
-            "resolved": GIT_DEP_NEXUS_URL,
-        },
+        f"fecha@{HTTP_DEP_URL}": {"version": HTTP_DEP_NEXUS_VERSION},
+        f"leftpad@{GIT_DEP_URL}": {"version": GIT_DEP_NEXUS_VERSION},
     }
 
     non_hosted_url_1 = "http://nexus.example.org/repository/cachito-yarn-42/fecha.tar.gz"
@@ -550,10 +541,7 @@ def test_replace_deps_in_yarn_lock_dependencies():
     }
 
     nexus_replacements = {
-        "bar@external-1, bar@external-2": {
-            "version": "external-in-nexus-1",
-            "dependencies": original["bar@external-1, bar@external-2"]["dependencies"],
-        },
+        "bar@external-1, bar@external-2": {"version": "external-in-nexus-1"},
         "baz@external-3": {"version": "external-in-nexus-2"},
     }
 

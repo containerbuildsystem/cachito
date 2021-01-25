@@ -174,8 +174,7 @@ def _convert_to_nexus_hosted(dep_name, dep_source, dep_info):
     :param str dep_name: the name of the dependency
     :param str dep_source: the source (url or relative path) of the dependency
     :param dict dep_info: the dependency info from the yarn lock file
-    :return: the dependency information of the Nexus hosted version to use in the yarn lock file
-        instead of the original
+    :return: a dict with the "version" and "integrity" keys to replace in the lock file
     :raise CachitoError: if the dependency is from an unsupported location or has an unexpected
         format in the lock file
     """
@@ -192,15 +191,11 @@ def _convert_to_nexus_hosted(dep_name, dep_source, dep_info):
     dep = JSDependency(name=dep_name, source=dep_source, integrity=integrity)
     dep_in_nexus = process_non_registry_dependency(dep)
 
-    converted_dep_info = copy.deepcopy(dep_info)
-    converted_dep_info.update(
-        {
-            "integrity": dep_in_nexus.integrity,
-            "resolved": dep_in_nexus.source,
-            "version": dep_in_nexus.version,
-        }
-    )
-    return converted_dep_info
+    return {
+        "integrity": dep_in_nexus.integrity,
+        # "resolved": this value must be filled in later, after Cachito downloads the dependencies
+        "version": dep_in_nexus.version,
+    }
 
 
 def _get_package_and_deps(package_json_path, yarn_lock_path):
@@ -251,10 +246,6 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
 def _set_non_hosted_resolved_urls(nexus_replacements: Dict[str, dict], proxy_repo_name: str):
     """
     Set the "resolved" urls for all external dependencies, make them point to the proxy repo.
-
-    The original "resolved" urls point to the Nexus hosted repository, which users do not have
-    access to. The only reason this works for NPM is that NPM does not use the "resolved" values
-    for downloading (unlike Yarn).
 
     This must be called *after* Cachito downloads the dependencies, before that they do not yet
     exist in the cachito-yarn-{request_id} proxy repo.
@@ -365,15 +356,15 @@ def _replace_deps_in_yarn_lock(yarn_lock, nexus_replacements):
     yarn_lock_new = {}
 
     for key, value in yarn_lock.items():
+        new_key = key
+        new_value = copy.deepcopy(value)
+
         # The top level keys match the non-expanded replacements
         replacement = nexus_replacements.get(key)
         if replacement:
             pkg_name = pyarn.lockfile.Package.from_dict(key, value).name
             new_key = f"{pkg_name}@{replacement['version']}"
-            new_value = copy.deepcopy(replacement)
-        else:
-            new_key = key
-            new_value = copy.deepcopy(value)
+            new_value.update(replacement)
 
         for dep_name, dep_version in new_value.get("dependencies", {}).items():
             # The values in "dependencies" match the expanded replacements
