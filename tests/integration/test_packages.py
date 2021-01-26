@@ -42,8 +42,10 @@ def test_packages(env_package, env_name, test_env, tmpdir):
         "repo": env_data["repo"],
         "ref": env_data["ref"],
         "pkg_managers": env_data.get("pkg_managers", []),
-        "flags": env_data.get("flags", []),
     }
+    if "flags" in env_data:
+        payload["flags"] = env_data["flags"]
+
     # Add packages to Cachito request if possible
     if "packages" in env_data:
         payload["packages"] = env_data["packages"]
