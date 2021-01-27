@@ -100,3 +100,19 @@ services:
       - cachito-api
       - nexus
       - rabbitmq
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile-flower
+    entrypoint:
+      - /usr/local/bin/flower-waits-for-cachito.sh
+      - http://cachito-api:8080
+    command:
+      - /usr/local/bin/flower
+      - --port=5555
+      - --broker=amqp://cachito:cachito@rabbitmq:5672//
+      - --broker_api=http://cachito:cachito@rabbitmq:15672/api/
+      - --basic_auth=cachito:cachito
+    ports:
+    - 8083:5555
