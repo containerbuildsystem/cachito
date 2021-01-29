@@ -177,6 +177,9 @@ The will automatically create and run the following containers:
 * **cachito-worker** - the Cachito Celery worker. This container is also responsible for configuring
   Nexus at startup.
 * **db** - the Postgresql database used by the Cachito REST API.
+* **flower** - the [Flower](https://flower.readthedocs.io/en/latest/) instance for monitoring and 
+  managing Celery. The instance is accessible at [http://localhost:8083](http://http://localhost:8083). 
+  The username is `cachito` and the password is `cachito`.
 * **nexus** - the [Sonatype Nexus Repository Manager](https://www.sonatype.com/nexus-repository-oss)
   instance that is responsible for permanently storing dependencies for the `npm` package manager.
   The management UI is accessible at [http://localhost:8082](http://localhost:8082). The username is
