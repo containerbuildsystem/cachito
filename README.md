@@ -318,6 +318,35 @@ may mount a
 by adding the volume mount `- /path/to/.netrc:/root/.netrc:ro,z` in your `docker-compose.yml`
 file under the `cachito-worker` container.
 
+### Using Cachito Requests Locally
+
+When testing new functionality or debugging a failure, you may want to take a completed Cachito
+request and try to install the processed packages locally (using `pip`, `gomod`, `npm` etc.). You
+can use the [cachito-download.sh](bin/cachito-download.sh) script to download the source archive
+for a request and inject the configuration files and environment variables.
+
+Here is how you would use it with the example request
+[above](#run-a-containerized-development-environment) (assuming it is request #1)
+
+```shell
+bin/cachito-download.sh localhost:8080/api/v1/requests/1 /tmp/cachito-test
+
+cd /tmp/cachito-test/remote-source/
+# sed will sometimes be needed for requests from the dev environment
+sed 's/nexus:8081/localhost:8082/g' --in-place cachito.env app/requirements.txt
+
+# you don't *have* to use a container but having a clean environment is usually desirable
+podman run --net=host --rm -ti -v "$PWD:/remote-source:z" -w "/remote-source" fedora:33
+# <inside the container>
+dnf -y install python3-pip
+source cachito.env
+cd app
+pip install -r requirements.txt
+python3 setup.py install
+```
+
+You need to have [jq](https://stedolan.github.io/jq/) installed for the script to work.
+
 ## Database Migrations
 
 Follow the steps below for database data and/or schema migrations:
