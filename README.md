@@ -201,7 +201,7 @@ curl -X POST -H "Content-Type: application/json" http://localhost:8080/api/v1/re
 '{
 "repo": "https://github.com/athos-ribeiro/cachito-sample-pip-package.git",
 "ref": "51ffb9c2412d50953ed9732c67267e5d2ff9aa68",
-"pkg_managers": ["pip"]
+"pkg_managers": ["pip"],
 "packages": {"pip": [{"path": "."}, {"path": "subpackage"}]}
 }'
 ```
