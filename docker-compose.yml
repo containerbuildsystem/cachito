@@ -22,6 +22,7 @@ services:
     environment:
       ATHENS_DISK_STORAGE_ROOT: /var/lib/athens
       ATHENS_STORAGE_TYPE: disk
+      ATHENS_GO_BINARY_ENV_VARS: GOSUMDB=off
     volumes:
       - ./tmp/athens-storage:/var/lib/athens:z
     ports:
