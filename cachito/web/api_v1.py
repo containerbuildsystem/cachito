@@ -11,7 +11,7 @@ from flask_login import current_user, login_required
 import kombu.exceptions
 from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound
 
-from cachito.errors import CachitoError, ValidationError, CachitoNotImplementedError
+from cachito.errors import CachitoError, ValidationError
 from cachito.web import db
 from cachito.web.models import (
     ConfigFileBase64,
@@ -275,7 +275,14 @@ def create_request():
             tasks.add_git_submodules_as_package.si(request.id).on_error(error_callback)
         )
     if "yarn" in pkg_manager_names:
-        raise CachitoNotImplementedError("Yarn is not yet supported")
+        if pkg_manager_to_dep_replacements.get("yarn"):
+            raise ValidationError(
+                "Dependency replacements are not yet supported for the yarn package manager"
+            )
+        yarn_package_configs = package_configs.get("yarn", [])
+        chain_tasks.append(
+            tasks.fetch_yarn_source.si(request.id, yarn_package_configs).on_error(error_callback)
+        )
 
     chain_tasks.append(tasks.create_bundle_archive.si(request.id).on_error(error_callback))
 
