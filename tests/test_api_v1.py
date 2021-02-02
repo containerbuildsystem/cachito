@@ -25,6 +25,7 @@ from cachito.workers.tasks import (
     fetch_gomod_source,
     fetch_npm_source,
     fetch_pip_source,
+    fetch_yarn_source,
     failed_request_callback,
     create_bundle_archive,
     add_git_submodules_as_package,
@@ -88,6 +89,7 @@ def test_get_status_short(mock_status, error, client):
         ([], [], "tom_hanks@DOMAIN.LOCAL", [], None,),
         ([], ["npm"], None, ["npm"], None,),
         ([], ["pip"], None, ["pip"], None,),
+        ([], ["yarn"], None, ["yarn"], None,),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -156,6 +158,8 @@ def test_create_and_fetch_request(
         expected.append(
             add_git_submodules_as_package.si(created_request["id"]).on_error(error_callback)
         )
+    if "yarn" in expected_pkg_managers:
+        expected.append(fetch_yarn_source.si(created_request["id"], []).on_error(error_callback))
     expected.append(create_bundle_archive.si(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
 
@@ -267,6 +271,35 @@ def test_create_and_fetch_request_pip_package_configs(
             False,
         ).on_error(error_callback),
         fetch_pip_source.si(1, package_value["pip"]).on_error(error_callback),
+        create_bundle_archive.si(1).on_error(error_callback),
+    ]
+    mock_chain.assert_called_once_with(expected)
+
+
+@mock.patch("cachito.web.api_v1.chain")
+def test_create_and_fetch_request_yarn_package_configs(
+    mock_chain, app, auth_env, client, db,
+):
+    package_value = {"yarn": [{"path": "client"}, {"path": "proxy"}]}
+    data = {
+        "repo": "https://github.com/release-engineering/web-terminal.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "packages": package_value,
+        "pkg_managers": ["yarn"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 201
+
+    error_callback = failed_request_callback.s(1)
+    expected = [
+        fetch_app_source.s(
+            "https://github.com/release-engineering/web-terminal.git",
+            "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            1,
+            False,
+        ).on_error(error_callback),
+        fetch_yarn_source.si(1, package_value["yarn"]).on_error(error_callback),
         create_bundle_archive.si(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
@@ -605,6 +638,11 @@ def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, cl
             [{"name": "flexmock", "type": "pip", "version": "0.15"}],
             "Dependency replacements are not yet supported for the pip package manager",
         ),
+        (
+            "yarn",
+            [{"name": "rxjs", "type": "yarn", "version": "6.5.5"}],
+            "Dependency replacements are not yet supported for the yarn package manager",
+        ),
     ),
 )
 def test_create_request_invalid_dependency_replacement(
@@ -714,6 +752,41 @@ def test_create_request_invalid_dependency_replacement(
             (
                 'The "requirements_build_files" values in the "packages.pip" value must be to a '
                 "relative path in the source repository"
+            ),
+        ),
+        ({"yarn": {"path": "client"}}, ["yarn"], RE_INVALID_PACKAGES_VALUE),
+        ({"yarn": ["path"]}, ["yarn"], RE_INVALID_PACKAGES_VALUE),
+        ({"yarn": [{}]}, ["yarn"], RE_INVALID_PACKAGES_VALUE),
+        (
+            {"yarn": [{"path": 1}]},
+            ["yarn"],
+            (
+                'The "path" values in the "packages.yarn" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"yarn": [{"path": ""}]},
+            ["yarn"],
+            (
+                'The "path" values in the "packages.yarn" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"yarn": [{"path": "/etc/httpd"}]},
+            ["yarn"],
+            (
+                'The "path" values in the "packages.yarn" value must be to a relative path in the '
+                "source repository"
+            ),
+        ),
+        (
+            {"yarn": [{"path": "../../../../etc/httpd"}]},
+            ["yarn"],
+            (
+                'The "path" values in the "packages.yarn" value must be to a relative path in the '
+                "source repository"
             ),
         ),
     ),
@@ -2161,15 +2234,3 @@ def test_validate_package_manager_exclusivity(
             _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
     else:
         _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
-
-
-def test_create_request_with_yarn(auth_env, client):
-    data = {
-        "repo": "https://github.com/seriousManual/dedupe",
-        "ref": "955aa2f0d2dedf1b04814e38ad80deb17a602b9c",
-        "pkg_managers": ["yarn"],
-    }
-
-    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
-    assert rv.status_code == 501
-    assert rv.json == {"error": "Yarn is not yet supported"}
