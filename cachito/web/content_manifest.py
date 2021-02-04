@@ -21,17 +21,17 @@ class ContentManifest:
         :param Request request: the request to generate a ContentManifest for
         """
         self.request = request
-        # dict to store go package level data; uses the package purl as key to identify a package
+        # dict to store go package level data; uses the package id as key to identify a package
         self._gopkg_data = {}
         # dict to store go module level purl dependencies. Module names are used as keys
         self._gomod_data = {}
-        # dict to store npm package data; uses the package purl as key to identify a package
+        # dict to store npm package data; uses the package id as key to identify a package
         self._npm_data = {}
-        # dict to store pip package data; uses the package purl as key to identify a package
+        # dict to store pip package data; uses the package id as key to identify a package
         self._pip_data = {}
-        # dict to store yarn package data; uses the package purl as key to identify a package
+        # dict to store yarn package data; uses the package id as key to identify a package
         self._yarn_data = {}
-        # dict to store gitsubmodule package level data; uses the package purl as key to identify a
+        # dict to store gitsubmodule package level data; uses the package id as key to identify a
         # package
         self._gitsubmodule_data = {}
 
