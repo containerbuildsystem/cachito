@@ -35,12 +35,12 @@ mock_pkg_deps = dedent(
     github.com/pkg/errors github.com/pkg/errors v0.8.1
     gopkg.in/yaml.v2 gopkg.in/yaml.v2 v2.2.2
     github.com/release-engineering/retrodep/v2/retrodep/glide \
-            github.com/release-engineering/retrodep/v2
+github.com/release-engineering/retrodep/v2
     golang.org/x/tools/go/vcs golang.org/x/tools v0.0.0-20190325161752-5a8dccf5b48a
     github.com/release-engineering/retrodep/v2/retrodep github.com/release-engineering/retrodep/v2
     github.com/release-engineering/retrodep/v2 github.com/release-engineering/retrodep/v2
     github.com/markbates/inflect github.com/markbates/inflect v1.0.0 => \
-            github.com/markbates/inflect v1.0.1
+github.com/markbates/inflect v1.0.1
     """
 )
 
