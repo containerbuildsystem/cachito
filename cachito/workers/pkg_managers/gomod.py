@@ -7,6 +7,8 @@ import os.path
 import re
 import shutil
 import tempfile
+from pathlib import PureWindowsPath
+from typing import Tuple
 
 import git
 import semver
@@ -224,25 +226,16 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
             pkg_level_deps = []
             for line in go_list_deps_output.splitlines():
-                # line example: pkg.io/foo/bar pkg.io/foo/var v1.0.0 => pkg.io/foo/bar v1.0.1
-                parts = [part for part in line.split(" ")]
-
-                name = parts[0]
-                # parts[1] is the module owning the package and parts[2] is it's version
-                if len(parts) > 2:
-                    version = parts[2]
-                else:
-                    # This package belongs to the requested module,
-                    # let's use the requested module version
-                    version = module_version
-
-                if len(parts) > 3:
-                    # parts[3] is just an arrow "=>" pointing to the replacements
-                    # parts[4] is the module being replaced
-                    # we do not add a "replacements" field to the packages though
-                    # since the concept of replacements are tied to the modules
-                    # Instead, we just set the proper version
-                    version = parts[5]
+                name, version = _parse_name_and_version(line)
+                # If the line did not contain a version, we'll use the module version
+                version = version or module_version
+                if version.startswith("."):
+                    raise CachitoError(f"Local gomod dependencies are not yet supported: {version}")
+                elif version.startswith("/") or PureWindowsPath(version).root:
+                    # This will disallow paths starting with '/', '\' or '<drive letter>:\'
+                    raise CachitoError(
+                        f"Absolute paths to gomod dependencies are not supported: {version}"
+                    )
 
                 pkg = {
                     "name": name,
@@ -258,6 +251,39 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             packages.append({"pkg": pkg, "pkg_deps": pkg_level_deps})
 
         return {"module": module, "module_deps": module_level_deps, "packages": packages}
+
+
+def _parse_name_and_version(list_deps_line: str) -> Tuple[str, str]:
+    """Parse package name and version (if present) from one line of go list -deps output."""
+    # line example: pkg.io/foo/bar pkg.io/foo/var v1.0.0 => pkg.io/foo/bar v1.0.1
+    parts = list_deps_line.split(" ")
+
+    # As far as we know, the possible forms of the dependency line are as follows (see
+    #   `go help list` and https://golang.org/ref/mod#go-mod-file-replace):
+    # | len | semantics                                              |
+    # |-----|--------------------------------------------------------|
+    # |   2 | <package> <module>                                     |
+    # |   3 | <package> <module> <version>                           |
+    # |   4 | <package> <module> => <file path>                      |
+    # |   5 | <package> <module> => <module> <version>               |
+    # |   5 | <package> <module> <version> => <file path>            |
+    # |   6 | <package> <module> <version> => <module> <new version> |
+
+    # In all the cases above, parts[0] is the package name and parts[1] is the module
+    # that owns the package
+    name = parts[0]
+
+    if len(parts) <= 2:
+        # No version in dependency line
+        # len = 1 should be impossible, but conservatively, let's allow both 1 and 2 here
+        version = None
+    elif len(parts) <= 6:
+        # for all the cases with len in {3..6}, the version that we want is the last part
+        version = parts[-1]
+    else:
+        raise RuntimeError(f"Unrecognized line in go list -deps output: {list_deps_line!r}")
+
+    return name, version
 
 
 def _merge_bundle_dirs(root_src_dir, root_dst_dir):

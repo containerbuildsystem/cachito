@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
+import re
 import tarfile
 from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
@@ -12,6 +13,7 @@ from cachito.workers.pkg_managers.gomod import (
     resolve_gomod,
     _merge_bundle_dirs,
     _merge_files,
+    _parse_name_and_version,
 )
 from cachito.errors import CachitoError
 from cachito.workers.paths import RequestBundleDir
@@ -313,6 +315,94 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
         )
 
 
+@mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
+@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
+@mock.patch("subprocess.run")
+def test_resolve_gomod_disallow_local_dependencies(
+    mock_run, mock_bundle_dir, mock_temp_dir, mock_golang_version, mock_merge_tree, tmpdir
+):
+    # Mock the tempfile.TemporaryDirectory context manager
+    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+
+    # Mock the "subprocess.run" calls
+    mock_run.side_effect = [
+        # go mod download
+        mock.Mock(returncode=0, stdout=None),
+        # go list -m all
+        mock.Mock(returncode=0, stdout="k8s.io/kubectl"),
+        # go list -find ./...
+        mock.Mock(returncode=0, stdout="k8s.io/kubernetes/cmd/kubectl"),
+        # go list -deps
+        mock.Mock(
+            returncode=0,
+            stdout="k8s.io/kubectl/pkg/apps k8s.io/kubectl => ./staging/src/k8s.io/kubectl",
+        ),
+    ]
+
+    archive_path = "/this/is/path/to/archive.tar.gz"
+    request = {
+        "id": 3,
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    err_msg = "Local gomod dependencies are not yet supported: ./staging/src/k8s.io/kubectl"
+    with pytest.raises(CachitoError, match=err_msg):
+        resolve_gomod(archive_path, request)
+
+
+@mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
+@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
+@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
+@mock.patch("subprocess.run")
+@pytest.mark.parametrize(
+    "platform_specific_path",
+    [
+        "/home/user/go/src/k8s.io/kubectl",
+        "\\Users\\user\\go\\src\\k8s.io\\kubectl",
+        "C:\\Users\\user\\go\\src\\k8s.io\\kubectl",
+    ],
+)
+def test_resolve_gomod_disallow_absolute_paths(
+    mock_run,
+    mock_bundle_dir,
+    mock_temp_dir,
+    mock_golang_version,
+    mock_merge_tree,
+    tmpdir,
+    platform_specific_path,
+):
+    # Mock the tempfile.TemporaryDirectory context manager
+    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+
+    # Mock the "subprocess.run" calls
+    mock_run.side_effect = [
+        # go mod download
+        mock.Mock(returncode=0, stdout=None),
+        # go list -m all
+        mock.Mock(returncode=0, stdout="k8s.io/kubectl"),
+        # go list -find ./...
+        mock.Mock(returncode=0, stdout="k8s.io/kubernetes/cmd/kubectl"),
+        # go list -deps
+        mock.Mock(
+            returncode=0,
+            stdout=f"k8s.io/kubectl/pkg/apps k8s.io/kubectl => {platform_specific_path}",
+        ),
+    ]
+
+    archive_path = "/this/is/path/to/archive.tar.gz"
+    request = {
+        "id": 3,
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    err_msg = re.escape(
+        f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
+    )
+    with pytest.raises(CachitoError, match=err_msg):
+        resolve_gomod(archive_path, request)
+
+
 @pytest.mark.parametrize(("go_mod_rc", "go_list_rc"), ((0, 1), (1, 0)))
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
@@ -501,3 +591,64 @@ def test_merge_files(file_1_content, file_2_content, result_file_content):
         with open("{}/list".format(dir_3), "r") as f:
             print(f.read())
         assert_directories_equal(dir_2, dir_3)
+
+
+@pytest.mark.parametrize(
+    "list_deps_line, expect_name, expect_version",
+    [
+        # len = 2
+        (
+            (
+                "github.com/release-engineering/retrodep/v2/retrodep/glide "
+                "github.com/release-engineering/retrodep/v2"
+            ),
+            "github.com/release-engineering/retrodep/v2/retrodep/glide",
+            None,
+        ),
+        # len = 3
+        ("gopkg.in/yaml.v2 gopkg.in/yaml.v2 v2.2.2", "gopkg.in/yaml.v2", "v2.2.2"),
+        # len = 4
+        (
+            "k8s.io/kubectl/pkg/apps k8s.io/kubectl => ./staging/src/k8s.io/kubectl",
+            "k8s.io/kubectl/pkg/apps",
+            "./staging/src/k8s.io/kubectl",
+        ),
+        # len = 5
+        (
+            (
+                "github.com/coreos/go-semver/semver github.com/coreos/go-semver => "
+                "github.com/coreos/go-semver v0.3.0"
+            ),
+            "github.com/coreos/go-semver/semver",
+            "v0.3.0",
+        ),
+        # len = 5, local
+        (
+            (
+                "k8s.io/cloud-provider k8s.io/cloud-provider v0.0.0 => "
+                "./staging/src/k8s.io/cloud-provider"
+            ),
+            "k8s.io/cloud-provider",
+            "./staging/src/k8s.io/cloud-provider",
+        ),
+        # len = 6
+        (
+            (
+                "github.com/markbates/inflect github.com/markbates/inflect v1.0.0 => "
+                "github.com/markbates/inflect v1.0.1"
+            ),
+            "github.com/markbates/inflect",
+            "v1.0.1",
+        ),
+    ],
+)
+def test_parse_name_and_version(list_deps_line, expect_name, expect_version):
+    name, version = _parse_name_and_version(list_deps_line)
+    assert name == expect_name
+    assert version == expect_version
+
+
+def test_parse_name_and_version_unrecognized_line():
+    err_msg = "Unrecognized line in go list -deps output: '1 2 3 4 5 6 7'"
+    with pytest.raises(RuntimeError, match=err_msg):
+        _parse_name_and_version("1 2 3 4 5 6 7")
