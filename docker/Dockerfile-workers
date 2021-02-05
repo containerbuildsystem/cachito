@@ -17,6 +17,8 @@ RUN dnf -y install \
     python3-devel \
     python3-pip \
     python3-setuptools \
+    ruby \
+    rubygems \
     && dnf clean all
 COPY . .
 
@@ -32,6 +34,8 @@ ENV GIT_COMMITTER_NAME=cachito \
     GIT_COMMITTER_EMAIL=cachito@localhost \
     GIT_AUTHOR_NAME=cachito \
     GIT_AUTHOR_EMAIL=cachito@localhost
+
+RUN gem install bundler
 
 EXPOSE 8080
 ENTRYPOINT ["/src/docker/docker-entrypoint.sh"]
