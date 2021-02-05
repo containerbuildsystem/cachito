@@ -108,6 +108,9 @@ def createHostedRepo(String name, String repoType, String blobStoreName) {
             case "npm":
                 repository.createNpmHosted(name, blobStoreName, strictContentValidation, writePolicy)
                 break;
+            case "rubygems":
+                repository.createRubygemsHosted(name,blobStoreName, strictContentValidation, writePolicy)
+                break;
             default:
                 logger.warn("Type ${repoType} not supported. repository ${name} not created.")
                 break;
@@ -207,6 +210,19 @@ def createGroupNpmRepo(String name, List<String> groupMembers, String blobStoreN
     }
 }
 
+def createGroupRubygemsRepo(String name, List<String> groupMembers, String blobStoreName) {
+    // repository is an object that is injected by Nexus when the script is executed
+    if(repository.repositoryManager.exists(name)) {
+        logger.info("Modifying the group repository ${name}")
+        Configuration groupRepoConfig = repository.repositoryManager.get(name).configuration
+        groupRepoConfig.attributes('group').set('memberNames', groupMembers)
+        repository.repositoryManager.update(groupRepoConfig)
+    } else {
+        logger.info("Creating the group repository ${name}")
+        repository.createRubygemsGroup(name, groupMembers, blobStoreName)
+    }
+}
+
 
 def createCachitoUser(String password) {
     String description = 'Admin access on all the repositories'
@@ -219,6 +235,8 @@ def createCachitoUser(String password) {
             'nx-repository-admin-*-*-*',
             // This is so that Cachito can use any NPM repository
             'nx-repository-view-npm-*-*',
+            // This is so that Cachito can use any Rubygems repository
+            'nx-repository-view-rubygems-*-*',
             // This is so that Cachito can use any PyPI repository
             'nx-repository-view-pypi-*-*',
             // This is so that Cachito can use any raw repository
@@ -242,7 +260,9 @@ def createCachitoUnprivilegedUser(String password) {
     // created per Cachito request.
     List<String> privileges = [
         // This allows the unprivileged user to use the cachito-js Nexus repository
-        'nx-repository-view-npm-cachito-js-*'
+        'nx-repository-view-npm-cachito-js-*',
+        // This allows the unprivileged user to use the cachito-rubygems Nexus repository
+        'nx-repository-view-rubygems-cachito-rubygems-*',
     ]
     String description = 'The user that can just use the main cachito repositories'
     createRole('cachito_unprivileged', description, privileges)
@@ -304,6 +324,23 @@ String pipProxyRepoName = 'cachito-pip-proxy'
 String pipRegistry = 'https://pypi.org/'
 String pipProxyType = 'pypi-proxy'
 createProxyRepo(pipProxyRepoName, pipProxyType, pipRegistry, pipBlobStoreName)
+
+String rubygemsBlobStoreName = 'cachito-rubygems'
+createBlobStore(rubygemsBlobStoreName)
+
+String rubygemsHostedRepoName = 'cachito-rubygems-hosted'
+String rubygemsHostedType = 'rubygems'
+createHostedRepo(rubygemsHostedRepoName, rubygemsHostedType, rubygemsBlobStoreName)
+
+String rubygemsProxyRepoName = 'cachito-rubygems-proxy'
+String rubygemsRegistry = 'https://rubygems.org'
+String rubygemsProxyType = 'rubygems-proxy'
+createProxyRepo(rubygemsProxyRepoName, rubygemsProxyType, rubygemsRegistry, rubygemsBlobStoreName)
+
+String rubygemsGroupRepoName = 'cachito-rubygems'
+List<String> rubygemsGroupMembers = [rubygemsHostedRepoName, rubygemsProxyRepoName]
+createGroupRubygemsRepo(rubygemsGroupRepoName, rubygemsGroupMembers, rubygemsBlobStoreName)
+
 
 
 createCachitoUser(request.cachito_password)
