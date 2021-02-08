@@ -67,21 +67,24 @@ class ContentManifest:
         module based on their names.
         """
         for package_id, pkg_data in self._gopkg_data.items():
-            if pkg_data["name"] in self._gomod_data:
-                self._gopkg_data[package_id]["sources"] = self._gomod_data[pkg_data["name"]]
+            pkg_name = pkg_data.pop("name")
+
+            if pkg_name in self._gomod_data:
+                module_name = pkg_name
             else:
                 # We use the longest module available in the request that matches the package name
-                previous_length = 0
-                for mod_name, sources in self._gomod_data.items():
-                    if pkg_data["name"].startswith(mod_name) and len(mod_name) > previous_length:
-                        self._gopkg_data[package_id]["sources"] = sources
-                        previous_length = len(mod_name)
+                module_name = max(
+                    (mod_name for mod_name in self._gomod_data if pkg_name.startswith(mod_name)),
+                    key=len,
+                    default=None,
+                )
 
-                if not previous_length:
-                    flask.current_app.logger.warning(
-                        "Could not find a Go module for %s", pkg_data["purl"]
-                    )
-            pkg_data.pop("name")
+            if module_name is not None:
+                self._gopkg_data[package_id]["sources"] = self._gomod_data[module_name]
+            else:
+                flask.current_app.logger.warning(
+                    "Could not find a Go module for %s", pkg_data["purl"]
+                )
 
     def process_npm_package(self, package, dependency):
         """
