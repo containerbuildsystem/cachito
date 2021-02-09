@@ -1,5 +1,5 @@
 FROM registry.fedoraproject.org/fedora:33
-LABEL maintainer="Factory 2.0"
+LABEL maintainer="Red Hat"
 
 WORKDIR /src
 RUN dnf -y install \
