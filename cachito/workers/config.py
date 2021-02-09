@@ -112,6 +112,7 @@ class DevelopmentConfig(Config):
     cachito_nexus_pypi_proxy_url = "http://nexus:8081/repository/cachito-pip-proxy/"
     cachito_nexus_url = "http://nexus:8081"
     cachito_npm_file_deps_allowlist = {"cachito-npm-test": ["subpackage"]}
+    cachito_yarn_file_deps_allowlist = {"cachito-yarn-test": ["subpackage"]}
     cachito_request_file_logs_dir = "/var/log/cachito/requests"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
 
