@@ -130,7 +130,12 @@ def sample_deps():
             "version": "v1.0.0-20180628173108-788fd7840127",
         },
         {"name": "gopkg.in/yaml.v2", "type": "gomod", "replaces": None, "version": "v2.2.2"},
-        {"name": "k8s.io/metrics", "type": "gomod", "replaces": None, "version": "v0.0.0"},
+        {
+            "name": "k8s.io/metrics",
+            "type": "gomod",
+            "replaces": None,
+            "version": "./staging/src/k8s.io/metrics",
+        },
     ]
 
 

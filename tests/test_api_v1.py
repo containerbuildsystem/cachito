@@ -9,6 +9,7 @@ import kombu.exceptions
 import pytest
 
 from cachito.errors import CachitoError, ValidationError
+from cachito.web.content_manifest import PARENT_PURL_PLACEHOLDER
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -19,6 +20,7 @@ from cachito.web.models import (
     RequestStateMapping,
     _validate_package_manager_exclusivity,
 )
+from cachito.web.utils import deep_sort_icm
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import (
     fetch_app_source,
@@ -1776,17 +1778,18 @@ def test_fetch_request_content_manifest_go(
 
     for d in sample_deps:
         d.pop("replaces")
-        p = Package.from_json(d).to_purl()
+        p = Package.from_json(d).to_purl().replace(PARENT_PURL_PLACEHOLDER, main_pkg)
         image_content["sources"].append({"purl": p})
     for d in sample_pkg_deps:
         d.pop("replaces")
-        p = Package.from_json(d).to_purl()
+        p = Package.from_json(d).to_purl().replace(PARENT_PURL_PLACEHOLDER, main_pkg)
         image_content["dependencies"].append({"purl": p})
 
     expected = {
         "image_contents": [image_content],
         "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
     }
+    expected = deep_sort_icm(expected)
 
     # emulate worker
     payload = {"dependencies": sample_deps, "package": sample_package}
