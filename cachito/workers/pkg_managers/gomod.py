@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from datetime import datetime
+import fnmatch
 import functools
 import logging
 import os
@@ -7,8 +8,8 @@ import os.path
 import re
 import shutil
 import tempfile
-from pathlib import PureWindowsPath
-from typing import Tuple
+from pathlib import PureWindowsPath, Path
+from typing import Tuple, List
 
 import git
 import semver
@@ -137,8 +138,9 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             if len(parts) == 3:
                 # If a Go module uses a "replace" directive to a local path, it will be shown as:
                 # k8s.io/metrics v0.0.0 ./staging/src/k8s.io/metrics
-                # In this case, just take the left side.
-                parts = parts[0:2]
+                # In this case, take the module name and the relative path, since that is the
+                # actual dependency being used.
+                parts = [parts[0], parts[2]]
             elif len(parts) == 4:
                 # If a Go module uses a "replace" directive, then it will be in the format:
                 # github.com/pkg/errors v0.8.0 github.com/pkg/errors v0.8.1
@@ -229,13 +231,6 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
                 name, version = _parse_name_and_version(line)
                 # If the line did not contain a version, we'll use the module version
                 version = version or module_version
-                if version.startswith("."):
-                    raise CachitoError(f"Local gomod dependencies are not yet supported: {version}")
-                elif version.startswith("/") or PureWindowsPath(version).root:
-                    # This will disallow paths starting with '/', '\' or '<drive letter>:\'
-                    raise CachitoError(
-                        f"Absolute paths to gomod dependencies are not supported: {version}"
-                    )
 
                 pkg = {
                     "name": name,
@@ -249,6 +244,13 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             # The last item on `go list -deps` is the main package being evaluated
             pkg = pkg_level_deps.pop()
             packages.append({"pkg": pkg, "pkg_deps": pkg_level_deps})
+
+        allowlist = worker_config.cachito_gomod_file_deps_allowlist.get(module_name, [])
+        log.debug("Allowed local dependencies for %s: %s", module_name, allowlist)
+        _vet_local_deps(module_level_deps, module_name, allowlist)
+        for pkg in packages:
+            # Local dependencies are always relative to the main module, even for subpackages
+            _vet_local_deps(pkg["pkg_deps"], module_name, allowlist)
 
         return {"module": module, "module_deps": module_level_deps, "packages": packages}
 
@@ -284,6 +286,44 @@ def _parse_name_and_version(list_deps_line: str) -> Tuple[str, str]:
         raise RuntimeError(f"Unrecognized line in go list -deps output: {list_deps_line!r}")
 
     return name, version
+
+
+def _vet_local_deps(dependencies: List[dict], module_name: str, allowed_patterns: List[str]):
+    """
+    Fail if any dependency is replaced by a local path unless the module is allowlisted.
+
+    Also fail if the module is allowlisted but the path is absolute or outside repository.
+    """
+    for dep in dependencies:
+        name = dep["name"]
+        version = dep["version"]
+
+        if version.startswith("."):
+            log.debug(
+                "Module %s wants to replace %s with a local dependency: %s",
+                module_name,
+                name,
+                version,
+            )
+            if ".." in Path(version).parts:
+                raise CachitoError(
+                    f"Path to gomod dependency contains '..': {version}. "
+                    "Cachito does not support this case."
+                )
+            _fail_unless_allowlisted(module_name, name, allowed_patterns)
+        elif version.startswith("/") or PureWindowsPath(version).root:
+            # This will disallow paths starting with '/', '\' or '<drive letter>:\'
+            raise CachitoError(f"Absolute paths to gomod dependencies are not supported: {version}")
+
+
+def _fail_unless_allowlisted(module_name: str, package_name: str, allowed_patterns: List[str]):
+    """Fail unless the module is allowed to replace the package with a local dependency."""
+    if not any(fnmatch.fnmatch(package_name, pat) for pat in allowed_patterns):
+        raise CachitoError(
+            f"The module {module_name} is not allowed to replace {package_name} with a local "
+            f"dependency. Please contact the maintainers of this Cachito instance about adding "
+            "an exception."
+        )
 
 
 def _merge_bundle_dirs(root_src_dir, root_dst_dir):

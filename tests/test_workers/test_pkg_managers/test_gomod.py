@@ -14,6 +14,8 @@ from cachito.workers.pkg_managers.gomod import (
     _merge_bundle_dirs,
     _merge_files,
     _parse_name_and_version,
+    _vet_local_deps,
+    _fail_unless_allowlisted,
 )
 from cachito.errors import CachitoError
 from cachito.workers.paths import RequestBundleDir
@@ -97,9 +99,13 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
+@mock.patch("cachito.workers.pkg_managers.gomod._vet_local_deps")
+@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 @mock.patch("subprocess.run")
 def test_resolve_gomod(
     mock_run,
+    mock_get_worker_config,
+    mock_vet_local_deps,
     mock_merge_tree,
     mock_temp_dir,
     mock_golang_version,
@@ -111,6 +117,7 @@ def test_resolve_gomod(
     sample_deps_replace,
     sample_deps_replace_new_name,
     sample_package,
+    sample_pkg_deps,
 ):
     mock_cmd_output = _generate_mock_cmd_output(go_list_error_pkg)
     # Mock the tempfile.TemporaryDirectory context manager
@@ -129,6 +136,10 @@ def test_resolve_gomod(
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v2.1.1"
+
+    mock_get_worker_config.return_value.cachito_gomod_file_deps_allowlist = {
+        sample_package["name"]: ["*"]
+    }
 
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
@@ -155,10 +166,18 @@ def test_resolve_gomod(
 
     assert gomod["module"] == sample_package
     assert gomod["module_deps"] == expected_deps
+    assert len(gomod["packages"]) == 1
 
     mock_merge_tree.assert_called_once_with(
         os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
         str(RequestBundleDir(request["id"]).gomod_download_dir),
+    )
+    expect_module_name = sample_package["name"]
+    mock_vet_local_deps.assert_has_calls(
+        [
+            mock.call(expected_deps, expect_module_name, ["*"]),
+            mock.call(gomod["packages"][0]["pkg_deps"], expect_module_name, ["*"]),
+        ],
     )
 
 
@@ -313,94 +332,6 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
             request,
             [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}],
         )
-
-
-@mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
-@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
-@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
-@mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
-@mock.patch("subprocess.run")
-def test_resolve_gomod_disallow_local_dependencies(
-    mock_run, mock_bundle_dir, mock_temp_dir, mock_golang_version, mock_merge_tree, tmpdir
-):
-    # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
-
-    # Mock the "subprocess.run" calls
-    mock_run.side_effect = [
-        # go mod download
-        mock.Mock(returncode=0, stdout=None),
-        # go list -m all
-        mock.Mock(returncode=0, stdout="k8s.io/kubectl"),
-        # go list -find ./...
-        mock.Mock(returncode=0, stdout="k8s.io/kubernetes/cmd/kubectl"),
-        # go list -deps
-        mock.Mock(
-            returncode=0,
-            stdout="k8s.io/kubectl/pkg/apps k8s.io/kubectl => ./staging/src/k8s.io/kubectl",
-        ),
-    ]
-
-    archive_path = "/this/is/path/to/archive.tar.gz"
-    request = {
-        "id": 3,
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-    }
-    err_msg = "Local gomod dependencies are not yet supported: ./staging/src/k8s.io/kubectl"
-    with pytest.raises(CachitoError, match=err_msg):
-        resolve_gomod(archive_path, request)
-
-
-@mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
-@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
-@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
-@mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
-@mock.patch("subprocess.run")
-@pytest.mark.parametrize(
-    "platform_specific_path",
-    [
-        "/home/user/go/src/k8s.io/kubectl",
-        "\\Users\\user\\go\\src\\k8s.io\\kubectl",
-        "C:\\Users\\user\\go\\src\\k8s.io\\kubectl",
-    ],
-)
-def test_resolve_gomod_disallow_absolute_paths(
-    mock_run,
-    mock_bundle_dir,
-    mock_temp_dir,
-    mock_golang_version,
-    mock_merge_tree,
-    tmpdir,
-    platform_specific_path,
-):
-    # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
-
-    # Mock the "subprocess.run" calls
-    mock_run.side_effect = [
-        # go mod download
-        mock.Mock(returncode=0, stdout=None),
-        # go list -m all
-        mock.Mock(returncode=0, stdout="k8s.io/kubectl"),
-        # go list -find ./...
-        mock.Mock(returncode=0, stdout="k8s.io/kubernetes/cmd/kubectl"),
-        # go list -deps
-        mock.Mock(
-            returncode=0,
-            stdout=f"k8s.io/kubectl/pkg/apps k8s.io/kubectl => {platform_specific_path}",
-        ),
-    ]
-
-    archive_path = "/this/is/path/to/archive.tar.gz"
-    request = {
-        "id": 3,
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-    }
-    err_msg = re.escape(
-        f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
-    )
-    with pytest.raises(CachitoError, match=err_msg):
-        resolve_gomod(archive_path, request)
 
 
 @pytest.mark.parametrize(("go_mod_rc", "go_list_rc"), ((0, 1), (1, 0)))
@@ -652,3 +583,111 @@ def test_parse_name_and_version_unrecognized_line():
     err_msg = "Unrecognized line in go list -deps output: '1 2 3 4 5 6 7'"
     with pytest.raises(RuntimeError, match=err_msg):
         _parse_name_and_version("1 2 3 4 5 6 7")
+
+
+@mock.patch("cachito.workers.pkg_managers.gomod._fail_unless_allowlisted")
+def test_vet_local_deps(mock_fail_allowlist):
+    dependencies = [
+        {"name": "foo", "version": "./local/foo"},
+        {"name": "bar", "version": "v1.0.0"},
+        {"name": "baz", "version": "./local/baz"},
+    ]
+    module_name = "some-module"
+
+    _vet_local_deps(dependencies, module_name, ["foo", "baz"])
+
+    mock_fail_allowlist.assert_has_calls(
+        [
+            mock.call("some-module", "foo", ["foo", "baz"]),
+            mock.call("some-module", "baz", ["foo", "baz"]),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "platform_specific_path",
+    [
+        "/home/user/go/src/k8s.io/kubectl",
+        "\\Users\\user\\go\\src\\k8s.io\\kubectl",
+        "C:\\Users\\user\\go\\src\\k8s.io\\kubectl",
+    ],
+)
+def test_vet_local_deps_abspath(platform_specific_path):
+    dependencies = [{"name": "foo", "version": platform_specific_path}]
+
+    expect_error = re.escape(
+        f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
+    )
+    with pytest.raises(CachitoError, match=expect_error):
+        _vet_local_deps(dependencies, "some-module", [])
+
+
+@pytest.mark.parametrize("path", ["../local/path", "./local/../path"])
+def test_vet_local_deps_parent_dir(path):
+    dependencies = [{"name": "foo", "version": path}]
+
+    expect_error = re.escape(
+        f"Path to gomod dependency contains '..': {path}. Cachito does not support this case."
+    )
+    with pytest.raises(CachitoError, match=expect_error):
+        _vet_local_deps(dependencies, "some-module", [])
+
+
+@pytest.mark.parametrize(
+    "module_name, package_name, allowed_patterns, expect_error",
+    [
+        ("example/module", "example/package", ["example/package"], None),
+        ("example/module", "example/package", ["example/*"], None),
+        ("example/module", "example/package", ["*/package"], None),
+        ("example/module", "example/package", ["*/*"], None),
+        ("example/module", "example/package", ["*"], None),
+        (
+            "example/module",
+            "example/package",
+            [],
+            "The module example/module is not allowed to replace example/package",
+        ),
+        (
+            "example/module",
+            "example/package",
+            ["example"],
+            "The module example/module is not allowed to replace example/package",
+        ),
+        (
+            "example/module",
+            "example/package",
+            ["package"],
+            "The module example/module is not allowed to replace example/package",
+        ),
+        (
+            "example/module",
+            "example/package",
+            ["other-example/*"],
+            "The module example/module is not allowed to replace example/package",
+        ),
+        (
+            "example/module",
+            "example/package",
+            ["*/other-package"],
+            "The module example/module is not allowed to replace example/package",
+        ),
+        (
+            "example/module",
+            "example/package",
+            ["example/package/*"],
+            "The module example/module is not allowed to replace example/package",
+        ),
+        (
+            "example/module",
+            "example/package",
+            ["*/example/package"],
+            "The module example/module is not allowed to replace example/package",
+        ),
+    ],
+)
+def test_fail_unless_allowlisted(module_name, package_name, allowed_patterns, expect_error):
+    if expect_error:
+        with pytest.raises(CachitoError, match=re.escape(expect_error)):
+            _fail_unless_allowlisted(module_name, package_name, allowed_patterns)
+    else:
+        _fail_unless_allowlisted(module_name, package_name, allowed_patterns)
