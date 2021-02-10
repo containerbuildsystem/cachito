@@ -320,42 +320,6 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
 @mock.patch("subprocess.run")
-def test_resolve_gomod_disallow_local_dependencies(
-    mock_run, mock_bundle_dir, mock_temp_dir, mock_golang_version, mock_merge_tree, tmpdir
-):
-    # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
-
-    # Mock the "subprocess.run" calls
-    mock_run.side_effect = [
-        # go mod download
-        mock.Mock(returncode=0, stdout=None),
-        # go list -m all
-        mock.Mock(returncode=0, stdout="k8s.io/kubectl"),
-        # go list -find ./...
-        mock.Mock(returncode=0, stdout="k8s.io/kubernetes/cmd/kubectl"),
-        # go list -deps
-        mock.Mock(
-            returncode=0,
-            stdout="k8s.io/kubectl/pkg/apps k8s.io/kubectl => ./staging/src/k8s.io/kubectl",
-        ),
-    ]
-
-    archive_path = "/this/is/path/to/archive.tar.gz"
-    request = {
-        "id": 3,
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-    }
-    err_msg = "Local gomod dependencies are not yet supported: ./staging/src/k8s.io/kubectl"
-    with pytest.raises(CachitoError, match=err_msg):
-        resolve_gomod(archive_path, request)
-
-
-@mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
-@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
-@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
-@mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
-@mock.patch("subprocess.run")
 @pytest.mark.parametrize(
     "platform_specific_path",
     [

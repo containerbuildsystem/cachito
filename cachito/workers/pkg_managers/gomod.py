@@ -230,7 +230,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
                 # If the line did not contain a version, we'll use the module version
                 version = version or module_version
                 if version.startswith("."):
-                    raise CachitoError(f"Local gomod dependencies are not yet supported: {version}")
+                    continue
                 elif version.startswith("/") or PureWindowsPath(version).root:
                     # This will disallow paths starting with '/', '\' or '<drive letter>:\'
                     raise CachitoError(
