@@ -25,6 +25,12 @@ RUN dnf -y install \
     python3-setuptools \
     && dnf clean all
 COPY . .
+
+# FIXME: there was a regression in py-amqp. It was supposed to be fixed in
+# https://github.com/celery/py-amqp/pull/350
+# but cachito is still being affected by the regression
+RUN rpm -e --nodeps python3-amqp && pip3 install amqp==5.0.2
+
 COPY ./docker/cachito-httpd.conf /etc/httpd/conf/httpd.conf
 # All the requirements except pyarn should already be installed
 RUN pip3 install pyarn && \
