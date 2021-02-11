@@ -294,6 +294,7 @@ def create_request():
         )
         error = "Failed to schedule the task to the workers. Please try again."
         request.add_state("failed", error)
+        db.session.commit()
         raise CachitoError(error)
 
     flask.current_app.logger.debug("Successfully scheduled request %d", request.id)
