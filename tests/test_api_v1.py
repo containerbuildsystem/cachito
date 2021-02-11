@@ -938,8 +938,20 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     )
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
 
+    engine = db.create_engine(app.config["SQLALCHEMY_DATABASE_URI"], {})
+    connection = engine.connect()
+    request_state = db.Table("request_state", db.MetaData(), autoload=True, autoload_with=engine)
+    query = db.select([request_state]).where(request_state.columns.request_id == 1)
+
+    state_reasons = []
+    for res in connection.execute(query):
+        state_reasons.append(res[2])
+
+    error = "Failed to schedule the task to the workers. Please try again."
+    assert any(elem == error for elem in state_reasons)
+
     assert rv.status_code == 503
-    assert rv.json == {"error": "Failed to schedule the task to the workers. Please try again."}
+    assert rv.json == {"error": error}
     # Verify that the request is in the failed state
     assert Request.query.get(1).state.state_name == "failed"
 
