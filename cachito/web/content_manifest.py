@@ -44,7 +44,7 @@ class ContentManifest:
         """
         if dependency.type == "gomod":
             icm_source = {"purl": dependency.to_purl()}
-            self._gomod_data[package.name].append(icm_source)
+            self._gomod_data[package.name]["dependencies"].append(icm_source)
 
     def process_go_package(self, package, dependency):
         """
@@ -80,7 +80,8 @@ class ContentManifest:
                 )
 
             if module_name is not None:
-                self._gopkg_data[package_id]["sources"] = self._gomod_data[module_name]
+                module = self._gomod_data[module_name]
+                self._gopkg_data[package_id]["sources"] = module["dependencies"]
             else:
                 flask.current_app.logger.warning(
                     "Could not find a Go module for %s", pkg_data["purl"]
@@ -154,7 +155,8 @@ class ContentManifest:
                     {"name": package.name, "purl": purl, "dependencies": [], "sources": []},
                 )
             elif package.type == "gomod":
-                self._gomod_data.setdefault(package.name, [])
+                purl = package.to_top_level_purl(self.request, subpath=request_package.subpath)
+                self._gomod_data.setdefault(package.name, {"purl": purl, "dependencies": []})
             elif package.type in ("npm", "pip", "yarn"):
                 purl = package.to_top_level_purl(self.request, subpath=request_package.subpath)
                 data = getattr(self, f"_{package.type}_data")
