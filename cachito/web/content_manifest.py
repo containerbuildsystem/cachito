@@ -4,6 +4,9 @@ import flask
 from cachito.web.utils import deep_sort_icm
 
 
+PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
+
+
 class ContentManifest:
     """A content manifest associated with a Cacihto request."""
 
@@ -43,7 +46,9 @@ class ContentManifest:
         :param Dependency dependency: the gomod package dependency to process
         """
         if dependency.type == "gomod":
-            icm_source = {"purl": dependency.to_purl()}
+            parent_purl = self._gomod_data[package.name]["purl"]
+            dep_purl = dependency.to_purl().replace(PARENT_PURL_PLACEHOLDER, parent_purl)
+            icm_source = {"purl": dep_purl}
             self._gomod_data[package.name]["dependencies"].append(icm_source)
 
     def process_go_package(self, package, dependency):
@@ -82,10 +87,22 @@ class ContentManifest:
             if module_name is not None:
                 module = self._gomod_data[module_name]
                 self._gopkg_data[package_id]["sources"] = module["dependencies"]
+                self._replace_parent_purl_gopkg(self._gopkg_data[package_id], module["purl"])
             else:
                 flask.current_app.logger.warning(
                     "Could not find a Go module for %s", pkg_data["purl"]
                 )
+
+    def _replace_parent_purl_gopkg(self, go_pkg: dict, module_purl: str):
+        """
+        Replace PARENT_PURL_PLACEHOLDER in go-package dependencies with the parent module purl.
+
+        The purl of the package itself cannot contain a placeholder. The purls of all of its
+        sources will have been replaced at this point already (they come from the parent module).
+        Only dependencies need to be replaced here.
+        """
+        for dep in go_pkg["dependencies"]:
+            dep["purl"] = dep["purl"].replace(PARENT_PURL_PLACEHOLDER, module_purl)
 
     def process_npm_package(self, package, dependency):
         """

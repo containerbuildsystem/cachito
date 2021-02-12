@@ -198,6 +198,11 @@ class Package(db.Model):
         :raise ContentManifestError: if the there is no implementation for the package type
         """
         if self.type in ("go-package", "gomod"):
+            if self.version.startswith("."):
+                # Package is relative to the parent module
+                normpath = os.path.normpath(self.version)
+                return f"{content_manifest.PARENT_PURL_PLACEHOLDER}#{normpath}"
+
             # Use only the PURL "name" field to avoid ambiguity for Go modules/packages
             # see https://github.com/package-url/purl-spec/issues/63 for further reference
             purl_name = urllib.parse.quote(self.name, safe="")
