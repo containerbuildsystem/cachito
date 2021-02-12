@@ -46,7 +46,7 @@ def test_process_go(default_request):
     cm = ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
-    cm._gomod_data.setdefault(pkg.name, [])
+    cm._gomod_data.setdefault(pkg.name, {"purl": "not-important", "dependencies": []})
     cm._gopkg_data.setdefault(
         pkg.id, {"name": pkg.name, "purl": expected_purl, "dependencies": [], "sources": []}
     )
@@ -237,6 +237,71 @@ def test_to_json(mock_top_level_purl, app, package, subpath):
 
 
 @pytest.mark.parametrize(
+    "package, internal_attr, internal_data",
+    [
+        (
+            {"name": "grc-ui", "type": "npm", "version": "1.0.0"},
+            "_npm_data",
+            # The id of the mock Package is 1, the purl is also mocked
+            {1: {"purl": "mock-package-purl", "sources": [], "dependencies": []}},
+        ),
+        (
+            {"name": "requests", "type": "pip", "version": "2.24.0"},
+            "_pip_data",
+            {1: {"purl": "mock-package-purl", "sources": [], "dependencies": []}},
+        ),
+        (
+            {"name": "grc-ui", "type": "yarn", "version": "1.0.0"},
+            "_yarn_data",
+            {1: {"purl": "mock-package-purl", "sources": [], "dependencies": []}},
+        ),
+        (
+            {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"},
+            "_gopkg_data",
+            # go-package is special, it also gets "name"
+            {
+                1: {
+                    "name": "example.com/org/project",
+                    "purl": "mock-package-purl",
+                    "sources": [],
+                    "dependencies": [],
+                },
+            },
+        ),
+        (
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.1.1"},
+            "_gomod_data",
+            # gomod is special, it is only used to finalize go-package data
+            {"example.com/org/project": {"purl": "mock-package-purl", "dependencies": []}},
+        ),
+    ],
+)
+@mock.patch("cachito.web.models.Package.to_top_level_purl")
+# set_go_package_sources must be mocked because it is destructive towards _gopkg_data
+@mock.patch("cachito.web.content_manifest.ContentManifest.set_go_package_sources")
+def test_to_json_properly_sets_internal_data(
+    mock_set_go_sources, mock_top_level_purl, app, package, internal_attr, internal_data
+):
+    # Half the unit tests "emulate to_json() behaviour" so we should probably test that behaviour
+    request = Request()
+
+    pkg = Package.from_json(package)
+    pkg.id = 1
+
+    request_package = RequestPackage(package=pkg)
+    request.request_packages.append(request_package)
+
+    mock_top_level_purl.return_value = "mock-package-purl"
+
+    cm = ContentManifest(request)
+    cm.to_json()
+
+    # Here we are only interested in the setup part of to_json()
+    # (sidenote: we really need to refactor to_json())
+    assert getattr(cm, internal_attr) == internal_data
+
+
+@pytest.mark.parametrize(
     "packages",
     [
         [
@@ -290,10 +355,26 @@ def test_generate_icm(contents, default_request):
     "pkg_name, gomod_data, warn",
     [
         ["example.com/foo/bar", {}, True],
-        ["example.com/foo/bar", {"example.com/foo/bar": []}, False],
-        ["example.com/foo/bar", {"example.com/foo/bar": [{"purl": "foo"}]}, False],
-        ["example.com/foo/bar", {"example.com/foo": [{"purl": "foo"}]}, False],
-        ["example.com/foo", {"example.com/foo/bar": [{"purl": "foo"}]}, True],
+        [
+            "example.com/foo/bar",
+            {"example.com/foo/bar": {"purl": "not-important", "dependencies": []}},
+            False,
+        ],
+        [
+            "example.com/foo/bar",
+            {"example.com/foo/bar": {"purl": "not-important", "dependencies": [{"purl": "foo"}]}},
+            False,
+        ],
+        [
+            "example.com/foo/bar",
+            {"example.com/foo": {"purl": "not-important", "dependencies": [{"purl": "foo"}]}},
+            False,
+        ],
+        [
+            "example.com/foo",
+            {"example.com/foo/bar": {"purl": "not-important", "dependencies": [{"purl": "foo"}]}},
+            True,
+        ],
     ],
 )
 @mock.patch("flask.current_app.logger.warning")
@@ -313,7 +394,7 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
     sources = []
     for v in gomod_data.values():
         if any(k in pkg_name for k in gomod_data.keys()):
-            sources += v
+            sources += v["dependencies"]
 
     expected = {main_package_id: {"purl": main_purl, "dependencies": [], "sources": sources}}
 
