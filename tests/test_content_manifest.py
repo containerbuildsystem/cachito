@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import ContentManifestError
-from cachito.web.content_manifest import ContentManifest
+from cachito.web.content_manifest import ContentManifest, PARENT_PURL_PLACEHOLDER
 from cachito.web.models import Package, Request, RequestPackage
 
 GIT_REPO = "https://github.com/namespace/repo"
@@ -66,6 +66,37 @@ def test_process_go(default_request):
     assert cm._gopkg_data
     assert pkg.id in cm._gopkg_data
     assert cm._gopkg_data == expected_contents
+
+
+def test_process_gomod_replace_parent_purl(default_request):
+    module = Package.from_json(
+        {"name": "example.com/org/project", "type": "gomod", "version": "1.1.1"}
+    )
+    module.id = 1
+    expected_module_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
+
+    module_dep = Package.from_json(
+        {
+            "name": "example.com/anotherorg/project",
+            "type": "gomod",
+            "version": "./staging/src/anotherorg/project",
+        }
+    )
+    module_dep.id = 2
+    expected_dependency_purl = f"{expected_module_purl}#staging/src/anotherorg/project"
+
+    cm = ContentManifest(default_request)
+
+    # emulate to_json behavior to setup internal packages cache
+    cm._gomod_data.setdefault(module.name, {"purl": expected_module_purl, "dependencies": []})
+
+    cm.process_gomod(module, module_dep)
+    assert cm._gomod_data == {
+        module.name: {
+            "purl": expected_module_purl,
+            "dependencies": [{"purl": expected_dependency_purl}],
+        },
+    }
 
 
 def test_process_npm(default_request, default_toplevel_purl):
@@ -407,6 +438,98 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
 
 
 @pytest.mark.parametrize(
+    "gopkg_name, gomod_data, expected_parent_purl",
+    [
+        (
+            "k8s.io/kubernetes",
+            {
+                "k8s.io/kubernetes": {
+                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
+                    "dependencies": [],
+                },
+            },
+            "pkg:golang/k8s.io/kubernetes@v1.0.0",
+        ),
+        (
+            # If the package name starts with the module name, that is also a match
+            "k8s.io/kubernetes/x",
+            {
+                "k8s.io/kubernetes": {
+                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
+                    "dependencies": [],
+                },
+            },
+            "pkg:golang/k8s.io/kubernetes@v1.0.0",
+        ),
+        (
+            # Longer match wins
+            "k8s.io/kubernetes/x",
+            {
+                "k8s.io/kubernetes": {
+                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
+                    "dependencies": [],
+                },
+                "k8s.io/kubernetes/x": {
+                    "purl": "pkg:golang/k8s.io/kubernetes/x@v1.0.0",
+                    "dependencies": [],
+                },
+            },
+            "pkg:golang/k8s.io/kubernetes/x@v1.0.0",
+        ),
+        (
+            # The longer module name does not match, the shorter one does
+            "k8s.io/kubernetes/x",
+            {
+                "k8s.io/kubernetes": {
+                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
+                    "dependencies": [],
+                },
+                "k8s.io/kubernetes/x/y": {
+                    "purl": "pkg:golang/k8s.io/kubernetes/x/y@v1.0.0",
+                    "dependencies": [],
+                },
+            },
+            "pkg:golang/k8s.io/kubernetes@v1.0.0",
+        ),
+    ],
+)
+def test_set_go_package_sources_replace_parent_purl(
+    gopkg_name, gomod_data, expected_parent_purl, default_request
+):
+    pre_replaced_dependencies = [
+        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/foo"},
+        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/bar"},
+        {"purl": f"pkg:golang/example.com/some-other-project@v1.0.0"},
+    ]
+    post_replaced_dependencies = [
+        {"purl": f"{expected_parent_purl}#staging/src/k8s.io/foo"},
+        {"purl": f"{expected_parent_purl}#staging/src/k8s.io/bar"},
+        {"purl": f"pkg:golang/example.com/some-other-project@v1.0.0"},
+    ]
+
+    cm = ContentManifest(default_request)
+    cm._gomod_data = gomod_data
+    cm._gopkg_data = {
+        1: {
+            "name": gopkg_name,
+            "purl": "not-important",
+            "dependencies": pre_replaced_dependencies,
+            "sources": [],
+        },
+    }
+
+    cm.set_go_package_sources()
+    assert cm._gopkg_data == {
+        1: {
+            # name is popped by set_go_package_sources()
+            "purl": "not-important",
+            "dependencies": post_replaced_dependencies,
+            "sources": [],
+        },
+    }
+
+
+@pytest.mark.parametrize(
     "package, expected_purl, defined, known_protocol",
     [
         [{"name": "bacon", "type": "invalid", "version": "1.0.0"}, None, False, False],
@@ -419,6 +542,18 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
         [
             {"name": "example.com/org/project", "type": "gomod", "version": "1.1.1"},
             "pkg:golang/example.com%2Forg%2Fproject@1.1.1",
+            True,
+            True,
+        ],
+        [
+            {"name": "example.com/org/project", "type": "go-package", "version": "./src/project"},
+            f"{PARENT_PURL_PLACEHOLDER}#src/project",
+            True,
+            True,
+        ],
+        [
+            {"name": "example.com/org/project", "type": "gomod", "version": "./src/project"},
+            f"{PARENT_PURL_PLACEHOLDER}#src/project",
             True,
             True,
         ],
