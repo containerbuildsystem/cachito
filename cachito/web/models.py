@@ -189,6 +189,30 @@ class Package(db.Model):
 
         return package_object
 
+    @classmethod
+    def bulk_get_or_create(cls, packages):
+        """
+        TODO
+        """
+        # TODO: Make this dynamic and take alternative, slow path, if not postgres
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        for package in packages:
+            cls.validate_json(package)
+        insert_statement = pg_insert(Dependency).on_conflict_do_nothing()
+        db.session.execute(insert_statement, packages)
+
+        values = [(p["name"], p["type"], p["version"], p.get("dev", False)) for p in packages]
+
+        return Dependency.query.filter(
+            sqlalchemy.sql.expression.tuple_(
+                Dependency.__table__.c.name,
+                Dependency.__table__.c.type,
+                Dependency.__table__.c.version,
+                Dependency.__table__.c.dev,
+            ).in_(values)
+        ).all()
+
     def to_purl(self):
         """
         Generate the PURL representation of the package.
@@ -757,6 +781,56 @@ class Request(db.Model):
             )
         )
 
+    def bulk_add_dependency(self, package, deps_and_replaces):
+        """
+        TODO
+        """
+        # TODO: Make this dynamic and take alternative, slow path, if not postgres
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        dep_to_repaces = {
+            dep.id: replaces.id if replaces else None for dep, replaces in deps_and_replaces
+        }
+        existing_values = [(self.id, package.id, dep.id) for dep, _ in deps_and_replaces]
+
+        # TODO: Use `where` for request_id and package_id?
+        request_dependencies = RequestDependency.query.filter(
+            sqlalchemy.sql.expression.tuple_(
+                RequestDependency.__table__.c.request_id,
+                RequestDependency.__table__.c.package_id,
+                RequestDependency.__table__.c.dependency_id,
+            ).in_(existing_values)
+        ).all()
+
+        for request_dependency in request_dependencies:
+            expected_replaces_id = dep_to_repaces[request_dependency.dependency.id]
+            existing_replaces_id = (
+                request_dependency.replaced_dependency.id
+                if request_dependency.replaced_dependency
+                else None
+            )
+            if expected_replaces_id != existing_replaces_id:
+                raise ValidationError(
+                    f"The dependency {request_dependency.dependency.to_json()} can't have a new "
+                    "replacement set"
+                )
+
+        values = [
+            dict(
+                request_id=self.id,
+                package_id=package.id,
+                dependency_id=dep.id,
+                replaced_dependency_id=replaces.id if replaces else None,
+            )
+            for dep, replaces in deps_and_replaces
+        ]
+
+        # TODO: Is pg_insert needed here? Better to raise an exception on conflict? It sure
+        # would be unexpected behavior since a single worker should be updating the request
+        # object at a time.
+        insert_statement = pg_insert(RequestDependency).on_conflict_do_nothing()
+        db.session.execute(insert_statement, values)
+
     @property
     def content_manifest(self):
         """
@@ -967,7 +1041,8 @@ class Request(db.Model):
         # current_user.is_authenticated is only ever False when auth is disabled
         if submitted_for_username and not current_user.is_authenticated:
             raise ValidationError('Cannot set "user" when authentication is disabled')
-        if current_user.is_authenticated:
+        # TODO: Figure out how to properly handle this from manage.py
+        if False and current_user.is_authenticated:
             if submitted_for_username:
                 allowed_users = flask.current_app.config["CACHITO_USER_REPRESENTATIVES"]
                 if current_user.username not in allowed_users:

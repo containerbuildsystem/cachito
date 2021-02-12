@@ -419,15 +419,58 @@ def patch_request(request_id):
 
         request.add_package(package_object, **package_attrs)
 
-    for dep_and_replaces in payload.get("dependencies", []):
-        dep = copy.deepcopy(dep_and_replaces)
-        replaces = dep.pop("replaces", None)
+    # TODO: Remove this conditional. This is only here to faciliate development testing.
+    bulk = True
+    if bulk:
+        bulk_dependencies = []
+        mapped_bulk_dependencies = {}
+        relationships = []
+        for dep_and_replaces in payload.get("dependencies", []):
+            dep = copy.deepcopy(dep_and_replaces)
+            replaces = dep.pop("replaces", None)
+            bulk_dependencies.append(dep)
+            if replaces:
+                bulk_dependencies.append(replaces)
 
-        dep_object = Dependency.get_or_create(dep)
-        replaces_object = None
-        if replaces:
-            replaces_object = Dependency.get_or_create(replaces)
-        request.add_dependency(package_object, dep_object, replaces_object)
+        bulk_package_dependencies = []
+        if bulk_dependencies:
+            created_bulk_dependencies = Dependency.bulk_get_or_create(bulk_dependencies)
+            mapped_bulk_dependencies = {
+                (dep.name, dep.version, dep.type, dep.dev): dep for dep in created_bulk_dependencies
+            }
+            for dep_and_replaces in payload.get("dependencies", []):
+                dep_key = (
+                    dep_and_replaces['name'],
+                    dep_and_replaces['version'],
+                    dep_and_replaces['type'],
+                    dep_and_replaces.get('dev', False),
+                )
+                dep = mapped_bulk_dependencies[dep_key]
+
+                replaces = None
+                replaces_json = dep_and_replaces.get("replaces", None)
+                if replaces_json:
+                    replaces_key = (
+                        replaces_json['name'],
+                        replaces_json['version'],
+                        replaces_json['type'],
+                        replaces_json.get('dev', False),
+                    )
+                    replaces = mapped_bulk_dependencies[replaces_key]
+                bulk_package_dependencies.append((dep, replaces,))
+
+        if bulk_package_dependencies:
+            request.bulk_add_dependency(package_object, bulk_package_dependencies)
+    else:
+        for dep_and_replaces in payload.get("dependencies", []):
+            dep = copy.deepcopy(dep_and_replaces)
+            replaces = dep.pop("replaces", None)
+
+            dep_object = Dependency.get_or_create(dep)
+            replaces_object = None
+            if replaces:
+                replaces_object = Dependency.get_or_create(replaces)
+            request.add_dependency(package_object, dep_object, replaces_object)
 
     for env_var_name, env_var_info in payload.get("environment_variables", {}).items():
         env_var_obj = EnvironmentVariable.query.filter_by(name=env_var_name, **env_var_info).first()
