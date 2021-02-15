@@ -35,7 +35,14 @@ ENV GIT_COMMITTER_NAME=cachito \
     GIT_AUTHOR_NAME=cachito \
     GIT_AUTHOR_EMAIL=cachito@localhost
 
-RUN gem install bundler
+ENV BUNDLER_ONE_VERSION=1.17.3 \
+    BUNDLER_TWO_VERSION=2.2.10
+
+RUN gem fetch bundler --version $BUNDLER_ONE_VERSION && \
+    gem install bundler-$BUNDLER_ONE_VERSION.gem --no-document
+
+RUN gem fetch bundler --version $BUNDLER_TWO_VERSION && \
+    gem install bundler-$BUNDLER_TWO_VERSION.gem --no-document
 
 EXPOSE 8080
 ENTRYPOINT ["/src/docker/docker-entrypoint.sh"]
