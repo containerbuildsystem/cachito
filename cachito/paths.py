@@ -50,6 +50,10 @@ class RequestBundleDir(type(Path())):
         self.npm_package_lock_file = self.source_dir.joinpath("package-lock.json")
         self.npm_shrinkwrap_file = self.source_dir.joinpath("npm-shrinkwrap.json")
 
+        self.bundler_deps_dir = self.joinpath("deps", "bundler")
+        self.bundler_package_file = self.source_dir.joinpath("Gemfile")
+        self.bundler_package_lock_file = self.source_dir.joinpath("Gemfile.lock")
+
         self.pip_deps_dir = self.joinpath("deps", "pip")
 
         self.yarn_deps_dir = self.joinpath("deps", "yarn")

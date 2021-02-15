@@ -40,6 +40,7 @@ class Config(object):
     cachito_nexus_js_hosted_repo_name = "cachito-js-hosted"
     cachito_nexus_max_search_attempts = 5
     cachito_nexus_npm_proxy_repo_url = "http://localhost:8081/repository/cachito-js/"
+    cachito_nexus_rubygems_proxy_repo_url = "http://localhost:8081/repository/cachito-rubygems/"
     cachito_nexus_pip_raw_repo_name = "cachito-pip-raw"
     cachito_nexus_proxy_password = None
     cachito_nexus_proxy_username = None
@@ -295,6 +296,20 @@ def validate_pip_config():
             raise ConfigError(
                 f'The configuration "{pip_config}" must be set for this package manager'
             )
+
+
+def validate_rubygems_config():
+    """
+    Perform validation on the Celery configuration for the Ruby bundler package manager.
+
+    :raise ConfigError: if the Celery configuration isn't configured for pip
+    """
+    validate_nexus_config()
+    conf = get_worker_config()
+    if not conf.get("cachito_nexus_rubygems_proxy_repo_url"):
+        raise ConfigError(
+            f'The configuration "{rubygems_config}" must be set for this package manager'
+        )
 
 
 def get_worker_config():

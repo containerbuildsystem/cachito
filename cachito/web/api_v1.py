@@ -283,6 +283,17 @@ def create_request():
         chain_tasks.append(
             tasks.fetch_yarn_source.si(request.id, yarn_package_configs).on_error(error_callback)
         )
+    if 'bundler' in pkg_manager_names:
+        if pkg_manager_to_dep_replacements.get("bundler"):
+            raise ValidationError(
+                "Dependency replacements are not yet supported for the bundler package manager"
+            )
+        bundler_package_configs = package_configs.get("bundler", [])
+        chain_tasks.append(
+            tasks.fetch_rubygems_source.si(
+                request.id, bundler_package_configs,
+            ).on_error(error_callback)
+        )
 
     chain_tasks.append(tasks.create_bundle_archive.si(request.id).on_error(error_callback))
 
