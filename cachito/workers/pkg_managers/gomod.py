@@ -251,6 +251,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         for pkg in packages:
             # Local dependencies are always relative to the main module, even for subpackages
             _vet_local_deps(pkg["pkg_deps"], module_name, allowlist)
+            _set_full_local_dep_relpaths(pkg["pkg_deps"], module_level_deps)
 
         return {"module": module, "module_deps": module_level_deps, "packages": packages}
 
@@ -324,6 +325,40 @@ def _fail_unless_allowlisted(module_name: str, package_name: str, allowed_patter
             f"dependency. Please contact the maintainers of this Cachito instance about adding "
             "an exception."
         )
+
+
+def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[dict]):
+    """
+    Set full relative paths for all local go-package dependencies.
+
+    The path that you see in the go list -deps output points only to the module that contains
+    the package. To get the full path to the package, take the relative path from the module
+    to the package (based on the package name relative to the module name) and join it with the
+    module path.
+    """
+    locally_replaced_mod_names = [
+        module["name"] for module in main_module_deps if module["version"].startswith(".")
+    ]
+
+    for dep in pkg_deps:
+        dep_name = dep["name"]
+        dep_path = dep["version"]
+
+        if not dep_path.startswith("."):
+            continue
+
+        # The gomod module that contains this go-package dependency - take the longest matching
+        #   module name that has a local replacement
+        dep_module_name = max(
+            filter(dep_name.startswith, locally_replaced_mod_names), key=len, default=None
+        )
+        if dep_module_name is None:
+            # This should be impossible
+            raise RuntimeError(f"Could not find parent Go module for local dependency: {dep_name}")
+
+        path_from_module_to_pkg = dep_name.replace(dep_module_name, "").lstrip("/")
+        if path_from_module_to_pkg:
+            dep["version"] = os.path.join(dep_path, path_from_module_to_pkg)
 
 
 def _merge_bundle_dirs(root_src_dir, root_dst_dir):
