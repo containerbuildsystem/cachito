@@ -16,6 +16,7 @@ from cachito.workers.pkg_managers.gomod import (
     _parse_name_and_version,
     _vet_local_deps,
     _fail_unless_allowlisted,
+    _set_full_local_dep_relpaths,
 )
 from cachito.errors import CachitoError
 from cachito.workers.paths import RequestBundleDir
@@ -100,11 +101,13 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
 @mock.patch("cachito.workers.pkg_managers.gomod._vet_local_deps")
+@mock.patch("cachito.workers.pkg_managers.gomod._set_full_local_dep_relpaths")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 @mock.patch("subprocess.run")
 def test_resolve_gomod(
     mock_run,
     mock_get_worker_config,
+    mock_set_full_relpaths,
     mock_vet_local_deps,
     mock_merge_tree,
     mock_temp_dir,
@@ -179,6 +182,7 @@ def test_resolve_gomod(
             mock.call(gomod["packages"][0]["pkg_deps"], expect_module_name, ["*"]),
         ],
     )
+    mock_set_full_relpaths.assert_called_once_with(gomod["packages"][0]["pkg_deps"], expected_deps)
 
 
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
@@ -691,3 +695,82 @@ def test_fail_unless_allowlisted(module_name, package_name, allowed_patterns, ex
             _fail_unless_allowlisted(module_name, package_name, allowed_patterns)
     else:
         _fail_unless_allowlisted(module_name, package_name, allowed_patterns)
+
+
+@pytest.mark.parametrize(
+    "main_module_deps, pkg_deps_pre, pkg_deps_post",
+    [
+        (
+            # module deps
+            [{"name": "example.org/foo", "version": "./src/foo"}],
+            # package deps pre
+            [{"name": "example.org/foo", "version": "./src/foo"}],
+            # package deps post (package name was the same as module name, no change)
+            [{"name": "example.org/foo", "version": "./src/foo"}],
+        ),
+        (
+            [{"name": "example.org/foo", "version": "./src/foo"}],
+            [{"name": "example.org/foo/bar", "version": "./src/foo"}],
+            # path is changed
+            [{"name": "example.org/foo/bar", "version": "./src/foo/bar"}],
+        ),
+        (
+            [{"name": "example.org/foo", "version": "./src/foo"}],
+            [
+                {"name": "example.org/foo/bar", "version": "./src/foo"},
+                {"name": "example.org/foo/bar/baz", "version": "./src/foo"},
+            ],
+            # both packages match, both paths are changed
+            [
+                {"name": "example.org/foo/bar", "version": "./src/foo/bar"},
+                {"name": "example.org/foo/bar/baz", "version": "./src/foo/bar/baz"},
+            ],
+        ),
+        (
+            [
+                {"name": "example.org/foo", "version": "./src/foo"},
+                {"name": "example.org/foo/bar", "version": "./src/bar"},
+            ],
+            [{"name": "example.org/foo/bar", "version": "./src/bar"}],
+            # longer match wins, no change
+            [{"name": "example.org/foo/bar", "version": "./src/bar"}],
+        ),
+        (
+            [
+                {"name": "example.org/foo", "version": "./src/foo"},
+                {"name": "example.org/foo/bar", "version": "./src/bar"},
+            ],
+            [{"name": "example.org/foo/bar/baz", "version": "./src/bar"}],
+            # longer match wins, path is changed
+            [{"name": "example.org/foo/bar/baz", "version": "./src/bar/baz"}],
+        ),
+        (
+            [
+                {"name": "example.org/foo", "version": "./src/foo"},
+                {"name": "example.org/foo/bar", "version": "v1.0.0"},
+            ],
+            [{"name": "example.org/foo/bar", "version": "./src/foo"}],
+            # longer match does not have a local replacement, shorter match used
+            # this can happen if replacement is only applied to a specific version of a module
+            [{"name": "example.org/foo/bar", "version": "./src/foo/bar"}],
+        ),
+        (
+            [{"name": "example.org/foo", "version": "./src/foo"}],
+            [{"name": "example.org/foo/bar", "version": "v1.0.0"}],
+            # Package does not have a local replacement, no change
+            [{"name": "example.org/foo/bar", "version": "v1.0.0"}],
+        ),
+    ],
+)
+def test_set_full_local_dep_relpaths(main_module_deps, pkg_deps_pre, pkg_deps_post):
+    _set_full_local_dep_relpaths(pkg_deps_pre, main_module_deps)
+    # pkg_deps_pre should be modified in place
+    assert pkg_deps_pre == pkg_deps_post
+
+
+def test_set_full_local_dep_relpaths_no_match():
+    pkg_deps = [{"name": "example.org/foo", "version": "./src/foo"}]
+    err_msg = "Could not find parent Go module for local dependency: example.org/foo"
+
+    with pytest.raises(RuntimeError, match=err_msg):
+        _set_full_local_dep_relpaths(pkg_deps, [])
