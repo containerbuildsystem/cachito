@@ -97,6 +97,7 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
         ),
     ),
 )
+@pytest.mark.parametrize("cgo_disable", [False, True])
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
@@ -115,6 +116,7 @@ def test_resolve_gomod(
     dep_replacement,
     go_list_error_pkg,
     expected_replace,
+    cgo_disable,
     tmpdir,
     sample_deps,
     sample_deps_replace,
@@ -146,6 +148,9 @@ def test_resolve_gomod(
 
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
+    if cgo_disable:
+        request["flags"] = ["cgo-disable"]
+
     if dep_replacement is None:
         gomod = resolve_gomod(archive_path, request)
         expected_deps = sample_deps
@@ -166,6 +171,13 @@ def test_resolve_gomod(
         )
         if dep_replacement:
             assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
+
+    for call in mock_run.call_args_list:
+        env = call.kwargs["env"]
+        if cgo_disable:
+            assert env["CGO_ENABLED"] == "0"
+        else:
+            assert "CGO_ENABLED" not in env
 
     assert gomod["module"] == sample_package
     assert gomod["module_deps"] == expected_deps
