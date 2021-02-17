@@ -17,6 +17,7 @@ from cachito.workers.pkg_managers.gomod import (
     _vet_local_deps,
     _fail_unless_allowlisted,
     _set_full_local_dep_relpaths,
+    _get_allowed_local_deps,
 )
 from cachito.errors import CachitoError
 from cachito.workers.paths import RequestBundleDir
@@ -101,6 +102,7 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
+@mock.patch("cachito.workers.pkg_managers.gomod._get_allowed_local_deps")
 @mock.patch("cachito.workers.pkg_managers.gomod._vet_local_deps")
 @mock.patch("cachito.workers.pkg_managers.gomod._set_full_local_dep_relpaths")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
@@ -110,6 +112,7 @@ def test_resolve_gomod(
     mock_get_worker_config,
     mock_set_full_relpaths,
     mock_vet_local_deps,
+    mock_get_allowed_local_deps,
     mock_merge_tree,
     mock_temp_dir,
     mock_golang_version,
@@ -142,9 +145,7 @@ def test_resolve_gomod(
 
     mock_golang_version.return_value = "v2.1.1"
 
-    mock_get_worker_config.return_value.cachito_gomod_file_deps_allowlist = {
-        sample_package["name"]: ["*"]
-    }
+    mock_get_allowed_local_deps.return_value = ["*"]
 
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
@@ -188,6 +189,7 @@ def test_resolve_gomod(
         str(RequestBundleDir(request["id"]).gomod_download_dir),
     )
     expect_module_name = sample_package["name"]
+    mock_get_allowed_local_deps.assert_called_once_with(expect_module_name)
     mock_vet_local_deps.assert_has_calls(
         [
             mock.call(expected_deps, expect_module_name, ["*"]),
@@ -786,3 +788,56 @@ def test_set_full_local_dep_relpaths_no_match():
 
     with pytest.raises(RuntimeError, match=err_msg):
         _set_full_local_dep_relpaths(pkg_deps, [])
+
+
+@pytest.mark.parametrize(
+    "allowlist, module_name, expect_allowed",
+    [
+        (
+            # simple match
+            {"example.org/foo": ["example.org/*"]},
+            "example.org/foo",
+            ["example.org/*"],
+        ),
+        (
+            # versionless match
+            {"example.org/foo": ["example.org/*"]},
+            "example.org/foo/v2",
+            ["example.org/*"],
+        ),
+        (
+            # simple match
+            {"example.org/foo/v2": ["example.org/*"]},
+            "example.org/foo/v2",
+            ["example.org/*"],
+        ),
+        (
+            # simple match beats versionless match
+            {"example.org/foo/v2": ["example.org/foo/v2/*"], "example.org/foo": ["example.org/*"]},
+            "example.org/foo/v2",
+            ["example.org/foo/v2/*"],
+        ),
+        (
+            # no match
+            {"example.org/foo": ["example.org/*"]},
+            "example.org/foo/bar",
+            [],
+        ),
+        (
+            # no match
+            {"example.org/foo/v2": ["example.org/*"]},
+            "example.org/foo",
+            [],
+        ),
+        (
+            # no match
+            {"example.org/foo/v2": ["example.org/*"]},
+            "example.org/foo/v3",
+            [],
+        ),
+    ],
+)
+@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
+def test_get_allowed_local_deps(mock_worker_config, allowlist, module_name, expect_allowed):
+    mock_worker_config.return_value.cachito_gomod_file_deps_allowlist = allowlist
+    assert _get_allowed_local_deps(module_name) == expect_allowed

@@ -24,6 +24,8 @@ __all__ = ["get_golang_version", "resolve_gomod"]
 log = logging.getLogger(__name__)
 run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
 
+MODULE_VERSION_RE = re.compile(r"/v\d+$")
+
 
 class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
     """
@@ -247,7 +249,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             pkg = pkg_level_deps.pop()
             packages.append({"pkg": pkg, "pkg_deps": pkg_level_deps})
 
-        allowlist = worker_config.cachito_gomod_file_deps_allowlist.get(module_name, [])
+        allowlist = _get_allowed_local_deps(module_name)
         log.debug("Allowed local dependencies for %s: %s", module_name, allowlist)
         _vet_local_deps(module_level_deps, module_name, allowlist)
         for pkg in packages:
@@ -256,6 +258,22 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             _set_full_local_dep_relpaths(pkg["pkg_deps"], module_level_deps)
 
         return {"module": module, "module_deps": module_level_deps, "packages": packages}
+
+
+def _get_allowed_local_deps(module_name: str) -> List[str]:
+    """
+    Get allowed local dependencies for module.
+
+    If module name contains a version and is not present in the allowlist, also try matching
+    without the version. E.g. if example.org/module/v2 is not present in the allowlist, return
+    allowed deps for example.org/module.
+    """
+    allowlist = get_worker_config().cachito_gomod_file_deps_allowlist
+    allowed_deps = allowlist.get(module_name)
+    if allowed_deps is None:
+        versionless_module_name = MODULE_VERSION_RE.sub("", module_name)
+        allowed_deps = allowlist.get(versionless_module_name)
+    return allowed_deps or []
 
 
 def _parse_name_and_version(list_deps_line: str) -> Tuple[str, str]:
