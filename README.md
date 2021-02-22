@@ -410,15 +410,15 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_nexus_hoster_password` - the password of the Nexus service account used by Cachito for
   the Nexus instance that has the hosted repositories. This is used instead of
   `cachito_nexus_password` for uploading content if you are using the two Nexus instance approach as
-  described in the "Nexus For npm" section. If this is set, `cachito_nexus_hoster_username` must
+  described in the "Nexus For Java Script" section. If this is set, `cachito_nexus_hoster_username` must
   also be set.
 * `cachito_nexus_hoster_url` - the URL to the Nexus instance that has the hosted repositories. This
   is used instead of `cachito_nexus_url` for uploading content if you are using the two Nexus
-  instance approach as described in the "Nexus For npm" section.
+  instance approach as described in the "Nexus For Java Script" section.
 * `cachito_nexus_hoster_username` - the username of the Nexus service account used by Cachito for
   the Nexus instance that has the hosted repositories. This is used instead of
   `cachito_nexus_username` for uploading content if you are using the two Nexus instance approach as
-  described in the "Nexus For npm" section. If this is set, `cachito_nexus_hoster_password` must
+  described in the "Nexus For Java Script" section. If this is set, `cachito_nexus_hoster_password` must
   also be set.
 * `cachito_nexus_js_hosted_repo_name` - the name of the Nexus hosted repository for JavaScript
   package managers. This defaults to `cachito-js-hosted`.
@@ -427,7 +427,7 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_nexus_npm_proxy_repo_url` - the URL to the `cachito-js` repository which is a Nexus group
   that points to the `cachito-js-hosted` hosted repository and the `cachito-js-proxy` proxy
   repository. This defaults to `http://localhost:8081/repository/cachito-js/`. This only needs to
-  change if you are using the two Nexus instance approach as described in the "Nexus For npm"
+  change if you are using the two Nexus instance approach as described in the "Nexus For Java Script"
   section or you use a different name for the repository.
 * `cachito_nexus_password` - the password of the Nexus service account used by Cachito.
 * `cachito_nexus_pip_raw_repo_name` - the name of the Nexus raw repository for the `pip` package
@@ -530,17 +530,19 @@ with the `mod_auth_gssapi` module.
 
 ## Nexus
 
-### Nexus For npm
+### Nexus For Java Script
 
-The npm package manager functionality relies on [Nexus Repository Manager 3][nexus-docs] to store
-npm dependencies. The Nexus instance will have an npm group repository (e.g. `cachito-js`) which
-points to an npm hosted repository (e.g. `cachito-js-hosted`) and an npm proxy repository
-(e.g. `cachito-js-proxy`) that points to registry.npmjs.org. The hosted repository will contain all
-non-registry dependencies and the proxy repository will contain all dependencies from the npm
-registry. The union of these two repositories gives the set of all the npm dependencies ever
+The Java Script(JS) package managers (npm, yarn) functionality relies on
+[Nexus Repository Manager 3][nexus-docs] to store JS dependencies. The Nexus instance will have a
+JS group repository (e.g. `cachito-js`) which points to a JS hosted repository (e.g.
+`cachito-js-hosted`) and a JS proxy repository
+(e.g. `cachito-js-proxy`) that points to the npm/yarn registry (registry.npmjs.org and
+registry.yarnpkg.com, which points to the same registry server). The hosted repository will contain
+all non-registry dependencies and the proxy repository will contain all dependencies from the
+JS registry. The union of these two repositories gives the set of all the JS dependencies ever
 encountered by Cachito.
 
-On each request, Cachito will create a proxy repository to the npm group repository
+On each request, Cachito will create a proxy repository to the JS group repository
 (e.g. `cachito-js`). Cachito will populate this proxy repository to contain the subset of
 dependencies declared in the repository's lock file. Once populated, Cachito will block the
 repository from getting additional content. This prevents the consumer of the repository from
@@ -589,16 +591,16 @@ Nexus instance that hosts the permanent content: `cachito_nexus_hoster_username`
 
 The table below shows the supported package managers and their support level in Cachito.
 
-Feature                 | gomod | npm | pip |
----                     | ---   | --- | --- |
-Baseline                | ✓     | ✓   | ✓   |
-Content Manifest        | ✓     | ✓   | ✓   |
-Dependency Replacements | ✓     | x   | x   |
-Dev Dependencies        | ✓     | ✓   | ✓   |
-External Dependencies   | N/A   | ✓   | ✓   |
-Multiple Paths          | ✓     | ✓   | ✓   |
-Nested Dependencies     | ✓     | ✓   | x   |
-Offline Installations   | ✓     | x   | x   |
+Feature                 | gomod | npm | pip | yarn |
+---                     | ---   | --- | --- | ---  |
+Baseline                | ✓     | ✓   | ✓   | ✓    |
+Content Manifest        | ✓     | ✓   | ✓   | ✓    |
+Dependency Replacements | ✓     | x   | x   | x    |
+Dev Dependencies        | ✓     | ✓   | ✓   | x    |
+External Dependencies   | N/A   | ✓   | ✓   | ✓    |
+Multiple Paths          | ✓     | ✓   | ✓   | ✓    |
+Nested Dependencies     | ✓     | ✓   | x   | ✓    |
+Offline Installations   | ✓     | x   | x   | x    |
 
 #### Feature Definitions
 
@@ -799,3 +801,43 @@ curl "localhost:8080/api/v1/requests" \
 In the above case, Cachito would fetch the submodules `cachito-pip-with-deps`, `cachito-npm-test` and
 then process them as a regular pip and npm package respectively.
 
+### yarn
+
+Cachito handles the yarn package manager in much the same way as the [npm](#npm) package manager.
+The yarn package manager works by parsing the [`yarn.lock`](https://classic.yarnpkg.com/en/docs/yarn-lock/)
+file present in the source repository to determine what dependencies are required to build the application.
+
+All requests for the yarn package manager with `package-lock.json`, `npm-shrinkwrap.json` files in
+the root directory will fail because those files are dedicated for [npm](#npm).
+
+After parsing, Cachito creates a yarn registry in an instance of Nexus it manages that contains just
+the dependencies discovered in the lock file. The registry is locked down so that no other
+dependencies can be added. The connection information is stored in an
+[.npmrc](https://docs.npmjs.com/configuring-npm/npmrc.html) file accessible at the
+`/api/v1/requests/<id>/configuration-files` API endpoint. There will be an empty
+[.yarnrc](https://classic.yarnpkg.com/en/docs/yarnrc) file in the same directory with the
+[.npmrc](https://docs.npmjs.com/configuring-npm/npmrc.html) file.
+
+Cachito will produce a bundle that is downloadable at `/api/v1/requests/<id>/download`. This
+bundle will contain the application source code in the `app` directory and individual tarballs
+of all the dependencies in the `deps/yarn` directory. These tarballs are not meant to be used to
+build the application. They are there for convenience so that the dependency sources can be
+published alongside your application sources. In addition, they can be used to populate a local yarn
+registry in the event that the application needs to be built without Cachito and the Nexus instance
+it manages.
+
+Cachito can also handle dependencies that are not from the yarn registry such as those directly
+from GitHub, a Git repository, or an HTTP(S) URL. Please note that if the dependency is from a
+private repository, set the
+[.netrc](https://www.gnu.org/software/inetutils/manual/html_node/The-_002enetrc-file.html) and
+`known_hosts` files for the Cachito workers. If the dependency location is not supported, Cachito
+will fail the request. When Cachito encounters a supported location, it will download the
+dependency, modify the version in the [package.json](https://docs.npmjs.com/files/package.json) to
+be unique, upload it to Nexus, modify the top level project's
+[package.json](https://docs.npmjs.com/files/package.json) and
+[yarn.lock](https://classic.yarnpkg.com/en/docs/yarn-lock/) to use the dependency from
+Nexus instead. The modified files will be accessible at the
+`/api/v1/requests/<id>/configuration-files` API endpoint. If Cachito encounters this same dependency
+again in a future request, it will use it directly from Nexus rather than downloading it and
+uploading it again. This guarantees that any dependency used for a Cachito request can be used again
+in a future Cachito request.
