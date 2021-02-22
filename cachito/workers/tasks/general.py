@@ -22,7 +22,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-@app.task
+@app.task(priority=0)
 def fetch_app_source(url, ref, request_id, gitsubmodule=False):
     """
     Fetch the application source code that was requested and put it in long-term storage.
@@ -141,7 +141,7 @@ def failed_request_callback(context, exc, traceback, request_id):
     set_request_state(request_id, "failed", msg)
 
 
-@app.task
+@app.task(priority=10)
 def create_bundle_archive(request_id):
     """
     Create the bundle archive to be downloaded by the user.

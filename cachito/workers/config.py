@@ -76,6 +76,8 @@ class Config(object):
         kombu.Queue("cachito_gomod", routing_key="cachito.gomod"),
         kombu.Queue("cachito_npm", routing_key="cachito.npm"),
     )
+    task_queue_max_priority = 10
+    task_default_priority = 5
     # Requeue the message if the worker abruptly exits or is signaled
     task_reject_on_worker_lost = True
     # Route gomod tasks and npm tasks to separate queues. This is useful if workers are dedicated
