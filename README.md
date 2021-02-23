@@ -410,15 +410,15 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_nexus_hoster_password` - the password of the Nexus service account used by Cachito for
   the Nexus instance that has the hosted repositories. This is used instead of
   `cachito_nexus_password` for uploading content if you are using the two Nexus instance approach as
-  described in the "Nexus For Java Script" section. If this is set, `cachito_nexus_hoster_username` must
+  described in the "Nexus Common Configuration" section. If this is set, `cachito_nexus_hoster_username` must
   also be set.
 * `cachito_nexus_hoster_url` - the URL to the Nexus instance that has the hosted repositories. This
   is used instead of `cachito_nexus_url` for uploading content if you are using the two Nexus
-  instance approach as described in the "Nexus For Java Script" section.
+  instance approach as described in the "Nexus Common Configuration" section.
 * `cachito_nexus_hoster_username` - the username of the Nexus service account used by Cachito for
   the Nexus instance that has the hosted repositories. This is used instead of
   `cachito_nexus_username` for uploading content if you are using the two Nexus instance approach as
-  described in the "Nexus For Java Script" section. If this is set, `cachito_nexus_hoster_password` must
+  described in the "Nexus Common Configuration" section. If this is set, `cachito_nexus_hoster_password` must
   also be set.
 * `cachito_nexus_js_hosted_repo_name` - the name of the Nexus hosted repository for JavaScript
   package managers. This defaults to `cachito-js-hosted`.
@@ -575,7 +575,7 @@ repositories will only contain content that Cachito has made available.
 These repositories are created per request and deleted when the request is marked as stale or the
 request fails.
 
-### Common Configuration
+### Nexus Common Configuration
 
 Refer to the "Configuring Workers" section to see how to configure Cachito to use Nexus. Please
 note that you may choose to use two Nexus instances. One for hosting the permanent content and the
