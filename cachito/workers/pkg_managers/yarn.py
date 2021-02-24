@@ -420,20 +420,13 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
         pkg_manager="yarn",
     )
 
-    nexus_replacements = package_and_deps_info.pop("nexus_replacements")
-    if nexus_replacements:
-        package_and_deps_info["package.json"] = _replace_deps_in_package_json(
-            package_and_deps_info["package.json"], nexus_replacements
-        )
-        package_and_deps_info["lock_file"] = _replace_deps_in_yarn_lock(
-            package_and_deps_info["lock_file"], nexus_replacements
-        )
-    else:
-        package_and_deps_info["package.json"] = None
+    replacements = package_and_deps_info.pop("nexus_replacements")
+    pkg_json = _replace_deps_in_package_json(package_and_deps_info["package.json"], replacements)
+    yarn_lock = _replace_deps_in_yarn_lock(package_and_deps_info["lock_file"], replacements)
+    _set_proxy_resolved_urls(yarn_lock, get_yarn_proxy_repo_name(request["id"]))
 
-    _set_proxy_resolved_urls(
-        package_and_deps_info["lock_file"], get_yarn_proxy_repo_name(request["id"])
-    )
+    package_and_deps_info["package.json"] = pkg_json
+    package_and_deps_info["lock_file"] = yarn_lock
 
     # Remove all the "bundled" and "version_in_nexus" keys since they are implementation details
     for dep in package_and_deps_info["deps"]:
