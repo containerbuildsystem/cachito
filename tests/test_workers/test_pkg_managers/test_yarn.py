@@ -625,14 +625,12 @@ def test_resolve_yarn(
     }
 
     rv = yarn.resolve_yarn("/some/path", {"id": 1}, skip_deps={"foobar"})
-    expect_yarn_lock = (
-        mock_replace_yarnlock.return_value if have_nexus_replacements else mock_yarn_lock
-    )
+    expect_yarn_lock = mock_replace_yarnlock.return_value
     assert rv == {
         "package": mock_package,
         "deps": mock_deps,
         "downloaded_deps": mock_download_deps.return_value,
-        "package.json": mock_replace_packjson.return_value if have_nexus_replacements else None,
+        "package.json": mock_replace_packjson.return_value,
         "lock_file": expect_yarn_lock,
     }
 
