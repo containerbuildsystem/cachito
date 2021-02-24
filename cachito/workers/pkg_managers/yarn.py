@@ -243,7 +243,7 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
     }
 
 
-def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str):
+def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str) -> bool:
     """
     Set the "resolved" urls for all dependencies, make them point to the proxy repo.
 
@@ -255,7 +255,10 @@ def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str):
 
     :param dict yarn_lock: parsed yarn.lock data with nexus replacements already applied
     :param str proxy_repo_name: the proxy repo name, cachito-yarn-{request_id}
+    :return: bool, was anything in the yarn.lock data modified?
     """
+    modified = False
+
     for dep_identifier, dep_data in yarn_lock.items():
         pkg = pyarn.lockfile.Package.from_dict(dep_identifier, dep_data)
         if not pkg.url:
@@ -275,6 +278,9 @@ def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str):
             )
 
         dep_data["resolved"] = component_info["assets"][0]["downloadUrl"]
+        modified = True
+
+    return modified
 
 
 def _expand_replacements(nexus_replacements: Dict[str, dict]) -> Dict[str, dict]:
@@ -423,10 +429,12 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
     replacements = package_and_deps_info.pop("nexus_replacements")
     pkg_json = _replace_deps_in_package_json(package_and_deps_info["package.json"], replacements)
     yarn_lock = _replace_deps_in_yarn_lock(package_and_deps_info["lock_file"], replacements)
-    _set_proxy_resolved_urls(yarn_lock, get_yarn_proxy_repo_name(request["id"]))
 
     package_and_deps_info["package.json"] = pkg_json
-    package_and_deps_info["lock_file"] = yarn_lock
+    if _set_proxy_resolved_urls(yarn_lock, get_yarn_proxy_repo_name(request["id"])):
+        package_and_deps_info["lock_file"] = yarn_lock
+    else:
+        package_and_deps_info["lock_file"] = None
 
     # Remove all the "bundled" and "version_in_nexus" keys since they are implementation details
     for dep in package_and_deps_info["deps"]:
