@@ -423,7 +423,7 @@ def test_set_proxy_resolved_urls(mock_get_component, components_exist):
         ]
 
     if components_exist:
-        yarn._set_proxy_resolved_urls(yarn_lock, "cachito-yarn-42")
+        assert yarn._set_proxy_resolved_urls(yarn_lock, "cachito-yarn-42") is True
         assert yarn_lock[f"fecha@{HTTP_DEP_URL}"]["resolved"] == proxy_url_1
         assert yarn_lock[f"leftpad@{GIT_DEP_URL}"]["resolved"] == proxy_url_2
         assert yarn_lock["chai@^4.2.0"]["resolved"] == proxy_url_3
@@ -437,6 +437,15 @@ def test_set_proxy_resolved_urls(mock_get_component, components_exist):
 
     mock_get_component.assert_has_calls(expected_calls)
     assert mock_get_component.call_count == len(expected_calls)
+
+
+def test_set_proxy_resolved_urls_no_urls():
+    yarn_lock = {
+        "foo@file:./foo": {"version": "1.0.0"},
+        "bar@file:./bar": {"version": "2.0.0"},
+        "baz@file:./baz": {"version": "3.0.0"},
+    }
+    assert yarn._set_proxy_resolved_urls(yarn_lock, "cachito-yarn-1") is False
 
 
 @pytest.mark.parametrize(
@@ -575,6 +584,7 @@ def test_replace_deps_in_yarn_lock_dependencies():
 
 
 @pytest.mark.parametrize("have_nexus_replacements", [True, False])
+@pytest.mark.parametrize("any_urls_in_yarn_lock", [True, False])
 @mock.patch("cachito.workers.pkg_managers.yarn._get_package_and_deps")
 @mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_proxy_repo_url")
 @mock.patch("cachito.workers.pkg_managers.yarn.download_dependencies")
@@ -591,6 +601,7 @@ def test_resolve_yarn(
     mock_get_repo_url,
     mock_get_package_and_deps,
     have_nexus_replacements,
+    any_urls_in_yarn_lock,
 ):
     n_pop_calls = 0
 
@@ -624,8 +635,14 @@ def test_resolve_yarn(
         "nexus_replacements": mock_nexus_replacements,
     }
 
+    if any_urls_in_yarn_lock:
+        mock_set_proxy_urls.return_value = True
+        expect_yarn_lock = mock_replace_yarnlock.return_value
+    else:
+        mock_set_proxy_urls.return_value = False
+        expect_yarn_lock = None
+
     rv = yarn.resolve_yarn("/some/path", {"id": 1}, skip_deps={"foobar"})
-    expect_yarn_lock = mock_replace_yarnlock.return_value
     assert rv == {
         "package": mock_package,
         "deps": mock_deps,
@@ -648,4 +665,6 @@ def test_resolve_yarn(
         mock_replace_packjson.assert_called_once_with(mock_package_json, mock_nexus_replacements)
         mock_replace_yarnlock.assert_called_once_with(mock_yarn_lock, mock_nexus_replacements)
 
-    mock_set_proxy_urls.assert_called_once_with(expect_yarn_lock, mock_get_repo_name.return_value)
+    mock_set_proxy_urls.assert_called_once_with(
+        mock_replace_yarnlock.return_value, mock_get_repo_name.return_value
+    )
