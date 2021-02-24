@@ -384,23 +384,37 @@ def test_get_package_and_deps(
 
 @pytest.mark.parametrize("components_exist", [True, False])
 @mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_component_info_from_non_hosted_nexus")
-def test_set_non_hosted_resolved_urls(mock_get_component, components_exist):
-    nexus_replacements = {
-        f"fecha@{HTTP_DEP_URL}": {"version": HTTP_DEP_NEXUS_VERSION},
-        f"leftpad@{GIT_DEP_URL}": {"version": GIT_DEP_NEXUS_VERSION},
+def test_set_proxy_resolved_urls(mock_get_component, components_exist):
+    yarn_lock = {
+        f"fecha@{HTTP_DEP_URL}": {
+            "version": HTTP_DEP_NEXUS_VERSION,
+            "resolved": HTTP_DEP_NEXUS_URL,  # hosted Nexus url
+        },
+        f"leftpad@{GIT_DEP_URL}": {
+            "version": GIT_DEP_NEXUS_VERSION,
+            "resolved": GIT_DEP_NEXUS_URL,  # hosted Nexus url
+        },
+        "chai@^4.2.0": {
+            "version": "4.2.0",
+            "resolved": REGISTRY_DEP_URL,  # url in official registry
+        },
+        "subpackage@file:./subpackage": {"version": "1.0.0"},
     }
 
-    non_hosted_url_1 = "http://nexus.example.org/repository/cachito-yarn-42/fecha.tar.gz"
-    non_hosted_url_2 = "http://nexus.example.org/repository/cachito-yarn-42/leftpad.tar.gz"
+    proxy_url_1 = "http://nexus.example.org/repository/cachito-yarn-42/fecha.tar.gz"
+    proxy_url_2 = "http://nexus.example.org/repository/cachito-yarn-42/leftpad.tar.gz"
+    proxy_url_3 = "http://nexus.example.org/repository/cachito-yarn-42/chai.tar.gz"
 
-    component_1 = {"assets": [{"downloadUrl": non_hosted_url_1}]}
-    component_2 = {"assets": [{"downloadUrl": non_hosted_url_2}]}
+    component_1 = {"assets": [{"downloadUrl": proxy_url_1}]}
+    component_2 = {"assets": [{"downloadUrl": proxy_url_2}]}
+    component_3 = {"assets": [{"downloadUrl": proxy_url_3}]}
 
     if components_exist:
-        mock_get_component.side_effect = [component_1, component_2]
+        mock_get_component.side_effect = [component_1, component_2, component_3]
         expected_calls = [
             mock.call("fecha", HTTP_DEP_NEXUS_VERSION, "cachito-yarn-42", max_attempts=5),
             mock.call("leftpad", GIT_DEP_NEXUS_VERSION, "cachito-yarn-42", max_attempts=5),
+            mock.call("chai", "4.2.0", "cachito-yarn-42", max_attempts=5),
         ]
     else:
         mock_get_component.side_effect = [None, component_2]
@@ -409,16 +423,17 @@ def test_set_non_hosted_resolved_urls(mock_get_component, components_exist):
         ]
 
     if components_exist:
-        yarn._set_non_hosted_resolved_urls(nexus_replacements, "cachito-yarn-42")
-        assert nexus_replacements[f"fecha@{HTTP_DEP_URL}"]["resolved"] == non_hosted_url_1
-        assert nexus_replacements[f"leftpad@{GIT_DEP_URL}"]["resolved"] == non_hosted_url_2
+        yarn._set_proxy_resolved_urls(yarn_lock, "cachito-yarn-42")
+        assert yarn_lock[f"fecha@{HTTP_DEP_URL}"]["resolved"] == proxy_url_1
+        assert yarn_lock[f"leftpad@{GIT_DEP_URL}"]["resolved"] == proxy_url_2
+        assert yarn_lock["chai@^4.2.0"]["resolved"] == proxy_url_3
     else:
         err_msg = (
             f"The dependency fecha@{HTTP_DEP_NEXUS_VERSION} was uploaded to the Nexus hosted "
             "repository but is not available in cachito-yarn-42"
         )
         with pytest.raises(CachitoError, match=err_msg):
-            yarn._set_non_hosted_resolved_urls(nexus_replacements, "cachito-yarn-42")
+            yarn._set_proxy_resolved_urls(yarn_lock, "cachito-yarn-42")
 
     mock_get_component.assert_has_calls(expected_calls)
     assert mock_get_component.call_count == len(expected_calls)
@@ -564,13 +579,13 @@ def test_replace_deps_in_yarn_lock_dependencies():
 @mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_proxy_repo_url")
 @mock.patch("cachito.workers.pkg_managers.yarn.download_dependencies")
 @mock.patch("cachito.workers.pkg_managers.yarn.get_yarn_proxy_repo_name")
-@mock.patch("cachito.workers.pkg_managers.yarn._set_non_hosted_resolved_urls")
+@mock.patch("cachito.workers.pkg_managers.yarn._set_proxy_resolved_urls")
 @mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_package_json")
 @mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_yarn_lock")
 def test_resolve_yarn(
     mock_replace_yarnlock,
     mock_replace_packjson,
-    mock_set_non_hosted,
+    mock_set_proxy_urls,
     mock_get_repo_name,
     mock_download_deps,
     mock_get_repo_url,
@@ -610,12 +625,15 @@ def test_resolve_yarn(
     }
 
     rv = yarn.resolve_yarn("/some/path", {"id": 1}, skip_deps={"foobar"})
+    expect_yarn_lock = (
+        mock_replace_yarnlock.return_value if have_nexus_replacements else mock_yarn_lock
+    )
     assert rv == {
         "package": mock_package,
         "deps": mock_deps,
         "downloaded_deps": mock_download_deps.return_value,
         "package.json": mock_replace_packjson.return_value if have_nexus_replacements else None,
-        "lock_file": mock_replace_yarnlock.return_value if have_nexus_replacements else None,
+        "lock_file": expect_yarn_lock,
     }
 
     mock_get_package_and_deps.assert_called_once_with(
@@ -629,8 +647,7 @@ def test_resolve_yarn(
 
     if have_nexus_replacements:
         mock_get_repo_name.assert_called_once_with(1)
-        mock_set_non_hosted.assert_called_once_with(
-            mock_nexus_replacements, mock_get_repo_name.return_value
-        )
         mock_replace_packjson.assert_called_once_with(mock_package_json, mock_nexus_replacements)
         mock_replace_yarnlock.assert_called_once_with(mock_yarn_lock, mock_nexus_replacements)
+
+    mock_set_proxy_urls.assert_called_once_with(expect_yarn_lock, mock_get_repo_name.return_value)
