@@ -9,7 +9,7 @@ from requests import RequestException
 from cachito.errors import CachitoError
 from cachito.web import status
 
-TEST_PACKAGE_MANAGERS = ["gomod", "npm", "pip", "git-submodule"]
+TEST_PACKAGE_MANAGERS = ["gomod", "npm", "pip", "git-submodule", "yarn"]
 
 
 @pytest.fixture
@@ -201,20 +201,40 @@ def test_workers_status(mock_ping_workers, retries, ping_result, expect_result):
 @pytest.mark.parametrize(
     "worker_ok, failing_services, expect_result",
     [
-        (False, [], {"gomod": False, "npm": False, "pip": False, "git-submodule": False}),
-        (True, ["rabbitmq"], {"gomod": False, "npm": False, "pip": False, "git-submodule": False}),
-        (True, ["database"], {"gomod": False, "npm": False, "pip": False, "git-submodule": False}),
-        (True, ["athens"], {"gomod": False, "npm": True, "pip": True, "git-submodule": True}),
-        (True, ["nexus"], {"gomod": True, "npm": False, "pip": False, "git-submodule": True}),
+        (
+            False,
+            [],
+            {"gomod": False, "npm": False, "pip": False, "git-submodule": False, "yarn": False},
+        ),
+        (
+            True,
+            ["rabbitmq"],
+            {"gomod": False, "npm": False, "pip": False, "git-submodule": False, "yarn": False},
+        ),
+        (
+            True,
+            ["database"],
+            {"gomod": False, "npm": False, "pip": False, "git-submodule": False, "yarn": False},
+        ),
+        (
+            True,
+            ["athens"],
+            {"gomod": False, "npm": True, "pip": True, "git-submodule": True, "yarn": True},
+        ),
+        (
+            True,
+            ["nexus"],
+            {"gomod": True, "npm": False, "pip": False, "git-submodule": True, "yarn": False},
+        ),
         (
             True,
             ["nexus-hoster"],
-            {"gomod": True, "npm": False, "pip": False, "git-submodule": True},
+            {"gomod": True, "npm": False, "pip": False, "git-submodule": True, "yarn": False},
         ),
         (
             True,
             ["athens", "nexus"],
-            {"gomod": False, "npm": False, "pip": False, "git-submodule": True},
+            {"gomod": False, "npm": False, "pip": False, "git-submodule": True, "yarn": False},
         ),
     ],
 )

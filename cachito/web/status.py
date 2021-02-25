@@ -21,6 +21,7 @@ PKG_MANAGER_REQUIRES = {
     "gomod": {ATHENS},
     "npm": {NEXUS, NEXUS_HOSTER},
     "pip": {NEXUS, NEXUS_HOSTER},
+    "yarn": {NEXUS, NEXUS_HOSTER},
     "*": {DATABASE, RABBITMQ},
 }
 
