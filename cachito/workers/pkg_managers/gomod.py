@@ -19,7 +19,7 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import run_cmd
 
-__all__ = ["get_golang_version", "resolve_gomod"]
+__all__ = ["get_golang_version", "resolve_gomod", "path_to_subpackage"]
 
 log = logging.getLogger(__name__)
 run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
@@ -43,6 +43,23 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
             run_gomod_cmd(("go", "clean", "-modcache"), {"env": env})
         finally:
             super().__exit__(exc, value, tb)
+
+
+def path_to_subpackage(parent_name: str, subpackage_name: str) -> str:
+    """
+    Get relative path from parent module/package to subpackage inside the parent.
+
+    If the subpackage and parent names are identical, returns empty string.
+    The subpackage name must start with the parent name.
+
+    :param parent_name: name of parent module or package
+    :param subpackage_name: name of subpackage inside the parent module/package
+    :return: relative path from parent to subpackage
+    :raises ValueError: if subpackage name does not start with parent name
+    """
+    if not subpackage_name.startswith(parent_name):
+        raise ValueError(f"Package {subpackage_name} does not belong to {parent_name}")
+    return subpackage_name[len(parent_name) :].lstrip("/")
 
 
 def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=None):
@@ -376,7 +393,7 @@ def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[di
             # This should be impossible
             raise RuntimeError(f"Could not find parent Go module for local dependency: {dep_name}")
 
-        path_from_module_to_pkg = dep_name.replace(dep_module_name, "").lstrip("/")
+        path_from_module_to_pkg = path_to_subpackage(dep_module_name, dep_name)
         if path_from_module_to_pkg:
             dep["version"] = os.path.join(dep_path, path_from_module_to_pkg)
 
