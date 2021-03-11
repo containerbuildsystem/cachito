@@ -50,7 +50,7 @@ services:
       python3 setup.py develop --no-deps &&
       cachito wait-for-db &&
       cachito db upgrade &&
-      flask-3 run --reload --host 0.0.0.0 --port 8080
+      flask run --reload --host 0.0.0.0 --port 8080
     environment:
       FLASK_ENV: development
       FLASK_APP: cachito/web/wsgi.py
@@ -85,7 +85,7 @@ services:
       /src/docker/configure-nexus.py &&
       python3 -c 'from cachito.workers.nexus import create_or_update_scripts; create_or_update_scripts()' &&
       watchmedo auto-restart -d ./cachito/workers -p '*.py' --recursive \
-        -- /bin/celery-3 -A cachito.workers.tasks worker --loglevel=info
+        -- celery -A cachito.workers.tasks worker --loglevel=info
     environment:
       CACHITO_DEV: 'true'
     # This is needed in order to allow volume share with the cachito-api service.

@@ -7,33 +7,24 @@ RUN dnf -y install \
     --setopt=install_weak_deps=false \
     --setopt=tsflags=nodocs \
     httpd \
+    httpd-devel \
+    gcc \
     mod_auth_gssapi \
     mod_ssl \
-    python3-celery \
-    python3-flask \
-    python3-flask-login \
-    python3-flask-migrate \
-    python3-flask-sqlalchemy \
-    python3-GitPython \
-    python3-mod_wsgi \
-    python3-packaging \
+    krb5-devel \
     python3-pip \
-    python3-psycopg2 \
-    python3-requests \
-    python3-requests-kerberos \
-    python3-semver \
     python3-setuptools \
+    python-devel \
     && dnf clean all
 COPY . .
-
-# FIXME: there was a regression in py-amqp. It was supposed to be fixed in
-# https://github.com/celery/py-amqp/pull/350
-# but cachito is still being affected by the regression
-RUN rpm -e --nodeps python3-amqp && pip3 install amqp==5.0.2
-
 COPY ./docker/cachito-httpd.conf /etc/httpd/conf/httpd.conf
-# All the requirements except pyarn should already be installed
-RUN pip3 install pyarn && \
-    pip3 install . --no-deps
+
+RUN pip3 install -r requirements.txt --no-deps --require-hashes
+RUN pip3 install -r requirements-web.txt --no-deps --require-hashes
+RUN pip3 install . --no-deps
+
+# Disable gitpython check for the git executable, cachito-api doesn't use git
+ENV GIT_PYTHON_REFRESH=quiet
+
 EXPOSE 8080
 CMD ["/usr/sbin/httpd", "-DFOREGROUND"]
