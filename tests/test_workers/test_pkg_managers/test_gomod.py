@@ -11,6 +11,7 @@ import pytest
 from cachito.workers.pkg_managers.gomod import (
     get_golang_version,
     resolve_gomod,
+    path_to_subpackage,
     _merge_bundle_dirs,
     _merge_files,
     _parse_name_and_version,
@@ -841,3 +842,23 @@ def test_set_full_local_dep_relpaths_no_match():
 def test_get_allowed_local_deps(mock_worker_config, allowlist, module_name, expect_allowed):
     mock_worker_config.return_value.cachito_gomod_file_deps_allowlist = allowlist
     assert _get_allowed_local_deps(module_name) == expect_allowed
+
+
+@pytest.mark.parametrize(
+    "parent, subpackage, expect_path",
+    [
+        ("github.com/foo", "github.com/foo", ""),
+        ("github.com/foo", "github.com/foo/bar", "bar"),
+        ("github.com/foo", "github.com/foo/bar/baz", "bar/baz"),
+        ("github.com/foo/bar", "github.com/foo/bar/baz", "baz"),
+        ("github.com/foo", "github.com/foo/github.com/foo", "github.com/foo"),
+    ],
+)
+def test_path_to_subpackage(parent, subpackage, expect_path):
+    assert path_to_subpackage(parent, subpackage) == expect_path
+
+
+def test_path_to_subpackage_not_a_subpackage():
+    with pytest.raises(ValueError, match="Package github.com/b does not belong to github.com/a"):
+        path_to_subpackage("github.com/a", "github.com/b")
+
