@@ -5,6 +5,7 @@ import pytest
 
 from cachito.errors import CachitoError
 from cachito.workers import tasks
+from cachito.workers.tasks import gomod
 
 
 @pytest.mark.parametrize(
@@ -139,13 +140,13 @@ def test_fetch_gomod_source(
             )
             if i != 0:
                 sample_env_vars = None
-            pkg_calls.append(mock.call(1, sample_package, sample_env_vars))
-
+            pkg_calls.append(mock.call(1, sample_package, sample_env_vars, package_subpath=path))
             dep_calls.append(mock.call(1, sample_package, sample_deps_replace))
+
+            # The package path is identical to the module path, because their names are identical
+            pkg_calls.append(mock.call(1, sample_pkg_lvl_pkg, package_subpath=path))
             if has_pkg_lvl_deps:
                 dep_calls.append(mock.call(1, sample_pkg_lvl_pkg, sample_pkg_deps))
-            else:
-                pkg_calls.append(mock.call(1, sample_pkg_lvl_pkg))
 
         mock_set_request_state.assert_has_calls(state_calls)
         mock_update_request_with_package.assert_has_calls(pkg_calls)
@@ -260,3 +261,16 @@ def test_fetch_gomod_source_no_go_mod_file(
         tasks.fetch_gomod_source(1)
 
     mock_resolve_gomod.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "module_name, package_name, module_subpath, expect_subpath",
+    [
+        ("github.com/foo", "github.com/foo", ".", "."),
+        ("github.com/foo", "github.com/foo", "bar", "bar"),
+        ("github.com/foo", "github.com/foo/bar", ".", "bar"),
+        ("github.com/foo", "github.com/foo/bar", "src", "src/bar"),
+    ],
+)
+def test_package_subpath(module_name, package_name, module_subpath, expect_subpath):
+    assert gomod._package_subpath(module_name, package_name, module_subpath) == expect_subpath
