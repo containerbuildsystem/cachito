@@ -8,7 +8,7 @@ from cachito.workers.pkg_managers.general import (
     update_request_with_deps,
     update_request_with_package,
 )
-from cachito.workers.pkg_managers.gomod import resolve_gomod
+from cachito.workers.pkg_managers.gomod import resolve_gomod, path_to_subpackage
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.paths import RequestBundleDir
@@ -110,13 +110,20 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
         else:
             env_vars = None
-        update_request_with_package(request_id, gomod["module"], env_vars)
+        update_request_with_package(request_id, gomod["module"], env_vars, package_subpath=subpath)
         update_request_with_deps(request_id, gomod["module"], gomod["module_deps"])
 
         # add package deps
         for package in gomod["packages"]:
+            package_subpath = _package_subpath(
+                gomod["module"]["name"], package["pkg"]["name"], subpath
+            )
+            update_request_with_package(request_id, package["pkg"], package_subpath=package_subpath)
             if package.get("pkg_deps"):
-                # This also adds the package to the request
                 update_request_with_deps(request_id, package["pkg"], package["pkg_deps"])
-            else:
-                update_request_with_package(request_id, package["pkg"])
+
+
+def _package_subpath(module_name: str, package_name: str, module_subpath: str) -> str:
+    """Get path from repository root to a package inside a module."""
+    subpath = path_to_subpackage(module_name, package_name)
+    return os.path.normpath(os.path.join(module_subpath, subpath))
