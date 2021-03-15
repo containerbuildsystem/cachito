@@ -9,7 +9,7 @@ import re
 import shutil
 import tempfile
 from pathlib import PureWindowsPath, Path
-from typing import Tuple, List
+from typing import Tuple, List, Iterable, Optional
 
 import git
 import semver
@@ -19,7 +19,12 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import run_cmd
 
-__all__ = ["get_golang_version", "resolve_gomod", "path_to_subpackage"]
+__all__ = [
+    "get_golang_version",
+    "resolve_gomod",
+    "path_to_subpackage",
+    "match_parent_module",
+]
 
 log = logging.getLogger(__name__)
 run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
@@ -60,6 +65,20 @@ def path_to_subpackage(parent_name: str, subpackage_name: str) -> str:
     if not subpackage_name.startswith(parent_name):
         raise ValueError(f"Package {subpackage_name} does not belong to {parent_name}")
     return subpackage_name[len(parent_name) :].lstrip("/")
+
+
+def match_parent_module(package_name: str, module_names: Iterable[str]) -> Optional[str]:
+    """
+    Find parent module for package in iterable of module names.
+
+    Picks the longest module name that matches the package name
+    (the package name must start with the module name).
+
+    :param package_name: name of package
+    :param module_names: iterable of module names
+    :return: longest matching module name or None (no module matches)
+    """
+    return max(filter(package_name.startswith, module_names), key=len, default=None)
 
 
 def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=None):
@@ -384,11 +403,8 @@ def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[di
         if not dep_path.startswith("."):
             continue
 
-        # The gomod module that contains this go-package dependency - take the longest matching
-        #   module name that has a local replacement
-        dep_module_name = max(
-            filter(dep_name.startswith, locally_replaced_mod_names), key=len, default=None
-        )
+        # The gomod module that contains this go-package dependency
+        dep_module_name = match_parent_module(dep_name, locally_replaced_mod_names)
         if dep_module_name is None:
             # This should be impossible
             raise RuntimeError(f"Could not find parent Go module for local dependency: {dep_name}")

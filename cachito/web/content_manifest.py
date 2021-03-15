@@ -2,6 +2,7 @@
 import flask
 
 from cachito.web.utils import deep_sort_icm
+from cachito.workers.pkg_managers import gomod
 
 
 PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
@@ -77,12 +78,7 @@ class ContentManifest:
             if pkg_name in self._gomod_data:
                 module_name = pkg_name
             else:
-                # We use the longest module available in the request that matches the package name
-                module_name = max(
-                    (mod_name for mod_name in self._gomod_data if pkg_name.startswith(mod_name)),
-                    key=len,
-                    default=None,
-                )
+                module_name = gomod.match_parent_module(pkg_name, self._gomod_data.keys())
 
             if module_name is not None:
                 module = self._gomod_data[module_name]
