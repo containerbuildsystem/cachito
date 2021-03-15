@@ -12,6 +12,7 @@ from cachito.workers.pkg_managers.gomod import (
     get_golang_version,
     resolve_gomod,
     path_to_subpackage,
+    match_parent_module,
     _merge_bundle_dirs,
     _merge_files,
     _parse_name_and_version,
@@ -862,3 +863,21 @@ def test_path_to_subpackage_not_a_subpackage():
     with pytest.raises(ValueError, match="Package github.com/b does not belong to github.com/a"):
         path_to_subpackage("github.com/a", "github.com/b")
 
+
+@pytest.mark.parametrize(
+    "package_name, module_names, expect_parent_module",
+    [
+        ("github.com/foo/bar", ["github.com/foo/bar"], "github.com/foo/bar"),
+        ("github.com/foo/bar", [], None),
+        ("github.com/foo/bar", ["github.com/spam/eggs"], None),
+        ("github.com/foo/bar/baz", ["github.com/foo/bar"], "github.com/foo/bar"),
+        (
+            "github.com/foo/bar/baz",
+            ["github.com/foo/bar", "github.com/foo/bar/baz"],
+            "github.com/foo/bar/baz",
+        ),
+        ("github.com/foo/bar", {"github.com/foo/bar": 1}, "github.com/foo/bar"),
+    ],
+)
+def test_match_parent_module(package_name, module_names, expect_parent_module):
+    assert match_parent_module(package_name, module_names) == expect_parent_module
