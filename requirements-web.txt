@@ -102,6 +102,9 @@ markupsafe==1.1.1 \
     # via
     #   jinja2
     #   mako
+mod-wsgi==4.7.1 \
+    --hash=sha256:eaeadc28d06ea42fa565c02b83504074ac558fca27f059e12bc5684d660e3cce
+    # via -r requirements-web.in
 psycopg2-binary==2.8.6 \
     --hash=sha256:0deac2af1a587ae12836aa07970f5cb91964f05a7c6cdb69d8425ff4c15d4e2c \
     --hash=sha256:0e4dc3d5996760104746e6cfcdb519d9d2cd27c738296525d5867ea695774e67 \
@@ -192,6 +195,7 @@ sqlalchemy==1.3.23 \
     --hash=sha256:fd3b96f8c705af8e938eaa99cbd8fd1450f632d38cad55e7367c33b263bf98ec \
     --hash=sha256:fdd2ed7395df8ac2dbb10cefc44737b66c6a5cd7755c92524733d7a443e5b7e2
     # via
+    #   -r requirements-web.in
     #   alembic
     #   flask-sqlalchemy
 werkzeug==1.0.1 \

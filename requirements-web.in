@@ -4,3 +4,4 @@ Flask-Migrate
 Flask-SQLAlchemy
 mod_wsgi
 psycopg2-binary
+SQLAlchemy<1.4
