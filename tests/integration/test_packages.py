@@ -16,6 +16,8 @@ import utils
         ("gomod_packages", "vendored_with_flag"),
         ("gomod_packages", "implicit_gomod"),
         ("gomod_packages", "missing_gomod"),
+        ("npm_packages", "without_deps"),
+        ("npm_packages", "with_deps"),
     ],
 )
 def test_packages(env_package, env_name, test_env, tmpdir):
