@@ -30,7 +30,11 @@ clean: run-down
 
 .PHONY: venv
 venv:
-	virtualenv --python=${PYTHON_VERSION_VENV} venv && venv/bin/pip install --upgrade pip && venv/bin/pip install -r requirements.txt -r requirements-web.txt tox && venv/bin/python setup.py develop
+	virtualenv --python=${PYTHON_VERSION_VENV} venv
+	venv/bin/pip install --upgrade pip
+	venv/bin/pip install -r requirements.txt -r requirements-web.txt
+	venv/bin/pip install tox
+	venv/bin/python setup.py develop
 
 # Keep run target for backwards compatibility
 run run-start:
