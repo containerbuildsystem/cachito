@@ -298,14 +298,19 @@ make clean CACHITO_COMPOSE_ENGINE=podman-compose
 To add more Python dependencies, add them to the following files:
 
 * [setup.py](setup.py)
-* [requirements.txt](requirements.txt)
-* [requirements-web.txt](requirements-web.txt)
+* [requirements.in](requirements.in)
+* [requirements-web.in](requirements-web.in)
 
 If you're wondering why you need to add dependencies to both files (setup.py and one of the
 requirements files), see
 [install_requires vs requirements files](https://packaging.python.org/discussions/install-requires-vs-requirements/).
 
-Additionally, please install the corresponding RPMs in the container images at:
+Afterwards, pip-compile the dependencies via `make pip-compile` (you may need to run `make venv`
+first, unless the venv already exists).
+
+Additionally, if any of the newly added dependencies in the generated `requirements*.txt` files
+need to be compiled from C code, please install any missing C libraries in the corresponding
+Dockerfile(s): requirements.txt is used in both, requirements-web.txt only in api.
 
 * [Dockerfile-api](docker/Dockerfile-api)
 * [Dockerfile-workers](docker/Dockerfile-workers)
