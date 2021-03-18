@@ -1,6 +1,6 @@
 CACHITO_COMPOSE_ENGINE ?= docker-compose
-PYTHON_VERSION_VENV ?= python3.8
-TOX_ENVLIST ?= py38
+PYTHON_VERSION_VENV ?= python3.9
+TOX_ENVLIST ?= py39
 TOX_ARGS ?=
 
 PODMAN_COMPOSE_AUTO_URL ?= https://raw.githubusercontent.com/containers/podman-compose/devel/podman_compose.py
