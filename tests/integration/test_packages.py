@@ -18,6 +18,8 @@ import utils
         ("gomod_packages", "missing_gomod"),
         ("npm_packages", "without_deps"),
         ("npm_packages", "with_deps"),
+        ("yarn_packages", "without_deps"),
+        ("yarn_packages", "with_deps"),
     ],
 )
 def test_packages(env_package, env_name, test_env, tmpdir):
