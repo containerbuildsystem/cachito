@@ -50,6 +50,7 @@ def test_fetch_pip_source(
     with_req,
     package_subpath,
     tmp_path,
+    task_passes_state_check,
 ):
     pkg_data = {
         "package": {"name": "foo", "version": "1", "type": "pip"},

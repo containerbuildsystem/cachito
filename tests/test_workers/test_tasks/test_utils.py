@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
 from cachito.errors import ValidationError
 from cachito.workers.tasks import utils
+from cachito.workers.requests import requests_session
+from cachito.workers.tasks.utils import get_request_state
 
 from tests.helper_utils import write_file_tree
 
@@ -112,3 +115,42 @@ class TestAssertPackageFiles:
 
         with pytest.raises(ValidationError, match=f"File check failed for {pkg_manager}"):
             af.present("absent_file")
+
+
+@pytest.mark.parametrize("id, state", [(2, "stale"), (3, "complete"), (1, "in-progress")])
+@mock.patch.object(requests_session, "get")
+@mock.patch("cachito.workers.tasks.general.get_worker_config")
+def test_get_request_state(mock_config, mock_requests_get, id, state):
+    mock_requests_get.return_value.json.return_value = {"state": state}
+
+    config = mock_config.return_value
+    config.cachito_api_url = "http://cachito.domain.local/api/v1/"
+
+    assert get_request_state(id) == state
+    mock_requests_get.assert_called_once_with(f"http://cachito.domain.local/api/v1/requests/{id}")
+
+
+@pytest.mark.parametrize(
+    "id, state", [(1, "in_progress"), (2, "stale"), (3, "complete"), (None, "dummy")]
+)
+@mock.patch("cachito.workers.tasks.utils.get_request_state")
+def test_runs_if_request_in_progress(mock_get_state, id, state):
+    mock_get_state.return_value = state
+
+    @utils.runs_if_request_in_progress
+    def dummy_task(request_id):
+        return 42
+
+    if id is None:
+        with pytest.raises(
+            ValueError, match="Failed during state check: no request_id found for dummy_task task"
+        ):
+            dummy_task(id)
+        mock_get_state.assert_not_called()
+        return
+
+    if state == "in_progress":
+        assert dummy_task(id) == 42
+    else:
+        assert dummy_task(id) is None
+    mock_get_state.assert_called_once_with(id)

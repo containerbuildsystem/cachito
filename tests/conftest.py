@@ -2,6 +2,7 @@
 import copy
 import os
 import tempfile
+from unittest import mock
 
 import git
 import pytest
@@ -259,3 +260,18 @@ def fake_repo():
         r.index.add(["main.py"])
         r.index.commit("add main source")
         yield repo_dir, repo_dir.lstrip("/")
+
+
+@pytest.fixture
+def task_passes_state_check():
+    """
+    Patch the get_request_state util method to make it return "in_progress".
+
+    Use this in test functions where you call tasks decorated with @runs_if_request_in_progress.
+    The fixture will automatically verify that get_request_state was called at least once.
+    """
+    with mock.patch("cachito.workers.tasks.utils.get_request_state") as mock_get_state:
+        mock_get_state.return_value = "in_progress"
+        yield
+
+    mock_get_state.assert_called()

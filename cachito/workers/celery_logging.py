@@ -33,7 +33,7 @@ class AddRequestIDFilter(logging.Filter):
         return True
 
 
-def _get_function_arg_value(arg_name, func, args, kwargs):
+def get_function_arg_value(arg_name, func, args, kwargs):
     """
     Get the value of the given argument name.
 
@@ -115,7 +115,7 @@ def setup_task_logging(task_id, task, **kwargs):
     request_log_handler = None
     if log_dir:
         log_formatter = logging.Formatter(log_format)
-        request_id = _get_function_arg_value(
+        request_id = get_function_arg_value(
             "request_id", task.__wrapped__, kwargs["args"], kwargs["kwargs"]
         )
         if not request_id:
@@ -142,7 +142,7 @@ def setup_task_logging_customization(task_id, task, **kwargs):
     """
     conf = get_worker_config()
 
-    request_id = _get_function_arg_value("request_id", task, kwargs["args"], kwargs["kwargs"])
+    request_id = get_function_arg_value("request_id", task, kwargs["args"], kwargs["kwargs"])
     log_filter = AddRequestIDFilter(str(request_id) or "unknown")
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:

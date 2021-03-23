@@ -28,7 +28,11 @@ from cachito.workers.pkg_managers.yarn import (
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.tasks.npm import generate_npmrc_config_files
-from cachito.workers.tasks.utils import make_base64_config_file, AssertPackageFiles
+from cachito.workers.tasks.utils import (
+    make_base64_config_file,
+    AssertPackageFiles,
+    runs_if_request_in_progress,
+)
 
 __all__ = ["cleanup_yarn_request", "fetch_yarn_source"]
 
@@ -77,6 +81,7 @@ def _yarn_lock_to_str(yarn_lock_data: dict) -> str:
 
 
 @app.task
+@runs_if_request_in_progress
 def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
     """
     Resolve and fetch yarn dependencies for a given request.

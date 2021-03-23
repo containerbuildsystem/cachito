@@ -10,6 +10,7 @@ from cachito.workers.pkg_managers.general import (
 )
 from cachito.workers.pkg_managers.gomod import resolve_gomod, path_to_subpackage
 from cachito.workers.tasks.celery import app
+from cachito.workers.tasks.utils import runs_if_request_in_progress
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.paths import RequestBundleDir
 
@@ -41,6 +42,7 @@ def _find_missing_gomod_files(bundle_dir, subpaths):
 
 
 @app.task
+@runs_if_request_in_progress
 def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     """
     Resolve and fetch gomod dependencies for a given request.

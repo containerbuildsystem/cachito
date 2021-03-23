@@ -98,6 +98,7 @@ def test_fetch_npm_source(
     package_subpath,
     subpath_as_path_component,
     reverse_path_component,
+    task_passes_state_check,
 ):
     request_id = 6
     request = {"id": request_id}
@@ -216,6 +217,7 @@ def test_fetch_npm_source_multiple_paths(
     mock_srs,
     mock_vnf,
     mock_rbd,
+    task_passes_state_check,
 ):
     request_id = 6
     request = {"id": request_id}
@@ -328,7 +330,9 @@ def test_fetch_npm_source_multiple_paths(
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
-def test_fetch_npm_source_resolve_fails(mock_rn, mock_pnfjr, mock_srs, mock_vnf, mock_rbd):
+def test_fetch_npm_source_resolve_fails(
+    mock_rn, mock_pnfjr, mock_srs, mock_vnf, mock_rbd, task_passes_state_check
+):
     request_id = 6
     request = {"id": request_id}
     mock_srs.return_value = request

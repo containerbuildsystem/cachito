@@ -12,6 +12,7 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
+from cachito.workers.tasks.utils import runs_if_request_in_progress
 
 __all__ = [
     "create_bundle_archive",
@@ -23,6 +24,7 @@ log = logging.getLogger(__name__)
 
 
 @app.task(priority=0)
+@runs_if_request_in_progress
 def fetch_app_source(url, ref, request_id, gitsubmodule=False):
     """
     Fetch the application source code that was requested and put it in long-term storage.
@@ -125,6 +127,7 @@ def set_request_state(request_id, state, state_reason):
 
 
 @app.task
+@runs_if_request_in_progress
 def failed_request_callback(context, exc, traceback, request_id):
     """
     Wrap set_request_state for task error callbacks.
@@ -142,6 +145,7 @@ def failed_request_callback(context, exc, traceback, request_id):
 
 
 @app.task(priority=10)
+@runs_if_request_in_progress
 def create_bundle_archive(request_id):
     """
     Create the bundle archive to be downloaded by the user.

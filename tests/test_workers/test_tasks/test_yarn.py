@@ -162,6 +162,7 @@ def test_fetch_yarn(
     mock_validate_config,
     mock_request_bundle_dir,
     tmp_path,
+    task_passes_state_check,
 ):
     # SETUP
     bundle_dir, root, sub = mock_bundle_dir(tmp_path)
@@ -317,6 +318,7 @@ def test_fetch_yarn_no_configs(
     mock_validate_config,
     mock_request_bundle_dir,
     tmp_path,
+    task_passes_state_check,
 ):
     bundle_dir, root, sub = mock_bundle_dir(tmp_path)
     mock_request_bundle_dir.return_value = bundle_dir
@@ -362,6 +364,7 @@ def test_fetch_yarn_resolve_fails(
     mock_validate_config,
     mock_request_bundle_dir,
     tmp_path,
+    task_passes_state_check,
 ):
     bundle_dir, root, sub = mock_bundle_dir(tmp_path)
     mock_request_bundle_dir.return_value = bundle_dir
