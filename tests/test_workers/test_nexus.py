@@ -360,6 +360,33 @@ def test_get_component_info_from_nexus_no_results(mock_search_components, mock_s
 
 
 @mock.patch("cachito.workers.nexus.search_components")
+def test_get_component_info_from_nexus_null_group(mock_search_components):
+    mock_search_components.return_value = [
+        {"name": "foo", "group": "some", "version": "1.0.0"},
+        {"name": "foo", "group": None, "version": "1.0.0"},
+    ]
+
+    result = nexus.get_component_info_from_nexus(
+        "cachito-js-proxy", "npm", "foo", version="1.0.0", group=nexus.NULL_GROUP
+    )
+
+    assert result == mock_search_components.return_value[1]
+
+
+@mock.patch("cachito.workers.nexus.search_components")
+def test_get_component_info_from_nexus_any_group(mock_search_components):
+    mock_search_components.return_value = [
+        {"name": "foo", "group": "some", "version": "1.0.0"},
+    ]
+
+    result = nexus.get_component_info_from_nexus(
+        "cachito-js-proxy", "npm", "foo", version="1.0.0", group=None
+    )
+
+    assert result == mock_search_components.return_value[0]
+
+
+@mock.patch("cachito.workers.nexus.search_components")
 def test_get_component_info_from_nexus_multiple_results(
     mock_search_components, components_search_results
 ):

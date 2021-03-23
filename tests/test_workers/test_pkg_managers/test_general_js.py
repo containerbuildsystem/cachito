@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
+from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general, general_js, npm
 from cachito.workers.paths import RequestBundleDir
@@ -357,7 +358,7 @@ def test_get_js_component_info_from_nexus(mock_gcifn, group, repository, is_host
             "npm",
             "rxjs",
             "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
-            None,
+            nexus.NULL_GROUP,
             3,
             from_nexus_hoster=is_hosted,
         )
