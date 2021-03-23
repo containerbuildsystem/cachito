@@ -340,7 +340,7 @@ def _get_js_component_info_from_nexus(
         component_group = component_group[1:]
     else:
         component_name = name
-        component_group = None
+        component_group = nexus.NULL_GROUP
 
     return nexus.get_component_info_from_nexus(
         repository,

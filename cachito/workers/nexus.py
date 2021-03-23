@@ -13,6 +13,9 @@ from cachito.workers.errors import NexusScriptError
 
 log = logging.getLogger(__name__)
 
+# special object that indicates that we want to search for a component with the `null` group
+NULL_GROUP = object()
+
 
 def get_nexus_hoster_credentials():
     """
@@ -209,7 +212,9 @@ def get_component_info_from_nexus(
     :param str component_format: the format of the component (e.g. npm)
     :param str name: the name of the component, if format is raw then this is the unique identifier
     :param str version: the version of the dependency, should be specified if format is not raw
-    :param str group: an optional group of the dependency (e.g. the scope of a npm package)
+    :param (str | None | NULL_GROUP) group: an optional group of the dependency (e.g. the npm scope)
+        the default value is None, meaning components will be matched regardless of group
+        if group is NULL_GROUP, only components with no group will be matched
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
     :param bool from_nexus_hoster: whether to get the info from the Nexus hoster instance, if
         available
@@ -237,11 +242,15 @@ def get_component_info_from_nexus(
         components = search_components(
             in_nexus_hoster=from_nexus_hoster,
             format=component_format,
-            group=group,
+            group=None if group is NULL_GROUP else group,
             name=name,
             repository=repository,
             version=version,
         )
+        if group is NULL_GROUP:
+            # the Nexus API does not allow to directly search for components without groups
+            components = [c for c in components if c["group"] is None]
+
         if len(components) > 1:
             log.error(
                 "The following Nexus components were returned but more than one was not "
