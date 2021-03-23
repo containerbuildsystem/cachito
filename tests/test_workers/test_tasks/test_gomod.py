@@ -83,6 +83,7 @@ def test_fetch_gomod_source(
     sample_pkg_deps,
     sample_pkg_lvl_pkg,
     sample_env_vars,
+    task_passes_state_check,
 ):
     def directory_present(*args, **kwargs):
         mock_subpath = mock.Mock()
@@ -237,6 +238,7 @@ def test_fetch_gomod_source_no_go_mod_file(
     exception_expected,
     pkg_config,
     pkg_results,
+    task_passes_state_check,
 ):
     def directory_present(*args, **kwargs):
         mock_subpath = mock.Mock()

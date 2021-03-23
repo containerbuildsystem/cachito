@@ -9,7 +9,9 @@ archive_path = f"/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz
 
 @mock.patch("git.Repo")
 @mock.patch("cachito.workers.tasks.gitsubmodule.update_request_with_package")
-def test_add_git_submodules_as_package(mock_update_with_package, mock_repo):
+def test_add_git_submodules_as_package(
+    mock_update_with_package, mock_repo, task_passes_state_check
+):
     submodule = mock.Mock()
     submodule.name = "tour"
     submodule.hexsha = "522fb816eec295ad58bc488c74b2b46748d471b2"

@@ -20,7 +20,9 @@ from tests.helper_utils import Symlink, write_file_tree
 @pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 @mock.patch("cachito.workers.tasks.general._enforce_sandbox")
-def test_fetch_app_source(mock_enforce_sandbox, mock_set_request_state, fake_repo, gitsubmodule):
+def test_fetch_app_source(
+    mock_enforce_sandbox, mock_set_request_state, fake_repo, gitsubmodule, task_passes_state_check
+):
     request_id = 1
 
     repo_dir, repo_name = fake_repo
@@ -78,7 +80,9 @@ def test_enforce_sandbox(file_tree, error, tmp_path):
 @pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 @mock.patch("cachito.workers.tasks.general.Git")
-def test_fetch_app_source_request_timed_out(mock_git, mock_set_request_state, gitsubmodule):
+def test_fetch_app_source_request_timed_out(
+    mock_git, mock_set_request_state, gitsubmodule, task_passes_state_check
+):
     url = "https://github.com/release-engineering/retrodep.git"
     ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
     mock_git.return_value.fetch_source.side_effect = Timeout("The request timed out")
@@ -113,14 +117,14 @@ def test_set_request_state_bad_status_code(mock_requests):
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_failed_request_callback(mock_set_request_state):
+def test_failed_request_callback(mock_set_request_state, task_passes_state_check):
     exc = CachitoError("some error")
     tasks.failed_request_callback(None, exc, None, 1)
     mock_set_request_state.assert_called_once_with(1, "failed", "some error")
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
+def test_failed_request_callback_not_cachitoerror(mock_set_request_state, task_passes_state_check):
     exc = ValueError("some error")
     tasks.failed_request_callback(None, exc, None, 1)
     mock_set_request_state.assert_called_once_with(1, "failed", "An unknown error occurred")
@@ -130,7 +134,9 @@ def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
 @pytest.mark.parametrize("include_git_dir", (True, False))
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 @mock.patch("cachito.workers.paths.get_worker_config")
-def test_create_bundle_archive(mock_gwc, mock_set_request, deps_present, include_git_dir, tmpdir):
+def test_create_bundle_archive(
+    mock_gwc, mock_set_request, deps_present, include_git_dir, tmpdir, task_passes_state_check
+):
     flags = ["include-git-dir"] if include_git_dir else []
     mock_set_request.return_value = {"flags": flags}
 

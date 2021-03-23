@@ -26,7 +26,7 @@ from cachito.workers.pkg_managers.pip import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
-from cachito.workers.tasks.utils import make_base64_config_file
+from cachito.workers.tasks.utils import make_base64_config_file, runs_if_request_in_progress
 
 
 log = logging.getLogger(__name__)
@@ -45,6 +45,7 @@ def cleanup_pip_request(request_id):
 
 
 @app.task
+@runs_if_request_in_progress
 def fetch_pip_source(request_id, package_configs=None):
     """
     Resolve and fetch pip dependencies for a given request.

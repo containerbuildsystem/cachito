@@ -26,8 +26,7 @@ from cachito.workers.pkg_managers.npm import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
-from cachito.workers.tasks.utils import make_base64_config_file
-
+from cachito.workers.tasks.utils import make_base64_config_file, runs_if_request_in_progress
 
 __all__ = ["cleanup_npm_request", "fetch_npm_source"]
 log = logging.getLogger(__name__)
@@ -85,6 +84,7 @@ def cleanup_npm_request(request_id):
 
 
 @app.task
+@runs_if_request_in_progress
 def fetch_npm_source(request_id, package_configs=None):
     """
     Resolve and fetch npm dependencies for a given request.

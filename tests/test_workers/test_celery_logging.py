@@ -85,7 +85,7 @@ def test_setup_logging(mock_gwc, tmpdir):
         assert "Test log message" in f.read()
 
 
-@mock.patch("cachito.workers.celery_logging._get_function_arg_value")
+@mock.patch("cachito.workers.celery_logging.get_function_arg_value")
 @mock.patch("cachito.workers.celery_logging.get_worker_config")
 def test_setup_logging_request_id_not_found(mock_gwc, mock_get_func_arg_val, tmpdir):
     mock_gwc.return_value.cachito_request_file_logs_dir = str(tmpdir)

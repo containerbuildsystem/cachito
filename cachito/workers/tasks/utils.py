@@ -1,11 +1,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import base64
+import functools
+import logging
 from pathlib import Path
 from typing import Union, Callable
 
-from cachito.errors import ValidationError
+import requests
+
+from cachito.errors import ValidationError, CachitoError
+from cachito.workers.celery_logging import get_function_arg_value
+from cachito.workers.config import get_worker_config
 
 __all__ = ["make_base64_config_file", "AssertPackageFiles"]
+
+log = logging.getLogger(__name__)
 
 
 def make_base64_config_file(content: str, dest_relpath: Union[str, Path]) -> dict:
@@ -97,3 +105,56 @@ class AssertPackageFiles:
             relpath = fullpath.relative_to(self._root_dir)
             err_msg = err_template.format(relpath=relpath)
             raise ValidationError(f"File check failed for {self._pkg_manager}: {err_msg}")
+
+
+def runs_if_request_in_progress(task_fn):
+    """
+    Decorate a task to make it check request state before proceeding.
+
+    If request state is not "in_progress", the task will log an error and exit.
+
+    :param task task_fn: the task to run if its state is in_progress
+    """
+
+    @functools.wraps(task_fn)
+    def task_with_state_check(*args, **kwargs):
+        """Check request state, proceed to execute task if check succeeds."""
+        request_id = get_function_arg_value("request_id", task_fn, args, kwargs)
+        if not request_id:
+            raise ValueError(
+                f"Failed during state check: no request_id found for {task_fn.__name__} task",
+            )
+        request_state = get_request_state(request_id)
+        if request_state != "in_progress":
+            log.error(
+                "Skipping %s task because the request was not in_progress (was: %s)",
+                task_fn.__name__,
+                request_state,
+            )
+            return
+
+        return task_fn(*args, **kwargs)
+
+    return task_with_state_check
+
+
+def get_request_state(request_id):
+    """
+    Get the state of the request.
+
+    :param int request_id: the Cachito request ID this is for
+    """
+    from cachito.workers.requests import requests_session
+
+    config = get_worker_config()
+    request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+
+    try:
+        rv = requests_session.get(request_url)
+        rv.raise_for_status()
+    except requests.RequestException:
+        msg = f"An error occured while getting the state of request {request_id}"
+        log.exception(msg)
+        raise CachitoError(msg)
+
+    return rv.json()["state"]
