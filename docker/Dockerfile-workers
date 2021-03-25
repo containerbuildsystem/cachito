@@ -20,10 +20,12 @@ RUN dnf -y install \
     && dnf clean all
 COPY . .
 
-
 # All the requirements except pyarn should already be installed
 RUN pip3 install -r requirements.txt --no-deps --require-hashes
 RUN pip3 install . --no-deps
+
+# Use the system CA bundle for the requests library
+ENV REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
 
 # Set git user configuration for GitPython
 ENV GIT_COMMITTER_NAME=cachito \
