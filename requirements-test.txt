@@ -596,9 +596,9 @@ werkzeug==1.0.1 \
     #   flask
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==54.1.1 \
-    --hash=sha256:1ce82798848a978696465866bb3aaab356003c42d6143e1111fcf069ac838274 \
-    --hash=sha256:75c5c4479f4961f1ffdb597c98aa4e4077e6813685025e8bdebf7598aa84e859
+setuptools==54.2.0 \
+    --hash=sha256:aa9c24fb83a9116b8d425e53bec24c7bfdbffc313c2159f9ed036d4a6dd32d7d \
+    --hash=sha256:b726461910b9ba30f077880c228bea22121aec50b172edf39eb7ff026c054a11
     # via
     #   -r requirements.txt
     #   jsonschema
