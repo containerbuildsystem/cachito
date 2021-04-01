@@ -3,4 +3,4 @@ flask-login
 Flask-Migrate
 Flask-SQLAlchemy
 psycopg2-binary
-SQLAlchemy<1.4
+SQLAlchemy<1.5
