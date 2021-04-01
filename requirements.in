@@ -1,7 +1,7 @@
 # FIXME: there was a regression in py-amqp. It was supposed to be fixed in
 # https://github.com/celery/py-amqp/pull/350
 # but cachito is still being affected by the regression
-amqp==5.0.6
+amqp==5.0.2
 celery>=5
 gitpython
 kombu>=5 # A celery dependency but it's directly imported
