@@ -499,12 +499,12 @@ def test_set_go_package_sources_replace_parent_purl(
     pre_replaced_dependencies = [
         {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/foo"},
         {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/bar"},
-        {"purl": f"pkg:golang/example.com/some-other-project@v1.0.0"},
+        {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
     ]
     post_replaced_dependencies = [
         {"purl": f"{expected_parent_purl}#staging/src/k8s.io/foo"},
         {"purl": f"{expected_parent_purl}#staging/src/k8s.io/bar"},
-        {"purl": f"pkg:golang/example.com/some-other-project@v1.0.0"},
+        {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
     ]
 
     cm = ContentManifest(default_request)
@@ -756,7 +756,7 @@ def test_purl_conversion(package, expected_purl, defined, known_protocol):
 
 
 def test_purl_conversion_bogus_forge():
-    package = {"name": "odd", "type": "npm", "version": f"github:something/odd"}
+    package = {"name": "odd", "type": "npm", "version": "github:something/odd"}
     pkg = Package.from_json(package)
 
     msg = f"Could not convert version {pkg.version} to purl"

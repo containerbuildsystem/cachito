@@ -1857,12 +1857,12 @@ def test_fetch_request_content_manifest_npm_or_pip(
         "dependencies": deps[:2],
         "package": pkgs[0],
     }
-    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
     payload = {
         "dependencies": deps[2:],
         "package": pkgs[1],
     }
-    client.patch(f"/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
 
     rv = client.get("/api/v1/requests/1")
     assert rv.status_code == 200

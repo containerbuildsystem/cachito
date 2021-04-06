@@ -30,14 +30,14 @@ ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
 archive_path = f"/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz"
 
 mock_pkg_list = dedent(
-    f"""\
+    """\
     github.com/release-engineering/retrodep/v2
     github.com/release-engineering/retrodep/v2/retrodep
     github.com/release-engineering/retrodep/v2/retrodep/glide
     """
 )
 mock_pkg_deps = dedent(
-    f"""\
+    """\
     github.com/op/go-logging github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
     github.com/Masterminds/semver github.com/Masterminds/semver v1.4.2
     github.com/pkg/errors github.com/pkg/errors v0.8.1

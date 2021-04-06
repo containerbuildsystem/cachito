@@ -1857,7 +1857,7 @@ class TestPipRequirementsFile:
         }
 
         expected_new_file = dedent(
-            f"""\
+            """\
             cnr_server @ https://cachito/nexus/58c88.tar.gz#egg=cnr_server --hash=sha256:123
             spam @ https://cachito/nexus/spam-123456.tar.gz --hash=sha256:45678
             aiowsgi==0.7 --hash=sha256:90123
@@ -2596,7 +2596,7 @@ class TestDownload:
     ):
         """Test downloading of a single VCS package."""
         vcs_url = f"git+https://github.com/spam/eggs@{GIT_REF}"
-        raw_url = f"https://nexus:8081/repository/cachito-pip-raw/eggs.tar.gz"
+        raw_url = "https://nexus:8081/repository/cachito-pip-raw/eggs.tar.gz"
 
         mock_requirement = self.mock_requirement(
             "eggs", "vcs", url=vcs_url, download_line=f"eggs @ {vcs_url}"
@@ -2642,7 +2642,7 @@ class TestDownload:
         else:
             assert "Raw component not found, will fetch from git" in caplog.text
             mock_download_file.assert_not_called()
-            mock_git.assert_called_once_with(f"https://github.com/spam/eggs", GIT_REF)
+            mock_git.assert_called_once_with("https://github.com/spam/eggs", GIT_REF)
             mock_git.return_value.fetch_source.assert_called_once_with(gitsubmodule=False)
             mock_shutil_copy.assert_called_once_with(git_archive_path, download_path)
 
@@ -2759,7 +2759,7 @@ class TestDownload:
         if hash_as_qualifier:
             original_url = url_with_hash
 
-        raw_url = f"https://nexus:8081/repository/cachito-pip-raw/foo.tar.gz"
+        raw_url = "https://nexus:8081/repository/cachito-pip-raw/foo.tar.gz"
 
         mock_requirement = self.mock_requirement(
             "foo",
@@ -2780,7 +2780,7 @@ class TestDownload:
             set(trusted_hosts),
         )
 
-        raw_component = f"foo/foo-external-sha256-abcdef.tar.gz"
+        raw_component = "foo/foo-external-sha256-abcdef.tar.gz"
 
         assert download_info == {
             "package": "foo",
@@ -3436,7 +3436,7 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
         url = "https://example.org/eggs.tar.gz"
         url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
         version = url_with_hash
-        raw_component = f"eggs/eggs.tar.gz"
+        raw_component = "eggs/eggs.tar.gz"
 
     dest_dir, filename = raw_component.rsplit("/", 1)
     req = {
@@ -3485,7 +3485,7 @@ def test_push_downloaded_requirement_non_pypi_duplicated(
         url = "https://example.org/eggs.tar.gz"
         url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
         version = url_with_hash
-        raw_component = f"eggs/eggs.tar.gz"
+        raw_component = "eggs/eggs.tar.gz"
 
     dest_dir, filename = raw_component.rsplit("/", 1)
     req = {
