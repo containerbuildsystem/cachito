@@ -240,7 +240,7 @@ def test_convert_to_nexus_hosted(
         # allowlisted file dependency
         (
             # yarn_lock
-            {f"subpackage@file:./subpath": {"version": "4.0.0"}},
+            {"subpackage@file:./subpath": {"version": "4.0.0"}},
             # allowlist
             {"subpath"},
             # expected_deps
@@ -338,11 +338,11 @@ def test_get_deps(
 @mock.patch("cachito.workers.pkg_managers.yarn._convert_to_nexus_hosted")
 def test_get_deps_disallowed_file_dep(mock_convert_hosted):
     yarn_lock = {
-        f"subpackage@file:./subpath": {"version": "1.0.0"},
+        "subpackage@file:./subpath": {"version": "1.0.0"},
     }
     allowlist = set()
 
-    err_msg = f"The dependency ./subpath is hosted in an unsupported location"
+    err_msg = "The dependency ./subpath is hosted in an unsupported location"
     mock_convert_hosted.side_effect = [CachitoError(err_msg)]
 
     with pytest.raises(CachitoError, match=err_msg):

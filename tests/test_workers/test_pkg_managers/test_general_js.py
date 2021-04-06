@@ -276,7 +276,7 @@ def test_generate_npmrc_content(custom_ca_path):
     )
 
     expected = textwrap.dedent(
-        f"""\
+        """\
         registry=http://nexus:8081/repository/cachito-npm-1/
         email=noreply@domain.local
         always-auth=true
