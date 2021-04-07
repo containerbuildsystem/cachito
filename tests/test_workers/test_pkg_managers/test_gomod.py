@@ -11,6 +11,7 @@ import pytest
 from cachito.workers.pkg_managers.gomod import (
     get_golang_version,
     resolve_gomod,
+    contains_package,
     path_to_subpackage,
     match_parent_module,
     _merge_bundle_dirs,
@@ -843,6 +844,20 @@ def test_set_full_local_dep_relpaths_no_match():
 def test_get_allowed_local_deps(mock_worker_config, allowlist, module_name, expect_allowed):
     mock_worker_config.return_value.cachito_gomod_file_deps_allowlist = allowlist
     assert _get_allowed_local_deps(module_name) == expect_allowed
+
+
+@pytest.mark.parametrize(
+    "parent_name, package_name, expect_result",
+    [
+        ("github.com/foo", "github.com/foo", True),
+        ("github.com/foo", "github.com/foo/bar", True),
+        ("github.com/foo", "github.com/bar", False),
+        ("github.com/foo", "github.com/foobar", False),
+        ("github.com/foo/bar", "github.com/foo", False),
+    ],
+)
+def test_contains_package(parent_name, package_name, expect_result):
+    assert contains_package(parent_name, package_name) == expect_result
 
 
 @pytest.mark.parametrize(
