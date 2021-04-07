@@ -77,6 +77,10 @@ Run the application locally (requires [docker-compose](https://docs.docker.com/c
 make run
 ```
 
+Note: while running Cachito locally requires docker-compose, that does not mean you
+have to use Docker! Podman 3.0 or greater can serve as a replacement, see
+https://www.redhat.com/sysadmin/podman-docker-compose.
+
 Alternatively, you could also run the application with
 [podman-compose](https://github.com/containers/podman-compose) by setting the
 `CACHITO_COMPOSE_ENGINE` variable to the path of the `podman-compose` script.

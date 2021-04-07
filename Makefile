@@ -38,6 +38,12 @@ venv:
 
 # Keep run target for backwards compatibility
 run run-start:
+	# Create the nexus volume before running (podman compatibility)
+	mkdir -p ./tmp/nexus-data
+	# Let everyone write to the temp directory
+	# - nexus needs to write to ./tmp/nexus-data
+	# - integration tests need to write to (and create) ./tmp/cachito-archives
+	chmod -R 0777 ./tmp
 	$(CACHITO_COMPOSE_ENGINE) up
 
 run-down run-stop:
