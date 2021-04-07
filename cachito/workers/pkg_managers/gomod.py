@@ -22,6 +22,7 @@ from cachito.workers.pkg_managers.general import run_cmd
 __all__ = [
     "get_golang_version",
     "resolve_gomod",
+    "contains_package",
     "path_to_subpackage",
     "match_parent_module",
 ]
@@ -50,6 +51,23 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
             super().__exit__(exc, value, tb)
 
 
+def contains_package(parent_name: str, package_name: str) -> bool:
+    """
+    Check that parent module/package contains specified package.
+
+    :param parent_name: name of parent module or package
+    :param package_name: name of package to check
+    :return: True if package belongs to parent, False otherwise
+    """
+    if not package_name.startswith(parent_name):
+        return False
+    if len(package_name) > len(parent_name):
+        # Check that the subpackage is {parent_name}/* and not {parent_name}*/*
+        return package_name[len(parent_name)] == "/"
+    # At this point package_name == parent_name, every package contains itself
+    return True
+
+
 def path_to_subpackage(parent_name: str, subpackage_name: str) -> str:
     """
     Get relative path from parent module/package to subpackage inside the parent.
@@ -62,7 +80,7 @@ def path_to_subpackage(parent_name: str, subpackage_name: str) -> str:
     :return: relative path from parent to subpackage
     :raises ValueError: if subpackage name does not start with parent name
     """
-    if not subpackage_name.startswith(parent_name):
+    if not contains_package(parent_name, subpackage_name):
         raise ValueError(f"Package {subpackage_name} does not belong to {parent_name}")
     return subpackage_name[len(parent_name) :].lstrip("/")
 
@@ -78,7 +96,8 @@ def match_parent_module(package_name: str, module_names: Iterable[str]) -> Optio
     :param module_names: iterable of module names
     :return: longest matching module name or None (no module matches)
     """
-    return max(filter(package_name.startswith, module_names), key=len, default=None)
+    contains_this_package = functools.partial(contains_package, package_name=package_name)
+    return max(filter(contains_this_package, module_names), key=len, default=None)
 
 
 def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=None):
