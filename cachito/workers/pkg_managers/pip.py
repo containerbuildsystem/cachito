@@ -2,10 +2,13 @@
 import ast
 import configparser
 import logging
+import os.path
 import random
 import re
 import secrets
 import shutil
+import tarfile
+import zipfile
 import urllib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -40,7 +43,9 @@ NOTHING = object()  # A None replacement for cases where the distinction is need
 GIT_REF_IN_PATH = re.compile(r"@[a-fA-F0-9]{40}$")
 
 # All supported sdist formats, see https://docs.python.org/3/distutils/sourcedist.html
-SDIST_FILE_EXTENSIONS = [".zip", ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.Z", ".tar"]
+ZIP_FILE_EXT = ".zip"
+COMPRESSED_TAR_EXT = ".tar.Z"
+SDIST_FILE_EXTENSIONS = [ZIP_FILE_EXT, ".tar.gz", ".tar.bz2", ".tar.xz", COMPRESSED_TAR_EXT, ".tar"]
 SDIST_EXT_PATTERN = r"|".join(map(re.escape, SDIST_FILE_EXTENSIONS))
 
 
@@ -1299,6 +1304,7 @@ def download_dependencies(request_id, requirements_file):
             download_info = _download_pypi_package(
                 req, bundle_dir.pip_deps_dir, pypi_proxy_url, pypi_proxy_auth
             )
+            check_metadata_in_sdist(download_info["path"])
         elif req.kind == "vcs":
             download_info = _download_vcs_package(
                 req, bundle_dir.pip_deps_dir, pip_raw_repo_name, nexus_auth
@@ -2175,3 +2181,61 @@ def get_raw_component_name(requirement):
         raw_component_name = f"{repo_name}/{filename}"
 
     return raw_component_name
+
+
+def _iter_zip_file(file_path: Path):
+    with zipfile.ZipFile(file_path, "r") as zf:
+        yield from zf.namelist()
+
+
+def _iter_tar_file(file_path: Path):
+    with tarfile.open(file_path, "r") as tar:
+        for member in tar:
+            yield member.name
+
+
+def is_pkg_info_dir(path: str) -> bool:
+    """Simply check whether a path represents the PKG_INFO directory.
+
+    Generally, it is in the format for example: pkg-1.0/PKG_INFO
+
+    :param str path: a path.
+    :return: True if it is, otherwise False is returned.
+    :rtype: bool
+    """
+    parts = os.path.split(path)
+    return len(parts) == 2 and parts[1] == "PKG-INFO"
+
+
+def check_metadata_in_sdist(sdist_path: Path):
+    """Check if a downloaded sdist package has metadata.
+
+    :param sdist_path: the path of a sdist package file.
+    :type sdist_path: pathlib.Path
+    :raise ValidationError: if the sdist cannot be validated.
+    """
+    if sdist_path.name.endswith(ZIP_FILE_EXT):
+        files_iter = _iter_zip_file(sdist_path)
+    elif sdist_path.name.endswith(COMPRESSED_TAR_EXT):
+        log.warning("Skip checking metadata from compressed sdist %s", sdist_path.name)
+        return
+    elif any(map(sdist_path.name.endswith, SDIST_FILE_EXTENSIONS)):
+        files_iter = _iter_tar_file(sdist_path)
+    else:
+        raise ValidationError(
+            f"Cannot check metadata from {sdist_path}, "
+            f"which does not have a known supported extension.",
+        )
+
+    try:
+        if not any(map(is_pkg_info_dir, files_iter)):
+            raise ValidationError(
+                f"{sdist_path.name} does not include metadata (there is no PKG-INFO file). "
+                f"It is not a valid sdist and cannot be downloaded from PyPI. "
+                f"Consider editing your requirements file to download the package from git "
+                f"or a direct download URL instead."
+            )
+    except tarfile.ReadError as e:
+        raise ValidationError(f"Cannot open {sdist_path} as a Tar file. Error: {str(e)}")
+    except zipfile.BadZipFile as e:
+        raise ValidationError(f"Cannot open {sdist_path} as a Zip file. Error: {str(e)}")
