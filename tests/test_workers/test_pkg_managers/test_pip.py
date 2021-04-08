@@ -17,6 +17,7 @@ from cachito.workers.requests import requests_session
 from tests.helper_utils import write_file_tree
 
 
+THIS_MODULE_DIR = Path(__file__).resolve().parent
 GIT_REF = "9a557920b2a6d4110f838506120904a6fda421a2"
 
 
@@ -3030,8 +3031,10 @@ class TestDownload:
     @mock.patch("cachito.workers.pkg_managers.pip._download_url_package")
     @mock.patch("cachito.workers.pkg_managers.pip.verify_checksum")
     @mock.patch("cachito.workers.pkg_managers.pip.upload_raw_package")
+    @mock.patch("cachito.workers.pkg_managers.pip.check_metadata_in_sdist")
     def test_download_dependencies(
         self,
+        check_metadata_in_sdist,
         mock_upload_raw_package,
         mock_verify_checksum,
         mock_url_download,
@@ -3137,6 +3140,7 @@ class TestDownload:
         # </call>
 
         # <check calls that must always be made>
+        check_metadata_in_sdist.assert_called_once_with(pypi_info["path"])
         mock_request_bundle_dir.assert_called_once_with(1)
         mock_get_config.assert_called_once()
         mock_pypi_download.assert_called_once_with(pypi_req, pip_deps, proxy_url, proxy_auth)
@@ -3306,8 +3310,14 @@ class TestDownload:
     @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_credentials")
     @mock.patch("cachito.workers.pkg_managers.pip._download_pypi_package")
+    @mock.patch("cachito.workers.pkg_managers.pip.check_metadata_in_sdist")
     def test_download_from_requirement_files(
-        self, mock_pypi_download, mock_get_nexus_creds, mock_request_bundle_dir, tmp_path,
+        self,
+        check_metadata_in_sdist,
+        mock_pypi_download,
+        mock_get_nexus_creds,
+        mock_request_bundle_dir,
+        tmp_path,
     ):
         """Test downloading dependencies from a requirement file list."""
         req_file1 = tmp_path / "requirements.txt"
@@ -3330,6 +3340,9 @@ class TestDownload:
 
         downloads = pip._download_from_requirement_files(1, [req_file1, req_file2])
         assert downloads == [{**pypi_info1, "kind": "pypi"}, {**pypi_info2, "kind": "pypi"}]
+        check_metadata_in_sdist.assert_has_calls(
+            [mock.call(pypi_info1["path"]), mock.call(pypi_info2["path"])], any_order=True
+        )
 
 
 def test_get_pypi_hosted_repo_name():
@@ -3615,3 +3628,43 @@ def test_get_raw_component_name(component_kind, url):
         assert raw_component == f"mypkg/mypkg-external-gitcommit-{'f'*40}.tar.gz"
     else:
         assert not raw_component
+
+
+@pytest.mark.parametrize(
+    "sdist_path",
+    [
+        THIS_MODULE_DIR / "data" / "myapp-0.1.tar",
+        THIS_MODULE_DIR / "data" / "myapp-0.1.tar.bz2",
+        THIS_MODULE_DIR / "data" / "myapp-0.1.tar.gz",
+        THIS_MODULE_DIR / "data" / "myapp-0.1.tar.xz",
+        THIS_MODULE_DIR / "data" / "myapp-0.1.zip",
+    ],
+)
+def test_check_metadata_from_sdist(sdist_path):
+    pip.check_metadata_in_sdist(sdist_path)
+
+
+@pytest.mark.parametrize(
+    "sdist_path",
+    [
+        THIS_MODULE_DIR / "data" / "myapp-0.1.tar.Z",
+        THIS_MODULE_DIR / "data" / "myapp-without-pkg-info.tar.Z",
+    ],
+)
+def test_skip_check_on_tar_z(sdist_path: Path, caplog):
+    pip.check_metadata_in_sdist(sdist_path)
+    assert f"Skip checking metadata from compressed sdist {sdist_path.name}" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "sdist_path,expected_error",
+    [
+        [THIS_MODULE_DIR / "data" / "myapp-0.1.tar.fake.zip", "a Zip file. Error:"],
+        [THIS_MODULE_DIR / "data" / "myapp-0.1.zip.fake.tar", "a Tar file. Error:"],
+        [THIS_MODULE_DIR / "data" / "myapp-without-pkg-info.tar.gz", "not include metadata"],
+        [THIS_MODULE_DIR / "data" / "myapp-0.2.tar.ZZZ", "Cannot check metadata from"],
+    ],
+)
+def test_metadata_check_fails_from_sdist(sdist_path: Path, expected_error: str):
+    with pytest.raises(ValidationError, match=expected_error):
+        pip.check_metadata_in_sdist(sdist_path)
