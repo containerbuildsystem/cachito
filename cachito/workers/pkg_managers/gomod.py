@@ -122,12 +122,13 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         dep_replacements = []
 
     worker_config = get_worker_config()
+    athens_url = worker_config.cachito_athens_url
     with GoCacheTemporaryDirectory(prefix="cachito-") as temp_dir:
         env = {
             "GOPATH": temp_dir,
             "GO111MODULE": "on",
             "GOCACHE": temp_dir,
-            "GOPROXY": worker_config.cachito_athens_url,
+            "GOPROXY": f"{athens_url}|{athens_url}",
             "PATH": os.environ.get("PATH", ""),
             "GOMODCACHE": "{}/pkg/mod".format(temp_dir),
         }
