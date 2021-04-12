@@ -434,9 +434,9 @@ py==1.10.0 \
     --hash=sha256:21b81bda15b66ef5e1a777a21c4dcd9c20ad3efd0b3f817e7a809035269e1bd3 \
     --hash=sha256:3b80836aa6d1feeaa108e046da6423ab8f6ceda6468545ae8d02d9d58d18818a
     # via pytest
-pyarn==0.1.0 \
-    --hash=sha256:266d3caf59070b1622861f20847b17b761ea43cb18c59eed48b8c85b8920afeb \
-    --hash=sha256:55a8feb1b355396a51e84ac62997f1bfefd202e6de6d1fd3ce49e623e63dfac7
+pyarn==0.1.1 \
+    --hash=sha256:86e44a64f7b612dcc617d7ad2559636d63f3c0dd42158234f68f98c30050fe67 \
+    --hash=sha256:a408a629a9901a650abdc64babb7d399092026575c2e628d62fba7530c8c30f3
     # via -r requirements.txt
 pycodestyle==2.7.0 \
     --hash=sha256:514f76d918fcc0b55c6680472f0a37970994e07bbb80725808c17089be302068 \
