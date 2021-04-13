@@ -9,7 +9,7 @@ PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
 
 
 class ContentManifest:
-    """A content manifest associated with a Cacihto request."""
+    """A content manifest associated with a Cachito request."""
 
     version = 1
     json_schema_url = (
