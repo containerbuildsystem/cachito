@@ -1,22 +1,35 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import flask
+from copy import deepcopy
 
+import flask
 from cachito.web.utils import deep_sort_icm
 from cachito.workers.pkg_managers import gomod
 
 
 PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
 
+VERSION = 1
+JSON_SCHEMA_URL = (
+    "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
+    "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
+)
+UNKNOWN_LAYER_INDEX = -1
+
+# A base (empty) image content manifest which will be used as a template to
+# fill in the generated image_contents.
+# NOTE THAT, the image_contents must be filled in a copy of this base icm.
+BASE_ICM = {
+    "metadata": {
+        "icm_version": VERSION,
+        "icm_spec": JSON_SCHEMA_URL,
+        "image_layer_index": UNKNOWN_LAYER_INDEX,
+    },
+    "image_contents": [],
+}
+
 
 class ContentManifest:
     """A content manifest associated with a Cachito request."""
-
-    version = 1
-    json_schema_url = (
-        "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
-        "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
-    )
-    unknown_layer_index = -1
 
     def __init__(self, request):
         """
@@ -216,13 +229,6 @@ class ContentManifest:
         :return: a valid Image Content Manifest
         :rtype: OrderedDict
         """
-        icm = {
-            "metadata": {
-                "icm_version": self.version,
-                "icm_spec": self.json_schema_url,
-                "image_layer_index": self.unknown_layer_index,
-            },
-        }
+        icm = deepcopy(BASE_ICM)
         icm["image_contents"] = image_contents or []
-
         return deep_sort_icm(icm)

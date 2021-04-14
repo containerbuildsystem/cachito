@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import ContentManifestError
-from cachito.web.content_manifest import ContentManifest, PARENT_PURL_PLACEHOLDER
+from cachito.web import content_manifest
 from cachito.web.models import Package, Request, RequestPackage
 
 GIT_REPO = "https://github.com/namespace/repo"
@@ -43,7 +43,7 @@ def test_process_go(default_request):
     src.id = 3
     expected_src_purl = "pkg:golang/example.com%2Fanotherorg%2Fproject@3.3.3"
 
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._gomod_data.setdefault(pkg.name, {"purl": "not-important", "dependencies": []})
@@ -85,7 +85,7 @@ def test_process_gomod_replace_parent_purl(default_request):
     module_dep.id = 2
     expected_dependency_purl = f"{expected_module_purl}#staging/src/anotherorg/project"
 
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._gomod_data.setdefault(module.name, {"purl": expected_module_purl, "dependencies": []})
@@ -120,7 +120,7 @@ def test_process_npm(default_request, default_toplevel_purl):
     src.dev = True
     expected_src_purl = "pkg:npm/%40types/events@3.0.0"
 
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._npm_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
@@ -162,7 +162,7 @@ def test_process_yarn(default_request, default_toplevel_purl):
     src.dev = True
     expected_src_purl = "pkg:npm/%40types/events@3.0.0"
 
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._yarn_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
@@ -204,7 +204,7 @@ def test_process_pip(default_request, default_toplevel_purl):
     src.dev = True
     expected_src_purl = "pkg:pypi/setuptools@49.1.1"
 
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
 
     # emulate to_json behavior to setup internal packages cache
     cm._pip_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
@@ -239,7 +239,7 @@ def test_process_pip(default_request, default_toplevel_purl):
 @mock.patch("cachito.web.models.Package.to_top_level_purl")
 def test_to_json(mock_top_level_purl, app, package, subpath):
     request = Request()
-    cm = ContentManifest(request)
+    cm = content_manifest.ContentManifest(request)
 
     image_contents = []
     if package:
@@ -256,7 +256,7 @@ def test_to_json(mock_top_level_purl, app, package, subpath):
     expected = {
         "metadata": {
             "icm_version": 1,
-            "icm_spec": ContentManifest.json_schema_url,
+            "icm_spec": content_manifest.JSON_SCHEMA_URL,
             "image_layer_index": -1,
         },
         "image_contents": image_contents,
@@ -324,7 +324,7 @@ def test_to_json_properly_sets_internal_data(
 
     mock_top_level_purl.return_value = "mock-package-purl"
 
-    cm = ContentManifest(request)
+    cm = content_manifest.ContentManifest(request)
     cm.to_json()
 
     # Here we are only interested in the setup part of to_json()
@@ -350,7 +350,7 @@ def test_to_json_properly_sets_internal_data(
 @mock.patch("cachito.web.content_manifest.ContentManifest.generate_icm")
 def test_to_json_with_multiple_packages(mock_generate_icm, app, packages):
     request = Request()
-    cm = ContentManifest(request)
+    cm = content_manifest.ContentManifest(request)
 
     image_contents = []
     for package in packages:
@@ -366,13 +366,13 @@ def test_to_json_with_multiple_packages(mock_generate_icm, app, packages):
 
 @pytest.mark.parametrize("contents", [None, [], "foobar", 42, OrderedDict({"egg": "bacon"})])
 def test_generate_icm(contents, default_request):
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
     expected = OrderedDict(
         {
             "image_contents": contents or [],
             "metadata": OrderedDict(
                 {
-                    "icm_spec": ContentManifest.json_schema_url,
+                    "icm_spec": content_manifest.JSON_SCHEMA_URL,
                     "icm_version": 1,
                     "image_layer_index": -1,
                 }
@@ -410,7 +410,7 @@ def test_generate_icm(contents, default_request):
 )
 @mock.patch("flask.current_app.logger.warning")
 def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, default_request):
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
 
     main_purl = "pkg:golang/a-package"
     main_package_id = 1
@@ -497,8 +497,8 @@ def test_set_go_package_sources_replace_parent_purl(
     gopkg_name, gomod_data, expected_parent_purl, default_request
 ):
     pre_replaced_dependencies = [
-        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/foo"},
-        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/bar"},
+        {"purl": f"{content_manifest.PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/foo"},
+        {"purl": f"{content_manifest.PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/bar"},
         {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
     ]
     post_replaced_dependencies = [
@@ -507,7 +507,7 @@ def test_set_go_package_sources_replace_parent_purl(
         {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
     ]
 
-    cm = ContentManifest(default_request)
+    cm = content_manifest.ContentManifest(default_request)
     cm._gomod_data = gomod_data
     cm._gopkg_data = {
         1: {
@@ -547,13 +547,13 @@ def test_set_go_package_sources_replace_parent_purl(
         ],
         [
             {"name": "example.com/org/project", "type": "go-package", "version": "./src/project"},
-            f"{PARENT_PURL_PLACEHOLDER}#src/project",
+            f"{content_manifest.PARENT_PURL_PLACEHOLDER}#src/project",
             True,
             True,
         ],
         [
             {"name": "example.com/org/project", "type": "gomod", "version": "./src/project"},
-            f"{PARENT_PURL_PLACEHOLDER}#src/project",
+            f"{content_manifest.PARENT_PURL_PLACEHOLDER}#src/project",
             True,
             True,
         ],

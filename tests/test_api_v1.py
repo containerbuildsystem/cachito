@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import json
 import os.path
 import re
 import tempfile
+from http import HTTPStatus
 from unittest import mock
 
 import flask
@@ -9,7 +11,7 @@ import kombu.exceptions
 import pytest
 
 from cachito.errors import CachitoError, ValidationError
-from cachito.web.content_manifest import PARENT_PURL_PLACEHOLDER
+from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -2249,3 +2251,88 @@ def test_validate_package_manager_exclusivity(
             _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
     else:
         _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
+
+
+def test_get_content_manifests_by_requests(app, client, db, auth_env):
+    data = {
+        "repo": "https://github.com/release-engineering/dummy.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    with app.test_request_context(environ_base=auth_env):
+        request1 = Request.from_json(data)
+    request1.add_state(RequestStateMapping.complete.name, "Set complete directly for test")
+    db.session.add(request1)
+
+    data = {
+        "repo": "https://github.com/release-engineering/dummy-foo.git",
+        "ref": "450b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    with app.test_request_context(environ_base=auth_env):
+        request2 = Request.from_json(data)
+    request2.add_state(RequestStateMapping.complete.name, "Set complete directly for test")
+    db.session.add(request1)
+
+    data = {
+        "repo": "https://github.com/release-engineering/dummy-bar.git",
+        "ref": "b50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    with app.test_request_context(environ_base=auth_env):
+        request3 = Request.from_json(data)
+    request3.add_state(RequestStateMapping.in_progress.name, "Set in_progress directly for test")
+    db.session.add(request3)
+
+    pkg1 = Package(name="pkg1", version="0.1", type="npm")
+    pkg2 = Package(name="pkg2", version="0.2", type="npm")
+    pkg3 = Package(name="pkg3", version="0.2", type="npm")
+    db.session.add(pkg1)
+    db.session.add(pkg2)
+    db.session.add(pkg3)
+
+    request1.add_package(pkg1)
+    request2.add_package(pkg2)
+    request3.add_package(pkg3)
+
+    db.session.commit()
+
+    test_data = [
+        # requests, expected_image_contents
+        ["", []],
+        ["requests=", []],
+        [
+            f"requests={request1.id}",
+            [{"purl": pkg1.to_top_level_purl(request1), "dependencies": [], "sources": []}],
+        ],
+        [
+            f"requests={request1.id},,{request2.id}",
+            [
+                {"purl": pkg1.to_top_level_purl(request1), "dependencies": [], "sources": []},
+                {"purl": pkg2.to_top_level_purl(request2), "dependencies": [], "sources": []},
+            ],
+        ],
+        [
+            f"requests={request3.id}",
+            f"Request {request3.id} is in state {request3.state.state_name}",
+        ],
+        [
+            f"requests={request1.id},{request3.id}",
+            f"Request {request3.id} is in state {request3.state.state_name}",
+        ],
+        ["requests=a100", "a100 is not an integer"],
+        [
+            f"requests={request1.id},{request2.id + 100}",
+            f"Cannot find request(s) {request2.id + 100}.",
+        ],
+    ]
+
+    for requests, expected_image_contents in test_data:
+        resp = client.get(f"/api/v1/content-manifest?{requests}")
+        if isinstance(expected_image_contents, str):
+            assert HTTPStatus.BAD_REQUEST == resp.status_code
+            assert expected_image_contents in resp.data.decode()
+        else:
+            assembled_icm = BASE_ICM.copy()
+            assembled_icm["image_contents"] = expected_image_contents
+            assert deep_sort_icm(assembled_icm) == json.loads(resp.data)
