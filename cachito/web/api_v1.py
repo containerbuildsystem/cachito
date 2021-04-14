@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from collections import OrderedDict
+from copy import deepcopy
 import copy
 import functools
 import os
@@ -9,10 +10,11 @@ import flask
 from flask import stream_with_context
 from flask_login import current_user, login_required
 import kombu.exceptions
-from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound
+from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound, BadRequest
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.web import db
+from cachito.web.content_manifest import BASE_ICM
 from cachito.web.models import (
     ConfigFileBase64,
     Dependency,
@@ -23,7 +25,7 @@ from cachito.web.models import (
     RequestStateMapping,
 )
 from cachito.web.status import status
-from cachito.web.utils import pagination_metadata, str_to_bool
+from cachito.web.utils import deep_sort_icm, pagination_metadata, str_to_bool
 from cachito.workers import tasks
 from cachito.paths import RequestBundleDir
 
@@ -588,3 +590,47 @@ def get_request_logs(request_id):
     return flask.Response(
         stream_with_context(generate_stream_response(log_file_path)), mimetype="text/plain"
     )
+
+
+@api_v1.route("/content-manifest", methods=["GET"])
+def get_content_manifest_by_requests():
+    """
+    Retrieve the content manifest associated with the given requests.
+
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise BadRequest: if any of the given request is not in the "complete" or
+        "stale" state, If any of the given request cannot be found.
+    """
+    arg = flask.request.args.get("requests")
+    if not arg:
+        return flask.jsonify(BASE_ICM)
+    request_ids = []
+    item: str
+    for item in arg.split(","):
+        if not item.strip():
+            continue
+        if not item.strip().isdigit():
+            raise BadRequest(f"{item} is not an integer.")
+        request_ids.append(int(item))
+
+    requests = Request.query.filter(Request.id.in_(request_ids))
+    found_requests_ids = [request.id for request in requests]
+
+    ids_diff = list(map(str, set(request_ids) - set(found_requests_ids)))
+    if ids_diff:
+        raise BadRequest(f"Cannot find request(s) {', '.join(ids_diff)}.")
+
+    assembled_icm = deepcopy(BASE_ICM)
+    request: Request
+    for request in requests:
+        if request.state.state_name not in (
+            RequestStateMapping.complete.name,
+            RequestStateMapping.stale.name,
+        ):
+            raise BadRequest(
+                f"Request {request.id} is in state {request.state.state_name}, "
+                f"not complete or stale."
+            )
+        assembled_icm["image_contents"].extend(request.content_manifest.to_json()["image_contents"])
+    return flask.jsonify(deep_sort_icm(assembled_icm))
