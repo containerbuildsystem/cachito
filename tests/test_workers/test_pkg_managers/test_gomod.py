@@ -2,12 +2,15 @@
 import os
 import re
 import tarfile
+import textwrap
 from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
 from unittest import mock
 
+import git
 import pytest
 
+from cachito.workers.pkg_managers import gomod
 from cachito.workers.pkg_managers.gomod import (
     get_golang_version,
     resolve_gomod,
@@ -22,9 +25,16 @@ from cachito.workers.pkg_managers.gomod import (
     _set_full_local_dep_relpaths,
     _get_allowed_local_deps,
 )
-from cachito.errors import CachitoError
+from cachito.errors import CachitoError, ValidationError
 from cachito.workers.paths import RequestBundleDir
 from tests.helper_utils import assert_directories_equal, write_file_tree
+
+
+def setup_module():
+    """Re-enable logging that was disabled at some point in previous tests."""
+    gomod.log.disabled = False
+    gomod.log.setLevel("DEBUG")
+
 
 url = "https://github.com/release-engineering/retrodep.git"
 ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
@@ -246,7 +256,7 @@ def test_resolve_gomod_vendor_dependencies(
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
-@mock.patch("os.path.isdir")
+@mock.patch("pathlib.Path.is_dir")
 def test_resolve_gomod_strict_mode_raise_error(
     mock_isdir, mock_gwc, mock_run, mock_temp_dir, tmpdir
 ):
@@ -265,7 +275,8 @@ def test_resolve_gomod_strict_mode_raise_error(
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
     expected_error = (
-        'The "gomod-vendor" flag must be set when your repository has vendored dependencies.'
+        'The "gomod-vendor" or "gomod-vendor-check" flag must be set when your repository has '
+        "vendored dependencies."
     )
     with pytest.raises(CachitoError, match=expected_error):
         resolve_gomod(
@@ -896,3 +907,162 @@ def test_path_to_subpackage_not_a_subpackage():
 )
 def test_match_parent_module(package_name, module_names, expect_parent_module):
     assert match_parent_module(package_name, module_names) == expect_parent_module
+
+
+@pytest.mark.parametrize(
+    "flags, vendor_exists, expect_result",
+    [
+        # no flags => should not vendor, cannot modify (irrelevant)
+        ([], True, (False, False)),
+        ([], False, (False, False)),
+        # gomod-vendor => should vendor, can modify
+        (["gomod-vendor"], True, (True, True)),
+        (["gomod-vendor"], False, (True, True)),
+        # gomod-vendor-check, vendor exists => should vendor, cannot modify
+        (["gomod-vendor-check"], True, (True, False)),
+        # gomod-vendor-check, vendor does not exist => should vendor, can modify
+        (["gomod-vendor-check"], False, (True, True)),
+        # both vendor flags => gomod-vendor-check takes priority
+        (["gomod-vendor", "gomod-vendor-check"], True, (True, False)),
+    ],
+)
+def test_should_vendor_deps(flags, vendor_exists, expect_result, tmp_path):
+    if vendor_exists:
+        tmp_path.joinpath("vendor").mkdir()
+
+    assert gomod._should_vendor_deps(flags, str(tmp_path), False) == expect_result
+
+
+@pytest.mark.parametrize(
+    "flags, vendor_exists, expect_error",
+    [
+        ([], True, True),
+        ([], False, False),
+        (["gomod-vendor"], True, False),
+        (["gomod-vendor-check"], True, False),
+    ],
+)
+def test_should_vendor_deps_strict(flags, vendor_exists, expect_error, tmp_path):
+    if vendor_exists:
+        tmp_path.joinpath("vendor").mkdir()
+
+    if expect_error:
+        msg = 'The "gomod-vendor" or "gomod-vendor-check" flag must be set'
+        with pytest.raises(ValidationError, match=msg):
+            gomod._should_vendor_deps(flags, str(tmp_path), True)
+    else:
+        gomod._should_vendor_deps(flags, str(tmp_path), True)
+
+
+@pytest.mark.parametrize("can_make_changes", [True, False])
+@pytest.mark.parametrize("vendor_changed", [True, False])
+@mock.patch("cachito.workers.pkg_managers.gomod.run_gomod_cmd")
+@mock.patch("cachito.workers.pkg_managers.gomod._vendor_changed")
+def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor_changed):
+    git_dir = "/fake/repo"
+    app_dir = "/fake/repo/some/app"
+    run_params = {"cwd": app_dir}
+    mock_vendor_changed.return_value = vendor_changed
+    expect_error = vendor_changed and not can_make_changes
+
+    if expect_error:
+        msg = "The content of the vendor directory is not consistent with go.mod."
+        with pytest.raises(ValidationError, match=msg):
+            gomod._vendor_deps(run_params, can_make_changes, git_dir)
+    else:
+        gomod._vendor_deps(run_params, can_make_changes, git_dir)
+
+    mock_run_cmd.assert_called_once_with(("go", "mod", "vendor"), run_params)
+    if not can_make_changes:
+        mock_vendor_changed.assert_called_once_with(git_dir, app_dir)
+
+
+@pytest.mark.parametrize("subpath", ["", "some/app/"])
+@pytest.mark.parametrize(
+    "vendor_before, vendor_changes, expected_change",
+    [
+        # no vendor/ dirs
+        ({}, {}, None),
+        # no changes
+        ({"vendor": {"modules.txt": "foo v1.0.0\n"}}, {}, None),
+        # vendor/modules.txt was added
+        (
+            {},
+            {"vendor": {"modules.txt": "foo v1.0.0\n"}},
+            textwrap.dedent(
+                """
+                --- /dev/null
+                +++ b/{subpath}vendor/modules.txt
+                @@ -0,0 +1 @@
+                +foo v1.0.0
+                """
+            ),
+        ),
+        # vendor/modules.txt changed
+        (
+            {"vendor": {"modules.txt": "foo v1.0.0\n"}},
+            {"vendor": {"modules.txt": "foo v2.0.0\n"}},
+            textwrap.dedent(
+                """
+                --- a/{subpath}vendor/modules.txt
+                +++ b/{subpath}vendor/modules.txt
+                @@ -1 +1 @@
+                -foo v1.0.0
+                +foo v2.0.0
+                """
+            ),
+        ),
+        # vendor/some_file was added
+        (
+            {},
+            {"vendor": {"some_file": "foo"}},
+            textwrap.dedent(
+                """
+                A\t{subpath}vendor/some_file
+                """
+            ),
+        ),
+        # multiple additions and modifications
+        (
+            {"vendor": {"some_file": "foo"}},
+            {"vendor": {"some_file": "bar", "other_file": "baz"}},
+            textwrap.dedent(
+                """
+                A\t{subpath}vendor/other_file
+                M\t{subpath}vendor/some_file
+                """
+            ),
+        ),
+        # vendor/ was added but only contains empty dirs => will be ignored
+        ({}, {"vendor": {"empty_dir": {}}}, None),
+        # change will be tracked even if vendor/ is .gitignore'd
+        (
+            {".gitignore": "vendor/"},
+            {"vendor": {"some_file": "foo"}},
+            textwrap.dedent(
+                """
+                A\t{subpath}vendor/some_file
+                """
+            ),
+        ),
+    ],
+)
+def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change, fake_repo, caplog):
+    repo_dir, _ = fake_repo
+    repo = git.Repo(repo_dir)
+
+    app_dir = os.path.join(repo_dir, subpath)
+    os.makedirs(app_dir, exist_ok=True)
+
+    write_file_tree(vendor_before, app_dir)
+    repo.index.add(os.path.join(app_dir, path) for path in vendor_before)
+    repo.index.commit("before vendoring")
+
+    write_file_tree(vendor_changes, app_dir, exist_ok=True)
+
+    assert gomod._vendor_changed(repo_dir, app_dir) == bool(expected_change)
+    if expected_change:
+        assert expected_change.format(subpath=subpath) in caplog.text
+
+    # The _vendor_changed function should reset the `git add` => added files should not be tracked
+    assert not repo.git.diff("--diff-filter", "A")

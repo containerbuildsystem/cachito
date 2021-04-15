@@ -14,7 +14,7 @@ from typing import Tuple, List, Iterable, Optional
 import git
 import semver
 
-from cachito.errors import CachitoError
+from cachito.errors import CachitoError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import run_cmd
@@ -151,16 +151,11 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             )
         # Vendor dependencies if the gomod-vendor flag is set
         flags = request.get("flags", [])
-        if "gomod-vendor" in flags:
-            log.info("Vendoring the gomod dependencies")
-            run_gomod_cmd(("go", "mod", "vendor"), run_params)
-        elif worker_config.cachito_gomod_strict_vendor and os.path.isdir(
-            os.path.join(app_source_path, "vendor")
-        ):
-            raise CachitoError(
-                'The "gomod-vendor" flag must be set when your repository has vendored'
-                " dependencies."
-            )
+        should_vendor, can_make_changes = _should_vendor_deps(
+            flags, app_source_path, worker_config.cachito_gomod_strict_vendor
+        )
+        if should_vendor:
+            _vendor_deps(run_params, can_make_changes, git_dir_path)
         else:
             log.info("Downloading the gomod dependencies")
             run_gomod_cmd(("go", "mod", "download"), run_params)
@@ -314,6 +309,85 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             _set_full_local_dep_relpaths(pkg["pkg_deps"], module_level_deps)
 
         return {"module": module, "module_deps": module_level_deps, "packages": packages}
+
+
+def _should_vendor_deps(flags: List[str], app_dir: str, strict: bool) -> Tuple[bool, bool]:
+    """
+    Determine if Cachito should vendor dependencies and if it is allowed to make changes.
+
+    This is based on the presence of flags:
+    - gomod-vendor-check => should vendor, can only make changes if vendor dir does not exist
+    - gomod-vendor => should vendor, can make changes
+
+    :param flags: flags from the Cachito request
+    :param app_dir: absolute path to the app directory
+    :param strict: fail the request if the vendor dir is present but the flags are not used?
+    :return: (should vendor: bool, allowed to make changes in the vendor directory: bool)
+    :raise ValidationError: if the vendor dir is present, the flags are not used and we are strict
+    """
+    vendor = Path(app_dir) / "vendor"
+
+    if "gomod-vendor-check" in flags:
+        return True, not vendor.exists()
+    if "gomod-vendor" in flags:
+        return True, True
+
+    if strict and vendor.is_dir():
+        raise ValidationError(
+            'The "gomod-vendor" or "gomod-vendor-check" flag must be set when your repository has '
+            "vendored dependencies."
+        )
+
+    return False, False
+
+
+def _vendor_deps(run_params: dict, can_make_changes: bool, git_dir: str):
+    """
+    Vendor golang dependencies.
+
+    If Cachito is not allowed to make changes, it will verify that the vendor directory already
+    contained the correct content.
+
+    :param run_params: common params for the subprocess calls to `go`
+    :param can_make_changes: is Cachito allowed to make changes?
+    :param git_dir: path to the repository root
+    :raise ValidationError: if vendor directory changed and Cachito is not allowed to make changes
+    """
+    log.info("Vendoring the gomod dependencies")
+    run_gomod_cmd(("go", "mod", "vendor"), run_params)
+    app_dir = run_params["cwd"]
+    if not can_make_changes and _vendor_changed(git_dir, app_dir):
+        raise ValidationError(
+            "The content of the vendor directory is not consistent with go.mod. Run "
+            "`go mod vendor` locally to fix this problem. See the logs for more details."
+        )
+
+
+def _vendor_changed(git_dir: str, app_dir: str) -> bool:
+    """Check for changes in the vendor directory."""
+    vendor = Path(app_dir).relative_to(git_dir).joinpath("vendor")
+    modules_txt = vendor / "modules.txt"
+
+    repo = git.Repo(git_dir)
+    # Add untracked files but do not stage them
+    repo.git.add("--intent-to-add", "--force", "--", app_dir)
+
+    try:
+        # Diffing modules.txt should catch most issues and produce relatively useful output
+        modules_txt_diff = repo.git.diff("--", str(modules_txt))
+        if modules_txt_diff:
+            log.error("%s changed after vendoring:\n%s", modules_txt, modules_txt_diff)
+            return True
+
+        # Show only if files were added/deleted/modified, not the full diff
+        vendor_diff = repo.git.diff("--name-status", "--", str(vendor))
+        if vendor_diff:
+            log.error("%s directory changed after vendoring:\n%s", vendor, vendor_diff)
+            return True
+    finally:
+        repo.git.reset("--", app_dir)
+
+    return False
 
 
 def _get_allowed_local_deps(module_name: str) -> List[str]:

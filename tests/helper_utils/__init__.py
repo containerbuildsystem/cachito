@@ -1,6 +1,7 @@
 import filecmp
 import os
 from pathlib import Path
+from typing import Union
 
 
 def assert_directories_equal(dir_a, dir_b):
@@ -38,12 +39,13 @@ class Symlink(str):
     """
 
 
-def write_file_tree(tree_def, rooted_at):
+def write_file_tree(tree_def: dict, rooted_at: Union[str, Path], exist_ok: bool = False):
     """
     Write a file tree to disk.
 
-    :param dict tree_def: Definition of file tree, see usage for intuitive examples
-    :param (str | Path) rooted_at: Root of file tree, must be an existing directory
+    :param tree_def: Definition of file tree, see usage for intuitive examples
+    :param rooted_at: Root of file tree, must be an existing directory
+    :param exist_ok: If True, existing directories will not cause this function to fail
     """
     root = Path(rooted_at)
     for entry, value in tree_def.items():
@@ -53,5 +55,5 @@ def write_file_tree(tree_def, rooted_at):
         elif isinstance(value, str):
             entry_path.write_text(value)
         else:
-            entry_path.mkdir()
+            entry_path.mkdir(exist_ok=exist_ok)
             write_file_tree(value, entry_path)
