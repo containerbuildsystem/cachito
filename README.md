@@ -558,6 +558,9 @@ with the `mod_auth_gssapi` module.
 * `gomod-vendor` - the flag to indicate the vendoring requirement for gomod dependencies. If present in the
   Cachito request, Cachito will run `go mod vendor` instead of `go mod download` to gather dependencies.
 
+* `gomod-vendor-check` - like `gomod-vendor`, but if the `vendor/` directory is already present,
+  Cachito will refuse to make changes in your repository. Should be preferred over `gomod-vendor`.
+
 * `include-git-dir` - when used, `.git` file objects are not removed from the source bundle created
   by Cachito. This is useful when the git history is important to the build process.
 
