@@ -2336,3 +2336,85 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env):
             assembled_icm = BASE_ICM.copy()
             assembled_icm["image_contents"] = expected_image_contents
             assert deep_sort_icm(assembled_icm) == json.loads(resp.data)
+
+
+@pytest.mark.parametrize(
+    "querystring,expected_items_count,expected_repos",
+    [
+        ["repo=https://github.com/org/bar.git", 1, ["https://github.com/org/bar.git"]],
+        [
+            "repo=",
+            3,
+            [
+                "https://github.com/org/bar.git",
+                "https://github.com/org/baz.git",
+                "https://github.com/org/foo.git",
+            ],
+        ],
+        ["ref=b50b93a32df1c9d700e3e80996845bc2e13be848", 1, ["https://github.com/org/bar.git"]],
+        [
+            "ref=",
+            3,
+            [
+                "https://github.com/org/bar.git",
+                "https://github.com/org/baz.git",
+                "https://github.com/org/foo.git",
+            ],
+        ],
+        ["ref=a-git-ref", None, "a-git-ref is not a valid ref"],
+        [
+            "pkg_manager=gomod",
+            2,
+            ["https://github.com/org/foo.git", "https://github.com/org/baz.git"],
+        ],
+        [
+            "pkg_manager=",
+            3,
+            [
+                "https://github.com/org/bar.git",
+                "https://github.com/org/baz.git",
+                "https://github.com/org/foo.git",
+            ],
+        ],
+        ["pkg_manager=yarn&pkg_manager=gomod", 1, ["https://github.com/org/baz.git"]],
+        ["pkg_manager=yarn&pkg_manager=gomod&pkg_manager=", 1, ["https://github.com/org/baz.git"]],
+        ["pkg_manager=gomod&repo=https://github.com/org/bar.git", 0, []],
+        ["pkg_manager=coolmanager", None, "Cachito does not have package manager coolmanager"],
+    ],
+)
+def test_filter_requests(
+    querystring, expected_items_count, expected_repos, app, db, client, worker_auth_env
+):
+    data = [
+        {
+            "repo": "https://github.com/org/foo.git",
+            "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            "pkg_managers": ["gomod"],
+        },
+        {
+            "repo": "https://github.com/org/bar.git",
+            "ref": "b50b93a32df1c9d700e3e80996845bc2e13be848",
+            "pkg_managers": ["pip"],
+        },
+        {
+            "repo": "https://github.com/org/baz.git",
+            "ref": "d50b93a32df1c9d700e3e80996845bc2e13be848",
+            "pkg_managers": ["gomod", "yarn", "pip"],
+        },
+    ]
+    for item in data:
+        with app.test_request_context(environ_base=worker_auth_env):
+            request = Request.from_json(item)
+        db.session.add(request)
+    db.session.commit()
+
+    rv = client.get(f"/api/v1/requests?{querystring}")
+
+    if expected_items_count is None:
+        assert HTTPStatus.BAD_REQUEST == rv.status_code
+        assert expected_repos in rv.data.decode()
+    else:
+        result = json.loads(rv.data)
+        assert expected_items_count == len(result["items"])
+        got_repos = [item["repo"] for item in result["items"]]
+        assert sorted(expected_repos) == sorted(got_repos)

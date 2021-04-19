@@ -10,6 +10,7 @@ import flask
 from flask import stream_with_context
 from flask_login import current_user, login_required
 import kombu.exceptions
+from sqlalchemy import func
 from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound, BadRequest
 
 from cachito.errors import CachitoError, ValidationError
@@ -20,9 +21,11 @@ from cachito.web.models import (
     Dependency,
     EnvironmentVariable,
     Package,
+    PackageManager,
     Request,
     RequestState,
     RequestStateMapping,
+    is_request_ref_valid,
 )
 from cachito.web.status import status
 from cachito.web.utils import deep_sort_icm, pagination_metadata, str_to_bool
@@ -74,6 +77,32 @@ def get_requests():
         state_int = RequestStateMapping.__members__[state].value
         query = query.join(RequestState, Request.request_state_id == RequestState.id)
         query = query.filter(RequestState.state == state_int)
+    repo = flask.request.args.get("repo")
+    if repo:
+        query = query.filter(Request.repo == repo)
+    ref = flask.request.args.get("ref")
+    if ref:
+        if not is_request_ref_valid(ref):
+            raise ValidationError(f"{ref} is not a valid ref.")
+        query = query.filter(Request.ref == ref)
+    pkg_managers = flask.request.args.getlist("pkg_manager")
+    if pkg_managers:
+        pkg_manager_ids = []
+        for name in pkg_managers:
+            if not name:
+                # Ignore if pkg_manager= presents in the querystring
+                continue
+            pkg_manager: PackageManager = PackageManager.get_by_name(name)
+            if pkg_manager is None:
+                raise ValidationError(f"Cachito does not have package manager {name}.")
+            pkg_manager_ids.append(pkg_manager.id)
+        if pkg_manager_ids:
+            query = (
+                query.join(PackageManager, Request.pkg_managers)
+                .filter(PackageManager.id.in_(pkg_manager_ids))
+                .group_by(Request.id)
+                .having(func.count(PackageManager.id) == len(pkg_manager_ids))
+            )
     try:
         per_page = int(flask.request.args.get("per_page", 10))
     except ValueError:
