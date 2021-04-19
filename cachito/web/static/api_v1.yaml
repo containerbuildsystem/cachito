@@ -374,43 +374,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  metadata:
-                    type: object
-                    properties:
-                      icm_version:
-                        type: integer
-                        example: 1
-                      icm_spec:
-                        type: string
-                        example: "https://raw.githubusercontent.com/containerbuildsystem/\
-                                  atomic-reactor/f4abcfdaf8247a6b074f94fa84f3846f82d781c6/\
-                                  atomic_reactor/schemas/content_manifest.json"
-                      image_layer_index:
-                        type: integer
-                        example: -1
-                  image_contents:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        purl:
-                          $ref: "#/components/schemas/Purl"
-                        dependencies:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              purl:
-                                $ref: "#/components/schemas/Purl"
-                        sources:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              purl:
-                                $ref: "#/components/schemas/Purl"
+                $ref: "#/components/schemas/ContentManifest"
         "404":
           description: The request wasn't found
           content:
@@ -545,6 +509,34 @@ paths:
                 error:
                   type: string
                   example: The logs for the Cachito request 1 no longer exist
+  "/content-manifest":
+    get:
+      description: Return the content manifest of the specified requests
+      parameters:
+      - name: requests
+        in: query
+        required: false
+        description: The comma separated IDs of the Cachito requests to retrieve the content manifest for
+        schema:
+          type: string
+          example: [1,2,3]
+      responses:
+        "200":
+          description: The content manifest of the Cachito requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentManifest"
+        "400":
+          description: Any of the input Cachito request id is invalid.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Request 1 is in state in_progress, not complete or stale."
 
 components:
   schemas:
@@ -828,6 +820,44 @@ components:
         state: complete
         state_reason: Completed successfully
         updated: "2019-09-19T19:35:15.722265"
+    ContentManifest:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            icm_version:
+              type: integer
+              example: 1
+            icm_spec:
+              type: string
+              example: "https://raw.githubusercontent.com/containerbuildsystem/\
+                        atomic-reactor/f4abcfdaf8247a6b074f94fa84f3846f82d781c6/\
+                        atomic_reactor/schemas/content_manifest.json"
+            image_layer_index:
+              type: integer
+              example: -1
+        image_contents:
+          type: array
+          items:
+            type: object
+            properties:
+              purl:
+                $ref: "#/components/schemas/Purl"
+              dependencies:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    purl:
+                      $ref: "#/components/schemas/Purl"
+              sources:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    purl:
+                      $ref: "#/components/schemas/Purl"
   securitySchemes:
     "Kerberos Authentication":
       type: http
