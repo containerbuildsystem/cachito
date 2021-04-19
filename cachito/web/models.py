@@ -2,6 +2,7 @@
 from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
+import functools
 import itertools
 import os
 import re
@@ -17,6 +18,11 @@ from werkzeug.exceptions import Forbidden
 from cachito.web import content_manifest
 from cachito.errors import ContentManifestError, ValidationError
 from cachito.web import db
+
+
+def is_request_ref_valid(ref: str) -> bool:
+    """Check if a string is a valid git ref in the expected format."""
+    return re.match(r"^[a-f0-9]{40}$", ref) is not None
 
 
 request_pkg_manager_table = db.Table(
@@ -647,8 +653,8 @@ class Request(db.Model):
     """A Cachito user request."""
 
     id = db.Column(db.Integer, primary_key=True)
-    repo = db.Column(db.String, nullable=False)
-    ref = db.Column(db.String, nullable=False)
+    repo = db.Column(db.String, nullable=False, index=True)
+    ref = db.Column(db.String, nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     submitted_by_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     request_state_id = db.Column(
@@ -919,7 +925,7 @@ class Request(db.Model):
                 "The following parameters are invalid: {}".format(", ".join(invalid_params))
             )
 
-        if not re.match(r"^[a-f0-9]{40}$", kwargs["ref"]):
+        if not is_request_ref_valid(kwargs["ref"]):
             raise ValidationError('The "ref" parameter must be a 40 character hex string')
 
         request_kwargs = deepcopy(kwargs)
@@ -1072,6 +1078,12 @@ class PackageManager(db.Model):
             )
 
         return found_pkg_managers
+
+    @classmethod
+    @functools.lru_cache(maxsize=None)
+    def get_by_name(cls, name: str):
+        """Get a package manager by name."""
+        return cls.query.filter(cls.name == name).scalar()
 
 
 class RequestState(db.Model):
