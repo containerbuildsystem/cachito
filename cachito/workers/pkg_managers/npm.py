@@ -4,7 +4,7 @@ import json
 import logging
 import os
 
-from cachito.errors import CachitoError
+from cachito.errors import CachitoError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general_js import (
     download_dependencies,
@@ -267,6 +267,7 @@ def resolve_npm(app_source_path, request, skip_deps=None):
         ``package.json`` which is the package.json file if it was modified.
     :rtype: dict
     :raises CachitoError: if fetching the dependencies fails or required files are missing
+    :raises ValidationError: if lock file does not have the correct format
     """
     # npm-shrinkwrap.json and package-lock.json share the same format but serve slightly
     # different purposes. See the following documentation for more information:
@@ -287,10 +288,10 @@ def resolve_npm(app_source_path, request, skip_deps=None):
 
     try:
         package_and_deps_info = get_package_and_deps(package_json_path, package_lock_path)
-    except KeyError:
-        msg = f"The lock file {lock_file} has an unexpected format"
+    except KeyError as e:
+        msg = f"The lock file {lock_file} has an unexpected format (missing key: {e})"
         log.exception(msg)
-        raise CachitoError(msg)
+        raise ValidationError(msg)
 
     package_and_deps_info["lock_file_name"] = lock_file
     # By downloading the dependencies, it stores the tarballs in the bundle and also stages the
