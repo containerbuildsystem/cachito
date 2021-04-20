@@ -3,6 +3,7 @@ import copy
 import json
 import operator
 import os
+import re
 from unittest import mock
 
 import pytest
@@ -635,8 +636,8 @@ def test_resolve_npm_no_lock(mock_dd, mock_exists):
 @mock.patch("cachito.workers.pkg_managers.npm.download_dependencies")
 def test_resolve_npm_invalid_lock(mock_dd, mock_gpad, mock_exists):
     mock_exists.return_value = True
-    mock_gpad.side_effect = KeyError()
+    mock_gpad.side_effect = KeyError("name")
 
-    expected = "The lock file npm-shrinkwrap.json has an unexpected format"
-    with pytest.raises(CachitoError, match=expected):
+    expected = "The lock file npm-shrinkwrap.json has an unexpected format (missing key: 'name')"
+    with pytest.raises(CachitoError, match=re.escape(expected)):
         npm.resolve_npm("/tmp/cachito-bundles/temp/1/app", {"id": 1})
