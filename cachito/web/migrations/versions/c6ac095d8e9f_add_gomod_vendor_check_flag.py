@@ -1,7 +1,7 @@
 """Add the gomod-vendor-check flag
 
 Revision ID: c6ac095d8e9f
-Revises: 07d89c5778f2
+Revises: f201f05a95a7
 Create Date: 2021-04-15 13:45:44.761284
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "c6ac095d8e9f"
-down_revision = "07d89c5778f2"
+down_revision = "f201f05a95a7"
 branch_labels = None
 depends_on = None
 
