@@ -679,7 +679,8 @@ Offline Installations   | ✓     | x   | x   | x    |
 ### gomod
 
 The gomod package manager works by parsing the `go.mod` file present in the source repository to
-determine which dependencies are required to build the application.
+determine which dependencies are required to build the application. By default, the top level module
+is discovered, but optional `path`s can be provided to point Cachito to the module(s) to discover.
 
 Cachito then downloads the dependencies through [Athens](https://docs.gomods.io/) so that they
 are permanently stored and at the same time create a Go module cache to be stored in the request's
@@ -696,9 +697,7 @@ cache when building the application.
 
 On top of finding the Go module and its dependencies, and providing their sources and the proper
 environment variables for a successful build from such sources, Cachito will also discover Go
-packages in the source repository and their (package level) dependencies. By default, the top
-level package is discovered, but optional `path`s can be provided to point Cachito to the package(s)
-to discover.
+packages in the source repository and their (package level) dependencies.
 
 These package level dependencies will be included in the Cachito API request response at the
 `/api/v1/requests/<id>` endpoint as packages with the `go-package` type.
