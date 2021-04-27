@@ -695,15 +695,21 @@ cache when building the application.
 
 #### Go package level dependencies and the go-package Cachito package type
 
-On top of finding the Go module and its dependencies, and providing their sources and the proper
-environment variables for a successful build from such sources, Cachito will also discover Go
-packages in the source repository and their (package level) dependencies.
+When reporting Go sources, Cachito differentiates between modules and packages. To simplify a bit,
+any directory that contains a `go.mod` file is a *module* and any directory that contains `.go`
+files is a *package*. A directory that contains both `go.mod` and `.go` files is both a module and
+a package. In Cachito, all packages *should* have parent modules (or be modules themselves).
 
-These package level dependencies will be included in the Cachito API request response at the
-`/api/v1/requests/<id>` endpoint as packages with the `go-package` type.
+In the JSON response at the `/api/v1/requests/<id>` endpoint, Go modules use the `gomod` type, Go
+packages use `go-package`. Packages can be matched to their parent modules based on name; package
+names always start with the module name. In the `dependencies` section of a Go package, Cachito
+will list only the packages that were imported by that package (a.k.a. package level deps). In the
+`dependencies` section of a Go module, Cachito will list all the modules specified as dependencies
+in `go.mod`.
 
-Finally, the package level dependencies will be used to compose the Content Manifests shipped at the
-`/api/v1/requests/<id>/content-manifest` API endpoint.
+In the Content Manifests shipped at the `/api/v1/requests/<id>/content-manifest` API endpoint, all
+top-level purls and the purls of all `dependencies` refer to Go packages. The purls for the parent
+Go modules of those dependencies are present in `sources`.
 
 ### npm
 
