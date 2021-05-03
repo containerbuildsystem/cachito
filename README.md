@@ -329,13 +329,10 @@ file under the `cachito-worker` container.
 
 ### Using Cachito Requests Locally
 
-When testing new functionality or debugging a failure, you may want to take a completed Cachito
-request and try to install the processed packages locally (using `pip`, `gomod`, `npm` etc.). You
-can use the [cachito-download.sh](bin/cachito-download.sh) script to download the source archive
-for a request and inject the configuration files and environment variables.
+More details [here](docs/using_requests_locally.md).
 
-Here is how you would use it with the example request
-[above](#run-a-containerized-development-environment) (assuming it is request #1)
+This is how you would use the example request [above](#run-a-containerized-development-environment)
+locally (assuming it is request #1).
 
 ```shell
 bin/cachito-download.sh localhost:8080/api/v1/requests/1 /tmp/cachito-test
