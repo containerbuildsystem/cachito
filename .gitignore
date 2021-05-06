@@ -114,3 +114,6 @@ settings.py
 
 # Local deployment storage
 /tmp
+
+# idea files
+.idea/
