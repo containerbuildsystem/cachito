@@ -133,12 +133,19 @@ def test_failed_request_callback_not_cachitoerror(mock_set_request_state, task_p
 @pytest.mark.parametrize("deps_present", (True, False))
 @pytest.mark.parametrize("include_git_dir", (True, False))
 @mock.patch("cachito.workers.tasks.general.set_request_state")
+@mock.patch("cachito.workers.tasks.general.get_request")
 @mock.patch("cachito.workers.paths.get_worker_config")
 def test_create_bundle_archive(
-    mock_gwc, mock_set_request, deps_present, include_git_dir, tmpdir, task_passes_state_check
+    mock_gwc,
+    mock_get_request,
+    mock_set_request,
+    deps_present,
+    include_git_dir,
+    tmpdir,
+    task_passes_state_check,
 ):
     flags = ["include-git-dir"] if include_git_dir else []
-    mock_set_request.return_value = {"flags": flags}
+    mock_get_request.return_value = {"flags": flags}
 
     # Make the bundles and sources dir configs point to under the pytest managed temp dir
     bundles_dir = tmpdir.mkdir("bundles")
@@ -202,3 +209,4 @@ def test_create_bundle_archive(
     calls = [call1, call2]
     assert mock_set_request.call_count == len(calls)
     mock_set_request.assert_has_calls(calls)
+    mock_get_request.assert_called_once_with(request_id)

@@ -29,6 +29,7 @@ def test_cleanup_pip_request(mock_exec_script):
 @mock.patch("cachito.workers.tasks.pip.finalize_nexus_for_pip_request")
 @mock.patch("cachito.workers.tasks.pip.prepare_nexus_for_pip_request")
 @mock.patch("cachito.workers.tasks.pip.set_request_state")
+@mock.patch("cachito.workers.tasks.pip.get_request")
 @mock.patch("cachito.workers.tasks.pip.update_request_with_deps")
 @mock.patch("cachito.workers.tasks.pip.update_request_with_package")
 @mock.patch("cachito.workers.tasks.pip.update_request_with_config_files")
@@ -42,6 +43,7 @@ def test_fetch_pip_source(
     mock_update_cfg,
     mock_update_pkg,
     mock_update_deps,
+    mock_get_request,
     mock_set_state,
     mock_prepare_nexus,
     mock_finalize_nexus,
@@ -99,7 +101,7 @@ def test_fetch_pip_source(
 
     mock_resolve.return_value = pkg_data
     mock_finalize_nexus.return_value = password
-    mock_set_state.return_value = request
+    mock_get_request.return_value = request
 
     if package_subpath:
         package_configs = [{"path": package_subpath}]

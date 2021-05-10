@@ -32,6 +32,7 @@ from cachito.workers.tasks.utils import (
     make_base64_config_file,
     AssertPackageFiles,
     runs_if_request_in_progress,
+    get_request,
 )
 
 __all__ = ["cleanup_yarn_request", "fetch_yarn_source"]
@@ -117,11 +118,12 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
     downloaded_deps = set()
     for i, subpath in enumerate(subpaths):
         log.info("Fetching the yarn dependencies for request %d in subpath %s", request_id, subpath)
-        request = set_request_state(
+        set_request_state(
             request_id,
             "in_progress",
             f'Fetching the yarn dependencies at the "{subpath}" directory',
         )
+        request = get_request(request_id)
         package_source_path = str(bundle_dir.app_subpath(subpath).source_dir)
         try:
             package_and_deps_info = resolve_yarn(

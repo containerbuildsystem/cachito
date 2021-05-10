@@ -10,7 +10,7 @@ from cachito.workers.pkg_managers.general import (
 )
 from cachito.workers.pkg_managers.gomod import resolve_gomod, path_to_subpackage
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.utils import runs_if_request_in_progress
+from cachito.workers.tasks.utils import runs_if_request_in_progress, get_request
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.paths import RequestBundleDir
 
@@ -89,11 +89,12 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
         log.info(
             "Fetching the gomod dependencies for request %d in subpath %s", request_id, subpath
         )
-        request = set_request_state(
+        set_request_state(
             request_id,
             "in_progress",
             f'Fetching the gomod dependencies at the "{subpath}" directory',
         )
+        request = get_request(request_id)
         gomod_source_path = str(bundle_dir.app_subpath(subpath).source_dir)
         try:
             gomod = resolve_gomod(

@@ -26,7 +26,11 @@ from cachito.workers.pkg_managers.pip import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
-from cachito.workers.tasks.utils import make_base64_config_file, runs_if_request_in_progress
+from cachito.workers.tasks.utils import (
+    make_base64_config_file,
+    runs_if_request_in_progress,
+    get_request,
+)
 
 
 log = logging.getLogger(__name__)
@@ -69,9 +73,10 @@ def fetch_pip_source(request_id, package_configs=None):
     for pkg_cfg in package_configs:
         pkg_path = pkg_cfg.get("path", ".")
         source_dir = bundle_dir.app_subpath(pkg_path).source_dir
-        request = set_request_state(
+        set_request_state(
             request_id, "in_progress", f"Fetching dependencies at the {pkg_path!r} directory",
         )
+        request = get_request(request_id)
         pkg_and_deps_info = resolve_pip(
             source_dir,
             request,

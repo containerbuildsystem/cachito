@@ -130,6 +130,7 @@ def test_yarn_lock_to_str(mock_lockfile):
 @mock.patch("cachito.workers.tasks.yarn.validate_yarn_config")
 @mock.patch("cachito.workers.tasks.yarn._verify_yarn_files")
 @mock.patch("cachito.workers.tasks.yarn.set_request_state")
+@mock.patch("cachito.workers.tasks.yarn.get_request")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_name")
 @mock.patch("cachito.workers.tasks.yarn.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.yarn.resolve_yarn")
@@ -157,6 +158,7 @@ def test_fetch_yarn(
     mock_resolve_yarn,
     mock_prepare_nexus,
     mock_get_yarn_repo_name,
+    mock_get_request,
     mock_set_state,
     mock_verify_files,
     mock_validate_config,
@@ -239,12 +241,13 @@ def test_fetch_yarn(
             mock.call(1, "in_progress", "Finalizing the Nexus configuration for yarn"),
         ]
     )
+    mock_get_request.assert_has_calls(mock.call(1) for _ in range(2))
     mock_get_yarn_repo_name.assert_called_once_with(1)
     mock_prepare_nexus.assert_called_once_with(mock_get_yarn_repo_name.return_value)
     mock_resolve_yarn.assert_has_calls(
         [
-            mock.call(str(root), mock_set_state.return_value, skip_deps=set()),
-            mock.call(str(sub), mock_set_state.return_value, skip_deps=rv1["downloaded_deps"]),
+            mock.call(str(root), mock_get_request.return_value, skip_deps=set()),
+            mock.call(str(sub), mock_get_request.return_value, skip_deps=rv1["downloaded_deps"]),
         ]
     )
     mock_worker_config.assert_called_once()
@@ -286,6 +289,7 @@ def test_fetch_yarn(
 @mock.patch("cachito.workers.tasks.yarn.validate_yarn_config")
 @mock.patch("cachito.workers.tasks.yarn._verify_yarn_files")
 @mock.patch("cachito.workers.tasks.yarn.set_request_state")
+@mock.patch("cachito.workers.tasks.yarn.get_request")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_name")
 @mock.patch("cachito.workers.tasks.yarn.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.yarn.resolve_yarn")
@@ -313,6 +317,7 @@ def test_fetch_yarn_no_configs(
     mock_resolve_yarn,
     mock_prepare_nexus,
     mock_get_yarn_repo_name,
+    mock_get_request,
     mock_set_state,
     mock_verify_files,
     mock_validate_config,
@@ -337,7 +342,7 @@ def test_fetch_yarn_no_configs(
     # Just do a sanity-check on calls where subpaths are relevant
     mock_verify_files.assert_called_once_with(bundle_dir, ["."])
     mock_resolve_yarn.assert_called_once_with(
-        str(root), mock_set_state.return_value, skip_deps=set()
+        str(root), mock_get_request.return_value, skip_deps=set()
     )
     mock_generate_npmrc.assert_called_once_with(
         mock_get_yarn_repo_url.return_value,
@@ -352,6 +357,7 @@ def test_fetch_yarn_no_configs(
 @mock.patch("cachito.workers.tasks.yarn.validate_yarn_config")
 @mock.patch("cachito.workers.tasks.yarn._verify_yarn_files")
 @mock.patch("cachito.workers.tasks.yarn.set_request_state")
+@mock.patch("cachito.workers.tasks.yarn.get_request")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_name")
 @mock.patch("cachito.workers.tasks.yarn.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.yarn.resolve_yarn")
