@@ -257,10 +257,6 @@ paths:
       responses:
         "200":
           description: The request was updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestVerbose'
         "403":
           description: The requester is not allowed to modify a request
           content:

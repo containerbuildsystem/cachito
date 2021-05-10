@@ -72,6 +72,7 @@ def test_cleanup_npm_request(mock_exec_script):
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.npm._verify_npm_files")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
+@mock.patch("cachito.workers.tasks.npm.get_request")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
 @mock.patch("cachito.workers.tasks.npm.finalize_nexus_for_js_request")
@@ -89,6 +90,7 @@ def test_fetch_npm_source(
     mock_fnfjr,
     mock_rn,
     mock_pnfjr,
+    mock_get_request,
     mock_srs,
     mock_vnf,
     mock_rbd,
@@ -102,7 +104,7 @@ def test_fetch_npm_source(
 ):
     request_id = 6
     request = {"id": request_id}
-    mock_srs.return_value = request
+    mock_get_request.return_value = request
     package = {"name": "han-solo", "type": "npm", "version": "5.0.0"}
     deps = [
         {"dev": False, "name": "@angular/animations", "type": "npm", "version": "8.2.14"},
@@ -131,6 +133,7 @@ def test_fetch_npm_source(
 
     mock_vnf.assert_called_once_with(mock_rbd.return_value, [package_subpath or "."])
     assert mock_srs.call_count == 3
+    assert mock_get_request.called_once_with(request_id)
     mock_pnfjr.assert_called_once_with("cachito-npm-6")
     lock_file_path = str(mock_rbd().app_subpath(package_subpath or ".").source_dir)
     mock_rn.assert_called_once_with(lock_file_path, request, skip_deps=set())
@@ -197,6 +200,7 @@ def test_fetch_npm_source(
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.npm._verify_npm_files")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
+@mock.patch("cachito.workers.tasks.npm.get_request")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
 @mock.patch("cachito.workers.tasks.npm.finalize_nexus_for_js_request")
@@ -214,6 +218,7 @@ def test_fetch_npm_source_multiple_paths(
     mock_fnfjr,
     mock_rn,
     mock_pnfjr,
+    mock_get_request,
     mock_srs,
     mock_vnf,
     mock_rbd,
@@ -221,7 +226,7 @@ def test_fetch_npm_source_multiple_paths(
 ):
     request_id = 6
     request = {"id": request_id}
-    mock_srs.return_value = request
+    mock_get_request.return_value = request
     package = {"name": "han-solo", "type": "npm", "version": "5.0.0"}
     package_two = {"name": "han-solo", "type": "npm", "version": "6.0.0"}
     deps = [
@@ -328,20 +333,22 @@ def test_fetch_npm_source_multiple_paths(
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.npm._verify_npm_files")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
+@mock.patch("cachito.workers.tasks.npm.get_request")
 @mock.patch("cachito.workers.tasks.npm.prepare_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.npm.resolve_npm")
 def test_fetch_npm_source_resolve_fails(
-    mock_rn, mock_pnfjr, mock_srs, mock_vnf, mock_rbd, task_passes_state_check
+    mock_rn, mock_pnfjr, mock_get_request, mock_srs, mock_vnf, mock_rbd, task_passes_state_check
 ):
     request_id = 6
     request = {"id": request_id}
-    mock_srs.return_value = request
+    mock_get_request.return_value = request
     mock_rn.side_effect = CachitoError("Some error")
 
     with pytest.raises(CachitoError, match="Some error"):
         npm.fetch_npm_source(request_id)
 
     assert mock_srs.call_count == 2
+    mock_get_request.assert_called_once_with(request_id)
     mock_pnfjr.assert_called_once_with("cachito-npm-6")
 
 

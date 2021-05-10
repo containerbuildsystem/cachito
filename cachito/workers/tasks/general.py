@@ -12,13 +12,14 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.utils import runs_if_request_in_progress
+from cachito.workers.tasks.utils import runs_if_request_in_progress, get_request
 
 __all__ = [
     "create_bundle_archive",
     "failed_request_callback",
     "fetch_app_source",
     "set_request_state",
+    "get_request",
 ]
 log = logging.getLogger(__name__)
 
@@ -86,8 +87,6 @@ def set_request_state(request_id, state, state_reason):
     :param int request_id: the ID of the Cachito request
     :param str state: the state to set the Cachito request to
     :param str state_reason: the state reason to set the Cachito request to
-    :return: the updated request
-    :rtype: dict
     :raise CachitoError: if the request to the Cachito API fails
     """
     # Import this here to avoid a circular import
@@ -123,8 +122,6 @@ def set_request_state(request_id, state, state_reason):
         )
         raise CachitoError(f'Setting the state to "{state}" on request {request_id} failed')
 
-    return rv.json()
-
 
 @app.task
 @runs_if_request_in_progress
@@ -152,7 +149,8 @@ def create_bundle_archive(request_id):
 
     :param int request_id: the request the bundle is for
     """
-    request = set_request_state(request_id, "in_progress", "Assembling the bundle archive")
+    set_request_state(request_id, "in_progress", "Assembling the bundle archive")
+    request = get_request(request_id)
 
     bundle_dir = RequestBundleDir(request_id)
 

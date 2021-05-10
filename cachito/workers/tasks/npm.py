@@ -26,7 +26,11 @@ from cachito.workers.pkg_managers.npm import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
-from cachito.workers.tasks.utils import make_base64_config_file, runs_if_request_in_progress
+from cachito.workers.tasks.utils import (
+    make_base64_config_file,
+    runs_if_request_in_progress,
+    get_request,
+)
 
 __all__ = ["cleanup_npm_request", "fetch_npm_source"]
 log = logging.getLogger(__name__)
@@ -121,11 +125,12 @@ def fetch_npm_source(request_id, package_configs=None):
     downloaded_deps = set()
     for i, subpath in enumerate(subpaths):
         log.info("Fetching the npm dependencies for request %d in subpath %s", request_id, subpath)
-        request = set_request_state(
+        set_request_state(
             request_id,
             "in_progress",
             f'Fetching the npm dependencies at the "{subpath}" directory"',
         )
+        request = get_request(request_id)
         package_source_path = str(bundle_dir.app_subpath(subpath).source_dir)
         try:
             package_and_deps_info = resolve_npm(

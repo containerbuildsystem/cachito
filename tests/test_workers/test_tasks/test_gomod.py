@@ -66,9 +66,11 @@ from cachito.workers.tasks import gomod
 @mock.patch("cachito.workers.tasks.gomod.update_request_with_package")
 @mock.patch("cachito.workers.tasks.gomod.update_request_with_deps")
 @mock.patch("cachito.workers.tasks.gomod.set_request_state")
+@mock.patch("cachito.workers.tasks.gomod.get_request")
 @mock.patch("cachito.workers.tasks.gomod.resolve_gomod")
 def test_fetch_gomod_source(
     mock_resolve_gomod,
+    mock_get_request,
     mock_set_request_state,
     mock_update_request_with_deps,
     mock_update_request_with_package,
@@ -102,7 +104,7 @@ def test_fetch_gomod_source(
     }
     sample_env_vars.update(env_vars)
     mock_request = mock.Mock()
-    mock_set_request_state.return_value = mock_request
+    mock_get_request.return_value = mock_request
     pkg_lvl_deps = []
     if has_pkg_lvl_deps:
         pkg_lvl_deps = sample_pkg_deps
@@ -150,6 +152,7 @@ def test_fetch_gomod_source(
                 dep_calls.append(mock.call(1, sample_pkg_lvl_pkg, sample_pkg_deps))
 
         mock_set_request_state.assert_has_calls(state_calls)
+        mock_get_request.assert_has_calls(mock.call(1) for _ in state_calls)
         mock_update_request_with_package.assert_has_calls(pkg_calls)
         assert mock_update_request_with_package.call_count == len(pkg_calls)
         mock_update_request_with_deps.assert_has_calls(dep_calls)

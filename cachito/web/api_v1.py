@@ -526,7 +526,7 @@ def patch_request(request_id):
     else:
         flask.current_app.logger.info("An anonymous user patched request %d", request.id)
 
-    return flask.jsonify(request.to_json()), 200
+    return "", 200
 
 
 @api_v1.route("/requests/<int:request_id>/configuration-files", methods=["POST"])
