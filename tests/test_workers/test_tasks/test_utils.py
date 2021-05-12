@@ -3,11 +3,11 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import requests
 
-from cachito.errors import ValidationError
+from cachito.errors import ValidationError, CachitoError
 from cachito.workers.tasks import utils
 from cachito.workers.requests import requests_session
-from cachito.workers.tasks.utils import get_request_state
 
 from tests.helper_utils import write_file_tree
 
@@ -117,17 +117,76 @@ class TestAssertPackageFiles:
             af.present("absent_file")
 
 
+@mock.patch("cachito.workers.tasks.utils._get_request_or_fail")
+def test_get_request(mock_get_request_or_fail):
+    mock_get_request_or_fail.return_value = {"id": 42, "state": "complete"}
+
+    assert utils.get_request(42) == {"id": 42, "state": "complete"}
+    mock_get_request_or_fail.assert_called_once_with(
+        42,
+        connect_error_msg="The connection failed while getting request 42: {exc}",
+        status_error_msg="Failed to get request 42: {exc}",
+    )
+
+
 @pytest.mark.parametrize("id, state", [(2, "stale"), (3, "complete"), (1, "in-progress")])
+@mock.patch("cachito.workers.tasks.utils._get_request_or_fail")
+def test_get_request_state(mock_get_request_or_fail, id, state):
+    mock_get_request_or_fail.return_value = {"state": state}
+
+    assert utils.get_request_state(id) == state
+    mock_get_request_or_fail.assert_called_once_with(
+        id,
+        connect_error_msg=f"The connection failed while getting the state of request {id}: {{exc}}",
+        status_error_msg=f"Failed to get the state of request {id}: {{exc}}",
+    )
+
+
+@pytest.mark.parametrize(
+    "connect_error, status_error, expect_error",
+    [
+        (None, None, None),
+        (
+            requests.ConnectionError("connection failed"),
+            None,
+            "connection error: connection failed",
+        ),
+        (requests.Timeout("timed out"), None, "connection error: timed out",),
+        (
+            None,
+            requests.HTTPError("404 Client Error: NOT FOUND"),
+            "status error: 404 Client Error: NOT FOUND",
+        ),
+    ],
+)
 @mock.patch.object(requests_session, "get")
 @mock.patch("cachito.workers.tasks.general.get_worker_config")
-def test_get_request_state(mock_config, mock_requests_get, id, state):
-    mock_requests_get.return_value.json.return_value = {"state": state}
-
+def test_get_request_or_fail(
+    mock_config, mock_requests_get, connect_error, status_error, expect_error
+):
     config = mock_config.return_value
     config.cachito_api_url = "http://cachito.domain.local/api/v1/"
+    config.cachito_api_timeout = 60
 
-    assert get_request_state(id) == state
-    mock_requests_get.assert_called_once_with(f"http://cachito.domain.local/api/v1/requests/{id}")
+    if connect_error:
+        mock_requests_get.side_effect = [connect_error]
+
+    response = mock_requests_get.return_value
+    if status_error:
+        response.raise_for_status.side_effect = [status_error]
+
+    response.json.return_value = {"id": 42, "state": "complete"}
+
+    if expect_error:
+        with pytest.raises(CachitoError, match=expect_error):
+            utils._get_request_or_fail(42, "connection error: {exc}", "status error: {exc}")
+    else:
+        request = utils._get_request_or_fail(42, "connection error: {exc}", "status error: {exc}")
+        assert request == {"id": 42, "state": "complete"}
+
+    mock_requests_get.assert_called_once_with(
+        "http://cachito.domain.local/api/v1/requests/42", timeout=60,
+    )
 
 
 @pytest.mark.parametrize(
