@@ -138,23 +138,68 @@ def runs_if_request_in_progress(task_fn):
     return task_with_state_check
 
 
+def get_request(request_id: int) -> dict:
+    """
+    Download the JSON representation of a request from the Cachito API.
+
+    :param request_id: the Cachito request ID this is for
+    :return: JSON representation of the request
+    :raises CachitoError: if the connection fails or the API returns an error response
+    """
+    log.debug("Getting request %d", request_id)
+    request = _get_request_or_fail(
+        request_id,
+        connect_error_msg=f"The connection failed while getting request {request_id}: {{exc}}",
+        status_error_msg=f"Failed to get request {request_id}: {{exc}}",
+    )
+    return request
+
+
 def get_request_state(request_id):
     """
     Get the state of the request.
 
     :param int request_id: the Cachito request ID this is for
     """
+    log.debug("Getting the state of request %d", request_id)
+    request = _get_request_or_fail(
+        request_id,
+        connect_error_msg=(
+            f"The connection failed while getting the state of request {request_id}: {{exc}}"
+        ),
+        status_error_msg=f"Failed to get the state of request {request_id}: {{exc}}",
+    )
+    return request["state"]
+
+
+def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_msg: str) -> dict:
+    """
+    Try to download the JSON data for a request from the Cachito API.
+
+    Both error messages can contain the {exc} placeholder which will be replaced by the actual
+    exception.
+
+    :param request_id: ID of the request to get
+    :param connect_error_msg: error message to raise if the connection fails
+    :param status_error_msg: error message to raise if the response status is 4xx or 5xx
+    :raises CachitoError: if the connection fails or the API returns an error response
+    """
+    # Import this here to avoid a circular import (tasks -> requests -> tasks)
     from cachito.workers.requests import requests_session
 
     config = get_worker_config()
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
 
     try:
-        rv = requests_session.get(request_url)
+        rv = requests_session.get(request_url, timeout=config.cachito_api_timeout)
         rv.raise_for_status()
-    except requests.RequestException:
-        msg = f"An error occured while getting the state of request {request_id}"
+    except requests.HTTPError as e:
+        msg = status_error_msg.format(exc=e)
+        log.exception(msg)
+        raise CachitoError(msg)
+    except requests.RequestException as e:
+        msg = connect_error_msg.format(exc=e)
         log.exception(msg)
         raise CachitoError(msg)
 
-    return rv.json()["state"]
+    return rv.json()
