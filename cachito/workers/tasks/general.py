@@ -124,7 +124,6 @@ def set_request_state(request_id, state, state_reason):
 
 
 @app.task
-@runs_if_request_in_progress
 def failed_request_callback(context, exc, traceback, request_id):
     """
     Wrap set_request_state for task error callbacks.

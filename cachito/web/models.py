@@ -6,6 +6,7 @@ import functools
 import itertools
 import os
 import re
+from typing import Dict, List
 
 import flask
 from flask_login import UserMixin, current_user
@@ -100,6 +101,35 @@ class RequestStateMapping(Enum):
         :rtype: list<str>
         """
         return ["complete", "failed"]
+
+    @staticmethod
+    def allow_transition(from_state, to_state) -> bool:
+        """Check if the state transition is allowed.
+
+        :param from_state: transition from this state.
+        :type from_state: RequestStateMapping
+        :param to_state: transition to this state.
+        :type to_state: RequestStateMapping
+        :return: True if the transition is allowed, otherwise False is returned.
+        :rtype: bool
+        """
+        allowed_from_states = ALLOWED_REQUEST_STATE_TRANSITION.get(to_state)
+        if allowed_from_states is None:
+            return False
+        return from_state in allowed_from_states
+
+
+# to_state: from_states
+ALLOWED_REQUEST_STATE_TRANSITION: Dict[RequestStateMapping, List[RequestStateMapping]] = {
+    RequestStateMapping.in_progress: [RequestStateMapping.in_progress],
+    RequestStateMapping.complete: [RequestStateMapping.in_progress],
+    RequestStateMapping.failed: [RequestStateMapping.in_progress],
+    RequestStateMapping.stale: [
+        RequestStateMapping.complete,
+        RequestStateMapping.failed,
+        RequestStateMapping.in_progress,
+    ],
+}
 
 
 class Package(db.Model):
@@ -1003,11 +1033,8 @@ class Request(db.Model):
         :param str state_reason: the reason explaining the state transition
         :raises ValidationError: if the state is invalid
         """
-        if self.state and self.state.state_name == "stale" and state != "stale":
-            raise ValidationError("A stale request cannot change states")
-
         try:
-            state_int = RequestStateMapping.__members__[state].value
+            new_state: RequestStateMapping = RequestStateMapping[state]
         except KeyError:
             raise ValidationError(
                 'The state "{}" is invalid. It must be one of: {}.'.format(
@@ -1015,7 +1042,15 @@ class Request(db.Model):
                 )
             )
 
-        request_state = RequestState(state=state_int, state_reason=state_reason)
+        if self.state:
+            from_state_name: str = self.state.state_name
+            from_state = RequestStateMapping[from_state_name]
+            if not RequestStateMapping.allow_transition(from_state, new_state):
+                raise ValidationError(
+                    f"State transition is not allowed from {from_state_name} to {state}."
+                )
+
+        request_state = RequestState(state=new_state.value, state_reason=state_reason)
         self.states.append(request_state)
         # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
         # This will generate an ID that can be used below.
