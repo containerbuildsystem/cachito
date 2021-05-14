@@ -117,14 +117,14 @@ def test_set_request_state_bad_status_code(mock_requests):
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_failed_request_callback(mock_set_request_state, task_passes_state_check):
+def test_failed_request_callback(mock_set_request_state):
     exc = CachitoError("some error")
     tasks.failed_request_callback(None, exc, None, 1)
     mock_set_request_state.assert_called_once_with(1, "failed", "some error")
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_failed_request_callback_not_cachitoerror(mock_set_request_state, task_passes_state_check):
+def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
     exc = ValueError("some error")
     tasks.failed_request_callback(None, exc, None, 1)
     mock_set_request_state.assert_called_once_with(1, "failed", "An unknown error occurred")

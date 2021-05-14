@@ -1130,24 +1130,54 @@ def test_set_state_stale_failed_to_schedule(
     mock_cleanup_npm.delay.assert_called_once()
 
 
-def test_set_state_from_stale(app, client, db, worker_auth_env):
+@pytest.mark.parametrize(
+    "initial_state,to_state,expected_resp_code",
+    [
+        ["complete", "stale", HTTPStatus.OK],
+        ["failed", "stale", HTTPStatus.OK],
+        ["in_progress", "complete", HTTPStatus.OK],
+        ["in_progress", "failed", HTTPStatus.OK],
+        ["in_progress", "in_progress", HTTPStatus.OK],
+        ["in_progress", "stale", HTTPStatus.OK],
+        # Invalid transition
+        ["complete", "complete", HTTPStatus.BAD_REQUEST],
+        ["complete", "failed", HTTPStatus.BAD_REQUEST],
+        ["complete", "in_progress", HTTPStatus.BAD_REQUEST],
+        ["failed", "complete", HTTPStatus.BAD_REQUEST],
+        ["failed", "failed", HTTPStatus.BAD_REQUEST],
+        ["failed", "in_progress", HTTPStatus.BAD_REQUEST],
+        ["stale", "complete", HTTPStatus.BAD_REQUEST],
+        ["stale", "failed", HTTPStatus.BAD_REQUEST],
+        ["stale", "in_progress", HTTPStatus.BAD_REQUEST],
+        ["stale", "stale", HTTPStatus.BAD_REQUEST],
+    ],
+)
+def test_request_state_transition(
+    initial_state: str, to_state: str, expected_resp_code: int, app, db, client, worker_auth_env
+):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "pkg_managers": ["gomod"],
     }
-    # flask_login.current_user is used in Request.from_json, which requires a request context
     with app.test_request_context(environ_base=worker_auth_env):
         request = Request.from_json(data)
     db.session.add(request)
     db.session.commit()
-    request.add_state("stale", "The request has expired")
+    request.add_state(initial_state, "Set initial state")
     db.session.commit()
 
-    payload = {"state": "complete", "state_reason": "Unexpired"}
-    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    assert patch_rv.status_code == 400
-    assert patch_rv.get_json() == {"error": "A stale request cannot change states"}
+    payload = {"state": to_state, "state_reason": "for testing"}
+    rv = client.patch(f"/api/v1/requests/{request.id}", json=payload, environ_base=worker_auth_env)
+
+    assert expected_resp_code == rv.status_code
+    if expected_resp_code == HTTPStatus.BAD_REQUEST:
+        assert initial_state == Request.query.get(request.id).state.state_name
+        assert {
+            "error": f"State transition is not allowed from {initial_state} to {to_state}."
+        } == rv.get_json()
+    else:
+        assert to_state == Request.query.get(request.id).state.state_name
 
 
 def test_set_state_no_duplicate(app, client, db, worker_auth_env):
