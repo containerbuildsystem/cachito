@@ -131,9 +131,8 @@ def test_clone_and_archive_checkout_failed(mock_git_clone, mock_temp_dir, gitsub
 def test_fetch_source_archive_exists(mock_verify, gitsubmodule):
     scm_git = scm.Git(url, ref)
 
-    po = mock.patch.object
-    with po(scm_git.sources_dir.archive_path, "exists", return_value=True):
-        with po(scm_git.sources_dir.package_dir, "glob") as glob:
+    with mock.patch("pathlib.Path.exists", return_value=True):
+        with mock.patch("pathlib.Path.glob") as glob:
             scm_git.fetch_source(gitsubmodule)
             glob.assert_not_called()
 
