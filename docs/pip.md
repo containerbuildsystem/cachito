@@ -208,7 +208,7 @@ that uses all the available configuration options.
       },
       {
         "path": "some/subpackage",
-        "build_requirements_files": ["requirements-build-only.txt"]
+        "requirements_build_files": ["requirements-build-only.txt"]
       }
     ]
   }
