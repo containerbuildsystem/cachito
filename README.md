@@ -513,6 +513,9 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_task_log_format` - the log format that Celery displays when a task is executing. This
   defaults to
   `"[%(asctime)s #%(request_id)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"`.
+* `cachito_subprocess_timeout` - a number (in seconds) to set a timeout for commands executed by
+  the `subprocess` module. Default is 3600 seconds. A timeout is always required, and there is no
+  way provided by Cachito to disable it. Set a larger number to give the subprocess execution more time.
 
 To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
 environment variable to the path of the keytab. Additional Kerberos configuration can be made in
