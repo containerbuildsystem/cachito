@@ -17,7 +17,7 @@ import semver
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers.pkg_managers.general import run_cmd
+from cachito.workers import run_cmd
 
 __all__ = [
     "get_golang_version",

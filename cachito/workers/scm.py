@@ -11,6 +11,7 @@ import zlib
 import git
 
 from cachito.errors import CachitoError
+from cachito.workers import run_cmd
 from cachito.workers.paths import SourcesDir
 
 
@@ -93,8 +94,8 @@ class Git(SCM):
                 raise CachitoError(err_msg["exception"])
 
             try:
-                subprocess.run(cmd, cwd=repo_path, check=True, capture_output=True)
-            except (subprocess.CalledProcessError) as exc:
+                run_cmd(cmd, {"cwd": repo_path, "check": True})
+            except subprocess.CalledProcessError as exc:
                 msg = f"{err_msg['log']}. STDERR: %s"
                 log.error(msg, self.sources_dir.archive_path, exc, exc.stderr)
                 raise CachitoError(err_msg["exception"])

@@ -35,7 +35,7 @@ def test_repo_name():
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("tempfile.NamedTemporaryFile")
 @mock.patch("git.repo.Repo.clone_from")
-@mock.patch("subprocess.run")
+@mock.patch("cachito.workers.scm.run_cmd")
 @mock.patch("os.path.exists")
 @mock.patch("cachito.workers.scm.Git.update_git_submodules")
 @mock.patch("os.link")
@@ -256,7 +256,7 @@ def test_fetch_source_by_pull_corrupt_archive(
 @mock.patch("tarfile.open")
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("git.Repo")
-@mock.patch("subprocess.run")
+@mock.patch("cachito.workers.scm.run_cmd")
 @mock.patch("os.path.exists")
 @mock.patch("cachito.workers.scm.Git.update_git_submodules")
 def test_update_and_archive(
@@ -370,7 +370,7 @@ def test_verify_corrupted_archive(mock_extract, fake_repo, exception_type, tmp_p
         git_obj._verify_archive()
 
 
-@mock.patch("subprocess.run")
+@mock.patch("cachito.workers.scm.run_cmd")
 def test_verify_corrupted_git_repo(mock_fsck, fake_repo, tmp_path):
     mock_fsck.side_effect = subprocess.CalledProcessError(0, "stub command")
     repo_dir, _ = fake_repo
