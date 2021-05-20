@@ -56,6 +56,7 @@ class Config(object):
     cachito_request_file_logs_level = "DEBUG"
     cachito_request_file_logs_perm = 0o660
     cachito_request_lifetime = 1
+    cachito_subprocess_timeout = 3600  # 1 hour
     cachito_task_log_format = (
         "[%(asctime)s #%(request_id)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
     )

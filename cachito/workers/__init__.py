@@ -4,6 +4,7 @@ import logging
 import subprocess
 
 from cachito.errors import CachitoError
+from cachito.workers.config import get_worker_config
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ def run_cmd(cmd, params, exc_msg=None):
     params.setdefault("capture_output", True)
     params.setdefault("universal_newlines", True)
     params.setdefault("encoding", "utf-8")
+
+    conf = get_worker_config()
+    params.setdefault("timeout", conf.cachito_subprocess_timeout)
 
     response = subprocess.run(cmd, **params)
 
