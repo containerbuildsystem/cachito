@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 import textwrap
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Dict, Any, Set
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus
@@ -38,7 +38,13 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None, pkg_manager="npm"):
+def download_dependencies(
+    request_id: int,
+    deps: List[Dict[str, Any]],
+    proxy_repo_url: str,
+    skip_deps: Optional[Set[str]] = None,
+    pkg_manager: str = "npm",
+) -> Set[str]:
     """
     Download the list of npm dependencies using npm pack to the deps bundle directory.
 
@@ -49,15 +55,16 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None, pkg_
     the tarball of the dependency that bundles it.
 
     :param int request_id: the ID of the request these dependencies are being downloaded for
-    :param list deps: a list of dependencies where each dependency has the keys: bundled, name,
+    :param deps: a list of dependencies where each dependency has the keys: bundled, name,
         version, and version_in_nexus
+    :type deps: list[dict[str, any]]
     :param str proxy_repo_url: the Nexus proxy repository URL to use as the registry
-    :param set skip_deps: a set of dependency identifiers to not download because they've already
-        been downloaded for this request
+    :param set[str] skip_deps: a set of dependency identifiers to not download because they've
+        already been downloaded for this request.
     :param str pkg_manager: the name of the package manager to download dependencies for, affects
         destination directory and logging output (npm is used to do the actual download regardless)
     :return: a set of dependency identifiers that were downloaded
-    :rtype: set
+    :rtype: set[str]
     :raises CachitoError: if any of the downloads fail
     """
     if skip_deps is None:
