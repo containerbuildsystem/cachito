@@ -140,13 +140,13 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None, pkg_
         for dep_batch in deps_batches:
             # Create a list of dependencies to be downloaded. Excluding 'external_dep_version'
             # from the list of tuples
-            dep_batch_download = [i[0] for i in dep_batch]
+            dep_identifiers = [dep_identifier for dep_identifier, _ in dep_batch]
             log.debug(
                 "Downloading the following %s dependencies: %s",
                 pkg_manager,
-                ", ".join(dep_batch_download),
+                ", ".join(dep_identifiers),
             )
-            npm_pack_args = ["npm", "pack"] + dep_batch_download
+            npm_pack_args = ["npm", "pack"] + dep_identifiers
             output = run_cmd(
                 npm_pack_args, run_params, f"Failed to download the {pkg_manager} dependencies"
             )
@@ -155,11 +155,13 @@ def download_dependencies(request_id, deps, proxy_repo_url, skip_deps=None, pkg_
             # Iterate through the tuples made of dependency tarball and dep_identifier
             # e.g. ('ab-2.10.2-external-sha512-ab.tar.gz', ('ab@2.10.2-external-sha512-ab',
             # 'https://github.com/ab/2.10.2.tar.gz'))
-            for dep_pair in list(zip(output.split("\n"), dep_batch)):
-                tarball = dep_pair[0]  # e.g. ab-2.10.2-external-sha512-ab.tar.gz
-                dep_indentifer = dep_pair[1][0]  # ab@2.10.2-external-sha512-ab
-                dir_path = dep_indentifer.rsplit("@", 1)[0]  # ab
-                external_dep_version = dep_pair[1][1]  # https://github.com/ab/2.10.2.tar.gz
+            for tarball, (dep_identifier, external_dep_version) in zip(
+                output.split("\n"), dep_batch
+            ):
+                # tarball: e.g. ab-2.10.2-external-sha512-ab.tar.gz
+                # dep_identifier: ab@2.10.2-external-sha512-ab
+                # external_dep_version:  https://github.com/ab/2.10.2.tar.gz
+                dir_path = dep_identifier.rsplit("@", 1)[0]  # ab
 
                 # In case of external dependencies, create additional intermediate
                 # parent e.g. github/<org>/<repo> or external-<repo>
