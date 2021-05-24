@@ -69,9 +69,13 @@ pkg_lvl_stdout = (
 
 
 def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
+    """
+    Generate mocked output of the following command:
+
+    go list -m -f '{{ if not .Main }}{{ .Path }} {{ .Version }} {{ .Replace }}{{ end }}' all
+    """
     return dedent(
         f"""\
-        github.com/release-engineering/retrodep/v2
         github.com/Masterminds/semver v1.4.2
         github.com/kr/pretty v0.1.0
         github.com/kr/pty v1.1.1
@@ -151,6 +155,9 @@ def test_resolve_gomod(
     run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
     if dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+    )
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_cmd_output))  # go list -m all
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_list))  # go list -find ./...
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_deps))  # go list -deps
@@ -226,8 +233,10 @@ def test_resolve_gomod_vendor_dependencies(
     mock_run.side_effect = [
         # go mod vendor
         mock.Mock(returncode=0, stdout=None),
-        # go list -m all
+        # go list -m
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
+        # go list -m all
+        mock.Mock(returncode=0, stdout=""),
         # go list -find ./...
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
         # go list -deps
@@ -311,8 +320,10 @@ def test_resolve_gomod_no_deps(
     mock_run.side_effect = [
         # go mod download
         mock.Mock(returncode=0, stdout=None),
-        # go list -m all
+        # go list -m
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
+        # go list -m all
+        mock.Mock(returncode=0, stdout=""),
         # go list -find ./...
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
         # go list -deps
@@ -354,6 +365,7 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
         mock.Mock(returncode=0, stdout=None),  # go mod edit -replace
         mock.Mock(returncode=0, stdout=None),  # go mod download
         mock.Mock(returncode=0, stdout=None),  # go mod tidy
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),  # go list -m
         mock.Mock(returncode=0, stdout=_generate_mock_cmd_output()),  # go list -m all
     ]
 
