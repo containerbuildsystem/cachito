@@ -70,9 +70,9 @@ pkg_lvl_stdout = (
 
 def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
     """
-    Generate mocked output of the following command:
+    Generate mocked output of the following command.
 
-    go list -m -f '{{ if not .Main }}{{ .Path }} {{ .Version }} {{ .Replace }}{{ end }}' all
+    go list -m -f '{{ if not .Main }}{{ .String }}{{ end }}' all
     """
     return dedent(
         f"""\
@@ -89,7 +89,7 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
         golang.org/x/tools v0.0.0-20190325161752-5a8dccf5b48a
         gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
         gopkg.in/yaml.v2 v2.2.2
-        k8s.io/metrics v0.0.0 ./staging/src/k8s.io/metrics
+        k8s.io/metrics v0.0.0 => ./staging/src/k8s.io/metrics
     """
     )
 
@@ -100,7 +100,7 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
         (None, "github.com/pkg/errors v1.0.0", None),
         (
             {"name": "github.com/pkg/errors", "type": "gomod", "version": "v1.0.0"},
-            "github.com/pkg/errors v0.9.0 github.com/pkg/errors v1.0.0",
+            "github.com/pkg/errors v0.9.0 => github.com/pkg/errors v1.0.0",
             "github.com/pkg/errors=github.com/pkg/errors@v1.0.0",
         ),
         (
@@ -110,7 +110,7 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
                 "type": "gomod",
                 "version": "v1.0.0",
             },
-            "github.com/pkg/errors v0.9.0 github.com/pkg/new_errors v1.0.0",
+            "github.com/pkg/errors v0.9.0 => github.com/pkg/new_errors v1.0.0",
             "github.com/pkg/errors=github.com/pkg/new_errors@v1.0.0",
         ),
     ),
