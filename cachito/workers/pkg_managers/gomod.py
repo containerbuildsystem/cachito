@@ -166,7 +166,9 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         module_name = run_gomod_cmd(["go", "list", "-m"], run_params).rstrip()
 
         # module level dependencies
-        output_format = "{{ if not .Main }}{{.Path}} {{.Version}} {{.Replace}}{{ end }}"
+        #   .String formats the module as <name> <version> [=> <replace>],
+        #   where <replace> is <name> <version> or <path>
+        output_format = "{{ if not .Main }}{{ .String }}{{ end }}"
         go_list_output = run_gomod_cmd(
             ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"), run_params
         )
@@ -176,30 +178,28 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         # used later
         used_replaced_dep_names = set()
         for line in go_list_output.splitlines():
-            # If there is no "replace" directive used on the dependency, then the last column will
-            # be "<nil>"
-            parts = [part for part in line.split(" ") if part not in ("", "<nil>")]
+            parts = line.split(" ")
 
             replaces = None
-            if len(parts) == 3:
+            if len(parts) == 4 and parts[2] == "=>":
                 # If a Go module uses a "replace" directive to a local path, it will be shown as:
-                # k8s.io/metrics v0.0.0 ./staging/src/k8s.io/metrics
+                # k8s.io/metrics v0.0.0 => ./staging/src/k8s.io/metrics
                 # In this case, take the module name and the relative path, since that is the
                 # actual dependency being used.
-                parts = [parts[0], parts[2]]
-            elif len(parts) == 4:
+                parts = [parts[0], parts[-1]]
+            elif len(parts) == 5 and parts[2] == "=>":
                 # If a Go module uses a "replace" directive, then it will be in the format:
-                # github.com/pkg/errors v0.8.0 github.com/pkg/errors v0.8.1
+                # github.com/pkg/errors v0.8.0 => github.com/pkg/errors v0.8.1
                 # In this case, just take the right side since that is the actual
                 # dependency being used
-                old_name, old_version = parts[0], parts[1]
+                old_name, old_version = parts[:2]
                 # Only keep track of user provided replaces. There could be existing "replace"
                 # directives in the go.mod file, but they are an implementation detail specific to
                 # Go and they don't need to be recorded in Cachito.
                 if old_name in replaced_dep_names:
                     used_replaced_dep_names.add(old_name)
                     replaces = {"type": "gomod", "name": old_name, "version": old_version}
-                parts = parts[2:]
+                parts = parts[3:]
 
             if len(parts) == 2:
                 module_level_deps.append(
