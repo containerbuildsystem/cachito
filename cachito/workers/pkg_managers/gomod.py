@@ -161,33 +161,24 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             run_gomod_cmd(("go", "mod", "download"), run_params)
         if dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
+
+        # main module
+        module_name = run_gomod_cmd(["go", "list", "-m"], run_params).rstrip()
+
         # module level dependencies
-        output_format = "{{.Path}} {{.Version}} {{.Replace}}"
+        output_format = "{{ if not .Main }}{{.Path}} {{.Version}} {{.Replace}}{{ end }}"
         go_list_output = run_gomod_cmd(
             ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"), run_params
         )
 
         module_level_deps = []
-        module_name = None
         # Keep track of which dependency replacements were actually applied to verify they were all
         # used later
         used_replaced_dep_names = set()
-        go_module_name_error = "The Go module name could not be determined"
         for line in go_list_output.splitlines():
             # If there is no "replace" directive used on the dependency, then the last column will
             # be "<nil>"
             parts = [part for part in line.split(" ") if part not in ("", "<nil>")]
-            if len(parts) == 1:
-                # This is the application itself, not a dependency
-                if module_name is not None:
-                    log.error(
-                        'go list produced two lines which look like module names: "%s" and "%s"',
-                        module_name,
-                        parts[0],
-                    )
-                    raise CachitoError(go_module_name_error)
-                module_name = parts[0]
-                continue
 
             replaces = None
             if len(parts) == 3:
@@ -223,10 +214,6 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
                 "The following gomod dependency replacements don't apply: "
                 f'{", ".join(unused_dep_replacements)}'
             )
-
-        if not module_name:
-            # This should never occur, but it's here as a precaution
-            raise CachitoError(go_module_name_error)
 
         # NOTE: If there are multiple go modules in a single git repo, they will
         #   all be versioned identically.
