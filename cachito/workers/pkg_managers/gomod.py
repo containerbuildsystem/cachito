@@ -166,18 +166,22 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         module_name = run_gomod_cmd(["go", "list", "-m"], run_params).rstrip()
 
         # module level dependencies
-        #   .String formats the module as <name> <version> [=> <replace>],
-        #   where <replace> is <name> <version> or <path>
-        output_format = "{{ if not .Main }}{{ .String }}{{ end }}"
-        go_list_output = run_gomod_cmd(
-            ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"), run_params
-        )
+        if should_vendor:
+            module_lines = _module_lines_from_modules_txt(app_source_path)
+        else:
+            # .String formats the module as <name> <version> [=> <replace>],
+            #   where <replace> is <name> <version> or <path>
+            output_format = "{{ if not .Main }}{{ .String }}{{ end }}"
+            go_list_output = run_gomod_cmd(
+                ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"), run_params
+            )
+            module_lines = go_list_output.splitlines()
 
         module_level_deps = []
         # Keep track of which dependency replacements were actually applied to verify they were all
         # used later
         used_replaced_dep_names = set()
-        for line in go_list_output.splitlines():
+        for line in module_lines:
             parts = line.split(" ")
 
             replaces = None
@@ -375,6 +379,46 @@ def _vendor_changed(git_dir: str, app_dir: str) -> bool:
         repo.git.reset("--", app_dir)
 
     return False
+
+
+def _module_lines_from_modules_txt(app_dir: str) -> List[str]:
+    """
+    Read module lines from vendor/modules.txt.
+
+    Exclude modules that do not have any packages, as those will not actually be downloaded by
+    go mod vendor.
+
+    Note that vendor/modules.txt is fully managed by go. After you call go mod vendor, this file
+    is guaranteed to contain only the content written in it by go.
+    """
+    modules_txt = Path(app_dir) / "vendor" / "modules.txt"
+    module_lines = []
+    has_packages = {}
+
+    log.debug("Parsing modules from vendor/modules.txt")
+
+    for line in modules_txt.read_text().splitlines():
+        # modules.txt contains lines in one of 4 formats:
+        #   1) # <module_name> <version> [=> <replace>]
+        #   2) ## <markers>
+        #   3) <package_name>
+        #   4) # <module_name> => <replace>
+
+        # the lines always appear in the order of 1, 2, 3 (2 and 3 are optional)
+        # 4 can only appear at the end of the file and is never followed by package lines (3)
+        # see https://github.com/golang/go/blob/master/src/cmd/go/internal/modcmd/vendor.go
+
+        if not line.startswith("#"):  # this is a package line
+            if not module_lines:
+                raise CachitoError(f"vendor/modules.txt: package has no parent module: {line}")
+            has_packages[module_lines[-1]] = True
+        elif line.startswith("# "):  # this is a module line or a wildcard replacement (4)
+            module_lines.append(line[2:])
+        elif not line.startswith("##"):
+            # at this point, the line must be a marker, otherwise we don't know what it is
+            raise CachitoError(f"vendor/modules.txt: unexpected format: {line!r}")
+
+    return list(filter(has_packages.get, module_lines))
 
 
 def _get_allowed_local_deps(module_name: str) -> List[str]:

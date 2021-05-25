@@ -223,8 +223,15 @@ def test_resolve_gomod(
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
+@mock.patch("cachito.workers.pkg_managers.gomod._module_lines_from_modules_txt")
 def test_resolve_gomod_vendor_dependencies(
-    mock_bundle_dir, mock_run, mock_temp_dir, mock_golang_version, tmpdir, sample_package
+    mock_module_lines,
+    mock_bundle_dir,
+    mock_run,
+    mock_temp_dir,
+    mock_golang_version,
+    tmpdir,
+    sample_package,
 ):
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
@@ -235,13 +242,12 @@ def test_resolve_gomod_vendor_dependencies(
         mock.Mock(returncode=0, stdout=None),
         # go list -m
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
-        # go list -m all
-        mock.Mock(returncode=0, stdout=""),
         # go list -find ./...
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
         # go list -deps
         mock.Mock(returncode=0, stdout=pkg_lvl_stdout),
     ]
+    mock_module_lines.return_value = []
     mock_golang_version.return_value = "v2.1.1"
 
     archive_path = "/this/is/path/to/archive.tar.gz"
@@ -260,6 +266,7 @@ def test_resolve_gomod_vendor_dependencies(
     mock_bundle_dir.return_value.gomod_download_dir.mkdir.assert_called_once_with(
         exist_ok=True, parents=True
     )
+    mock_module_lines.assert_called_once_with(archive_path)
 
 
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
@@ -1078,3 +1085,52 @@ def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change,
 
     # The _vendor_changed function should reset the `git add` => added files should not be tracked
     assert not repo.git.diff("--diff-filter", "A")
+
+
+def test_module_lines_from_modules_txt(tmp_path):
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    vendor.joinpath("modules.txt").write_text(
+        dedent(
+            """\
+            # github.com/org/some-module v0.0.0 => ./example/src/some-module
+            ## explicit
+            github.com/org/some-module
+            # golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c
+            golang.org/x/text/internal/tag
+            golang.org/x/text/language
+            # rsc.io/quote v1.5.2 => rsc.io/quote v1.5.1
+            ## explicit
+            rsc.io/quote
+            # rsc.io/sampler v1.3.0
+            rsc.io/sampler
+            # github.com/org/some-module => ./example/src/some-module
+            # rsc.io/quote => rsc.io/quote v1.5.1
+            """
+        )
+    )
+    assert gomod._module_lines_from_modules_txt(str(tmp_path)) == [
+        "github.com/org/some-module v0.0.0 => ./example/src/some-module",
+        "golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c",
+        "rsc.io/quote v1.5.2 => rsc.io/quote v1.5.1",
+        "rsc.io/sampler v1.3.0",
+    ]
+
+
+@pytest.mark.parametrize(
+    "file_content, expect_error_msg",
+    [
+        ("#invalid-line", "vendor/modules.txt: unexpected format: '#invalid-line'"),
+        (
+            "github.com/x/package",
+            "vendor/modules.txt: package has no parent module: github.com/x/package",
+        ),
+    ],
+)
+def test_module_lines_from_modules_txt_invalid_format(file_content, expect_error_msg, tmp_path):
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    vendor.joinpath("modules.txt").write_text(file_content)
+
+    with pytest.raises(CachitoError, match=expect_error_msg):
+        gomod._module_lines_from_modules_txt(str(tmp_path))
