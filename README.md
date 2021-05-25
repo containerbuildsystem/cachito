@@ -125,11 +125,11 @@ Cachito container images are automatically built when changes are merged. There 
 an httpd based image with the Cachito API, a Celery worker image with the Cachito worker code, and
 a Flower image to monitor Celery tasks and Rabbit MQ broker.
 
-[![cachito-api](https://quay.io/repository/factory2/cachito-api/status)](https://quay.io/repository/factory2/cachito-api)
-  `quay.io/factory2/cachito-api:latest`
+[![cachito-api](https://quay.io/repository/containerbuildsystem/cachito-api/status)](https://quay.io/repository/containerbuildsystem/cachito-api)
+  `quay.io/containerbuildsystem/cachito-api:latest`
 
-[![cachito-worker](https://quay.io/repository/factory2/cachito-worker/status)](https://quay.io/repository/factory2/cachito-worker)
-  `quay.io/factory2/cachito-worker:latest`
+[![cachito-workers](https://quay.io/repository/containerbuildsystem/cachito-workers/status)](https://quay.io/repository/containerbuildsystem/cachito-workers)
+  `quay.io/containerbuildsystem/cachito-workers:latest`
 
 [![cachito-flower](https://quay.io/repository/containerbuildsystem/cachito-flower/status)](https://quay.io/repository/containerbuildsystem/cachito-flower)
   `quay.io/containerbuildsystem/cachito-flower:latest`
