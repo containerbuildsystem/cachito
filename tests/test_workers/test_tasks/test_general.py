@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import json
 import os
 import os.path
 import pathlib
@@ -133,19 +134,11 @@ def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
 @pytest.mark.parametrize("deps_present", (True, False))
 @pytest.mark.parametrize("include_git_dir", (True, False))
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-@mock.patch("cachito.workers.tasks.general.get_request")
 @mock.patch("cachito.workers.paths.get_worker_config")
 def test_create_bundle_archive(
-    mock_gwc,
-    mock_get_request,
-    mock_set_request,
-    deps_present,
-    include_git_dir,
-    tmpdir,
-    task_passes_state_check,
+    mock_gwc, mock_set_request_state, deps_present, include_git_dir, tmpdir
 ):
     flags = ["include-git-dir"] if include_git_dir else []
-    mock_get_request.return_value = {"flags": flags}
 
     # Make the bundles and sources dir configs point to under the pytest managed temp dir
     bundles_dir = tmpdir.mkdir("bundles")
@@ -179,7 +172,8 @@ def test_create_bundle_archive(
             open(path, "wb").write(data)
 
     # Test the bundle is created when create_bundle_archive is called
-    tasks.create_bundle_archive(request_id)
+    tasks.create_bundle_archive(request_id, flags)
+
     bundle_archive_path = str(bundles_dir.join(f"{request_id}.tar.gz"))
     assert os.path.exists(bundle_archive_path)
 
@@ -204,9 +198,74 @@ def test_create_bundle_archive(
         expected |= set(deps_archive_contents.keys())
 
     assert bundle_contents == expected
-    call1 = mock.call(request_id, "in_progress", "Assembling the bundle archive")
-    call2 = mock.call(request_id, "complete", "Completed successfully")
-    calls = [call1, call2]
-    assert mock_set_request.call_count == len(calls)
-    mock_set_request.assert_has_calls(calls)
-    mock_get_request.assert_called_once_with(request_id)
+    assert mock_set_request_state.call_count == 1
+    mock_set_request_state.assert_called_once_with(
+        request_id, "in_progress", "Assembling the bundle archive"
+    )
+
+
+GOMOD_PKG1 = {
+    "name": "pkg1",
+    "version": "1.0",
+    "type": "gomod",
+    "dependencies": [
+        {
+            "name": "golang.org/x/text/internal/tag",
+            "type": "go-package",
+            "version": "v0.0.0-20170915032832-14c0d48ead0c",
+        },
+    ],
+}
+
+NPM_PKG1 = {
+    "name": "npm_pkg1",
+    "version": "1.0",
+    "type": "npm",
+    "path": "pkg1",
+    "dependencies": [{"dev": False, "name": "underscore", "type": "npm", "version": "1.12.0"}],
+}
+
+GIT_SUBMODULE_PKG = {
+    "name": "pkg",
+    "version": "http://host/#1234",
+    "type": "git-submodule",
+    "path": "pkg",
+    "dependencies": [],
+}
+
+
+@pytest.mark.parametrize(
+    "packages_data,expected",
+    [
+        [{"gomod": {"packages": []}}, {"packages": []}],
+        [{"gomod": {"packages": [GOMOD_PKG1]}}, {"packages": [GOMOD_PKG1]}],
+        [
+            {"gomod": {"packages": [GOMOD_PKG1]}, "npm": {"packages": [NPM_PKG1]}},
+            {"packages": [GOMOD_PKG1, NPM_PKG1]},
+        ],
+        [{"git-submodule": {"packages": [GIT_SUBMODULE_PKG]}}, {"packages": [GIT_SUBMODULE_PKG]}],
+    ],
+)
+@mock.patch("cachito.workers.tasks.general.set_request_state")
+@mock.patch("cachito.workers.paths.get_worker_config")
+def test_aggregate_packages_data(
+    get_worker_config, set_request_state, packages_data, expected, tmpdir
+):
+    get_worker_config.return_value.cachito_bundles_dir = tmpdir
+
+    request_id = 1
+    bundle_dir: RequestBundleDir = RequestBundleDir(request_id)
+
+    for pkg_manager, data in packages_data.items():
+        data_file = getattr(bundle_dir, f"{pkg_manager.replace('-', '_')}_packages_data")
+        with open(data_file, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+
+    tasks.aggregate_packages_data(request_id, list(packages_data.keys()))
+
+    set_request_state.assert_called_once_with(
+        request_id, "in_progress", "Aggregating packages data"
+    )
+
+    with open(bundle_dir.packages_data, "r", encoding="utf-8") as f:
+        assert expected == json.load(f)

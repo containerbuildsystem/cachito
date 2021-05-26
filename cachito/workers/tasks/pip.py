@@ -27,6 +27,7 @@ from cachito.workers.pkg_managers.pip import (
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.tasks.utils import (
+    PackagesData,
     make_base64_config_file,
     runs_if_request_in_progress,
     get_request,
@@ -58,7 +59,7 @@ def fetch_pip_source(request_id, package_configs=None):
     :param list package_configs: the list of optional package configurations submitted by the user
     """
     validate_pip_config()
-    bundle_dir = RequestBundleDir(request_id)
+    bundle_dir: RequestBundleDir = RequestBundleDir(request_id)
 
     log.info("Configuring Nexus for pip for the request %d", request_id)
     set_request_state(request_id, "in_progress", "Configuring Nexus for pip")
@@ -117,13 +118,19 @@ def fetch_pip_source(request_id, package_configs=None):
     worker_config = get_worker_config()
     env_vars.update(worker_config.cachito_default_environment_variables.get("pip", {}))
 
+    packages_json_data = PackagesData()
+
     # Finally, perform DB operations
     for pkg_cfg, pkg_data in zip(package_configs, packages_data):
         pkg_subpath = os.path.normpath(pkg_cfg.get("path", "."))
-        update_request_with_package(
-            request_id, pkg_data["package"], env_vars, package_subpath=pkg_subpath
-        )
-        update_request_with_deps(request_id, pkg_data["package"], pkg_data["dependencies"])
+        pkg_info = pkg_data["package"]
+        pkg_deps = pkg_data["dependencies"]
+
+        update_request_with_package(request_id, pkg_info, env_vars, package_subpath=pkg_subpath)
+        update_request_with_deps(request_id, pkg_info, pkg_deps)
+        packages_json_data.add_package(pkg_info, pkg_subpath, pkg_deps)
+
+    packages_json_data.write_to_file(bundle_dir.pip_packages_data)
 
     if pip_config_files:
         update_request_with_config_files(request_id, pip_config_files)

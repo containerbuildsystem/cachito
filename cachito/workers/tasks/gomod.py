@@ -10,7 +10,7 @@ from cachito.workers.pkg_managers.general import (
 )
 from cachito.workers.pkg_managers.gomod import resolve_gomod, path_to_subpackage
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.utils import runs_if_request_in_progress, get_request
+from cachito.workers.tasks.utils import PackagesData, runs_if_request_in_progress, get_request
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.paths import RequestBundleDir
 
@@ -57,7 +57,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     if package_configs is None:
         package_configs = []
 
-    bundle_dir = RequestBundleDir(request_id)
+    bundle_dir: RequestBundleDir = RequestBundleDir(request_id)
     subpaths = [os.path.normpath(c["path"]) for c in package_configs if c.get("path")]
 
     if not subpaths:
@@ -84,6 +84,8 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
         raise CachitoError(
             "Dependency replacements are only supported for a single go module path."
         )
+
+    packages_json_data = PackagesData()
 
     for i, subpath in enumerate(subpaths):
         log.info(
@@ -113,17 +115,25 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
         else:
             env_vars = None
-        update_request_with_package(request_id, gomod["module"], env_vars, package_subpath=subpath)
-        update_request_with_deps(request_id, gomod["module"], gomod["module_deps"])
+
+        module_info = gomod["module"]
+
+        update_request_with_package(request_id, module_info, env_vars, package_subpath=subpath)
+        update_request_with_deps(request_id, module_info, gomod["module_deps"])
+        packages_json_data.add_package(module_info, subpath, gomod["module_deps"])
 
         # add package deps
         for package in gomod["packages"]:
-            package_subpath = _package_subpath(
-                gomod["module"]["name"], package["pkg"]["name"], subpath
-            )
-            update_request_with_package(request_id, package["pkg"], package_subpath=package_subpath)
+            pkg_info = package["pkg"]
+            package_subpath = _package_subpath(module_info["name"], pkg_info["name"], subpath)
+
+            update_request_with_package(request_id, pkg_info, package_subpath=package_subpath)
             if package.get("pkg_deps"):
-                update_request_with_deps(request_id, package["pkg"], package["pkg_deps"])
+                update_request_with_deps(request_id, pkg_info, package["pkg_deps"])
+
+            packages_json_data.add_package(pkg_info, package_subpath, package.get("pkg_deps", []))
+
+    packages_json_data.write_to_file(bundle_dir.gomod_packages_data)
 
 
 def _package_subpath(module_name: str, package_name: str, module_subpath: str) -> str:

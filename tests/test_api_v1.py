@@ -25,14 +25,14 @@ from cachito.web.models import (
 from cachito.web.utils import deep_sort_icm
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import (
+    add_git_submodules_as_package,
+    failed_request_callback,
     fetch_app_source,
     fetch_gomod_source,
     fetch_npm_source,
     fetch_pip_source,
     fetch_yarn_source,
-    failed_request_callback,
-    create_bundle_archive,
-    add_git_submodules_as_package,
+    finalize_request,
 )
 
 RE_INVALID_PACKAGES_VALUE = (
@@ -164,7 +164,7 @@ def test_create_and_fetch_request(
         )
     if "yarn" in expected_pkg_managers:
         expected.append(fetch_yarn_source.si(created_request["id"], []).on_error(error_callback))
-    expected.append(create_bundle_archive.si(created_request["id"]).on_error(error_callback))
+    expected.append(finalize_request.si(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
 
     request_id = created_request["id"]
@@ -205,7 +205,7 @@ def test_create_and_fetch_request_gomod_package_configs(
             False,
         ).on_error(error_callback),
         fetch_gomod_source.si(1, [], package_value["gomod"]).on_error(error_callback),
-        create_bundle_archive.si(1).on_error(error_callback),
+        finalize_request.si(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -234,7 +234,7 @@ def test_create_and_fetch_request_npm_package_configs(
             False,
         ).on_error(error_callback),
         fetch_npm_source.si(1, package_value["npm"]).on_error(error_callback),
-        create_bundle_archive.si(1).on_error(error_callback),
+        finalize_request.si(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -275,7 +275,7 @@ def test_create_and_fetch_request_pip_package_configs(
             False,
         ).on_error(error_callback),
         fetch_pip_source.si(1, package_value["pip"]).on_error(error_callback),
-        create_bundle_archive.si(1).on_error(error_callback),
+        finalize_request.si(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -304,7 +304,7 @@ def test_create_and_fetch_request_yarn_package_configs(
             False,
         ).on_error(error_callback),
         fetch_yarn_source.si(1, package_value["yarn"]).on_error(error_callback),
-        create_bundle_archive.si(1).on_error(error_callback),
+        finalize_request.si(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -355,7 +355,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
                 False,
             ).on_error(error_callback),
             fetch_gomod_source.si(1, [], []).on_error(error_callback),
-            create_bundle_archive.si(1).on_error(error_callback),
+            finalize_request.si(1).on_error(error_callback),
         ]
     )
 
@@ -1093,7 +1093,7 @@ def test_set_state_stale(
     assert fetched_request["state"] == state
     assert fetched_request["state_reason"] == state_reason
     if bundle_exists:
-        mock_remove.assert_called_once_with()
+        mock_remove.assert_has_calls([mock.call(), mock.call()])
     else:
         mock_remove.assert_not_called()
     if "npm" in pkg_managers:
@@ -2152,7 +2152,7 @@ def test_create_and_fetch_request_with_pip_preview(
                     False,  # default value for gitsubmodule
                 ).on_error(error_callback),
                 fetch_pip_source.si(1, []).on_error(error_callback),
-                create_bundle_archive.si(1).on_error(error_callback),
+                finalize_request.si(1).on_error(error_callback),
             ]
         )
         request_id = created_request["id"]

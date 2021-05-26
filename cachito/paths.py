@@ -56,6 +56,13 @@ class RequestBundleDir(type(Path())):
 
         self.bundle_archive_file = Path(root, f"{request_id}.tar.gz")
 
+        self.packages_data = Path(root, f"{request_id}-packages.json")
+        self.gomod_packages_data = self.joinpath("gomod_packages.json")
+        self.npm_packages_data = self.joinpath("npm_packages.json")
+        self.pip_packages_data = self.joinpath("pip_packages.json")
+        self.yarn_packages_data = self.joinpath("yarn_packages.json")
+        self.git_submodule_packages_data = self.joinpath("git_submodule_packages.json")
+
         return self
 
     def app_subpath(self, subpath):

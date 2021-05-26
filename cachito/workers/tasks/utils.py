@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import base64
 import functools
+import json
 import logging
+import os
 from pathlib import Path
-from typing import Union, Callable
+from typing import Any, Dict, List, Union, Callable
 
 import requests
 
@@ -203,3 +205,69 @@ def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_m
         raise CachitoError(msg)
 
     return rv.json()
+
+
+class PackagesData:
+    """A collection of resolved packages."""
+
+    def __init__(self) -> None:
+        self._index = set()
+        self._packages = []
+
+    def add_package(self, pkg_info: Dict[str, str], path: str, deps: List[Dict[str, Any]]) -> None:
+        """Add a package with deps.
+
+        :param dict[str, str] pkg_info: a mapping containing a package information.
+            It must have ``name``, ``type`` and ``version`` key/value pairs.
+        :param str path: the path where the package is retreived. Consult with the
+            ``fetch_*_source`` for the defailed information about a package's path.
+        :param deps: a list of depencencies the package has.
+        :type deps: list[dict[str, any]]
+        :raises CachitoError: if there is a package with same name, type and version
+            has been added already.
+        """
+        key = (pkg_info["name"], pkg_info["type"], pkg_info["version"])
+        if key in self._index:
+            raise CachitoError(f"Duplicate package: {pkg_info!r}")
+        self._index.add(key)
+        package = {
+            "name": pkg_info["name"],
+            "type": pkg_info["type"],
+            "version": pkg_info["version"],
+            "dependencies": deps,
+        }
+        if path != os.curdir:
+            package["path"] = path
+        self._packages.append(package)
+
+    def write_to_file(self, file_name: Union[str, Path]) -> None:
+        """Write the added packages to a file as JSON data.
+
+        :param file_name: an absolute or relative filename to write the added packages into.
+            When a relative path is used, it will be opened directly and depends on the
+            ``os.curdir``.
+        :type file_name: str or pathlib.Path
+        """
+        log.debug("Write packages with dependencies into file %s.", file_name)
+        with open(file_name, "w", encoding="utf-8") as f:
+            json.dump({"packages": self._packages}, f)
+
+    def load(self, file_name: Union[str, Path]) -> None:
+        """Load data from a specified file written by write_to_file method.
+
+        :param file_name: an absolute or relative filename to write the added packages into.
+            When a relative path is used, it will be opened directly and depends on the
+            ``os.curdir``. If the file does not exist, nothing is changed internally.
+        :type file_name: str or pathlib.Path
+        """
+        if not os.path.exists(file_name):
+            log.debug("No data is loaded from non-existing file %s.", file_name)
+            return
+        with open(file_name, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            packages = data.get("packages")
+            if packages is None:
+                log.warning("Packages data file does not include key 'packages'.")
+                return
+            for p in packages:
+                self.add_package(p, p.get("path", os.curdir), p["dependencies"])

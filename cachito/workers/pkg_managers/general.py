@@ -116,7 +116,7 @@ def update_request_with_package(request_id, package, env_vars=None, package_subp
     """
     Update the request with the resolved packages and corresponding metadata.
 
-    :param dict package: the package that was resolved
+    :param dict[str, str] package: the package that was resolved.
     :param dict env_vars: mapping of environment variables to record. The keys represent
         the environment variable name, and its value should be another map wth the "value" and
         "kind" attributes, e.g. {"NAME": {"value": "VALUE", "kind": "KIND"}}.
