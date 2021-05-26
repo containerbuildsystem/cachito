@@ -27,7 +27,10 @@ def run_cmd(cmd, params, exc_msg=None):
     conf = get_worker_config()
     params.setdefault("timeout", conf.cachito_subprocess_timeout)
 
-    response = subprocess.run(cmd, **params)
+    try:
+        response = subprocess.run(cmd, **params)
+    except subprocess.TimeoutExpired as e:
+        raise CachitoError(str(e))
 
     if response.returncode != 0:
         log.error('The command "%s" failed with: %s', " ".join(cmd), response.stderr)
