@@ -29,6 +29,7 @@ from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.general import set_request_state
 from cachito.workers.tasks.npm import generate_npmrc_config_files
 from cachito.workers.tasks.utils import (
+    PackagesData,
     make_base64_config_file,
     AssertPackageFiles,
     runs_if_request_in_progress,
@@ -100,7 +101,7 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
 
     validate_yarn_config()
 
-    bundle_dir = RequestBundleDir(request_id)
+    bundle_dir: RequestBundleDir = RequestBundleDir(request_id)
     subpaths = [os.path.normpath(c["path"]) for c in package_configs if c.get("path")]
 
     if not subpaths:
@@ -116,6 +117,8 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
 
     yarn_config_files = []
     downloaded_deps = set()
+    packages_json_data = PackagesData()
+
     for i, subpath in enumerate(subpaths):
         log.info("Fetching the yarn dependencies for request %d in subpath %s", request_id, subpath)
         set_request_state(
@@ -157,9 +160,14 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
         else:
             env_vars = None
 
-        package = package_and_deps_info["package"]
-        update_request_with_package(request_id, package, env_vars, package_subpath=subpath)
-        update_request_with_deps(request_id, package, package_and_deps_info["deps"])
+        pkg_info = package_and_deps_info["package"]
+        pkg_deps = package_and_deps_info["deps"]
+
+        update_request_with_package(request_id, pkg_info, env_vars, package_subpath=subpath)
+        update_request_with_deps(request_id, pkg_info, pkg_deps)
+        packages_json_data.add_package(pkg_info, subpath, pkg_deps)
+
+    packages_json_data.write_to_file(bundle_dir.yarn_packages_data)
 
     log.info("Finalizing the Nexus configuration for yarn for the request %d", request_id)
     set_request_state(request_id, "in_progress", "Finalizing the Nexus configuration for yarn")

@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import json
+import os
 from unittest import mock
 
 import pytest
 
 from cachito.errors import CachitoError
-from cachito.paths import RequestBundleDir
+from cachito.paths import RequestBundleDir as BaseRequestBundleDir
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import npm
 
 
@@ -12,7 +15,7 @@ def test_verify_npm_files(tmpdir):
     app_dir = tmpdir.mkdir("temp").mkdir("1").mkdir("app")
     app_dir.join("package.json").write(b"{}")
     app_dir.join("package-lock.json").write(b"{}")
-    bundle_dir = RequestBundleDir(1, str(tmpdir))
+    bundle_dir = BaseRequestBundleDir(1, str(tmpdir))
 
     npm._verify_npm_files(bundle_dir, ["."])
 
@@ -20,7 +23,7 @@ def test_verify_npm_files(tmpdir):
 def test_verify_npm_files_no_lock_file(tmpdir):
     app_dir = tmpdir.mkdir("temp").mkdir("1").mkdir("app").mkdir("client")
     app_dir.join("package.json").write(b"{}")
-    bundle_dir = RequestBundleDir(1, str(tmpdir))
+    bundle_dir = BaseRequestBundleDir(1, str(tmpdir))
 
     expected = (
         "The client/npm-shrinkwrap.json or client/package-lock.json file must be present for the "
@@ -33,7 +36,7 @@ def test_verify_npm_files_no_lock_file(tmpdir):
 def test_verify_npm_files_no_package_json(tmpdir):
     app_dir = tmpdir.mkdir("temp").mkdir("1").mkdir("app").mkdir("client")
     app_dir.join("package-lock.json").write(b"{}")
-    bundle_dir = RequestBundleDir(1, str(tmpdir))
+    bundle_dir = BaseRequestBundleDir(1, str(tmpdir))
 
     expected = "The client/package.json file must be present for the npm package manager"
     with pytest.raises(CachitoError, match=expected):
@@ -45,7 +48,7 @@ def test_verify_npm_files_node_modules(tmpdir):
     app_dir.join("package.json").write(b"{}")
     app_dir.join("package-lock.json").write(b"{}")
     app_dir.mkdir("node_modules")
-    bundle_dir = RequestBundleDir(1, str(tmpdir))
+    bundle_dir = BaseRequestBundleDir(1, str(tmpdir))
 
     expected = "The client/node_modules directory cannot be present in the source repository"
     with pytest.raises(CachitoError, match=expected):
@@ -69,7 +72,7 @@ def test_cleanup_npm_request(mock_exec_script):
     "package_subpath, subpath_as_path_component, reverse_path_component",
     [(None, "", ""), (".", "", ""), ("some/path", "some/path/", "../../")],
 )
-@mock.patch("cachito.workers.tasks.npm.RequestBundleDir")
+@mock.patch("cachito.workers.paths.get_worker_config")
 @mock.patch("cachito.workers.tasks.npm._verify_npm_files")
 @mock.patch("cachito.workers.tasks.npm.set_request_state")
 @mock.patch("cachito.workers.tasks.npm.get_request")
@@ -93,7 +96,7 @@ def test_fetch_npm_source(
     mock_get_request,
     mock_srs,
     mock_vnf,
-    mock_rbd,
+    get_worker_config,
     ca_file,
     lock_file,
     package_json,
@@ -101,7 +104,9 @@ def test_fetch_npm_source(
     subpath_as_path_component,
     reverse_path_component,
     task_passes_state_check,
+    tmpdir,
 ):
+    get_worker_config.return_value = mock.Mock(cachito_bundles_dir=tmpdir)
     request_id = 6
     request = {"id": request_id}
     mock_get_request.return_value = request
@@ -131,11 +136,12 @@ def test_fetch_npm_source(
 
     npm.fetch_npm_source(request_id, package_configs=package_configs)
 
-    mock_vnf.assert_called_once_with(mock_rbd.return_value, [package_subpath or "."])
+    bundle_dir = RequestBundleDir(request_id)
+    mock_vnf.assert_called_once_with(bundle_dir, [package_subpath or "."])
     assert mock_srs.call_count == 3
     assert mock_get_request.called_once_with(request_id)
     mock_pnfjr.assert_called_once_with("cachito-npm-6")
-    lock_file_path = str(mock_rbd().app_subpath(package_subpath or ".").source_dir)
+    lock_file_path = str(bundle_dir.app_subpath(package_subpath or ".").source_dir)
     mock_rn.assert_called_once_with(lock_file_path, request, skip_deps=set())
     if ca_file:
         mock_gnc.assert_called_once_with(
@@ -195,6 +201,12 @@ def test_fetch_npm_source(
         package_subpath=package_subpath or ".",
     )
     mock_urwd.assert_called_once_with(request_id, package, deps)
+
+    pkg_info = package.copy()
+    pkg_info["dependencies"] = deps
+    if package_subpath and package_subpath != os.curdir:
+        pkg_info["path"] = package_subpath
+    assert {"packages": [pkg_info]} == json.loads(bundle_dir.npm_packages_data.read_bytes())
 
 
 @mock.patch("cachito.workers.tasks.npm.RequestBundleDir")

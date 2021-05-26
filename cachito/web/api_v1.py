@@ -315,7 +315,7 @@ def create_request():
             tasks.fetch_yarn_source.si(request.id, yarn_package_configs).on_error(error_callback)
         )
 
-    chain_tasks.append(tasks.create_bundle_archive.si(request.id).on_error(error_callback))
+    chain_tasks.append(tasks.finalize_request.si(request.id).on_error(error_callback))
 
     try:
         chain(chain_tasks).delay()
@@ -472,7 +472,9 @@ def patch_request(request_id):
 
     db.session.commit()
 
-    bundle_dir = RequestBundleDir(request.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"])
+    bundle_dir: RequestBundleDir = RequestBundleDir(
+        request.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"]
+    )
 
     if delete_bundle and bundle_dir.bundle_archive_file.exists():
         flask.current_app.logger.info(
@@ -480,6 +482,7 @@ def patch_request(request_id):
         )
         try:
             bundle_dir.bundle_archive_file.unlink()
+            bundle_dir.packages_data.unlink()
         except:  # noqa E722
             flask.current_app.logger.exception(
                 "Failed to delete the bundle archive %s", bundle_dir.bundle_archive_file

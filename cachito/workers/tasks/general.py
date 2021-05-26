@@ -4,6 +4,7 @@ import os
 import shutil
 import tarfile
 from pathlib import Path
+from typing import List
 
 import requests
 
@@ -12,14 +13,16 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.utils import runs_if_request_in_progress, get_request
+from cachito.workers.tasks.utils import PackagesData, runs_if_request_in_progress, get_request
 
 __all__ = [
+    "aggregate_packages_data",
     "create_bundle_archive",
     "failed_request_callback",
     "fetch_app_source",
-    "set_request_state",
+    "finalize_request",
     "get_request",
+    "set_request_state",
 ]
 log = logging.getLogger(__name__)
 
@@ -140,17 +143,14 @@ def failed_request_callback(context, exc, traceback, request_id):
     set_request_state(request_id, "failed", msg)
 
 
-@app.task(priority=10)
-@runs_if_request_in_progress
-def create_bundle_archive(request_id):
+def create_bundle_archive(request_id: int, flags: List[str]) -> None:
     """
     Create the bundle archive to be downloaded by the user.
 
     :param int request_id: the request the bundle is for
+    :param list[str] flags: the list of request flags.
     """
     set_request_state(request_id, "in_progress", "Assembling the bundle archive")
-    request = get_request(request_id)
-
     bundle_dir = RequestBundleDir(request_id)
 
     log.debug("Using %s for creating the bundle for request %d", bundle_dir, request_id)
@@ -161,7 +161,7 @@ def create_bundle_archive(request_id):
         return tar_info if os.path.basename(tar_info.name) != ".git" else None
 
     tar_filter = filter_git_dir
-    if "include-git-dir" in request.get("flags", []):
+    if "include-git-dir" in flags:
         tar_filter = None
 
     with tarfile.open(bundle_dir.bundle_archive_file, mode="w:gz") as bundle_archive:
@@ -173,4 +173,30 @@ def create_bundle_archive(request_id):
         # Add the dependencies to the bundle
         bundle_archive.add(str(bundle_dir.deps_dir), "deps")
 
+
+def aggregate_packages_data(request_id: int, pkg_managers: List[str]) -> None:
+    """Aggregate packages data generated for each package manager into one unified data file.
+
+    :param int request_id: the request id.
+    """
+    set_request_state(request_id, "in_progress", "Aggregating packages data")
+    bundle_dir = RequestBundleDir(request_id)
+
+    aggregated_data = PackagesData()
+    for pkg_manager in pkg_managers:
+        # Ensure git-submodule -> git_submodule
+        data_file = getattr(bundle_dir, f"{pkg_manager.replace('-', '_')}_packages_data")
+        aggregated_data.load(data_file)
+
+    log.debug("Write request %s packages data into %s", request_id, bundle_dir.packages_data)
+    aggregated_data.write_to_file(str(bundle_dir.packages_data))
+
+
+@app.task(priority=10)
+@runs_if_request_in_progress
+def finalize_request(request_id):
+    """Execute tasks to finalize the request creation."""
+    request = get_request(request_id)
+    create_bundle_archive(request_id, request.get("flags", []))
+    aggregate_packages_data(request_id, request["pkg_managers"])
     set_request_state(request_id, "complete", "Completed successfully")

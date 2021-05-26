@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import base64
+import json
+import os
 from unittest import mock
 
 import pytest
@@ -122,6 +124,14 @@ def test_fetch_pip_source(
         mock_update_cfg.assert_called_once_with(
             request["id"], cfg_contents,
         )
+
+    expected = pkg_data["package"].copy()
+    expected["dependencies"] = pkg_data["dependencies"]
+    if package_subpath and package_subpath != os.curdir:
+        expected["path"] = package_subpath
+    assert {"packages": [expected]} == json.loads(
+        RequestBundleDir(1).pip_packages_data.read_bytes()
+    )
 
 
 @pytest.mark.parametrize(
