@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
+import os.path
+import json
 from pathlib import Path
 from unittest import mock
 
@@ -213,3 +216,169 @@ def test_runs_if_request_in_progress(mock_get_state, id, state):
     else:
         assert dummy_task(id) is None
     mock_get_state.assert_called_once_with(id)
+
+
+class TestPackagesData:
+    """Test class PackagesData."""
+
+    @pytest.mark.parametrize(
+        "params,expected",
+        [
+            [
+                [[{"name": "pkg1", "type": "gomod", "version": "1.0.0"}, "path1", []]],
+                [
+                    {
+                        "name": "pkg1",
+                        "type": "gomod",
+                        "version": "1.0.0",
+                        "path": "path1",
+                        "dependencies": [],
+                    },
+                ],
+            ],
+            [
+                [
+                    [{"name": "pkg1", "type": "gomod", "version": "1.0.0"}, "path1", []],
+                    [{"name": "pkg2", "type": "yarn", "version": "2.3.1"}, os.curdir, []],
+                    [
+                        {"name": "pkg3", "type": "npm", "version": "1.2.3"},
+                        os.curdir,
+                        [{"name": "async@15.0.0"}],
+                    ],
+                ],
+                [
+                    {
+                        "name": "pkg1",
+                        "type": "gomod",
+                        "version": "1.0.0",
+                        "path": "path1",
+                        "dependencies": [],
+                    },
+                    {"name": "pkg2", "type": "yarn", "version": "2.3.1", "dependencies": []},
+                    {
+                        "name": "pkg3",
+                        "type": "npm",
+                        "version": "1.2.3",
+                        "dependencies": [{"name": "async@15.0.0"}],
+                    },
+                ],
+            ],
+            [
+                [
+                    [{"name": "pkg1", "type": "gomod", "version": "1.0.0"}, "path1", []],
+                    [
+                        {"name": "pkg1", "type": "gomod", "version": "1.0.0"},
+                        "somewhere/",
+                        [{"name": "golang.org/x/text/internal/tag"}],
+                    ],
+                ],
+                pytest.raises(CachitoError, match="Duplicate package"),
+            ],
+        ],
+    )
+    def test_add_package(self, params, expected):
+        """Test method add_package."""
+        pd = utils.PackagesData()
+        if isinstance(expected, list):
+            for pkg_info, path, deps in params:
+                pd.add_package(pkg_info, path, deps)
+            assert expected == pd._packages
+        else:
+            with expected:
+                for pkg_info, path, deps in params:
+                    pd.add_package(pkg_info, path, deps)
+
+    @pytest.mark.parametrize(
+        "params,expected",
+        [
+            [[], {"packages": []}],
+            [
+                [
+                    [{"name": "pkg1", "type": "gomod", "version": "1.0.0"}, "path1", []],
+                    [
+                        {"name": "pkg3", "type": "npm", "version": "1.2.3"},
+                        os.curdir,
+                        [{"name": "async@15.0.0"}],
+                    ],
+                ],
+                {
+                    "packages": [
+                        {
+                            "name": "pkg1",
+                            "type": "gomod",
+                            "version": "1.0.0",
+                            "path": "path1",
+                            "dependencies": [],
+                        },
+                        {
+                            "name": "pkg3",
+                            "type": "npm",
+                            "version": "1.2.3",
+                            "dependencies": [{"name": "async@15.0.0"}],
+                        },
+                    ],
+                },
+            ],
+        ],
+    )
+    def test_write_to_file(self, params, expected, tmpdir):
+        """Test method write_to_file."""
+        pd = utils.PackagesData()
+        for pkg_info, path, deps in params:
+            pd.add_package(pkg_info, path, deps)
+        filename = os.path.join(tmpdir, "data.json")
+        pd.write_to_file(filename)
+        with open(filename, "r") as f:
+            assert expected == json.load(f)
+
+    @pytest.mark.parametrize(
+        "packages_data,expected",
+        [
+            [None, []],
+            [{}, []],
+            [{"data": []}, []],
+            [
+                {
+                    "packages": [
+                        {
+                            "name": "pkg1",
+                            "type": "gomod",
+                            "version": "1.0.0",
+                            "path": "path1",
+                            "dependencies": [],
+                        },
+                        {
+                            "name": "pkg3",
+                            "type": "npm",
+                            "version": "1.2.3",
+                            "dependencies": [{"name": "async@15.0.0"}],
+                        },
+                    ],
+                },
+                [
+                    {
+                        "name": "pkg1",
+                        "type": "gomod",
+                        "version": "1.0.0",
+                        "path": "path1",
+                        "dependencies": [],
+                    },
+                    {
+                        "name": "pkg3",
+                        "type": "npm",
+                        "version": "1.2.3",
+                        "dependencies": [{"name": "async@15.0.0"}],
+                    },
+                ],
+            ],
+        ],
+    )
+    def test_load_from_file(self, packages_data, expected, tmpdir):
+        """Test method load."""
+        filename = os.path.join(tmpdir, "data.json")
+        if packages_data is not None:
+            with open(filename, "w") as f:
+                f.write(json.dumps(packages_data))
+        pd = utils.PackagesData()
+        pd.load(filename)
+        assert expected == pd._packages

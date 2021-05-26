@@ -1,4 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+from cachito.workers.tasks.utils import PackagesData
+import copy
+import json
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -86,6 +90,7 @@ def test_fetch_gomod_source(
     sample_pkg_lvl_pkg,
     sample_env_vars,
     task_passes_state_check,
+    tmpdir,
 ):
     def directory_present(*args, **kwargs):
         mock_subpath = mock.Mock()
@@ -96,6 +101,7 @@ def test_fetch_gomod_source(
         return mock_subpath
 
     mock_bundle_dir.return_value.app_subpath.side_effect = directory_present
+    mock_bundle_dir.return_value.gomod_packages_data = Path(tmpdir, "gomod_packages_data.json")
 
     # Add the default environment variables from the configuration
     env_vars = {
@@ -103,20 +109,37 @@ def test_fetch_gomod_source(
         "GOSUMDB": {"value": "off", "kind": "literal"},
     }
     sample_env_vars.update(env_vars)
+
     mock_request = mock.Mock()
     mock_get_request.return_value = mock_request
+
     pkg_lvl_deps = []
     if has_pkg_lvl_deps:
         pkg_lvl_deps = sample_pkg_deps
-    mock_resolve_gomod.return_value = {
-        "module": sample_package,
-        "module_deps": sample_deps_replace,
-        "packages": [{"pkg": sample_pkg_lvl_pkg, "pkg_deps": pkg_lvl_deps}],
-    }
 
-    paths = ["."]
-    if pkg_config is not None:
-        paths = [paths["path"] for paths in pkg_config]
+    resolved_gomod_infos = [
+        {
+            "module": sample_package,
+            "module_deps": sample_deps_replace,
+            "packages": [{"pkg": sample_pkg_lvl_pkg, "pkg_deps": pkg_lvl_deps}],
+        },
+    ]
+
+    if pkg_config:
+        paths = [item["path"] for item in pkg_config]
+        # make the gomod package for the second path
+        second = copy.deepcopy(resolved_gomod_infos[0])
+        # Change the version so that this second package can be collected into
+        # packages JSON data.
+        # Whatever the version is, as long as the version are different than
+        # the one within the first resolved gomod info.
+        second["module"]["version"] += "2"
+        second["packages"][0]["pkg"]["version"] += "2"
+        resolved_gomod_infos.append(second)
+    else:
+        paths = ["."]
+
+    mock_resolve_gomod.side_effect = resolved_gomod_infos
 
     if dep_replacements is not None and len(paths) > 1:
         # This is unsupported and no other tests are necessary
@@ -133,7 +156,8 @@ def test_fetch_gomod_source(
         state_calls = []
         pkg_calls = []
         dep_calls = []
-        for i, path in enumerate(paths):
+
+        for i, (path, gomod_info) in enumerate(zip(paths, resolved_gomod_infos)):
             state_calls.append(
                 mock.call(
                     1,
@@ -143,13 +167,16 @@ def test_fetch_gomod_source(
             )
             if i != 0:
                 sample_env_vars = None
-            pkg_calls.append(mock.call(1, sample_package, sample_env_vars, package_subpath=path))
-            dep_calls.append(mock.call(1, sample_package, sample_deps_replace))
 
-            # The package path is identical to the module path, because their names are identical
-            pkg_calls.append(mock.call(1, sample_pkg_lvl_pkg, package_subpath=path))
-            if has_pkg_lvl_deps:
-                dep_calls.append(mock.call(1, sample_pkg_lvl_pkg, sample_pkg_deps))
+            pkg_calls.append(
+                mock.call(1, gomod_info["module"], sample_env_vars, package_subpath=path)
+            )
+            dep_calls.append(mock.call(1, gomod_info["module"], gomod_info["module_deps"]))
+            # The calls for the package level package and dependencies
+            for package in gomod_info["packages"]:
+                pkg_calls.append(mock.call(1, package["pkg"], package_subpath=path))
+                if has_pkg_lvl_deps:
+                    dep_calls.append(mock.call(1, package["pkg"], package["pkg_deps"]))
 
         mock_set_request_state.assert_has_calls(state_calls)
         mock_get_request.assert_has_calls(mock.call(1) for _ in state_calls)
@@ -168,6 +195,18 @@ def test_fetch_gomod_source(
         for path in paths
     ]
     mock_resolve_gomod.assert_has_calls(gomod_calls)
+
+    packages_data = PackagesData()
+    for path, gomod_info in zip(paths, resolved_gomod_infos):
+        module_info = gomod_info["module"]
+        packages_data.add_package(module_info, path, gomod_info["module_deps"])
+        for package in gomod_info["packages"]:
+            pkg_info = package["pkg"]
+            packages_data.add_package(pkg_info, path, package.get("pkg_deps", []))
+
+    assert {"packages": packages_data._packages} == json.loads(
+        mock_bundle_dir.return_value.gomod_packages_data.read_bytes()
+    )
 
 
 @pytest.mark.parametrize(

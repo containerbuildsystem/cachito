@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import json
 from textwrap import dedent
 from unittest import mock
 
@@ -184,7 +185,7 @@ def test_fetch_yarn(
         "deps": [dep2],
         "downloaded_deps": {"bar@2.0.0"},
         "lock_file": {"dep2@^2.0.0": {"version": "2.0.0-external"}},
-        "package": {"name": "pkg2", "version": "2.2.2"},
+        "package": {"name": "pkg2", "version": "2.2.2", "type": "yarn"},
         "package.json": {
             "name": "pkg2",
             "version": "2.2.2",
@@ -282,6 +283,20 @@ def test_fetch_yarn(
     mock_update_config_files.assert_called_once_with(
         1, [packjson_cfg, yarnlock_cfg, npmrc_1_cfg, npmrc_2_cfg, yarnrc_1_cfg, yarnrc_2_cfg]
     )
+
+    expected = {
+        "packages": [
+            {"name": "pkg1", "version": "1.1.1", "type": "yarn", "dependencies": rv1["deps"]},
+            {
+                "name": "pkg2",
+                "version": "2.2.2",
+                "type": "yarn",
+                "path": "sub",
+                "dependencies": rv2["deps"],
+            },
+        ],
+    }
+    assert expected == json.loads(bundle_dir.yarn_packages_data.read_bytes())
     # /VALIDATION
 
 
@@ -328,14 +343,16 @@ def test_fetch_yarn_no_configs(
     bundle_dir, root, sub = mock_bundle_dir(tmp_path)
     mock_request_bundle_dir.return_value = bundle_dir
 
-    def mock_getitem(key):
-        if key in ("package.json", "lock_file"):
-            return None
-        if key == "downloaded_deps":
-            return set()
-        return mock.Mock()
-
-    mock_resolve_yarn.return_value.__getitem__.side_effect = mock_getitem
+    mock_resolve_yarn.return_value = {
+        "package.json": None,
+        "lock_file": None,
+        "downloaded_deps": set(),
+        # Following ensures the packages JSON data collection works
+        "package": {"name": "pkg1", "type": "yarn", "version": "1.0.0"},
+        "deps": [],
+        # Adding this to ensure this is a complete fake resolved yarn package info.
+        "lock_file_name": "",
+    }
 
     yarn.fetch_yarn_source(1)
 
