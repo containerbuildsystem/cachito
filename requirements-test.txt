@@ -197,9 +197,9 @@ flask-login==0.5.0 \
     --hash=sha256:6d33aef15b5bcead780acc339464aae8a6e28f13c90d8b1cf9de8b549d1c0b4b \
     --hash=sha256:7451b5001e17837ba58945aead261ba425fdf7b4f0448777e597ddab39f4fba0
     # via -r requirements-web.txt
-flask-migrate==2.7.0 \
-    --hash=sha256:26871836a4e46d2d590cf8e558c6d60039e1c003079b240689d845726b6b57c0 \
-    --hash=sha256:ae2f05671588762dd83a21d8b18c51fe355e86783e24594995ff8d7380dffe38
+flask-migrate==3.0.1 \
+    --hash=sha256:4d42e8f861d78cb6e9319afcba5bf76062e5efd7784184dd2a1cccd9de34a702 \
+    --hash=sha256:df9043d2050df3c0e0f6313f6b529b62c837b6033c20335e9d0b4acdf2c40e23
     # via -r requirements-web.txt
 flask-sqlalchemy==2.5.1 \
     --hash=sha256:2bda44b43e7cacb15d4e05ff3cc1f8bc97936cc464623424102bfc2c35e95912 \
