@@ -1236,10 +1236,8 @@ class Flag(db.Model):
     """A flag to enable a feature on the Cachito request."""
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
+    name = db.Column(db.String, unique=True, nullable=False)
     active = db.Column(db.Boolean, nullable=False, default=True)
-
-    __table_args__ = (db.UniqueConstraint("id", "name"),)
 
     @classmethod
     def from_json(cls, name):
