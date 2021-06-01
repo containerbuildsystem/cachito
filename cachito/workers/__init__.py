@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import json
 import logging
+import re
 import subprocess
+from typing import Iterator
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
@@ -37,3 +40,19 @@ def run_cmd(cmd, params, exc_msg=None):
         raise CachitoError(exc_msg or "An unexpected error occurred")
 
     return response.stdout
+
+
+def load_json_stream(s: str) -> Iterator:
+    """
+    Load all JSON objects from input string.
+
+    The objects can be separated by one or more whitespace characters. The return value is
+    a generator that will yield the parsed objects one by one.
+    """
+    decoder = json.JSONDecoder()
+    non_whitespace = re.compile(r"\S")
+    i = 0
+
+    while match := non_whitespace.search(s, i):
+        obj, i = decoder.raw_decode(s, match.start())
+        yield obj
