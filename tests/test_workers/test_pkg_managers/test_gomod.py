@@ -19,7 +19,6 @@ from cachito.workers.pkg_managers.gomod import (
     match_parent_module,
     _merge_bundle_dirs,
     _merge_files,
-    _parse_name_and_version,
     _vet_local_deps,
     _fail_unless_allowlisted,
     _set_full_local_dep_relpaths,
@@ -48,23 +47,97 @@ mock_pkg_list = dedent(
     """
 )
 mock_pkg_deps = dedent(
-    """\
-    github.com/op/go-logging github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-    github.com/Masterminds/semver github.com/Masterminds/semver v1.4.2
-    github.com/pkg/errors github.com/pkg/errors v0.8.1
-    gopkg.in/yaml.v2 gopkg.in/yaml.v2 v2.2.2
-    github.com/release-engineering/retrodep/v2/retrodep/glide \
-github.com/release-engineering/retrodep/v2
-    golang.org/x/tools/go/vcs golang.org/x/tools v0.0.0-20190325161752-5a8dccf5b48a
-    github.com/release-engineering/retrodep/v2/retrodep github.com/release-engineering/retrodep/v2
-    github.com/release-engineering/retrodep/v2 github.com/release-engineering/retrodep/v2
-    github.com/markbates/inflect github.com/markbates/inflect v1.0.0 => \
-github.com/markbates/inflect v1.0.1
+    # Output of go list -deps -json ./...
+    """
+    {
+        "ImportPath": "github.com/op/go-logging",
+        "Module": {
+            "Path": "github.com/op/go-logging",
+            "Version": "v0.0.0-20160315200505-970db520ece7"
+        }
+    }
+    {
+        "ImportPath": "github.com/Masterminds/semver",
+        "Module": {
+            "Path": "github.com/Masterminds/semver",
+            "Version": "v1.4.2"
+        }
+    }
+    {
+        "ImportPath": "github.com/pkg/errors",
+        "Module": {
+            "Path": "github.com/pkg/errors",
+            "Version": "v0.8.1"
+        }
+    }
+    {
+        "ImportPath": "gopkg.in/yaml.v2",
+        "Module": {
+            "Path": "gopkg.in/yaml.v2",
+            "Version": "v2.2.2"
+        }
+    }
+    {
+        "ImportPath": "github.com/release-engineering/retrodep/v2/retrodep/glide",
+        "Module": {
+            "Path": "github.com/release-engineering/retrodep/v2",
+            "Main": true
+        }
+    }
+    {
+        "ImportPath": "golang.org/x/tools/go/vcs",
+        "Module": {
+            "Path": "golang.org/x/tools",
+            "Version": "v0.0.0-20190325161752-5a8dccf5b48a"
+        }
+    }
+    {
+        "ImportPath": "github.com/release-engineering/retrodep/v2/retrodep",
+        "Module": {
+            "Path": "github.com/release-engineering/retrodep/v2",
+            "Main": true
+        }
+    }
+    {
+        "ImportPath": "github.com/release-engineering/retrodep/v2",
+        "Module": {
+            "Path": "github.com/release-engineering/retrodep/v2",
+            "Main": true
+        },
+        "Deps": [
+            "github.com/op/go-logging",
+            "github.com/Masterminds/semver",
+            "github.com/pkg/errors",
+            "gopkg.in/yaml.v2",
+            "github.com/release-engineering/retrodep/v2/retrodep/glide",
+            "golang.org/x/tools/go/vcs",
+            "github.com/release-engineering/retrodep/v2/retrodep"
+        ]
+    }
+    {
+        "ImportPath": "github.com/markbates/inflect",
+        "Module": {
+            "Path": "github.com/markbates/inflect",
+            "Version": "v1.0.0",
+            "Replace": {
+                "Path": "github.com/markbates/inflect",
+                "Version": "v1.0.1"
+            }
+        }
+    }
     """
 )
 
-pkg_lvl_stdout = (
-    "github.com/release-engineering/retrodep/v2 github.com/release-engineering/retrodep/v2"
+mock_pkg_deps_no_deps = dedent(
+    """
+    {
+        "ImportPath": "github.com/release-engineering/retrodep/v2",
+        "Module": {
+            "Path": "github.com/release-engineering/retrodep/v2",
+            "Main": true
+        }
+    }
+    """
 )
 
 
@@ -160,7 +233,7 @@ def test_resolve_gomod(
     )
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_cmd_output))  # go list -m all
     run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_list))  # go list -find ./...
-    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_deps))  # go list -deps
+    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_deps))  # go list -deps -json
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v2.1.1"
@@ -244,8 +317,8 @@ def test_resolve_gomod_vendor_dependencies(
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
         # go list -find ./...
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
-        # go list -deps
-        mock.Mock(returncode=0, stdout=pkg_lvl_stdout),
+        # go list -deps -json
+        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps),
     ]
     mock_module_lines.return_value = []
     mock_golang_version.return_value = "v2.1.1"
@@ -333,8 +406,8 @@ def test_resolve_gomod_no_deps(
         mock.Mock(returncode=0, stdout=""),
         # go list -find ./...
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
-        # go list -deps
-        mock.Mock(returncode=0, stdout=pkg_lvl_stdout),
+        # go list -deps -json
+        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps),
     ]
     mock_golang_version.return_value = "v2.1.1"
 
@@ -573,67 +646,6 @@ def test_merge_files(file_1_content, file_2_content, result_file_content):
         with open("{}/list".format(dir_3), "r") as f:
             print(f.read())
         assert_directories_equal(dir_2, dir_3)
-
-
-@pytest.mark.parametrize(
-    "list_deps_line, expect_name, expect_version",
-    [
-        # len = 2
-        (
-            (
-                "github.com/release-engineering/retrodep/v2/retrodep/glide "
-                "github.com/release-engineering/retrodep/v2"
-            ),
-            "github.com/release-engineering/retrodep/v2/retrodep/glide",
-            None,
-        ),
-        # len = 3
-        ("gopkg.in/yaml.v2 gopkg.in/yaml.v2 v2.2.2", "gopkg.in/yaml.v2", "v2.2.2"),
-        # len = 4
-        (
-            "k8s.io/kubectl/pkg/apps k8s.io/kubectl => ./staging/src/k8s.io/kubectl",
-            "k8s.io/kubectl/pkg/apps",
-            "./staging/src/k8s.io/kubectl",
-        ),
-        # len = 5
-        (
-            (
-                "github.com/coreos/go-semver/semver github.com/coreos/go-semver => "
-                "github.com/coreos/go-semver v0.3.0"
-            ),
-            "github.com/coreos/go-semver/semver",
-            "v0.3.0",
-        ),
-        # len = 5, local
-        (
-            (
-                "k8s.io/cloud-provider k8s.io/cloud-provider v0.0.0 => "
-                "./staging/src/k8s.io/cloud-provider"
-            ),
-            "k8s.io/cloud-provider",
-            "./staging/src/k8s.io/cloud-provider",
-        ),
-        # len = 6
-        (
-            (
-                "github.com/markbates/inflect github.com/markbates/inflect v1.0.0 => "
-                "github.com/markbates/inflect v1.0.1"
-            ),
-            "github.com/markbates/inflect",
-            "v1.0.1",
-        ),
-    ],
-)
-def test_parse_name_and_version(list_deps_line, expect_name, expect_version):
-    name, version = _parse_name_and_version(list_deps_line)
-    assert name == expect_name
-    assert version == expect_version
-
-
-def test_parse_name_and_version_unrecognized_line():
-    err_msg = "Unrecognized line in go list -deps output: '1 2 3 4 5 6 7'"
-    with pytest.raises(RuntimeError, match=err_msg):
-        _parse_name_and_version("1 2 3 4 5 6 7")
 
 
 @mock.patch("cachito.workers.pkg_managers.gomod._fail_unless_allowlisted")
@@ -1134,3 +1146,89 @@ def test_module_lines_from_modules_txt_invalid_format(file_content, expect_error
 
     with pytest.raises(CachitoError, match=expect_error_msg):
         gomod._module_lines_from_modules_txt(str(tmp_path))
+
+
+def test_load_list_deps():
+    list_deps_output = dedent(
+        """
+        {
+            "ImportPath": "unsafe",
+            "Name": "unsafe",
+            "Standard": true
+        }
+        {
+            "ImportPath": "github.com/some-org/some-module",
+            "Name": "some-module",
+            "Module": {
+                "Path": "github.com/some-org/some-module",
+                "Version": "v1.0.0"
+            }
+        }
+        {
+            "ImportPath": "github.com/some-org/other-module",
+            "Name": "other-module",
+            "Module": {
+                "Path": "github.com/some-org/other-module",
+                "Version": "v1.0.0"
+            },
+            "Deps": [
+                "unsafe",
+                "github.com/some-org/some-module",
+                "github.com/some-org/other-module/generated/foo"
+            ]
+        }
+        {
+            "ImportPath": "github.com/some-org/other-module/generated/foo",
+            "Incomplete": true,
+            "Error": {
+                "Err": "cannot find module providing package"
+            }
+        }
+        """
+    )
+    assert gomod._load_list_deps(list_deps_output) == {
+        "github.com/some-org/some-module": {
+            "Module": {"Path": "github.com/some-org/some-module", "Version": "v1.0.0"},
+        },
+        "github.com/some-org/other-module": {
+            "Module": {"Path": "github.com/some-org/other-module", "Version": "v1.0.0"},
+            "Deps": [
+                "unsafe",
+                "github.com/some-org/some-module",
+                "github.com/some-org/other-module/generated/foo",
+            ],
+        },
+        "github.com/some-org/other-module/generated/foo": {},
+    }
+
+
+@pytest.mark.parametrize(
+    "dep_info, expect_version",
+    [
+        ({}, None),
+        ({"Module": {"Path": "github.com/foo/bar", "Version": "v1.0.0"}}, "v1.0.0"),
+        ({"Module": {"Path": "github.com/foo/bar", "Main": True}}, None),
+        (
+            {
+                "Module": {
+                    "Path": "github.com/foo/bar",
+                    "Version": "v1.0.0",
+                    "Replace": {"Path": "github.com/xyz/bar", "Version": "v2.0.0"},
+                }
+            },
+            "v2.0.0",
+        ),
+        (
+            {
+                "Module": {
+                    "Path": "github.com/foo/bar",
+                    "Version": "v1.0.0",
+                    "Replace": {"Path": "./local/src/bar"},
+                }
+            },
+            "./local/src/bar",
+        ),
+    ],
+)
+def test_get_dep_version(dep_info, expect_version):
+    assert gomod._get_dep_version(dep_info) == expect_version

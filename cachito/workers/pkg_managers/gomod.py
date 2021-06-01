@@ -9,7 +9,7 @@ import re
 import shutil
 import tempfile
 from pathlib import PureWindowsPath, Path
-from typing import Tuple, List, Iterable, Optional
+from typing import Tuple, List, Iterable, Optional, Dict
 
 import git
 import semver
@@ -17,7 +17,7 @@ import semver
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers import run_cmd
+from cachito.workers import run_cmd, load_json_stream
 
 __all__ = [
     "get_golang_version",
@@ -247,48 +247,39 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             )
             _merge_bundle_dirs(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
+        log.info("Retrieving the list of packages")
+        package_list = run_gomod_cmd(["go", "list", "-find", "./..."], run_params).splitlines()
+
         log.info("Retrieving the list of package level dependencies")
-        list_pkgs_cmd = ("go", "list", "-find", "./...")
-        go_list_pkgs_output = run_gomod_cmd(list_pkgs_cmd, run_params)
+        package_info = _load_list_deps(
+            run_gomod_cmd(["go", "list", "-deps", "-json", "./..."], run_params)
+        )
+
         packages = []
         processed_pkg_deps = set()
-        for package in go_list_pkgs_output.splitlines():
-            if package in processed_pkg_deps:
+        for pkg_name in package_list:
+            if pkg_name in processed_pkg_deps:
                 # Go searches for packages in directories through a top-down approach. If a toplevel
                 # package is already listed as a dependency, we do not list it here, since its
                 # dependencies would also be listed in the parent package
                 log.debug(
-                    "Package %s is already listed as a package dependency. Skipping...", package
+                    "Package %s is already listed as a package dependency. Skipping...", pkg_name
                 )
                 continue
 
-            list_deps_cmd = (
-                "go",
-                "list",
-                "-deps",
-                "-f",
-                "{{if not .Standard}}{{.ImportPath}} {{.Module}}{{end}}",
-                package,
-            )
-            go_list_deps_output = run_gomod_cmd(list_deps_cmd, run_params)
-
             pkg_level_deps = []
-            for line in go_list_deps_output.splitlines():
-                name, version = _parse_name_and_version(line)
-                # If the line did not contain a version, we'll use the module version
-                version = version or module_version
+            for dep_name in package_info[pkg_name].get("Deps", []):
+                dep_info = package_info.get(dep_name)
+                if dep_info is None:  # dependency is from the standard library
+                    continue
 
-                pkg = {
-                    "name": name,
-                    "type": "go-package",
-                    "version": version,
-                }
+                processed_pkg_deps.add(dep_name)
+                # If the dependency does not have a version, we'll use the module version
+                version = _get_dep_version(dep_info) or module_version
+                pkg_level_deps.append({"name": dep_name, "type": "go-package", "version": version})
 
-                processed_pkg_deps.add(name)
-                pkg_level_deps.append(pkg)
-
-            # The last item on `go list -deps` is the main package being evaluated
-            pkg = pkg_level_deps.pop()
+            # Top-level packages always use the module version
+            pkg = {"name": pkg_name, "type": "go-package", "version": module_version}
             packages.append({"pkg": pkg, "pkg_deps": pkg_level_deps})
 
         allowlist = _get_allowed_local_deps(module_name)
@@ -437,37 +428,38 @@ def _get_allowed_local_deps(module_name: str) -> List[str]:
     return allowed_deps or []
 
 
-def _parse_name_and_version(list_deps_line: str) -> Tuple[str, str]:
-    """Parse package name and version (if present) from one line of go list -deps output."""
-    # line example: pkg.io/foo/bar pkg.io/foo/var v1.0.0 => pkg.io/foo/bar v1.0.1
-    parts = list_deps_line.split(" ")
+def _load_list_deps(list_deps_output: str) -> Dict[str, dict]:
+    """Load go list -deps -json output, return relevant data as a dict of {name: data}."""
+    package_info = {}
 
-    # As far as we know, the possible forms of the dependency line are as follows (see
-    #   `go help list` and https://golang.org/ref/mod#go-mod-file-replace):
-    # | len | semantics                                              |
-    # |-----|--------------------------------------------------------|
-    # |   2 | <package> <module>                                     |
-    # |   3 | <package> <module> <version>                           |
-    # |   4 | <package> <module> => <file path>                      |
-    # |   5 | <package> <module> => <module> <version>               |
-    # |   5 | <package> <module> <version> => <file path>            |
-    # |   6 | <package> <module> <version> => <module> <new version> |
+    for pkg in load_json_stream(list_deps_output):
+        if pkg.get("Standard"):  # standard library, we ignore those
+            continue
 
-    # In all the cases above, parts[0] is the package name and parts[1] is the module
-    # that owns the package
-    name = parts[0]
+        info = {}
+        for k in ("Module", "Deps"):
+            v = pkg.get(k)
+            if v is not None:
+                info[k] = v
 
-    if len(parts) <= 2:
-        # No version in dependency line
-        # len = 1 should be impossible, but conservatively, let's allow both 1 and 2 here
-        version = None
-    elif len(parts) <= 6:
-        # for all the cases with len in {3..6}, the version that we want is the last part
-        version = parts[-1]
-    else:
-        raise RuntimeError(f"Unrecognized line in go list -deps output: {list_deps_line!r}")
+        package_info[pkg["ImportPath"]] = info
 
-    return name, version
+    return package_info
+
+
+def _get_dep_version(dep_info: dict) -> Optional[str]:
+    """Get dependency version (if present) from the corresponding object in go list -deps -json."""
+    module = dep_info.get("Module")
+    if not module:
+        return None
+
+    replace = module.get("Replace")
+    if replace:
+        # Replacements must specify a version or a relative path
+        #   (in which case we report the relative path)
+        return replace.get("Version") or replace.get("Path")
+
+    return module.get("Version")
 
 
 def _vet_local_deps(dependencies: List[dict], module_name: str, allowed_patterns: List[str]):
