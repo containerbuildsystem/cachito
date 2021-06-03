@@ -23,7 +23,7 @@ def upgrade():
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("active", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("id", "name"),
+        sa.UniqueConstraint("id", "name", name="flag_id_name_key"),
     )
 
     op.create_table(
