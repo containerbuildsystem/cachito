@@ -1421,6 +1421,39 @@ def test_set_state_not_logged_in(client, db):
     )
 
 
+def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
+    data = {
+        "repo": "https://github.com/release-engineering/retrodep.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+    }
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=worker_auth_env):
+        request = Request.from_json(data)
+    db.session.add(request)
+    db.session.commit()
+
+    assert request.packages_count is None
+    assert request.dependencies_count is None
+
+    rv = client.patch(
+        "/api/v1/requests/1",
+        json={"packages_count": 0, "dependencies_count": 0},
+        environ_base=worker_auth_env,
+    )
+    assert rv.status_code == 200
+    assert request.packages_count == 0
+    assert request.dependencies_count == 0
+
+    rv = client.patch(
+        "/api/v1/requests/1",
+        json={"packages_count": 10, "dependencies_count": 100},
+        environ_base=worker_auth_env,
+    )
+    assert rv.status_code == 200
+    assert request.packages_count == 10
+    assert request.dependencies_count == 100
+
+
 @pytest.mark.parametrize(
     "request_id, payload, status_code, message",
     (
@@ -1620,6 +1653,13 @@ def test_set_state_not_logged_in(client, db):
             {"package_subpath": "some/path"},
             400,
             'The "package" object must also be provided if "package_subpath" is provided',
+        ),
+        (1, {"packages_count": 1.5}, 400, 'The value for "packages_count" must be an integer'),
+        (
+            1,
+            {"dependencies_count": 2.5},
+            400,
+            'The value for "dependencies_count" must be an integer',
         ),
     ),
 )

@@ -377,6 +377,8 @@ def patch_request(request_id):
         "package_subpath",
         "state",
         "state_reason",
+        "packages_count",
+        "dependencies_count",
     }
     invalid_keys = set(payload.keys()) - valid_keys
     if invalid_keys:
@@ -402,6 +404,9 @@ def patch_request(request_id):
                 raise ValidationError('The value for "{}" must be an object'.format(key))
             for env_var_name, env_var_info in value.items():
                 EnvironmentVariable.validate_json(env_var_name, env_var_info)
+        elif key in ("packages_count", "dependencies_count"):
+            if not isinstance(value, int):
+                raise ValidationError(f'The value for "{key}" must be an integer')
         elif not isinstance(value, str):
             raise ValidationError('The value for "{}" must be a string'.format(key))
 
@@ -469,6 +474,11 @@ def patch_request(request_id):
 
         if env_var_obj not in request.environment_variables:
             request.environment_variables.append(env_var_obj)
+
+    for attr in ("packages_count", "dependencies_count"):
+        value = payload.get(attr)
+        if value is not None:
+            setattr(request, attr, value)
 
     db.session.commit()
 
