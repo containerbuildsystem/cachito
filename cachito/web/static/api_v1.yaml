@@ -786,6 +786,12 @@ components:
         state_reason:
           type: string
           example: Completed successfully
+        packages_count:
+          type: integer
+          example: 1
+        dependencies_count:
+          type: integer
+          example: 100
     RequestVerbose:
       allOf:
       - type: object
