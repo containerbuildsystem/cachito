@@ -39,7 +39,7 @@ class Config(object):
     cachito_nexus_hoster_username = None
     cachito_nexus_js_hosted_repo_name = "cachito-js-hosted"
     cachito_nexus_max_search_attempts = 5
-    cachito_nexus_npm_proxy_repo_url = "http://localhost:8081/repository/cachito-js/"
+    cachito_nexus_npm_proxy_url = "http://localhost:8081/repository/cachito-js/"
     cachito_nexus_pip_raw_repo_name = "cachito-pip-raw"
     cachito_nexus_proxy_password = None
     cachito_nexus_proxy_username = None
@@ -270,14 +270,14 @@ def validate_npm_config():
     """
     validate_nexus_config()
     conf = get_worker_config()
-    if not conf.get("cachito_nexus_npm_proxy_repo_url"):
+    if not conf.get("cachito_nexus_npm_proxy_url"):
         raise ConfigError(
-            'The configuration "cachito_nexus_npm_proxy_repo_url" must be set for this package '
+            'The configuration "cachito_nexus_npm_proxy_url" must be set for this package '
             "manager"
         )
 
 
-# yarn and npm use the same configuration options including `cachito_npm_proxy_repo_url`;
+# yarn and npm use the same configuration options including `cachito_nexus_npm_proxy_url`;
 #   in Cachito, yarn uses the same proxy repo as npm - like the official yarn registry which
 #   is just a CNAME to the npm registry
 validate_yarn_config = validate_npm_config
