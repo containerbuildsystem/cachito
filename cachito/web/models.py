@@ -690,6 +690,9 @@ class Request(db.Model):
     request_state_id = db.Column(
         db.Integer, db.ForeignKey("request_state.id"), index=True, unique=True
     )
+    packages_count = db.Column(db.Integer)
+    dependencies_count = db.Column(db.Integer)
+
     state = db.relationship("RequestState", foreign_keys=[request_state_id])
     pkg_managers = db.relationship(
         "PackageManager", secondary=request_pkg_manager_table, backref="requests"
@@ -803,8 +806,7 @@ class Request(db.Model):
         """
         return content_manifest.ContentManifest(self)
 
-    @property
-    def dependencies_count(self):
+    def count_dependencies(self) -> int:
         """
         Get the total number of dependencies for a request.
 
@@ -819,8 +821,7 @@ class Request(db.Model):
             .scalar()
         )
 
-    @property
-    def packages_count(self):
+    def count_packages(self) -> int:
         """
         Get the total number of packages for a request.
 
@@ -922,8 +923,8 @@ class Request(db.Model):
                 }
         else:
             latest_state = _state_to_json(self.state)
-            rv["dependencies"] = self.dependencies_count
-            rv["packages"] = self.packages_count
+            rv["dependencies"] = self.count_dependencies()
+            rv["packages"] = self.count_packages()
 
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
