@@ -184,7 +184,7 @@ def test_validate_nexus_config(mock_gwc, missing_config):
 def test_validate_npm_config(mock_vnc, mock_gwc):
     mock_gwc.return_value = {}
     expected = (
-        'The configuration "cachito_nexus_npm_proxy_repo_url" must be set for this package manager'
+        'The configuration "cachito_nexus_npm_proxy_url" must be set for this package manager'
     )
     with pytest.raises(ConfigError, match=expected):
         validate_npm_config()
@@ -195,7 +195,7 @@ def test_validate_npm_config(mock_vnc, mock_gwc):
 def test_validate_yarn_config(mock_vnc, mock_gwc):
     mock_gwc.return_value = {}
     expected = (
-        'The configuration "cachito_nexus_npm_proxy_repo_url" must be set for this package manager'
+        'The configuration "cachito_nexus_npm_proxy_url" must be set for this package manager'
     )
     with pytest.raises(ConfigError, match=expected):
         validate_yarn_config()
