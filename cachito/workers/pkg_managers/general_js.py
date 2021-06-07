@@ -416,7 +416,7 @@ def prepare_nexus_for_js_request(repo_name):
         "repository_name": repo_name,
         "http_password": config.cachito_nexus_proxy_password,
         "http_username": config.cachito_nexus_proxy_username,
-        "npm_proxy_url": config.cachito_nexus_npm_proxy_repo_url,
+        "npm_proxy_url": config.cachito_nexus_npm_proxy_url,
     }
     script_name = "js_before_content_staged"
     try:

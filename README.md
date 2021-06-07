@@ -459,7 +459,7 @@ Custom configuration for the Celery workers are listed below:
   package managers. This defaults to `cachito-js-hosted`.
 * `cachito_nexus_max_search_attempts` - the number of times Cachito will retry searching for non
   PyPI assets in the raw pip repositories to retrieve a URL to append to the requirements file.
-* `cachito_nexus_npm_proxy_repo_url` - the URL to the `cachito-js` repository which is a Nexus group
+* `cachito_nexus_npm_proxy_url` - the URL to the `cachito-js` repository which is a Nexus group
   that points to the `cachito-js-hosted` hosted repository and the `cachito-js-proxy` proxy
   repository. This defaults to `http://localhost:8081/repository/cachito-js/`. This only needs to
   change if you are using the two Nexus instance approach as described in the "Nexus For Java Script"
