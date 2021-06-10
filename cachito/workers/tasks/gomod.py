@@ -10,8 +10,12 @@ from cachito.workers.pkg_managers.general import (
 )
 from cachito.workers.pkg_managers.gomod import resolve_gomod, path_to_subpackage
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.utils import PackagesData, runs_if_request_in_progress, get_request
-from cachito.workers.tasks.general import set_request_state
+from cachito.workers.tasks.utils import (
+    PackagesData,
+    runs_if_request_in_progress,
+    get_request,
+    set_request_state,
+)
 from cachito.workers.paths import RequestBundleDir
 
 __all__ = ["fetch_gomod_source"]

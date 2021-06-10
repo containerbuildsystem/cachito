@@ -25,12 +25,12 @@ from cachito.workers.pkg_managers.pip import (
     resolve_pip,
 )
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.general import set_request_state
 from cachito.workers.tasks.utils import (
     PackagesData,
     make_base64_config_file,
     runs_if_request_in_progress,
     get_request,
+    set_request_state,
 )
 
 

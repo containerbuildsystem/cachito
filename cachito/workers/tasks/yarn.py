@@ -26,7 +26,6 @@ from cachito.workers.pkg_managers.yarn import (
     resolve_yarn,
 )
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.general import set_request_state
 from cachito.workers.tasks.npm import generate_npmrc_config_files
 from cachito.workers.tasks.utils import (
     PackagesData,
@@ -34,6 +33,7 @@ from cachito.workers.tasks.utils import (
     AssertPackageFiles,
     runs_if_request_in_progress,
     get_request,
+    set_request_state,
 )
 
 __all__ = ["cleanup_yarn_request", "fetch_yarn_source"]
