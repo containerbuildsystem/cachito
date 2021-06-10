@@ -13,7 +13,12 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.utils import PackagesData, runs_if_request_in_progress, get_request
+from cachito.workers.tasks.utils import (
+    PackagesData,
+    runs_if_request_in_progress,
+    get_request,
+    set_packages_and_deps_counts,
+)
 
 __all__ = [
     "aggregate_packages_data",
@@ -199,4 +204,5 @@ def finalize_request(request_id):
     request = get_request(request_id)
     create_bundle_archive(request_id, request.get("flags", []))
     aggregate_packages_data(request_id, request["pkg_managers"])
+    set_packages_and_deps_counts(request_id, len(request["packages"]), len(request["dependencies"]))
     set_request_state(request_id, "complete", "Completed successfully")

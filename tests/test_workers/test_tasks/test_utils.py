@@ -10,7 +10,7 @@ import requests
 
 from cachito.errors import ValidationError, CachitoError
 from cachito.workers.tasks import utils
-from cachito.workers.requests import requests_session
+from cachito.workers.requests import requests_session, requests_auth_session
 
 from tests.helper_utils import write_file_tree
 
@@ -145,6 +145,22 @@ def test_get_request_state(mock_get_request_or_fail, id, state):
     )
 
 
+@pytest.mark.parametrize("pkg_count, dep_count", [(0, 0), (10, 100)])
+@mock.patch("cachito.workers.tasks.utils._patch_request_or_fail")
+def test_set_packages_and_deps_counts(
+    mock_patch_request_or_fail: mock.Mock, pkg_count: int, dep_count: int
+):
+    utils.set_packages_and_deps_counts(42, pkg_count, dep_count)
+    mock_patch_request_or_fail.assert_called_once_with(
+        42,
+        {"packages_count": pkg_count, "dependencies_count": dep_count},
+        connect_error_msg=(
+            "The connection failed when setting packages and deps counts on request 42"
+        ),
+        status_error_msg="Setting packages and deps counts on request 42 failed",
+    )
+
+
 @pytest.mark.parametrize(
     "connect_error, status_error, expect_error",
     [
@@ -189,6 +205,54 @@ def test_get_request_or_fail(
 
     mock_requests_get.assert_called_once_with(
         "http://cachito.domain.local/api/v1/requests/42", timeout=60,
+    )
+
+
+@pytest.mark.parametrize(
+    "connect_error, status_error, expect_error",
+    [
+        (None, None, None),
+        (
+            requests.ConnectionError("connection failed"),
+            None,
+            "connection error: connection failed",
+        ),
+        (requests.Timeout("timed out"), None, "connection error: timed out",),
+        (
+            None,
+            requests.HTTPError("404 Client Error: NOT FOUND"),
+            "status error: 404 Client Error: NOT FOUND",
+        ),
+    ],
+)
+@mock.patch.object(requests_auth_session, "patch")
+@mock.patch("cachito.workers.tasks.utils.get_worker_config")
+def test_patch_request_or_fail(
+    mock_config, mock_requests_patch, connect_error, status_error, expect_error
+):
+    config = mock_config.return_value
+    config.cachito_api_url = "http://cachito.domain.local/api/v1/"
+    config.cachito_api_timeout = 60
+
+    if connect_error:
+        mock_requests_patch.side_effect = [connect_error]
+
+    response = mock_requests_patch.return_value
+    if status_error:
+        response.raise_for_status.side_effect = [status_error]
+
+    payload = {"foo": "bar"}
+
+    if expect_error:
+        with pytest.raises(CachitoError, match=expect_error):
+            utils._patch_request_or_fail(
+                42, payload, "connection error: {exc}", "status error: {exc}"
+            )
+    else:
+        utils._patch_request_or_fail(42, payload, "connection error: {exc}", "status error: {exc}")
+
+    mock_requests_patch.assert_called_once_with(
+        "http://cachito.domain.local/api/v1/requests/42", json=payload, timeout=60,
     )
 
 
