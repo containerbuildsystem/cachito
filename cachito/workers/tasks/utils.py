@@ -19,6 +19,7 @@ __all__ = [
     "runs_if_request_in_progress",
     "get_request",
     "get_request_state",
+    "set_request_state",
     "set_packages_and_deps_counts",
     "PackagesData",
 ]
@@ -180,6 +181,31 @@ def get_request_state(request_id):
         status_error_msg=f"Failed to get the state of request {request_id}: {{exc}}",
     )
     return request["state"]
+
+
+def set_request_state(request_id, state, state_reason):
+    """
+    Set the state of the request using the Cachito API.
+
+    :param int request_id: the ID of the Cachito request
+    :param str state: the state to set the Cachito request to
+    :param str state_reason: the state reason to set the Cachito request to
+    :raise CachitoError: if the request to the Cachito API fails
+    """
+    log.info(
+        'Setting the state of request %d to "%s" with the reason "%s"',
+        request_id,
+        state,
+        state_reason,
+    )
+    _patch_request_or_fail(
+        request_id,
+        {"state": state, "state_reason": state_reason},
+        connect_error_msg=(
+            f'The connection failed when setting the state to "{state}" on request {request_id}'
+        ),
+        status_error_msg=f'Setting the state to "{state}" on request {request_id} failed',
+    )
 
 
 def set_packages_and_deps_counts(request_id: int, packages_count: int, dependencies_count: int):

@@ -145,6 +145,33 @@ def test_get_request_state(mock_get_request_or_fail, id, state):
     )
 
 
+@mock.patch("cachito.workers.requests.requests_auth_session")
+def test_set_request_state(mock_requests):
+    utils.set_request_state(1, "complete", "Completed successfully")
+    expected_payload = {"state": "complete", "state_reason": "Completed successfully"}
+    mock_requests.patch.assert_called_once_with(
+        "http://cachito.domain.local/api/v1/requests/1", json=expected_payload, timeout=60
+    )
+
+
+@mock.patch("cachito.workers.requests.requests_auth_session.patch")
+def test_set_request_state_connection_failed(mock_requests_patch):
+    mock_requests_patch.side_effect = requests.Timeout("The request timed out")
+    expected = 'The connection failed when setting the state to "complete" on request 1'
+    with pytest.raises(CachitoError, match=expected):
+        utils.set_request_state(1, "complete", "Completed successfully")
+
+
+@mock.patch("cachito.workers.requests.requests_auth_session")
+def test_set_request_state_bad_status_code(mock_requests):
+    mock_requests.patch.return_value.raise_for_status.side_effect = [
+        requests.HTTPError("Unauthorized")
+    ]
+    expected = 'Setting the state to "complete" on request 1 failed'
+    with pytest.raises(CachitoError, match=expected):
+        utils.set_request_state(1, "complete", "Completed successfully")
+
+
 @pytest.mark.parametrize("pkg_count, dep_count", [(0, 0), (10, 100)])
 @mock.patch("cachito.workers.tasks.utils._patch_request_or_fail")
 def test_set_packages_and_deps_counts(
@@ -179,7 +206,7 @@ def test_set_packages_and_deps_counts(
     ],
 )
 @mock.patch.object(requests_session, "get")
-@mock.patch("cachito.workers.tasks.general.get_worker_config")
+@mock.patch("cachito.workers.tasks.utils.get_worker_config")
 def test_get_request_or_fail(
     mock_config, mock_requests_get, connect_error, status_error, expect_error
 ):

@@ -91,32 +91,6 @@ def test_fetch_app_source_request_timed_out(
         tasks.fetch_app_source(url, ref, 1, gitsubmodule)
 
 
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_set_request_state(mock_requests):
-    mock_requests.patch.return_value.ok = True
-    tasks.set_request_state(1, "complete", "Completed successfully")
-    expected_payload = {"state": "complete", "state_reason": "Completed successfully"}
-    mock_requests.patch.assert_called_once_with(
-        "http://cachito.domain.local/api/v1/requests/1", json=expected_payload, timeout=60
-    )
-
-
-@mock.patch("cachito.workers.requests.requests_auth_session.patch")
-def test_set_request_state_connection_failed(mock_requests_patch):
-    mock_requests_patch.side_effect = Timeout("The request timed out")
-    expected = 'The connection failed when setting the state to "complete" on request 1'
-    with pytest.raises(CachitoError, match=expected):
-        tasks.set_request_state(1, "complete", "Completed successfully")
-
-
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_set_request_state_bad_status_code(mock_requests):
-    mock_requests.patch.return_value.ok = False
-    expected = 'Setting the state to "complete" on request 1 failed'
-    with pytest.raises(CachitoError, match=expected):
-        tasks.set_request_state(1, "complete", "Completed successfully")
-
-
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 def test_failed_request_callback(mock_set_request_state):
     exc = CachitoError("some error")

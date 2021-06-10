@@ -9,7 +9,6 @@ from typing import List
 import requests
 
 from cachito.errors import CachitoError, ValidationError
-from cachito.workers.config import get_worker_config
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
@@ -17,6 +16,7 @@ from cachito.workers.tasks.utils import (
     PackagesData,
     runs_if_request_in_progress,
     get_request,
+    set_request_state,
     set_packages_and_deps_counts,
 )
 
@@ -27,7 +27,6 @@ __all__ = [
     "fetch_app_source",
     "finalize_request",
     "get_request",
-    "set_request_state",
 ]
 log = logging.getLogger(__name__)
 
@@ -85,50 +84,6 @@ def _enforce_sandbox(repo_root):
                 raise ValidationError(
                     f"The destination of {relative_path!r} is outside of cloned repository"
                 )
-
-
-@app.task
-def set_request_state(request_id, state, state_reason):
-    """
-    Set the state of the request using the Cachito API.
-
-    :param int request_id: the ID of the Cachito request
-    :param str state: the state to set the Cachito request to
-    :param str state_reason: the state reason to set the Cachito request to
-    :raise CachitoError: if the request to the Cachito API fails
-    """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_auth_session
-
-    config = get_worker_config()
-    request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
-
-    log.info(
-        'Setting the state of request %d to "%s" with the reason "%s"',
-        request_id,
-        state,
-        state_reason,
-    )
-    payload = {"state": state, "state_reason": state_reason}
-    try:
-        rv = requests_auth_session.patch(
-            request_url, json=payload, timeout=config.cachito_api_timeout
-        )
-    except requests.RequestException:
-        msg = f'The connection failed when setting the state to "{state}" on request {request_id}'
-        log.exception(msg)
-        raise CachitoError(msg)
-
-    if not rv.ok:
-        log.error(
-            'The worker failed to set request %d to the "%s" state. The status was %d. '
-            "The text was:\n%s",
-            request_id,
-            state,
-            rv.status_code,
-            rv.text,
-        )
-        raise CachitoError(f'Setting the state to "{state}" on request {request_id} failed')
 
 
 @app.task
