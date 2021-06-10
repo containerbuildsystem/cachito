@@ -1052,10 +1052,22 @@ class Request(db.Model):
 
         request_state = RequestState(state=new_state.value, state_reason=state_reason)
         self.states.append(request_state)
-        # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
-        # This will generate an ID that can be used below.
-        db.session.add(request_state)
-        db.session.flush()
+        # A retry option for database connection errors
+        db_retry_attempts = 5
+        while db_retry_attempts > 0:
+            db_retry_attempts -= 1
+
+            try:
+                # Send the changes queued up in SQLAlchemy to the database's transaction buffer.
+                # This will generate an ID that can be used below.
+                db.session.add(request_state)
+                db.session.flush()
+            except sqlalchemy.exc.DBAPIError as exc:
+                if db_retry_attempts > 0 and exc.connection_invalidated:
+                    db.session.rollback()
+            else:
+                raise exc
+
         self.state = request_state
 
 
