@@ -269,3 +269,33 @@ def test_aggregate_packages_data(
 
     with open(bundle_dir.packages_data, "r", encoding="utf-8") as f:
         assert expected == json.load(f)
+
+
+@mock.patch("cachito.workers.tasks.general.get_request")
+@mock.patch("cachito.workers.tasks.general.create_bundle_archive")
+@mock.patch("cachito.workers.tasks.general.aggregate_packages_data")
+@mock.patch("cachito.workers.tasks.general.set_packages_and_deps_counts")
+@mock.patch("cachito.workers.tasks.general.set_request_state")
+def test_finalize_request(
+    mock_set_state,
+    mock_set_counts,
+    mock_aggregate_data,
+    mock_create_archive,
+    mock_get_request,
+    task_passes_state_check,
+):
+    pkg = {"name": "foo", "version": "1.0", "type": "pip"}
+    mock_get_request.return_value = {
+        "flags": ["some-flag"],
+        "pkg_managers": ["pip"],
+        "packages": [pkg],
+        "dependencies": [pkg, pkg],
+    }
+
+    tasks.finalize_request(42)
+
+    mock_get_request.assert_called_once_with(42)
+    mock_create_archive.assert_called_once_with(42, ["some-flag"])
+    mock_aggregate_data.assert_called_once_with(42, ["pip"])
+    mock_set_counts.assert_called_once_with(42, 1, 2)
+    mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")

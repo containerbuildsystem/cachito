@@ -13,7 +13,15 @@ from cachito.errors import ValidationError, CachitoError
 from cachito.workers.celery_logging import get_function_arg_value
 from cachito.workers.config import get_worker_config
 
-__all__ = ["make_base64_config_file", "AssertPackageFiles"]
+__all__ = [
+    "make_base64_config_file",
+    "AssertPackageFiles",
+    "runs_if_request_in_progress",
+    "get_request",
+    "get_request_state",
+    "set_packages_and_deps_counts",
+    "PackagesData",
+]
 
 log = logging.getLogger(__name__)
 
@@ -174,6 +182,31 @@ def get_request_state(request_id):
     return request["state"]
 
 
+def set_packages_and_deps_counts(request_id: int, packages_count: int, dependencies_count: int):
+    """
+    Set the packages_count and dependencies_count of the request using the Cachito API.
+
+    :param request_id: the ID of the Cachito request
+    :param packages_count: the number of packages in this request
+    :param dependencies_count: the number of dependencies in this request
+    :raise CachitoError: if the request to the Cachito API fails
+    """
+    log.info(
+        "Setting packages_count = %d, dependencies_count = %d for request %d",
+        packages_count,
+        dependencies_count,
+        request_id,
+    )
+    _patch_request_or_fail(
+        request_id,
+        {"packages_count": packages_count, "dependencies_count": dependencies_count},
+        connect_error_msg=(
+            f"The connection failed when setting packages and deps counts on request {request_id}"
+        ),
+        status_error_msg=f"Setting packages and deps counts on request {request_id} failed",
+    )
+
+
 def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_msg: str) -> dict:
     """
     Try to download the JSON data for a request from the Cachito API.
@@ -205,6 +238,42 @@ def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_m
         raise CachitoError(msg)
 
     return rv.json()
+
+
+def _patch_request_or_fail(
+    request_id: int, payload: dict, connect_error_msg: str, status_error_msg: str
+) -> None:
+    """
+    Try to update the specified request using the Cachito PATCH API.
+
+    Both error messages can contain the {exc} placeholder which will be replaced by the actual
+    exception.
+
+    :param request_id: ID of the request to get
+    :param payload: the JSON data to send to the PATCH endpoint
+    :param connect_error_msg: error message to raise if the connection fails
+    :param status_error_msg: error message to raise if the response status is 4xx or 5xx
+    :raises CachitoError: if the connection fails or the API returns an error response
+    """
+    # Import this here to avoid a circular import (tasks -> requests -> tasks)
+    from cachito.workers.requests import requests_auth_session
+
+    config = get_worker_config()
+    request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+
+    try:
+        rv = requests_auth_session.patch(
+            request_url, json=payload, timeout=config.cachito_api_timeout
+        )
+        rv.raise_for_status()
+    except requests.HTTPError as e:
+        msg = status_error_msg.format(exc=e)
+        log.exception(msg)
+        raise CachitoError(msg)
+    except requests.RequestException as e:
+        msg = connect_error_msg.format(exc=e)
+        log.exception(msg)
+        raise CachitoError(msg)
 
 
 class PackagesData:
