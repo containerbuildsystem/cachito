@@ -25,12 +25,12 @@ from cachito.workers.pkg_managers.npm import (
     resolve_npm,
 )
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.general import set_request_state
 from cachito.workers.tasks.utils import (
     PackagesData,
     make_base64_config_file,
     runs_if_request_in_progress,
     get_request,
+    set_request_state,
 )
 
 __all__ = ["cleanup_npm_request", "fetch_npm_source"]
