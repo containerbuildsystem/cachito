@@ -75,8 +75,12 @@ def identify_and_mark_stale_requests(requests_json):
     for request in requests_json:
         if request["state"] not in ("complete", "in_progress", "failed"):
             continue
+
+        lifetime = config.cachito_request_lifetime
+        if request["state"] == "failed":
+            lifetime = config.cachito_request_lifetime_failed
         date_time_obj = datetime.strptime(request["updated"], "%Y-%m-%dT%H:%M:%S.%f")
-        if current_time - date_time_obj > timedelta(config.cachito_request_lifetime):
+        if current_time - date_time_obj > timedelta(lifetime):
             mark_as_stale(request["id"])
 
 
