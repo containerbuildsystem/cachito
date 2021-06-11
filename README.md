@@ -508,6 +508,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_request_lifetime` - the number of days before a request that is in the `complete` state
   or that is stuck in the `in_progress` state will be marked as stale by the `cachito-cleanup`
   script. This defaults to `1`.
+  * `cachito_request_lifetime_failed` - the number of days before a request that is in the `failed` state
+  will be marked as stale by the `cachito-cleanup` script. This defaults to `7`.
 * `cachito_sources_dir` - the directory for long-term storage of app source archives. This
   configuration is required, and the directory must already exist and be writeable.
 * `cachito_task_log_format` - the log format that Celery displays when a task is executing. This

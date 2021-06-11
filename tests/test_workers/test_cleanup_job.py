@@ -92,6 +92,19 @@ mock_failed = {
             "updated": "2019-09-05T18:24:50.857861",
             "user": "tom.hanks@domain.local",
         },
+        {
+            "dependencies": 309,
+            "environment_variables": {},
+            "flags": [],
+            "id": 53,
+            "pkg_managers": ["gomod"],
+            "ref": "a7ac8d4c0b7fe90d51fb911511cbf6939655c877",
+            "repo": "https://github.com/kubernetes/kubernetes.git",
+            "state": "failed",
+            "state_reason": "The request failed",
+            "updated": "2019-08-30T18:24:50.857861",
+            "user": "tom.hanks@domain.local",
+        },
     ],
     "meta": {
         "first": "https://cachito.domain.local/api/v1/requests"
@@ -197,7 +210,7 @@ def test_cleanup_job_pagination_behaviour(mock_basic_session, mock_auth_session,
 @mock.patch("cachito.workers.cleanup_job.session.get")
 def test_cleanup_job_success(mock_requests, mock_auth_requests, mock_dt):
     mock_dt.utcnow = mock.Mock(return_value=datetime(2019, 9, 7))
-    mock_dt.strptime = mock.Mock(return_value=datetime(2019, 9, 5))
+    mock_dt.strptime = datetime.strptime
     mock_requests.return_value.json.side_effect = [mock_complete, mock_in_progress, mock_failed]
     mock_auth_requests.return_value.ok = True
     main()
@@ -213,7 +226,7 @@ def test_cleanup_job_success(mock_requests, mock_auth_requests, mock_dt):
             timeout=60,
         ),
         mock.call(
-            "http://cachito.domain.local/api/v1/requests/52",
+            "http://cachito.domain.local/api/v1/requests/53",
             json={"state": "stale", "state_reason": "The request has expired"},
             timeout=60,
         ),
