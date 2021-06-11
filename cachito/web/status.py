@@ -26,6 +26,7 @@ PKG_MANAGER_REQUIRES = {
 }
 
 no_retry_session = requests.Session()
+SERVICE_TIMEOUT = 5
 
 
 def _service_ok(url):
@@ -38,7 +39,7 @@ def _service_ok(url):
     :return: tuple (ok: bool, reason: str or None)
     """
     try:
-        resp = no_retry_session.get(url)
+        resp = no_retry_session.get(url, timeout=SERVICE_TIMEOUT)
     except requests.RequestException:
         return False, "connection failed"
 
