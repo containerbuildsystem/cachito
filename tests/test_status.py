@@ -55,7 +55,7 @@ def test_service_ok(mock_requests_get, fail_reason):
         assert ok
         assert reason is None
 
-    mock_requests_get.assert_called_once_with(url)
+    mock_requests_get.assert_called_once_with(url, timeout=status.SERVICE_TIMEOUT)
 
 
 @mock.patch("cachito.web.status._service_ok")
