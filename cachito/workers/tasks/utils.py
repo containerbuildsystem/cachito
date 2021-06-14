@@ -306,6 +306,7 @@ class PackagesData:
     """A collection of resolved packages."""
 
     def __init__(self) -> None:
+        """Initialize an empty PackagesData instance."""
         self._index = set()
         self._packages = []
 
