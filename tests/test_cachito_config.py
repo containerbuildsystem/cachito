@@ -54,11 +54,13 @@ def test_validate_cachito_config_cli(mock_isdir, app):
         ([["gomod"]], False),
     ],
 )
-def test_validate_mutually_exclusive_package_managers(app, value, is_valid):
+def test_validate_mutually_exclusive_package_managers(app, value, is_valid, tmpdir):
     config = app.config.copy()
     config["CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS"] = value
 
     if is_valid:
+        # Successful validation requires this dir exists.
+        config["CACHITO_BUNDLES_DIR"] = str(tmpdir)
         validate_cachito_config(config)
     else:
         expected = (
