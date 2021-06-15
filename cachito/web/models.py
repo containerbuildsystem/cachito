@@ -19,6 +19,7 @@ from werkzeug.exceptions import Forbidden
 from cachito.web import content_manifest
 from cachito.errors import ContentManifestError, ValidationError
 from cachito.web import db
+from cachito.workers.tasks.utils import sort_packages_and_deps_in_place
 
 
 def is_request_ref_valid(ref: str) -> bool:
@@ -910,6 +911,8 @@ class Request(db.Model):
 
                 package_to_deps.setdefault(req_dep.package.id, []).append(dep_json)
 
+            sort_packages_and_deps_in_place(rv["dependencies"])
+
             rv["packages"] = [
                 req_package.package.to_json(
                     dependencies=package_to_deps.get(req_package.package_id, []),
@@ -917,6 +920,9 @@ class Request(db.Model):
                 )
                 for req_package in self.request_packages
             ]
+
+            sort_packages_and_deps_in_place(rv["packages"])
+
             if flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]:
                 rv["logs"] = {
                     "url": flask.url_for(
