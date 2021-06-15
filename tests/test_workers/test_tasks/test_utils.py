@@ -188,6 +188,53 @@ def test_set_packages_and_deps_counts(
     )
 
 
+def test_sort_packages_and_deps_in_place():
+    # using different package managers to test sorting by type
+    packages = [
+        # test sorting by dev
+        {"name": "pkg6", "type": "pip", "version": "1.0.0", "dev": False},
+        {"name": "pkg5", "type": "pip", "version": "1.0.0", "dev": True},
+        # test sorting by name
+        {"name": "pkg3", "type": "npm", "version": "1.0.0", "dev": False},
+        {"name": "pkg2", "type": "npm", "version": "1.2.3", "dev": False},
+        # test sorting by version
+        {"name": "pkg4", "type": "npm", "version": "1.2.5", "dev": False},
+        {"name": "pkg4", "type": "npm", "version": "1.2.0", "dev": False},
+        {
+            "name": "pkg1",
+            "type": "gomod",
+            "version": "1.0.0",
+            "dependencies": [
+                # test sorting of dependencies
+                {"name": "pkg1-dep2", "type": "gomod", "version": "1.0.0"},
+                {"name": "pkg1-dep1", "type": "gomod", "version": "1.0.0"},
+            ],
+        },
+    ]
+
+    sorted_packages = [
+        {
+            "name": "pkg1",
+            "type": "gomod",
+            "version": "1.0.0",
+            "dependencies": [
+                {"name": "pkg1-dep1", "type": "gomod", "version": "1.0.0"},
+                {"name": "pkg1-dep2", "type": "gomod", "version": "1.0.0"},
+            ],
+        },
+        {"name": "pkg2", "type": "npm", "version": "1.2.3", "dev": False},
+        {"name": "pkg3", "type": "npm", "version": "1.0.0", "dev": False},
+        {"name": "pkg4", "type": "npm", "version": "1.2.0", "dev": False},
+        {"name": "pkg4", "type": "npm", "version": "1.2.5", "dev": False},
+        {"name": "pkg6", "type": "pip", "version": "1.0.0", "dev": False},
+        {"name": "pkg5", "type": "pip", "version": "1.0.0", "dev": True},
+    ]
+
+    utils.sort_packages_and_deps_in_place(packages)
+
+    assert packages == sorted_packages
+
+
 @pytest.mark.parametrize(
     "connect_error, status_error, expect_error",
     [

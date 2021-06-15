@@ -21,6 +21,7 @@ __all__ = [
     "get_request_state",
     "set_request_state",
     "set_packages_and_deps_counts",
+    "sort_packages_and_deps_in_place",
     "PackagesData",
 ]
 
@@ -233,6 +234,26 @@ def set_packages_and_deps_counts(request_id: int, packages_count: int, dependenc
     )
 
 
+def sort_packages_and_deps_in_place(packages):
+    """
+    Sorts lists of packages in place.
+
+    Sorting order: type -> dev -> name -> version.
+    If a package has a "dependencies" list, the packages inside it will be sorted as well.
+
+    :param list packages: the list of packages
+    """
+
+    def sort_key(x):
+        return x["type"], x.get("dev", False), x["name"], x["version"]
+
+    packages.sort(key=sort_key)
+
+    for package in packages:
+        if "dependencies" in package:
+            package["dependencies"].sort(key=sort_key)
+
+
 def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_msg: str) -> dict:
     """
     Try to download the JSON data for a request from the Cachito API.
@@ -344,6 +365,8 @@ class PackagesData:
             ``os.curdir``.
         :type file_name: str or pathlib.Path
         """
+        sort_packages_and_deps_in_place(self._packages)
+
         log.debug("Write packages with dependencies into file %s.", file_name)
         with open(file_name, "w", encoding="utf-8") as f:
             json.dump({"packages": self._packages}, f)

@@ -274,27 +274,6 @@ def make_list_of_packages_hashable(data):
     return sorted([[i["name"], i["type"], i["version"]] for i in data])
 
 
-def sort_pkgs_and_deps_in_place(packages=None, dependencies=None):
-    """
-    Sorts lists of packages and dependencies in place.
-
-    Sorting order: name -> version -> type
-
-    :param list packages: the list of packages
-    :param list dependencies: the list of dependencies
-    """
-
-    def sort_helper(elements):
-        elements.sort(key=lambda x: (x["name"], x["version"], x["type"]))
-
-    if packages:
-        sort_helper(packages)
-        for package in packages:
-            sort_helper(package["dependencies"])
-    if dependencies:
-        sort_helper(dependencies)
-
-
 def assert_content_manifest_schema(response_data):
     """Validate content manifest according with JSON schema."""
     icm_spec = response_data["metadata"]["icm_spec"]
@@ -318,11 +297,6 @@ def assert_elements_from_response(response_data, expected_response_data):
     :param expected_response_data: expected content of particular elements in response:
         {<element_name> : <expected_data>}
     """
-    sort_pkgs_and_deps_in_place(response_data["packages"], response_data["dependencies"])
-    if "packages" in expected_response_data:
-        sort_pkgs_and_deps_in_place(packages=expected_response_data["packages"])
-    if "dependencies" in expected_response_data:
-        sort_pkgs_and_deps_in_place(dependencies=expected_response_data["dependencies"])
     for element_name, expected_data in expected_response_data.items():
         assert response_data[element_name] == expected_data, (
             f"#{response_data['id']}: elements in reponse differs from test expactations. \n"

@@ -41,40 +41,40 @@ with_deps:
   response_expectations:
     dependencies:
       - dev: false
-        name: "appr"
+        name: aiowsgi
         replaces: null
-        type: "pip"
-        version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+        type: pip
+        version: '0.7'
       - dev: false
-        name: "appr"
+        name: appr
         replaces: null
-        type: "pip"
-        version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+        type: pip
+        version: git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
       - dev: false
-        name: "aiowsgi"
+        name: appr
         replaces: null
-        type: "pip"
-        version: "0.7"
+        type: pip
+        version: https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
     packages:
       - dependencies:
         - dev: false
-          name: "appr"
+          name: aiowsgi
           replaces: null
-          type: "pip"
-          version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+          type: pip
+          version: '0.7'
         - dev: false
-          name: "appr"
+          name: appr
           replaces: null
-          type: "pip"
-          version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+          type: pip
+          version: git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
         - dev: false
-          name: "aiowsgi"
+          name: appr
           replaces: null
-          type: "pip"
-          version: "0.7"
-        name: "cachito-pip-with-deps"
-        type: "pip"
-        version: "1.0.0"
+          type: pip
+          version: https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+        name: cachito-pip-with-deps
+        type: pip
+        version: 1.0.0
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-pip-with-deps@83b387568b6287f6829403cff1e1377b0fb2f5d8"
     dep_purls:
@@ -113,46 +113,46 @@ multiple:
   response_expectations:
     dependencies:
     - dev: false
-      name: "appr"
+      name: aiowsgi
       replaces: null
-      type: "pip"
-      version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+      type: pip
+      version: '0.7'
     - dev: false
-      name: "appr"
+      name: appr
       replaces: null
-      type: "pip"
-      version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+      type: pip
+      version: git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
     - dev: false
-      name: "aiowsgi"
+      name: appr
       replaces: null
-      type: "pip"
-      version: "0.7"
+      type: pip
+      version: https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
     packages:
     - dependencies:
       - dev: false
-        name: "appr"
+        name: aiowsgi
         replaces: null
-        type: "pip"
-        version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
+        type: pip
+        version: '0.7'
       - dev: false
-        name: "aiowsgi"
+        name: appr
         replaces: null
-        type: "pip"
-        version: "0.7"
-      name: "first_pkg"
-      path: "first_pkg"
-      type: "pip"
-      version: "1.0.0"
+        type: pip
+        version: https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+      name: first_pkg
+      path: first_pkg
+      type: pip
+      version: 1.0.0
     - dependencies:
       - dev: false
-        name: "appr"
+        name: appr
         replaces: null
-        type: "pip"
-        version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-      name: "second_pkg"
-      path: "second_pkg"
-      type: "pip"
-      version: "1.0.0"
+        type: pip
+        version: git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+      name: second_pkg
+      path: second_pkg
+      type: pip
+      version: 1.0.0
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-pip-multiple@93c6c44b36075454a509d595850b81be29e53db0#first_pkg"
     dep_purls:

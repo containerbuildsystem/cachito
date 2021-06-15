@@ -14,11 +14,11 @@ without_deps:
     packages:
       - dependencies: []
         name: "github.com/cachito-testing/cachito-gomod-without-deps"
-        type: "gomod"
+        type: "go-package"
         version: "v0.0.0-20200925115855-a888f7261b9a"
       - dependencies: []
         name: "github.com/cachito-testing/cachito-gomod-without-deps"
-        type: "go-package"
+        type: "gomod"
         version: "v0.0.0-20200925115855-a888f7261b9a"
     dependencies: []
   expected_files:
@@ -31,72 +31,72 @@ with_deps:
   ref: 4c65d49cae6bfbada4d479b321d8c0109fa1aa97
   pkg_managers: ["gomod"]
   response_expectations:
+    dependencies:
+      - name: golang.org/x/text/internal/tag
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: golang.org/x/text/language
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: rsc.io/quote
+        replaces: null
+        type: go-package
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: go-package
+        version: v1.3.0
+      - name: golang.org/x/text
+        replaces: null
+        type: gomod
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: rsc.io/quote
+        replaces: null
+        type: gomod
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: gomod
+        version: v1.3.0
     packages:
       - dependencies:
-          - name: "rsc.io/sampler"
-            replaces: null
-            type: "gomod"
-            version: "v1.3.0"
-          - name: "rsc.io/quote"
-            replaces: null
-            type: "gomod"
-            version: "v1.5.2"
-          - name: "golang.org/x/text"
-            replaces: null
-            type: "gomod"
-            version: "v0.0.0-20170915032832-14c0d48ead0c"
-        name: "github.com/cachito-testing/cachito-gomod-with-deps"
-        type: "gomod"
-        version: "v0.0.0-20201001160613-4c65d49cae6b"
+        - name: golang.org/x/text/internal/tag
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: golang.org/x/text/language
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: rsc.io/quote
+          replaces: null
+          type: go-package
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: go-package
+          version: v1.3.0
+        name: github.com/cachito-testing/cachito-gomod-with-deps
+        type: go-package
+        version: v0.0.0-20201001160613-4c65d49cae6b
       - dependencies:
-          - name: "rsc.io/quote"
-            replaces: null
-            type: "go-package"
-            version: "v1.5.2"
-          - name: "rsc.io/sampler"
-            replaces: null
-            type: "go-package"
-            version: "v1.3.0"
-          - name: "golang.org/x/text/language"
-            replaces: null
-            type: "go-package"
-            version: "v0.0.0-20170915032832-14c0d48ead0c"
-          - name: "golang.org/x/text/internal/tag"
-            replaces: null
-            type: "go-package"
-            version: "v0.0.0-20170915032832-14c0d48ead0c"
-        name: "github.com/cachito-testing/cachito-gomod-with-deps"
-        type: "go-package"
-        version: "v0.0.0-20201001160613-4c65d49cae6b"
-    dependencies:
-      - name: "rsc.io/quote"
-        replaces: null
-        type: "go-package"
-        version: "v1.5.2"
-      - name: "rsc.io/sampler"
-        replaces: null
-        type: "go-package"
-        version: "v1.3.0"
-      - name: "golang.org/x/text/language"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      - name: "golang.org/x/text/internal/tag"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      - name: "rsc.io/sampler"
-        replaces: null
-        type: "gomod"
-        version: "v1.3.0"
-      - name: "rsc.io/quote"
-        replaces: null
-        type: "gomod"
-        version: "v1.5.2"
-      - name: "golang.org/x/text"
-        replaces: null
-        type: "gomod"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
+        - name: golang.org/x/text
+          replaces: null
+          type: gomod
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: rsc.io/quote
+          replaces: null
+          type: gomod
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: gomod
+          version: v1.3.0
+        name: github.com/cachito-testing/cachito-gomod-with-deps
+        type: gomod
+        version: v0.0.0-20201001160613-4c65d49cae6b
   expected_files:
     app: https://github.com/cachito-testing/cachito-gomod-with-deps/tarball/4c65d49cae6bfbada4d479b321d8c0109fa1aa97
     deps/gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.zip: https://github.com/cachito-testing/test_files/raw/master/test_gomod_with_deps_quote.tar.gz
@@ -119,72 +119,72 @@ vendored_with_flag:
   flags: ["gomod-vendor"]
   pkg_managers: ["gomod"]
   response_expectations:
-    packages:
-    - dependencies:
-      - name: "rsc.io/sampler"
-        replaces: null
-        type: "gomod"
-        version: "v1.3.0"
-      - name: "rsc.io/quote"
-        replaces: null
-        type: "gomod"
-        version: "v1.5.2"
-      - name: "golang.org/x/text"
-        replaces: null
-        type: "gomod"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      name: "github.com/cachito-testing/gomod-vendored"
-      type: "gomod"
-      version: "v0.0.0-20200916135625-ff1960095dd1"
-    - dependencies:
-      - name: "rsc.io/quote"
-        replaces: null
-        type: "go-package"
-        version: "v1.5.2"
-      - name: "rsc.io/sampler"
-        replaces: null
-        type: "go-package"
-        version: "v1.3.0"
-      - name: "golang.org/x/text/language"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      - name: "golang.org/x/text/internal/tag"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      name: "github.com/cachito-testing/gomod-vendored"
-      type: "go-package"
-      version: "v0.0.0-20200916135625-ff1960095dd1"
     dependencies:
-    - name: "rsc.io/quote"
-      replaces: null
-      type: "go-package"
-      version: "v1.5.2"
-    - name: "rsc.io/sampler"
-      replaces: null
-      type: "go-package"
-      version: "v1.3.0"
-    - name: "golang.org/x/text/language"
-      replaces: null
-      type: "go-package"
-      version: "v0.0.0-20170915032832-14c0d48ead0c"
-    - name: "golang.org/x/text/internal/tag"
-      replaces: null
-      type: "go-package"
-      version: "v0.0.0-20170915032832-14c0d48ead0c"
-    - name: "rsc.io/sampler"
-      replaces: null
-      type: "gomod"
-      version: "v1.3.0"
-    - name: "rsc.io/quote"
-      replaces: null
-      type: "gomod"
-      version: "v1.5.2"
-    - name: "golang.org/x/text"
-      replaces: null
-      type: "gomod"
-      version: "v0.0.0-20170915032832-14c0d48ead0c"
+      - name: golang.org/x/text/internal/tag
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: golang.org/x/text/language
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: rsc.io/quote
+        replaces: null
+        type: go-package
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: go-package
+        version: v1.3.0
+      - name: golang.org/x/text
+        replaces: null
+        type: gomod
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: rsc.io/quote
+        replaces: null
+        type: gomod
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: gomod
+        version: v1.3.0
+    packages:
+      - dependencies:
+        - name: golang.org/x/text/internal/tag
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: golang.org/x/text/language
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: rsc.io/quote
+          replaces: null
+          type: go-package
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: go-package
+          version: v1.3.0
+        name: github.com/cachito-testing/gomod-vendored
+        type: go-package
+        version: v0.0.0-20200916135625-ff1960095dd1
+      - dependencies:
+        - name: golang.org/x/text
+          replaces: null
+          type: gomod
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: rsc.io/quote
+          replaces: null
+          type: gomod
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: gomod
+          version: v1.3.0
+        name: github.com/cachito-testing/gomod-vendored
+        type: gomod
+        version: v0.0.0-20200916135625-ff1960095dd1
   expected_files:
     app: https://github.com/cachito-testing/gomod-vendored/tarball/ff1960095dd158d3d2a4f31d15b244c24930248b
     deps/gomod/pkg/mod/cache/download: null
@@ -210,72 +210,72 @@ implicit_gomod:
   repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
   ref: 4c65d49cae6bfbada4d479b321d8c0109fa1aa97
   response_expectations:
+    dependencies:
+      - name: golang.org/x/text/internal/tag
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: golang.org/x/text/language
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: rsc.io/quote
+        replaces: null
+        type: go-package
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: go-package
+        version: v1.3.0
+      - name: golang.org/x/text
+        replaces: null
+        type: gomod
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: rsc.io/quote
+        replaces: null
+        type: gomod
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: gomod
+        version: v1.3.0
     packages:
       - dependencies:
-          - name: "rsc.io/sampler"
-            replaces: null
-            type: "gomod"
-            version: "v1.3.0"
-          - name: "rsc.io/quote"
-            replaces: null
-            type: "gomod"
-            version: "v1.5.2"
-          - name: "golang.org/x/text"
-            replaces: null
-            type: "gomod"
-            version: "v0.0.0-20170915032832-14c0d48ead0c"
-        name: "github.com/cachito-testing/cachito-gomod-with-deps"
-        type: "gomod"
-        version: "v0.0.0-20201001160613-4c65d49cae6b"
+        - name: golang.org/x/text/internal/tag
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: golang.org/x/text/language
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: rsc.io/quote
+          replaces: null
+          type: go-package
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: go-package
+          version: v1.3.0
+        name: github.com/cachito-testing/cachito-gomod-with-deps
+        type: go-package
+        version: v0.0.0-20201001160613-4c65d49cae6b
       - dependencies:
-          - name: "rsc.io/quote"
-            replaces: null
-            type: "go-package"
-            version: "v1.5.2"
-          - name: "rsc.io/sampler"
-            replaces: null
-            type: "go-package"
-            version: "v1.3.0"
-          - name: "golang.org/x/text/language"
-            replaces: null
-            type: "go-package"
-            version: "v0.0.0-20170915032832-14c0d48ead0c"
-          - name: "golang.org/x/text/internal/tag"
-            replaces: null
-            type: "go-package"
-            version: "v0.0.0-20170915032832-14c0d48ead0c"
-        name: "github.com/cachito-testing/cachito-gomod-with-deps"
-        type: "go-package"
-        version: "v0.0.0-20201001160613-4c65d49cae6b"
-    dependencies:
-      - name: "rsc.io/quote"
-        replaces: null
-        type: "go-package"
-        version: "v1.5.2"
-      - name: "rsc.io/sampler"
-        replaces: null
-        type: "go-package"
-        version: "v1.3.0"
-      - name: "golang.org/x/text/language"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      - name: "golang.org/x/text/internal/tag"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      - name: "rsc.io/sampler"
-        replaces: null
-        type: "gomod"
-        version: "v1.3.0"
-      - name: "rsc.io/quote"
-        replaces: null
-        type: "gomod"
-        version: "v1.5.2"
-      - name: "golang.org/x/text"
-        replaces: null
-        type: "gomod"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
+        - name: golang.org/x/text
+          replaces: null
+          type: gomod
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: rsc.io/quote
+          replaces: null
+          type: gomod
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: gomod
+          version: v1.3.0
+        name: github.com/cachito-testing/cachito-gomod-with-deps
+        type: gomod
+        version: v0.0.0-20201001160613-4c65d49cae6b
   expected_files:
     app: https://github.com/cachito-testing/cachito-gomod-with-deps/tarball/4c65d49cae6bfbada4d479b321d8c0109fa1aa97
     deps/gomod/pkg/mod/cache/download/rsc.io/quote/@v/v1.5.2.zip: https://github.com/cachito-testing/test_files/raw/master/test_gomod_with_deps_quote.tar.gz
