@@ -11,6 +11,7 @@ import kombu.exceptions
 import pytest
 
 from cachito.errors import CachitoError, ValidationError
+from cachito.paths import RequestBundleDir
 from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER
 from cachito.web.models import (
     ConfigFileBase64,
@@ -23,7 +24,6 @@ from cachito.web.models import (
     _validate_package_manager_exclusivity,
 )
 from cachito.web.utils import deep_sort_icm
-from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import (
     add_git_submodules_as_package,
     failed_request_callback,
@@ -1010,10 +1010,7 @@ def test_download_archive_not_complete(mock_request, client, db, app):
 
 
 @pytest.mark.parametrize("state", ("complete", "failed"))
-@mock.patch("pathlib.Path.exists")
-@mock.patch("shutil.rmtree")
-def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth_env):
-    mock_exists.return_value = True
+def test_set_state(state, app, client, db, worker_auth_env, tmpdir):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -1029,9 +1026,14 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     state = state
     state_reason = "Some status"
     payload = {"state": state, "state_reason": state_reason}
-    patch_rv = client.patch(
-        f"/api/v1/requests/{request_id}", json=payload, environ_base=worker_auth_env
-    )
+
+    bundle_dir = RequestBundleDir(request_id, tmpdir)
+    bundle_dir.mkdir(parents=True)
+    with mock.patch("cachito.web.api_v1.RequestBundleDir", return_value=bundle_dir):
+        patch_rv = client.patch(
+            f"/api/v1/requests/{request_id}", json=payload, environ_base=worker_auth_env
+        )
+
     assert patch_rv.status_code == 200
 
     get_rv = client.get(f"/api/v1/requests/{request_id}")
@@ -1048,27 +1050,16 @@ def test_set_state(mock_rmtree, mock_exists, state, app, client, db, worker_auth
     assert fetched_request["state_history"][0]["state_reason"] == state_reason
     assert fetched_request["state_history"][0]["updated"]
     assert fetched_request["state_history"][1]["state"] == "in_progress"
-    mock_exists.assert_called_once()
-    mock_rmtree.assert_called_once_with(str(RequestBundleDir(request_id)))
+
+    assert not bundle_dir.exists()
 
 
 @pytest.mark.parametrize("bundle_exists", (True, False))
 @pytest.mark.parametrize("pkg_managers", (["gomod"], ["npm"], ["gomod", "npm"]))
-@mock.patch("pathlib.Path.exists")
-@mock.patch("pathlib.Path.unlink")
 @mock.patch("cachito.web.api_v1.tasks.cleanup_npm_request")
 def test_set_state_stale(
-    mock_cleanup_npm,
-    mock_remove,
-    mock_exists,
-    pkg_managers,
-    bundle_exists,
-    app,
-    client,
-    db,
-    worker_auth_env,
+    mock_cleanup_npm, pkg_managers, bundle_exists, app, client, db, worker_auth_env, tmpdir,
 ):
-    mock_exists.return_value = bundle_exists
     data = {
         "repo": "https://github.com/release-engineering/project.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -1080,10 +1071,18 @@ def test_set_state_stale(
     db.session.add(request)
     db.session.commit()
 
+    bundle_dir = RequestBundleDir(1, str(tmpdir))
+    bundle_dir.mkdir(parents=True)
+    bundle_dir.bundle_archive_file.write_bytes(b"01234")
+    bundle_dir.packages_data.write_bytes(b"{}")
+
     state = "stale"
     state_reason = "The request has expired"
     payload = {"state": state, "state_reason": state_reason}
-    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
+    with mock.patch("cachito.web.api_v1.RequestBundleDir", return_value=bundle_dir):
+        patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
     assert patch_rv.status_code == 200
 
     get_rv = client.get("/api/v1/requests/1")
@@ -1092,10 +1091,10 @@ def test_set_state_stale(
     fetched_request = get_rv.get_json()
     assert fetched_request["state"] == state
     assert fetched_request["state_reason"] == state_reason
-    if bundle_exists:
-        mock_remove.assert_has_calls([mock.call(), mock.call()])
-    else:
-        mock_remove.assert_not_called()
+
+    assert not bundle_dir.bundle_archive_file.exists()
+    assert not bundle_dir.packages_data.exists()
+
     if "npm" in pkg_managers:
         mock_cleanup_npm.delay.assert_called_once_with(1)
     else:
