@@ -182,7 +182,7 @@ def test_create_and_fetch_request(
 
 
 @mock.patch("cachito.web.api_v1.chain")
-def test_create_and_fetch_request_gomod_package_configs(
+def test_create_request_with_gomod_package_configs(
     mock_chain, app, auth_env, client, db,
 ):
     package_value = {"gomod": [{"path": "."}, {"path": "proxy"}]}
@@ -211,7 +211,7 @@ def test_create_and_fetch_request_gomod_package_configs(
 
 
 @mock.patch("cachito.web.api_v1.chain")
-def test_create_and_fetch_request_npm_package_configs(
+def test_create_request_with_npm_package_configs(
     mock_chain, app, auth_env, client, db,
 ):
     package_value = {"npm": [{"path": "client"}, {"path": "proxy"}]}
@@ -250,7 +250,7 @@ def test_create_and_fetch_request_npm_package_configs(
     ],
 )
 @mock.patch("cachito.web.api_v1.chain")
-def test_create_and_fetch_request_pip_package_configs(
+def test_create_request_with_pip_package_configs(
     mock_chain, app, auth_env, client, db, pkg_value
 ):
     package_value = {"pip": pkg_value}
@@ -281,7 +281,7 @@ def test_create_and_fetch_request_pip_package_configs(
 
 
 @mock.patch("cachito.web.api_v1.chain")
-def test_create_and_fetch_request_yarn_package_configs(
+def test_create_request_with_yarn_package_configs(
     mock_chain, app, auth_env, client, db,
 ):
     package_value = {"yarn": [{"path": "client"}, {"path": "proxy"}]}
