@@ -26,6 +26,8 @@ def healthcheck():
     This returns a 200 response if the application is alive and able to serve requests. It returns
     a 500 response otherwise.
     """
+    current_app.logger.info("A healthcheck request was received")
+
     try:
         db.session.execute("SELECT 1 FROM request LIMIT 0").fetchall()
     except SQLAlchemyError:
