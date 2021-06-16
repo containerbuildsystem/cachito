@@ -2156,52 +2156,6 @@ def test_get_request_logs_not_configured(app, client, db, worker_auth_env):
     assert "logs" not in rv.json
 
 
-@pytest.mark.parametrize("flag", [True, False])
-@mock.patch("cachito.web.api_v1.chain")
-def test_create_and_fetch_request_with_pip_preview(
-    mock_chain, app, auth_env, client, db, flag,
-):
-    db.session.commit()
-    data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["pip"],
-    }
-    if flag:
-        data["flags"] = ["pip-dev-preview"]
-
-    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
-    if flag:
-        assert rv.status_code == 400
-        assert rv.json == {"error": "Invalid/Inactive flag(s): pip-dev-preview"}
-    else:
-        assert rv.status_code == 201
-        created_request = rv.json
-        for key, expected_value in data.items():
-            assert expected_value == created_request[key]
-        assert created_request["user"] == "tbrady@DOMAIN.LOCAL"
-
-        error_callback = failed_request_callback.s(1)
-        mock_chain.assert_called_once_with(
-            [
-                fetch_app_source.s(
-                    "https://github.com/release-engineering/retrodep.git",
-                    "c50b93a32df1c9d700e3e80996845bc2e13be848",
-                    1,
-                    False,  # default value for gitsubmodule
-                ).on_error(error_callback),
-                fetch_pip_source.si(1, []).on_error(error_callback),
-                finalize_request.si(1).on_error(error_callback),
-            ]
-        )
-        request_id = created_request["id"]
-        rv = client.get("/api/v1/requests/{}".format(request_id))
-        assert rv.status_code == 200
-        fetched_request = rv.json
-        assert fetched_request["state"] == "in_progress"
-        assert fetched_request["state_reason"] == "The request was initiated"
-
-
 @pytest.mark.parametrize(
     "mutually_exclusive, pkg_managers, package_configs, expect_error",
     [
