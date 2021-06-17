@@ -22,6 +22,7 @@ payload = {"state": state, "state_reason": state_reason}
 
 def main():
     """Mark all end of life requests as stale using the REST API."""
+    logging.basicConfig(level=logging.INFO)
     for state in ("complete", "in_progress", "failed"):
         stale_candidate_requests = find_all_requests_in_state(state)
         identify_and_mark_stale_requests(stale_candidate_requests)
@@ -114,5 +115,4 @@ def mark_as_stale(request_id):
 
 
 if __name__ == "__main__":
-    log.setLevel(logging.INFO)
     main()
