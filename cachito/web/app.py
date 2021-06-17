@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
 import os
+from timeit import default_timer as timer
 
 from flask import current_app, Flask
 from flask.logging import default_handler
@@ -29,7 +30,12 @@ def healthcheck():
     current_app.logger.info("A healthcheck request was received")
 
     try:
+        start_time = timer()
+
         db.session.execute("SELECT 1 FROM request LIMIT 0").fetchall()
+
+        end_time = timer() - start_time
+        current_app.logger.info("The healthcheck database query took %f seconds", end_time)
     except SQLAlchemyError:
         current_app.logger.exception("The healthcheck failed when querying the database")
         raise InternalServerError()
