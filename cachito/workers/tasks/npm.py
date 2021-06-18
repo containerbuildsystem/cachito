@@ -5,6 +5,7 @@ import os
 from typing import List
 
 from cachito.errors import CachitoError
+from cachito.utils import PackagesData
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config, validate_npm_config
 from cachito.workers.paths import RequestBundleDir
@@ -26,7 +27,6 @@ from cachito.workers.pkg_managers.npm import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import (
-    PackagesData,
     make_base64_config_file,
     runs_if_request_in_progress,
     get_request,

@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from cachito.workers.tasks.utils import PackagesData, sort_packages_and_deps_in_place
 import copy
 import json
 from pathlib import Path
@@ -10,6 +9,7 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
+from cachito.utils import PackagesData, sort_packages_and_deps_in_place
 
 
 @pytest.mark.parametrize(
