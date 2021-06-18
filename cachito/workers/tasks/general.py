@@ -9,11 +9,11 @@ from typing import List
 import requests
 
 from cachito.errors import CachitoError, ValidationError
+from cachito.utils import PackagesData
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import (
-    PackagesData,
     runs_if_request_in_progress,
     get_request,
     set_request_state,

@@ -4,6 +4,8 @@ import os.path
 import re
 import tempfile
 from http import HTTPStatus
+from pathlib import Path
+from typing import Any, Dict, List, Union
 from unittest import mock
 
 import flask
@@ -34,6 +36,7 @@ from cachito.workers.tasks import (
     fetch_yarn_source,
     finalize_request,
 )
+from cachito.utils import PackagesData, sort_packages_and_deps_in_place
 
 RE_INVALID_PACKAGES_VALUE = (
     r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'
@@ -378,7 +381,7 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
 
 
 def test_fetch_paginated_requests(
-    app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env
+    app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env, tmpdir
 ):
     sample_requests_count = 50
     repo_template = "https://github.com/release-engineering/retrodep{}.git"
@@ -391,16 +394,29 @@ def test_fetch_paginated_requests(
                 "pkg_managers": ["gomod"],
             }
             request = Request.from_json(data)
+            request.packages_count = 0
+            request.dependencies_count = 0
             db.session.add(request)
     db.session.commit()
 
     # Endpoint /requests/ returns requests in descending order of id.
 
-    payload = {"dependencies": sample_deps_replace, "package": sample_package}
-    client.patch(
-        f"/api/v1/requests/{sample_requests_count}", json=payload, environ_base=worker_auth_env
-    )
-    client.patch("/api/v1/requests/40", json=payload, environ_base=worker_auth_env)
+    pkg_info = sample_package.copy()
+    pkg_info["dependencies"] = sample_deps_replace
+    packages_data = {"packages": [pkg_info]}
+
+    cachito_bundles_dir = str(tmpdir)
+
+    for r_id in [sample_requests_count, 40]:
+        request = Request.query.get(r_id)
+        request.packages_count = 1
+        request.dependencies_count = len(sample_deps_replace)
+        write_test_packages_data(
+            [pkg_info], RequestBundleDir(r_id, cachito_bundles_dir).packages_data
+        )
+    db.session.commit()
+
+    flask.current_app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
 
     # Sane defaults are provided
     rv = client.get("/api/v1/requests")
@@ -411,7 +427,7 @@ def test_fetch_paginated_requests(
     for i, request in enumerate(fetched_requests, 1):
         assert request["repo"] == repo_template.format(sample_requests_count - i)
     assert response["meta"]["previous"] is None
-    assert fetched_requests[0]["dependencies"] == 14
+    assert fetched_requests[0]["dependencies"] == len(sample_deps_replace)
     assert fetched_requests[0]["packages"] == 1
 
     # Invalid per_page defaults to 10
@@ -435,58 +451,8 @@ def test_fetch_paginated_requests(
         assert "verbose=True" in pagination_metadata[page]
         assert "state=in_progress" in pagination_metadata[page]
     assert pagination_metadata["total"] == sample_requests_count
-    assert len(fetched_requests[0]["dependencies"]) == 14
-    assert len(fetched_requests[0]["packages"]) == 1
-    assert type(fetched_requests[0]["dependencies"]) == list
-
-
-def test_fetch_request_multiple_packages(app, auth_env, client, db, worker_auth_env):
-    # flask_login.current_user is used in Request.from_json, which requires a request context
-    with app.test_request_context(environ_base=auth_env):
-        data = {
-            "repo": "https://github.com/release-engineering/console-ui.git",
-            "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-            "pkg_managers": ["npm"],
-        }
-        request = Request.from_json(data)
-        db.session.add(request)
-    db.session.commit()
-
-    payload = {
-        "dependencies": [
-            {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
-            {
-                "dev": True,
-                "name": "safe-regex",
-                "replaces": None,
-                "type": "npm",
-                "version": "1.1.0",
-            },
-        ],
-        "package": {"name": "client", "type": "npm", "version": "1.0.0"},
-    }
-    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    payload = {
-        "dependencies": [
-            {"dev": True, "name": "rxjs", "replaces": None, "type": "npm", "version": "6.5.5"},
-            {"dev": False, "name": "react", "replaces": None, "type": "npm", "version": "16.13.1"},
-        ],
-        "package": {"name": "proxy", "type": "npm", "version": "1.0.0"},
-    }
-    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-
-    # Test the request in the non-verbose format
-    rv = client.get("/api/v1/requests")
-    assert rv.status_code == 200
-    assert rv.json["items"][0]["dependencies"] == 3
-    assert rv.json["items"][0]["packages"] == 2
-
-    # Test the request in the verbose format
-    rv = client.get("/api/v1/requests/1")
-    assert rv.status_code == 200
-    assert len(rv.json["dependencies"]) == 3
-    assert len(rv.json["packages"][0]["dependencies"]) == 2
-    assert len(rv.json["packages"][1]["dependencies"]) == 2
+    assert fetched_requests[0]["dependencies"] == pkg_info["dependencies"]
+    assert fetched_requests[0]["packages"] == packages_data["packages"]
 
 
 def test_create_request_filter_state(app, auth_env, client, db):
@@ -1203,71 +1169,6 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     assert len(get_rv.json["state_history"]) == 2
 
 
-def test_set_deps(app, client, db, worker_auth_env, sample_deps_replace, sample_package):
-    data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["gomod"],
-    }
-    # flask_login.current_user is used in Request.from_json, which requires a request context
-    with app.test_request_context(environ_base=worker_auth_env):
-        request = Request.from_json(data)
-    db.session.add(request)
-    db.session.commit()
-
-    # Test a dependency with no "replaces" key
-    sample_deps_replace.insert(
-        0, {"name": "all_systems_go", "type": "gomod", "version": "v1.0.0"},
-    )
-    payload = {
-        "dependencies": sample_deps_replace,
-        "package": sample_package,
-    }
-    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    assert patch_rv.status_code == 200
-
-    get_rv = client.get("/api/v1/requests/1")
-    assert get_rv.status_code == 200
-    fetched_request = get_rv.json
-
-    sample_deps_replace[0]["replaces"] = None
-    assert fetched_request["dependencies"] == sample_deps_replace
-    sample_package["dependencies"] = sample_deps_replace
-    assert fetched_request["packages"] == [sample_package]
-
-
-def test_set_deps_with_dev(app, client, db, worker_auth_env):
-    data = {
-        "repo": "https://github.com/release-engineering/project.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["npm"],
-    }
-    # flask_login.current_user is used in Request.from_json, which requires a request context
-    with app.test_request_context(environ_base=worker_auth_env):
-        request = Request.from_json(data)
-    db.session.add(request)
-    db.session.commit()
-
-    dep = {
-        "name": "@angular-devkit/build-angular",
-        "dev": True,
-        "type": "npm",
-        "version": "0.803.26",
-    }
-    payload = {
-        "dependencies": [dep],
-        "package": {"name": "han-solo", "type": "npm", "version": "5.0.0"},
-    }
-    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    assert patch_rv.status_code == 200
-
-    get_rv = client.get("/api/v1/requests/1")
-    assert get_rv.status_code == 200
-
-    dep["replaces"] = None
-    assert get_rv.json["dependencies"] == [dep]
-
-
 def test_add_dep_twice_diff_replaces(app, client, db, worker_auth_env):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
@@ -1303,41 +1204,6 @@ def test_add_dep_twice_diff_replaces(app, client, db, worker_auth_env):
     patch_rv = client.patch("/api/v1/requests/1", json=payload2, environ_base=worker_auth_env)
     assert patch_rv.status_code == 400
     assert "can't have a new replacement set" in patch_rv.json["error"]
-
-
-@pytest.mark.parametrize(
-    "package_subpath, subpath_in_db", [(None, None), (".", None), ("some/path", "some/path")]
-)
-def test_set_package(
-    package_subpath, subpath_in_db, app, client, db, sample_package, worker_auth_env
-):
-    data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-    }
-    # flask_login.current_user is used in Request.from_json, which requires a request context
-    with app.test_request_context(environ_base=worker_auth_env):
-        request = Request.from_json(data)
-    db.session.add(request)
-    db.session.commit()
-
-    payload = {"package": sample_package}
-    if package_subpath is not None:
-        payload["package_subpath"] = package_subpath
-
-    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    assert patch_rv.status_code == 200
-
-    request_package = RequestPackage.query.filter_by(request_id=1).first()
-    assert request_package
-    assert request_package.subpath == subpath_in_db
-
-    get_rv = client.get("/api/v1/requests/1")
-    assert get_rv.status_code == 200
-    sample_package["dependencies"] = []
-    if subpath_in_db is not None:
-        sample_package["path"] = subpath_in_db
-    assert get_rv.json["packages"] == [sample_package]
 
 
 @pytest.mark.parametrize(
@@ -2439,3 +2305,165 @@ def test_filter_requests(
         assert expected_items_count == len(result["items"])
         got_repos = [item["repo"] for item in result["items"]]
         assert sorted(expected_repos) == sorted(got_repos)
+
+
+def create_request_in_db(app, db, auth_env):
+    data = {
+        "repo": "https://localhost.git/dummy.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    with app.test_request_context(environ_base=auth_env):
+        request = Request.from_json(data)
+    request.add_state(RequestStateMapping.complete.name, "Set complete directly for test")
+    db.session.add(request)
+    db.session.commit()
+    return request
+
+
+def write_test_packages_data(packages: List[Dict[str, Any]], filename: Union[str, Path]) -> None:
+    packages_data = PackagesData()
+    for pkg in packages:
+        packages_data.add_package(
+            {"name": pkg["name"], "type": pkg["type"], "version": pkg["version"]},
+            ".",
+            pkg["dependencies"],
+        )
+    packages_data.write_to_file(filename)
+
+
+@pytest.mark.parametrize(
+    "packages,expected_deps",
+    [
+        [None, []],  # do not create the packages.json
+        [[], []],
+        [
+            [
+                {
+                    "name": "n1",
+                    "type": "gomod",
+                    "version": "v1",
+                    "dependencies": [
+                        {"name": "d1", "type": "gomod", "version": "1"},
+                        {"name": "d2", "replaces": None, "type": "gomod", "version": "2"},
+                    ],
+                },
+            ],
+            [
+                {"name": "d1", "type": "gomod", "version": "1", "replaces": None},
+                {"name": "d2", "type": "gomod", "version": "2", "replaces": None},
+            ],
+        ],
+    ],
+)
+def test_fetch_request_packages_and_dependencies(
+    packages, expected_deps, app, db, client, auth_env, tmpdir
+):
+    """Test fetch a request with correct packages and dependencies read from packages data file."""
+    request = create_request_in_db(app, db, auth_env)
+
+    cachito_bundles_dir = str(tmpdir)
+    app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
+
+    if packages is not None:
+        write_test_packages_data(
+            packages, RequestBundleDir(request.id, root=cachito_bundles_dir).packages_data,
+        )
+
+    rv = client.get(f"/api/v1/requests/{request.id}")
+
+    response_data = json.loads(rv.data)
+    if packages is not None:
+        for dep in (pkg_dep for pkg in packages for pkg_dep in pkg["dependencies"]):
+            dep.setdefault("replaces", None)
+    assert response_data["packages"] == ([] if packages is None else packages)
+    assert response_data["dependencies"] == expected_deps
+
+
+@pytest.mark.parametrize("verbose", [True, False])
+def test_fetch_requests_packages_and_dependencies(verbose, app, db, client, auth_env, tmpdir):
+    """Test packages and dependencies inside the fetched requests."""
+    request = create_request_in_db(app, db, auth_env)
+
+    packages = [
+        {
+            "name": "n2",
+            "type": "go-package",
+            "version": "v2",
+            "dependencies": [
+                {"name": "d1", "type": "go-package", "version": "1"},
+                {
+                    "name": "d2",
+                    "type": "go-package",
+                    "version": "2",
+                    "replaces": {"name": "rp", "type": "go-package", "version": "0.1"},
+                },
+            ],
+        },
+        {
+            "name": "n1",
+            "type": "gomod",
+            "version": "v1",
+            "dependencies": [
+                {"name": "d1", "type": "gomod", "version": "1"},
+                {"name": "d2", "replaces": None, "type": "gomod", "version": "2"},
+            ],
+        },
+        {
+            "name": "p1",
+            "type": "npm",
+            "version": "v2",
+            "dependencies": [{"name": "async", "type": "npm", "version": "1.2.0"}],
+        },
+        {
+            "name": "p2",
+            "type": "npm",
+            "version": "20210621",
+            "dependencies": [
+                {"name": "async", "type": "npm", "version": "1.2.0"},
+                {"name": "underscore", "type": "npm", "version": "1.13.0"},
+            ],
+        },
+    ]
+
+    expected_deps = [
+        {"name": "d1", "type": "go-package", "version": "1", "replaces": None},
+        {
+            "name": "d2",
+            "type": "go-package",
+            "version": "2",
+            "replaces": {"name": "rp", "type": "go-package", "version": "0.1"},
+        },
+        {"name": "d1", "type": "gomod", "version": "1", "replaces": None},
+        {"name": "d2", "replaces": None, "type": "gomod", "version": "2", "replaces": None},
+        # Only one async in the final dependencies list
+        {"name": "async", "type": "npm", "version": "1.2.0", "replaces": None},
+        {"name": "underscore", "type": "npm", "version": "1.13.0", "replaces": None},
+    ]
+
+    # Since the tasks do not run asynchronously, set the number of packages
+    # and dependencies manually for this test.
+    request.packages_count = len(packages)
+    request.dependencies_count = len(expected_deps)
+    db.session.commit()
+
+    cachito_bundles_dir = str(tmpdir)
+    bundle_dir = RequestBundleDir(request.id, root=cachito_bundles_dir)
+    app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
+
+    write_test_packages_data(packages, bundle_dir.packages_data)
+
+    rv = client.get(f"/api/v1/requests?verbose={str(verbose).lower()}")
+
+    response_data = json.loads(rv.data)
+    for package in response_data["items"]:
+        if verbose:
+            sort_packages_and_deps_in_place(packages)
+            sort_packages_and_deps_in_place(expected_deps)
+            for dep in (pkg_dep for pkg in packages for pkg_dep in pkg["dependencies"]):
+                dep.setdefault("replaces", None)
+            assert package["packages"] == packages
+            assert package["dependencies"] == expected_deps
+        else:
+            assert package["packages"] == len(packages)
+            assert package["dependencies"] == len(expected_deps)

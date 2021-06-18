@@ -3,10 +3,11 @@ import logging
 
 import git
 
+from cachito.utils import PackagesData
 from cachito.workers.pkg_managers.general import update_request_with_package
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
-from cachito.workers.tasks.utils import PackagesData, runs_if_request_in_progress
+from cachito.workers.tasks.utils import runs_if_request_in_progress
 
 __all__ = ["add_git_submodules_as_package"]
 log = logging.getLogger(__name__)

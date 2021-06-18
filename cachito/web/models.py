@@ -6,7 +6,7 @@ import functools
 import itertools
 import os
 import re
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import flask
 from flask_login import UserMixin, current_user
@@ -16,10 +16,11 @@ import sqlalchemy.sql
 import urllib.parse
 from werkzeug.exceptions import Forbidden
 
-from cachito.web import content_manifest
 from cachito.errors import ContentManifestError, ValidationError
+from cachito.paths import RequestBundleDir
+from cachito.web import content_manifest
 from cachito.web import db
-from cachito.workers.tasks.utils import sort_packages_and_deps_in_place
+from cachito.utils import PackagesData
 
 
 def is_request_ref_valid(ref: str) -> bool:
@@ -809,34 +810,6 @@ class Request(db.Model):
         """
         return content_manifest.ContentManifest(self)
 
-    def count_dependencies(self) -> int:
-        """
-        Get the total number of dependencies for a request.
-
-        :return: the number of dependencies
-        :rtype: int
-        """
-        return (
-            db.session.query(
-                sqlalchemy.func.count(sqlalchemy.distinct(RequestDependency.dependency_id))
-            )
-            .filter(RequestDependency.request_id == self.id)
-            .scalar()
-        )
-
-    def count_packages(self) -> int:
-        """
-        Get the total number of packages for a request.
-
-        :return: the number of packages
-        :rtype: int
-        """
-        return (
-            db.session.query(sqlalchemy.func.count(RequestPackage.package_id))
-            .filter(RequestPackage.request_id == self.id)
-            .scalar()
-        )
-
     def to_json(self, verbose=True):
         """
         Generate the JSON representation of the request.
@@ -893,35 +866,20 @@ class Request(db.Model):
             latest_state = states[0]
             rv["state_history"] = states
 
-            package_to_deps = {}
-            # This is used to quickly see if a dependency has been added to the root "dependencies"
-            # array in the returned JSON. This uses a set instead of iterating through the
-            # "dependencies" array to avoid an O(n) operation for every dependency.
-            seen_dependencies = set()
-            rv["dependencies"] = []
-            for req_dep in self.request_dependencies:
-                dep_json = req_dep.dependency.to_json(
-                    req_dep.replaced_dependency.to_json() if req_dep.replaced_dependency else None,
-                    force_replaces=True,
-                )
-                # Avoid duplicate dependencies in the root "dependencies" array
-                if req_dep.dependency.id not in seen_dependencies:
-                    rv["dependencies"].append(dep_json)
-                    seen_dependencies.add(req_dep.dependency.id)
+            bundle_dir = RequestBundleDir(
+                self.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"]
+            )
+            packages_data = PackagesData()
+            packages_data.load(bundle_dir.packages_data)
+            rv["packages"] = packages_data.packages
+            rv["dependencies"] = packages_data.all_dependencies
 
-                package_to_deps.setdefault(req_dep.package.id, []).append(dep_json)
-
-            sort_packages_and_deps_in_place(rv["dependencies"])
-
-            rv["packages"] = [
-                req_package.package.to_json(
-                    dependencies=package_to_deps.get(req_package.package_id, []),
-                    subpath=req_package.subpath,
-                )
-                for req_package in self.request_packages
-            ]
-
-            sort_packages_and_deps_in_place(rv["packages"])
+            dep: Dict[str, Any]
+            for dep in itertools.chain(
+                rv["dependencies"],
+                (pkg_dep for pkg in rv["packages"] for pkg_dep in pkg["dependencies"]),
+            ):
+                dep.setdefault("replaces", None)
 
             if flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]:
                 rv["logs"] = {
@@ -931,8 +889,8 @@ class Request(db.Model):
                 }
         else:
             latest_state = _state_to_json(self.state)
-            rv["dependencies"] = self.count_dependencies()
-            rv["packages"] = self.count_packages()
+            rv["packages"] = self.packages_count
+            rv["dependencies"] = self.dependencies_count
 
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
