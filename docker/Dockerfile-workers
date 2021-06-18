@@ -12,9 +12,11 @@ RUN dnf -y install \
     krb5-devel \
     mercurial \
     npm \
+    procps \
     python3-devel \
     python3-pip \
     python3-setuptools \
+    strace \
     && dnf clean all
 COPY . .
 
