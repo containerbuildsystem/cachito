@@ -4,7 +4,7 @@ api_url: http://localhost:8080/api/v1
 # Authentication type, user either null for no authentication or kerberos
 api_auth_type: null
 # Time in minutes at which the request must be completed
-timeout: 15
+timeout: 45
 # The flag cachito_gomod_strict_vendor is enabled on the environment
 strict_mode_enabled: false
 # Package that will be used for testing
