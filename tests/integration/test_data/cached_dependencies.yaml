@@ -46,20 +46,20 @@ pip_cached_deps:
   response_expectations:
     dependencies:
     - dev: false
-      name: "appr"
-      replaces: null
-      type: "pip"
-      version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-    - dev: false
-      name: "appr"
-      replaces: null
-      type: "pip"
-      version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
-    - dev: false
       name: "aiowsgi"
       replaces: null
       type: "pip"
       version: "0.7"
+    - dev: false
+      name: "appr"
+      replaces: null
+      type: "pip"
+      version: "git+https://github.com/cachito-testing/cachito-pip-without-deps.git@SECOND_DEP_COMMIT"
+    - dev: false
+      name: "appr"
+      replaces: null
+      type: "pip"
+      version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
     - dev: false
       name: "appr"
       replaces: null
@@ -69,19 +69,9 @@ pip_cached_deps:
       name: "appr"
       replaces: null
       type: "pip"
-      version: "git+https://github.com/cachito-testing/cachito-pip-without-deps.git@SECOND_DEP_COMMIT"
+      version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
     packages:
     - dependencies:
-      - dev: false
-        name: "appr"
-        replaces: null
-        type: "pip"
-        version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-      - dev: false
-        name: "appr"
-        replaces: null
-        type: "pip"
-        version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
       - dev: false
         name: "aiowsgi"
         replaces: null
@@ -96,7 +86,17 @@ pip_cached_deps:
         name: "appr"
         replaces: null
         type: "pip"
+        version: "git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+      - dev: false
+        name: "appr"
+        replaces: null
+        type: "pip"
         version: "https://github.com/cachito-testing/cachito-pip-without-deps/archive/FIRST_DEP_COMMIT.zip#egg=appr&cachito_hash=sha256:FIRST_DEP_HASH"
+      - dev: false
+        name: "appr"
+        replaces: null
+        type: "pip"
+        version: "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
       name: "cachito-pip-with-deps"
       type: "pip"
       version: "1.0.0"
@@ -137,14 +137,14 @@ gomod_cached_deps:
   response_expectations:
     packages:
     - dependencies:
-      - name: "github.com/cachito-testing/cachito-gomod-without-deps"
+      - name: "golang.org/x/text/internal/tag"
         replaces: null
-        type: "gomod"
-        version: "DEP_VERSION"
-      name: "github.com/cachito-testing/cachito-gomod-with-deps"
-      type: "gomod"
-      version: "MAIN_VERSION"
-    - dependencies:
+        type: "go-package"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
+      - name: "golang.org/x/text/language"
+        replaces: null
+        type: "go-package"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
       - name: "rsc.io/quote"
         replaces: null
         type: "go-package"
@@ -153,16 +153,16 @@ gomod_cached_deps:
         replaces: null
         type: "go-package"
         version: "v1.3.0"
-      - name: "golang.org/x/text/language"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
-      - name: "golang.org/x/text/internal/tag"
-        replaces: null
-        type: "go-package"
-        version: "v0.0.0-20170915032832-14c0d48ead0c"
       name: "github.com/cachito-testing/cachito-gomod-with-deps"
       type: "go-package"
+      version: "MAIN_VERSION"
+    - dependencies:
+      - name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        replaces: null
+        type: "gomod"
+        version: "DEP_VERSION"
+      name: "github.com/cachito-testing/cachito-gomod-with-deps"
+      type: "gomod"
       version: "MAIN_VERSION"
     dependencies:
     - name: "golang.org/x/text/internal/tag"
@@ -173,14 +173,14 @@ gomod_cached_deps:
       replaces: null
       type: "go-package"
       version: "v0.0.0-20170915032832-14c0d48ead0c"
-    - name: "rsc.io/sampler"
-      replaces: null
-      type: "go-package"
-      version: "v1.3.0"
     - name: "rsc.io/quote"
       replaces: null
       type: "go-package"
       version: "v1.5.2"
+    - name: "rsc.io/sampler"
+      replaces: null
+      type: "go-package"
+      version: "v1.3.0"
     - name: "github.com/cachito-testing/cachito-gomod-without-deps"
       replaces: null
       type: "gomod"
