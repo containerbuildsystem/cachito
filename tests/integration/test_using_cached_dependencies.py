@@ -380,14 +380,16 @@ def update_expected_data(env_data, replace_rules):
         env_data["response_expectations"]["packages"][pkg_idx]["version"] = replace_by_rules(
             env_data["response_expectations"]["packages"][pkg_idx]["version"], replace_rules
         )
+
+        for dep_idx, dep in enumerate(env_data["response_expectations"]["packages"][pkg_idx]["dependencies"]):
+            env_data["response_expectations"]["packages"][pkg_idx]["dependencies"][dep_idx][
+                "version"
+            ] = replace_by_rules(dep["version"], replace_rules)
+
     for i, dep in enumerate(env_data["response_expectations"]["dependencies"]):
         env_data["response_expectations"]["dependencies"][i]["version"] = replace_by_rules(
             dep["version"], replace_rules
         )
-    for i, dep in enumerate(env_data["response_expectations"]["packages"][0]["dependencies"]):
-        env_data["response_expectations"]["packages"][0]["dependencies"][i][
-            "version"
-        ] = replace_by_rules(dep["version"], replace_rules)
 
     env_data["content_manifest"]["purl"] = replace_by_rules(
         env_data["content_manifest"]["purl"], replace_rules
