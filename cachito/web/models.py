@@ -676,8 +676,8 @@ def _validate_gitsubmodule_exclusivity(pkg_manager_paths, mutually_exclusive):
             msg = (
                 f"Cannot process non-root packages with '{pkg_manager}' "
                 "when 'git-submodule' is also set.\nSolution: remove the git submodules "
-                "and instead process the upstream repos (corresponding to the submodules) directly. "
-                "Each repo should be processed in a separate request."
+                "and instead process the upstream repos (corresponding to the submodules) "
+                "directly. Each repo should be processed in a separate request."
             )
             raise ValidationError(msg)
 

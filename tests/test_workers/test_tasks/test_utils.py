@@ -436,7 +436,7 @@ class TestPackagesData:
                     [
                         {"name": "pkg3", "type": "npm", "version": "1.2.3"},
                         os.curdir,
-                        [{"name": "async@15.0.0"}],
+                        [{"name": "async", "type": "npm", "version": "15.0.0"}],
                     ],
                 ],
                 {
@@ -452,7 +452,7 @@ class TestPackagesData:
                             "name": "pkg3",
                             "type": "npm",
                             "version": "1.2.3",
-                            "dependencies": [{"name": "async@15.0.0"}],
+                            "dependencies": [{"name": "async", "type": "npm", "version": "15.0.0"}],
                         },
                     ],
                 },

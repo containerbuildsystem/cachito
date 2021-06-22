@@ -250,9 +250,7 @@ def test_create_request_with_npm_package_configs(
     ],
 )
 @mock.patch("cachito.web.api_v1.chain")
-def test_create_request_with_pip_package_configs(
-    mock_chain, app, auth_env, client, db, pkg_value
-):
+def test_create_request_with_pip_package_configs(mock_chain, app, auth_env, client, db, pkg_value):
     package_value = {"pip": pkg_value}
     data = {
         "repo": "https://github.com/release-engineering/web-terminal.git",
