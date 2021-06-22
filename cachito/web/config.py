@@ -4,7 +4,7 @@ import tempfile
 
 from cachito.errors import ConfigError
 
-TEST_DB_FILE = os.path.join(tempfile.gettempdir(), "cachito.db")
+TEST_DB_FILE = os.path.join(os.environ.get("TOX_ENV_DIR") or tempfile.gettempdir(), "cachito.db")
 
 
 class Config(object):
