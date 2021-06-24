@@ -7,9 +7,9 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
+from cachito.common.packages_data import PackagesData, sort_packages_and_deps_in_place
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
-from cachito.utils import PackagesData, sort_packages_and_deps_in_place
 
 
 @pytest.mark.parametrize(

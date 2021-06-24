@@ -5,8 +5,8 @@ from unittest import mock
 
 import pytest
 
+from cachito.common.paths import RequestBundleDir as BaseRequestBundleDir
 from cachito.errors import CachitoError
-from cachito.paths import RequestBundleDir as BaseRequestBundleDir
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import npm
 

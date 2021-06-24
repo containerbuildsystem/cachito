@@ -16,11 +16,11 @@ import sqlalchemy.sql
 import urllib.parse
 from werkzeug.exceptions import Forbidden
 
+from cachito.common.paths import RequestBundleDir
 from cachito.errors import ContentManifestError, ValidationError
-from cachito.paths import RequestBundleDir
 from cachito.web import content_manifest
 from cachito.web import db
-from cachito.utils import PackagesData
+from cachito.common.packages_data import PackagesData
 
 
 def is_request_ref_valid(ref: str) -> bool:

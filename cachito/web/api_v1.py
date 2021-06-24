@@ -13,6 +13,7 @@ import kombu.exceptions
 from sqlalchemy import func
 from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound, BadRequest
 
+from cachito.common.paths import RequestBundleDir
 from cachito.errors import CachitoError, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM
@@ -30,7 +31,6 @@ from cachito.web.models import (
 from cachito.web.status import status
 from cachito.web.utils import deep_sort_icm, pagination_metadata, str_to_bool
 from cachito.workers import tasks
-from cachito.paths import RequestBundleDir
 
 api_v1 = flask.Blueprint("api_v1", __name__)
 

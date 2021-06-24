@@ -10,13 +10,13 @@ from flask_migrate import Migrate
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import default_exceptions, InternalServerError
 
+from cachito.errors import CachitoError, ContentManifestError, ValidationError
 from cachito.web.auth import user_loader, load_user_from_request
 from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
 from cachito.web.api_v1 import api_v1
 from cachito.web import db
 from cachito.web.errors import json_error
-from cachito.errors import CachitoError, ContentManifestError, ValidationError
 
 
 def healthcheck():

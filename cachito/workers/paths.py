@@ -3,7 +3,7 @@
 import logging
 import pathlib
 
-from cachito import paths
+from cachito.common import paths
 from cachito.workers.config import get_worker_config
 
 log = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class RequestBundleDir(paths.RequestBundleDir):
         return self
 
 
-# Similar with cachito.paths.RequestBundleDir, this base type will be the
+# Similar with cachito.common.paths.RequestBundleDir, this base type will be the
 # correct type for Linux or Windows individually.
 class SourcesDir(type(pathlib.Path())):
     """

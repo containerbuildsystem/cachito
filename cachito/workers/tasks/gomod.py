@@ -2,8 +2,8 @@
 import logging
 import os
 
+from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
-from cachito.utils import PackagesData
 from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general import (
     update_request_with_deps,
