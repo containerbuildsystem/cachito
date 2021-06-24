@@ -120,7 +120,9 @@ class TestCachedDependencies:
                 self.branch, self.cloned_main_repo, self.main_repo_origin, [self.main_repo_commit]
             )
 
-    @pytest.mark.parametrize("env_name", ["pip_cached_deps", "gomod_cached_deps"])
+    @pytest.mark.parametrize(
+        "env_name", ["pip_cached_deps", "gomod_cached_deps", "npm_cached_deps", "yarn_cached_deps"]
+    )
     def test_package_with_cached_deps(self, test_env, tmpdir, env_name):
         """
         Test a package with cached dependency.
@@ -415,6 +417,12 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
           with new one in the go.mod file
         * return replacement rules based on commit and pseudo-version
 
+    npm & yarn:
+        * copy original package.json file into two segments
+        * insert new dependency in between the two segments
+          and paste into package.json file
+        * return replacement rules based on commits
+
     :param dict env_data: the test data
     :param str repo_dir: path to the main repository
     :param tmpdir: temporary test directory
@@ -463,4 +471,24 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
         return {
             "FIRST_DEP_COMMIT": new_dep_commits[0],
             "DEP_VERSION": dep_version,
+        }
+    elif env_data["pkg_managers"] == ["npm"] or env_data["pkg_managers"] == ["yarn"]:
+        new_dep = env_data["test_dependency"]
+        if env_data["pkg_managers"] == ["npm"]:
+            closing_bracket = "\n  },"
+        else:
+            closing_bracket = "\n  }"
+
+        with open(os.path.join(repo_dir, "package.json"), "r") as f:
+            old_package_json = [line for line in f.read().split(closing_bracket)]
+        with open(os.path.join(repo_dir, "package.json"), "w") as f:
+            f.write(
+                f"{old_package_json[0]},\n"
+                f"    {new_dep}{closing_bracket}"
+                f"{old_package_json[1]}"
+            )
+
+        return {
+            "FIRST_DEP_COMMIT": new_dep_commits[0],
+            "SECOND_DEP_COMMIT": new_dep_commits[1],
         }
