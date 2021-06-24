@@ -197,3 +197,319 @@ gomod_cached_deps:
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
     source_purls:
     - "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@DEP_VERSION"
+# Test npm with cached dependencies
+npm_cached_deps:
+  # Use local version of repos.
+  # <use_local: True> is not supported in local environment and will be skipped.
+  use_local: True
+  # test repo user
+  git_user: "Arthur Dent"
+  # test repo user email
+  git_email: "dent42@cachito.rocks"
+  # HTTPS and SSH links to main and dependency repos respectively
+  https_main_repo: https://github.com/cachito-testing/cachito-npm-with-deps.git
+  https_dep_repo: https://github.com/cachito-testing/cachito-npm-without-deps.git
+  ssh_main_repo: "git@github.com:cachito-testing/cachito-npm-with-deps.git"
+  ssh_dep_repo: "git@github.com:cachito-testing/cachito-npm-without-deps.git"
+  # dummy dependency to test change in package.json
+  test_dependency: '"assertion-error": "1.1.0"'
+  pkg_managers: [ "npm" ]
+  # Parts of the Cachito response to check
+  response_expectations:
+    dependencies:
+      - dev: false
+        name: assertion-error
+        replaces: null
+        type: npm
+        version: 1.1.0
+      - dev: false
+        name: cachito-npm-without-deps
+        replaces: null
+        type: npm
+        version: github:cachito-testing/cachito-npm-without-deps#2f0ce1d7b1f8b35572d919428b965285a69583f6
+      - dev: false
+        name: chai
+        replaces: null
+        type: npm
+        version: 4.2.0
+      - dev: false
+        name: check-error
+        replaces: null
+        type: npm
+        version: 1.0.2
+      - dev: false
+        name: deep-eql
+        replaces: null
+        type: npm
+        version: 3.0.1
+      - dev: false
+        name: fecha
+        replaces: null
+        type: npm
+        version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+      - dev: false
+        name: get-func-name
+        replaces: null
+        type: npm
+        version: 2.0.0
+      - dev: false
+        name: pathval
+        replaces: null
+        type: npm
+        version: 1.1.1
+      - dev: false
+        name: test-npm-dep
+        replaces: null
+        type: npm
+        version: git+https://elinah@bitbucket.org/elinah/test-npm-dep.git#b952715c0706f30d92a7253dcdadc510a618eca5
+      - dev: false
+        name: type-detect
+        replaces: null
+        type: npm
+        version: 4.0.8
+      - dev: true
+        name: npm-test-project
+        replaces: null
+        type: npm
+        version: git+https://gitlab.com/eakhmano-test-group/eakhmano-test-subgroup/subsubgroup/npm-test-project.git#88114c48d7d894f7e2306adf06137b096e9cdf29
+    packages:
+      - dependencies:
+        - dev: false
+          name: assertion-error
+          replaces: null
+          type: npm
+          version: 1.1.0
+        - dev: false
+          name: cachito-npm-without-deps
+          replaces: null
+          type: npm
+          version: github:cachito-testing/cachito-npm-without-deps#2f0ce1d7b1f8b35572d919428b965285a69583f6
+        - dev: false
+          name: chai
+          replaces: null
+          type: npm
+          version: 4.2.0
+        - dev: false
+          name: check-error
+          replaces: null
+          type: npm
+          version: 1.0.2
+        - dev: false
+          name: deep-eql
+          replaces: null
+          type: npm
+          version: 3.0.1
+        - dev: false
+          name: fecha
+          replaces: null
+          type: npm
+          version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+        - dev: false
+          name: get-func-name
+          replaces: null
+          type: npm
+          version: 2.0.0
+        - dev: false
+          name: pathval
+          replaces: null
+          type: npm
+          version: 1.1.1
+        - dev: false
+          name: test-npm-dep
+          replaces: null
+          type: npm
+          version: git+https://elinah@bitbucket.org/elinah/test-npm-dep.git#b952715c0706f30d92a7253dcdadc510a618eca5
+        - dev: false
+          name: type-detect
+          replaces: null
+          type: npm
+          version: 4.0.8
+        - dev: true
+          name: npm-test-project
+          replaces: null
+          type: npm
+          version: git+https://gitlab.com/eakhmano-test-group/eakhmano-test-subgroup/subsubgroup/npm-test-project.git#88114c48d7d894f7e2306adf06137b096e9cdf29
+        name: cachito-npm-with-deps
+        type: npm
+        version: 1.0.0
+  # Expected files
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-npm-with-deps/tarball/MAIN_REPO_COMMIT
+    deps/npm/assertion-error/assertion-error-1.1.0.tgz: https://registry.npmjs.org/assertion-error/-/assertion-error-1.1.0.tgz
+    deps/npm/chai/chai-4.2.0.tgz: https://registry.npmjs.org/chai/-/chai-4.2.0.tgz
+    deps/npm/check-error/check-error-1.0.2.tgz: https://registry.npmjs.org/check-error/-/check-error-1.0.2.tgz
+    deps/npm/deep-eql/deep-eql-3.0.1.tgz: https://registry.npmjs.org/deep-eql/-/deep-eql-3.0.1.tgz
+    deps/npm/external-fecha/fecha-4.2.0-external-sha512-8ae71e98d68e38e1f6e4c629187684dd85e4dc96647c7219b1dd189598ea52865e947f0ad94a7001fa8fb5eccf58467fe34ad10066e831af3374120134604bd5.tgz: https://github.com/cachito-testing/test_files/raw/master/fecha-npm.tgz
+    deps/npm/external-npm-test-project/npm-test-project-1.0.0-external-gitcommit-88114c48d7d894f7e2306adf06137b096e9cdf29.tgz: https://github.com/cachito-testing/test_files/raw/master/npm-test-project-1.0.0.tgz
+    deps/npm/external-test-npm-dep/test-npm-dep-1.0.0-external-gitcommit-b952715c0706f30d92a7253dcdadc510a618eca5.tgz: https://github.com/cachito-testing/test_files/raw/master/test-npm-dep-1.0.0.tgz
+    deps/npm/get-func-name/get-func-name-2.0.0.tgz: https://registry.npmjs.org/get-func-name/-/get-func-name-2.0.0.tgz
+    deps/npm/github/cachito-testing/cachito-npm-without-deps/cachito-npm-without-deps-1.0.0-external-gitcommit-2f0ce1d7b1f8b35572d919428b965285a69583f6.tgz: https://github.com/cachito-testing/test_files/raw/master/cachito-npm-without-deps-1.0.0.tgz
+    deps/npm/pathval/pathval-1.1.1.tgz: https://registry.npmjs.org/pathval/-/pathval-1.1.1.tgz
+    deps/npm/type-detect/type-detect-4.0.8.tgz: https://registry.npmjs.org/type-detect/-/type-detect-4.0.8.tgz
+  # Expected content manifest data
+  content_manifest:
+    purl: "pkg:github/cachito-testing/cachito-npm-with-deps@MAIN_REPO_COMMIT"
+    dep_purls:
+    - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz"
+    - "pkg:generic/test-npm-dep?vcs_url=git%2Bhttps%3A%2F%2Felinah%40bitbucket.org%2Felinah%2Ftest-npm-dep.git%23b952715c0706f30d92a7253dcdadc510a618eca5"
+    - "pkg:github/cachito-testing/cachito-npm-without-deps@2f0ce1d7b1f8b35572d919428b965285a69583f6"
+    - "pkg:npm/assertion-error@1.1.0"
+    - "pkg:npm/chai@4.2.0"
+    - "pkg:npm/check-error@1.0.2"
+    - "pkg:npm/deep-eql@3.0.1"
+    - "pkg:npm/get-func-name@2.0.0"
+    - "pkg:npm/pathval@1.1.1"
+    - "pkg:npm/type-detect@4.0.8"
+    source_purls:
+    - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz"
+    - "pkg:generic/npm-test-project?vcs_url=git%2Bhttps%3A%2F%2Fgitlab.com%2Feakhmano-test-group%2Feakhmano-test-subgroup%2Fsubsubgroup%2Fnpm-test-project.git%2388114c48d7d894f7e2306adf06137b096e9cdf29"
+    - "pkg:generic/test-npm-dep?vcs_url=git%2Bhttps%3A%2F%2Felinah%40bitbucket.org%2Felinah%2Ftest-npm-dep.git%23b952715c0706f30d92a7253dcdadc510a618eca5"
+    - "pkg:github/cachito-testing/cachito-npm-without-deps@2f0ce1d7b1f8b35572d919428b965285a69583f6"
+    - "pkg:npm/assertion-error@1.1.0"
+    - "pkg:npm/chai@4.2.0"
+    - "pkg:npm/check-error@1.0.2"
+    - "pkg:npm/deep-eql@3.0.1"
+    - "pkg:npm/get-func-name@2.0.0"
+    - "pkg:npm/pathval@1.1.1"
+    - "pkg:npm/type-detect@4.0.8"
+# Test yarn with cached dependencies
+yarn_cached_deps:
+  # Use local version of repos.
+  # <use_local: True> is not supported in local environment and will be skipped.
+  use_local: True
+  # test repo user
+  git_user: "Arthur Dent"
+  # test repo user email
+  git_email: "dent42@cachito.rocks"
+  # HTTPS and SSH links to main and dependency repos respectively
+  https_main_repo: https://github.com/cachito-testing/cachito-yarn-with-deps.git
+  https_dep_repo: https://github.com/cachito-testing/cachito-yarn-without-deps.git
+  ssh_main_repo: "git@github.com:cachito-testing/cachito-yarn-with-deps.git"
+  ssh_dep_repo: "git@github.com:cachito-testing/cachito-yarn-without-deps.git"
+  # dummy dependency to test change in package.json
+  test_dependency: '"assertion-error": "1.1.0"'
+  pkg_managers: [ "yarn" ]
+  # Parts of the Cachito response to check
+  response_expectations:
+    dependencies:
+      - name: assertion-error
+        replaces: null
+        type: yarn
+        version: 1.1.0
+      - name: chai
+        replaces: null
+        type: yarn
+        version: 4.2.0
+      - name: check-error
+        replaces: null
+        type: yarn
+        version: 1.0.2
+      - name: deep-eql
+        replaces: null
+        type: yarn
+        version: 3.0.1
+      - name: fecha
+        replaces: null
+        type: yarn
+        version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz#f09ea0b8115b9733dddc88227086c73ba4ddc926
+      - name: get-func-name
+        replaces: null
+        type: yarn
+        version: 2.0.0
+      - name: npm-test-project
+        replaces: null
+        type: yarn
+        version: git+https://gitlab.com/eakhmano-test-group/eakhmano-test-subgroup/subsubgroup/npm-test-project.git#88114c48d7d894f7e2306adf06137b096e9cdf29
+      - name: pathval
+        replaces: null
+        type: yarn
+        version: 1.1.1
+      - name: test-npm-dep
+        replaces: null
+        type: yarn
+        version: git+https://elinah@bitbucket.org/elinah/test-npm-dep.git#b952715c0706f30d92a7253dcdadc510a618eca5
+      - name: type-detect
+        replaces: null
+        type: yarn
+        version: 4.0.8
+    packages:
+      - dependencies:
+        - name: assertion-error
+          replaces: null
+          type: yarn
+          version: 1.1.0
+        - name: chai
+          replaces: null
+          type: yarn
+          version: 4.2.0
+        - name: check-error
+          replaces: null
+          type: yarn
+          version: 1.0.2
+        - name: deep-eql
+          replaces: null
+          type: yarn
+          version: 3.0.1
+        - name: fecha
+          replaces: null
+          type: yarn
+          version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz#f09ea0b8115b9733dddc88227086c73ba4ddc926
+        - name: get-func-name
+          replaces: null
+          type: yarn
+          version: 2.0.0
+        - name: npm-test-project
+          replaces: null
+          type: yarn
+          version: git+https://gitlab.com/eakhmano-test-group/eakhmano-test-subgroup/subsubgroup/npm-test-project.git#88114c48d7d894f7e2306adf06137b096e9cdf29
+        - name: pathval
+          replaces: null
+          type: yarn
+          version: 1.1.1
+        - name: test-npm-dep
+          replaces: null
+          type: yarn
+          version: git+https://elinah@bitbucket.org/elinah/test-npm-dep.git#b952715c0706f30d92a7253dcdadc510a618eca5
+        - name: type-detect
+          replaces: null
+          type: yarn
+          version: 4.0.8
+        name: cachito-yarn-with-deps
+        type: yarn
+        version: 1.0.0
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-yarn-with-deps/tarball/MAIN_REPO_COMMIT
+    deps/yarn/assertion-error/assertion-error-1.1.0.tgz: https://registry.npmjs.org/assertion-error/-/assertion-error-1.1.0.tgz
+    deps/yarn/chai/chai-4.2.0.tgz: https://registry.npmjs.org/chai/-/chai-4.2.0.tgz
+    deps/yarn/check-error/check-error-1.0.2.tgz: https://registry.npmjs.org/check-error/-/check-error-1.0.2.tgz
+    deps/yarn/deep-eql/deep-eql-3.0.1.tgz: https://registry.npmjs.org/deep-eql/-/deep-eql-3.0.1.tgz
+    deps/yarn/external-fecha/fecha-4.2.0-external-sha1-f09ea0b8115b9733dddc88227086c73ba4ddc926.tgz: https://github.com/cachito-testing/test_files/raw/master/fecha-91680e4db1415fea33eac878cfd889c80a7b55c7.tgz
+    deps/yarn/external-npm-test-project/npm-test-project-1.0.0-external-gitcommit-88114c48d7d894f7e2306adf06137b096e9cdf29.tgz: https://github.com/cachito-testing/test_files/raw/master/npm-test-project-1.0.0.tgz
+    deps/yarn/external-test-npm-dep/test-npm-dep-1.0.0-external-gitcommit-b952715c0706f30d92a7253dcdadc510a618eca5.tgz: https://github.com/cachito-testing/test_files/raw/master/test-npm-dep-1.0.0.tgz
+    deps/yarn/get-func-name/get-func-name-2.0.0.tgz: https://registry.npmjs.org/get-func-name/-/get-func-name-2.0.0.tgz
+    deps/yarn/pathval/pathval-1.1.1.tgz: https://registry.npmjs.org/pathval/-/pathval-1.1.1.tgz
+    deps/yarn/type-detect/type-detect-4.0.8.tgz: https://registry.npmjs.org/type-detect/-/type-detect-4.0.8.tgz
+  content_manifest:
+    purl: "pkg:github/cachito-testing/cachito-yarn-with-deps@MAIN_REPO_COMMIT"
+    dep_purls:
+    - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz%23f09ea0b8115b9733dddc88227086c73ba4ddc926"
+    - "pkg:generic/npm-test-project?vcs_url=git%2Bhttps%3A%2F%2Fgitlab.com%2Feakhmano-test-group%2Feakhmano-test-subgroup%2Fsubsubgroup%2Fnpm-test-project.git%2388114c48d7d894f7e2306adf06137b096e9cdf29"
+    - "pkg:generic/test-npm-dep?vcs_url=git%2Bhttps%3A%2F%2Felinah%40bitbucket.org%2Felinah%2Ftest-npm-dep.git%23b952715c0706f30d92a7253dcdadc510a618eca5"
+    - "pkg:npm/assertion-error@1.1.0"
+    - "pkg:npm/chai@4.2.0"
+    - "pkg:npm/check-error@1.0.2"
+    - "pkg:npm/deep-eql@3.0.1"
+    - "pkg:npm/get-func-name@2.0.0"
+    - "pkg:npm/pathval@1.1.1"
+    - "pkg:npm/type-detect@4.0.8"
+    source_purls:
+    - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz%23f09ea0b8115b9733dddc88227086c73ba4ddc926"
+    - "pkg:generic/npm-test-project?vcs_url=git%2Bhttps%3A%2F%2Fgitlab.com%2Feakhmano-test-group%2Feakhmano-test-subgroup%2Fsubsubgroup%2Fnpm-test-project.git%2388114c48d7d894f7e2306adf06137b096e9cdf29"
+    - "pkg:generic/test-npm-dep?vcs_url=git%2Bhttps%3A%2F%2Felinah%40bitbucket.org%2Felinah%2Ftest-npm-dep.git%23b952715c0706f30d92a7253dcdadc510a618eca5"
+    - "pkg:npm/assertion-error@1.1.0"
+    - "pkg:npm/chai@4.2.0"
+    - "pkg:npm/check-error@1.0.2"
+    - "pkg:npm/deep-eql@3.0.1"
+    - "pkg:npm/get-func-name@2.0.0"
+    - "pkg:npm/pathval@1.1.1"
+    - "pkg:npm/type-detect@4.0.8"
