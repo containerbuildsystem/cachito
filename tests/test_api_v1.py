@@ -12,8 +12,8 @@ import flask
 import kombu.exceptions
 import pytest
 
+from cachito.common.paths import RequestBundleDir
 from cachito.errors import CachitoError, ValidationError
-from cachito.paths import RequestBundleDir
 from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER
 from cachito.web.models import (
     ConfigFileBase64,
@@ -36,7 +36,7 @@ from cachito.workers.tasks import (
     fetch_yarn_source,
     finalize_request,
 )
-from cachito.utils import PackagesData, sort_packages_and_deps_in_place
+from cachito.common.packages_data import PackagesData, sort_packages_and_deps_in_place
 
 RE_INVALID_PACKAGES_VALUE = (
     r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'

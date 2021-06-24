@@ -6,8 +6,8 @@ from typing import List
 
 import pyarn.lockfile
 
+from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
-from cachito.utils import PackagesData
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config, validate_yarn_config
 from cachito.workers.paths import RequestBundleDir

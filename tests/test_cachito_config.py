@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from cachito.web.config import validate_cachito_config
 from cachito.errors import ConfigError
+from cachito.web.config import validate_cachito_config
 
 
 @patch("os.path.isdir", return_value=True)

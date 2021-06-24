@@ -5,8 +5,8 @@ from unittest import mock
 
 import pytest
 
+from cachito.common.paths import RequestBundleDir
 from cachito.errors import CachitoError, ValidationError
-from cachito.paths import RequestBundleDir
 from cachito.workers.tasks import yarn
 
 
