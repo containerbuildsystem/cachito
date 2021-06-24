@@ -134,7 +134,7 @@ def create_bundle_archive(request_id: int, flags: List[str]) -> None:
         bundle_archive.add(str(bundle_dir.deps_dir), "deps")
 
 
-def aggregate_packages_data(request_id: int, pkg_managers: List[str]) -> None:
+def aggregate_packages_data(request_id: int, pkg_managers: List[str]) -> PackagesData:
     """Aggregate packages data generated for each package manager into one unified data file.
 
     :param int request_id: the request id.
@@ -151,6 +151,8 @@ def aggregate_packages_data(request_id: int, pkg_managers: List[str]) -> None:
     log.debug("Write request %s packages data into %s", request_id, bundle_dir.packages_data)
     aggregated_data.write_to_file(str(bundle_dir.packages_data))
 
+    return aggregated_data
+
 
 @app.task(priority=10)
 @runs_if_request_in_progress
@@ -158,6 +160,6 @@ def finalize_request(request_id):
     """Execute tasks to finalize the request creation."""
     request = get_request(request_id)
     create_bundle_archive(request_id, request.get("flags", []))
-    aggregate_packages_data(request_id, request["pkg_managers"])
-    set_packages_and_deps_counts(request_id, len(request["packages"]), len(request["dependencies"]))
+    data = aggregate_packages_data(request_id, request["pkg_managers"])
+    set_packages_and_deps_counts(request_id, len(data.packages), len(data.all_dependencies))
     set_request_state(request_id, "complete", "Completed successfully")

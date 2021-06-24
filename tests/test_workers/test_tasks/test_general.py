@@ -266,6 +266,8 @@ def test_finalize_request(
         "dependencies": [pkg, pkg],
     }
 
+    mock_aggregate_data.return_value = mock.Mock(packages=[pkg], all_dependencies=[pkg, pkg])
+
     tasks.finalize_request(42)
 
     mock_get_request.assert_called_once_with(42)
