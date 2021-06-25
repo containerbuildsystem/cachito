@@ -26,6 +26,29 @@ without_deps:
     deps/gomod/pkg/mod/cache/download: null
   content_manifest:
   - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
+# same as above but uses the gomod-vendor-check flag to test how Cachito
+#   behaves when vendoring is requested but there is nothing to vendor
+without_deps_vendor_check:
+  repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
+  ref: a888f7261b9a9683972fbd77da2d12fe86faef5e
+  pkg_managers: ["gomod"]
+  flags: ["gomod-vendor-check"]
+  response_expectations:
+    packages:
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        type: "go-package"
+        version: "v0.0.0-20200925115855-a888f7261b9a"
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        type: "gomod"
+        version: "v0.0.0-20200925115855-a888f7261b9a"
+    dependencies: []
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-gomod-without-deps/tarball/a888f7261b9a9683972fbd77da2d12fe86faef5e
+    deps/gomod/pkg/mod/cache/download: null
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
 with_deps:
   repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
   ref: 4c65d49cae6bfbada4d479b321d8c0109fa1aa97
