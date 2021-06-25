@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
-from cachito.common.packages_data import PackagesData, sort_packages_and_deps_in_place
+from cachito.common.packages_data import PackagesData
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
 
@@ -204,7 +204,7 @@ def test_fetch_gomod_source(
             pkg_info = package["pkg"]
             packages_data.add_package(pkg_info, path, package.get("pkg_deps", []))
 
-    sort_packages_and_deps_in_place(packages_data._packages)
+    packages_data.sort()
     assert {"packages": packages_data._packages} == json.loads(
         mock_bundle_dir.return_value.gomod_packages_data.read_bytes()
     )

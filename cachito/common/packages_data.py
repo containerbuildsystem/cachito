@@ -11,7 +11,7 @@ from cachito.errors import CachitoError
 log = logging.getLogger(__name__)
 
 
-def package_sort_key(package: Dict[str, Any]) -> Tuple[str, bool, str, str]:
+def _package_sort_key(package: Dict[str, Any]) -> Tuple[str, bool, str, str]:
     """Return the sort key for sorting packages.
 
     :param package: a mapping representing a package information. It must
@@ -22,21 +22,6 @@ def package_sort_key(package: Dict[str, Any]) -> Tuple[str, bool, str, str]:
     :rtype: tuple[str, bool, str, str]
     """
     return package["type"], package.get("dev", False), package["name"], package["version"]
-
-
-def sort_packages_and_deps_in_place(packages: List[Dict[str, Any]]) -> None:
-    """
-    Sorts lists of packages in place.
-
-    Sorting order: type -> dev -> name -> version.
-    If a package has a "dependencies" list, the packages inside it will be sorted as well.
-
-    :param list packages: the list of packages
-    """
-    packages.sort(key=package_sort_key)
-    for package in packages:
-        if "dependencies" in package:
-            package["dependencies"].sort(key=package_sort_key)
 
 
 def _package_equal(left: Union[Dict[str, Any], None], right: Dict[str, Any]) -> bool:
@@ -104,7 +89,7 @@ class PackagesData:
             unique_packages(
                 sorted(
                     (dep for pkg in self._packages for dep in pkg["dependencies"]),
-                    key=package_sort_key,
+                    key=_package_sort_key,
                 )
             )
         )
@@ -146,8 +131,7 @@ class PackagesData:
             ``os.curdir``.
         :type file_name: str or pathlib.Path
         """
-        sort_packages_and_deps_in_place(self._packages)
-
+        self.sort()
         log.debug("Write packages with dependencies into file %s.", file_name)
         with open(file_name, "w", encoding="utf-8") as f:
             json.dump({"packages": self._packages}, f)
@@ -171,3 +155,15 @@ class PackagesData:
                 return
             for p in packages:
                 self.add_package(p, p.get("path", os.curdir), p["dependencies"])
+
+    def sort(self):
+        """Sort both added packages and every package's dependencies in place.
+
+        Sorting order: type -> dev -> name -> version.
+        If a package has a "dependencies" list, the packages inside it will be sorted as well.
+        """
+        self._packages.sort(key=_package_sort_key)
+        for package in self._packages:
+            deps = package.get("dependencies")
+            if deps:
+                deps.sort(key=_package_sort_key)

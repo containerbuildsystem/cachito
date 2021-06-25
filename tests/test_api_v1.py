@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import copy
 import json
 import os.path
 import re
@@ -36,7 +37,7 @@ from cachito.workers.tasks import (
     fetch_yarn_source,
     finalize_request,
 )
-from cachito.common.packages_data import PackagesData, sort_packages_and_deps_in_place
+from cachito.common.packages_data import PackagesData
 
 RE_INVALID_PACKAGES_VALUE = (
     r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'
@@ -2332,28 +2333,70 @@ def write_test_packages_data(packages: List[Dict[str, Any]], filename: Union[str
     packages_data.write_to_file(filename)
 
 
+# For writing test easily, these packages are sorted.
+resolved_packages = [
+    {
+        "name": "n2",
+        "type": "go-package",
+        "version": "v2",
+        "dependencies": [
+            {"name": "d1", "type": "go-package", "version": "1"},
+            {
+                "name": "d2",
+                "type": "go-package",
+                "version": "2",
+                "replaces": {"name": "rp", "type": "go-package", "version": "0.1"},
+            },
+        ],
+    },
+    {
+        "name": "n1",
+        "type": "gomod",
+        "version": "v1",
+        "dependencies": [
+            {"name": "d1", "type": "gomod", "version": "1"},
+            {"name": "d2", "type": "gomod", "version": "2", "replaces": None},
+        ],
+    },
+    {
+        "name": "p1",
+        "type": "npm",
+        "version": "v2",
+        "dependencies": [{"name": "async", "type": "npm", "version": "1.2.0"}],
+    },
+    {
+        "name": "p2",
+        "type": "npm",
+        "version": "20210621",
+        "dependencies": [
+            {"name": "async", "type": "npm", "version": "1.2.0"},
+            {"name": "underscore", "type": "npm", "version": "1.13.0"},
+        ],
+    },
+]
+
+expected_dependencies = [
+    {"name": "d1", "type": "go-package", "version": "1", "replaces": None},
+    {
+        "name": "d2",
+        "type": "go-package",
+        "version": "2",
+        "replaces": {"name": "rp", "type": "go-package", "version": "0.1"},
+    },
+    {"name": "d1", "type": "gomod", "version": "1", "replaces": None},
+    {"name": "d2", "type": "gomod", "version": "2", "replaces": None},
+    # Only one async in the final dependencies list
+    {"name": "async", "type": "npm", "version": "1.2.0", "replaces": None},
+    {"name": "underscore", "type": "npm", "version": "1.13.0", "replaces": None},
+]
+
+
 @pytest.mark.parametrize(
     "packages,expected_deps",
     [
         [None, []],  # do not create the packages.json
         [[], []],
-        [
-            [
-                {
-                    "name": "n1",
-                    "type": "gomod",
-                    "version": "v1",
-                    "dependencies": [
-                        {"name": "d1", "type": "gomod", "version": "1"},
-                        {"name": "d2", "replaces": None, "type": "gomod", "version": "2"},
-                    ],
-                },
-            ],
-            [
-                {"name": "d1", "type": "gomod", "version": "1", "replaces": None},
-                {"name": "d2", "type": "gomod", "version": "2", "replaces": None},
-            ],
-        ],
+        [copy.deepcopy(resolved_packages), copy.deepcopy(expected_dependencies)],
     ],
 )
 def test_fetch_request_packages_and_dependencies(
@@ -2385,61 +2428,8 @@ def test_fetch_requests_packages_and_dependencies(verbose, app, db, client, auth
     """Test packages and dependencies inside the fetched requests."""
     request = create_request_in_db(app, db, auth_env)
 
-    packages = [
-        {
-            "name": "n2",
-            "type": "go-package",
-            "version": "v2",
-            "dependencies": [
-                {"name": "d1", "type": "go-package", "version": "1"},
-                {
-                    "name": "d2",
-                    "type": "go-package",
-                    "version": "2",
-                    "replaces": {"name": "rp", "type": "go-package", "version": "0.1"},
-                },
-            ],
-        },
-        {
-            "name": "n1",
-            "type": "gomod",
-            "version": "v1",
-            "dependencies": [
-                {"name": "d1", "type": "gomod", "version": "1"},
-                {"name": "d2", "replaces": None, "type": "gomod", "version": "2"},
-            ],
-        },
-        {
-            "name": "p1",
-            "type": "npm",
-            "version": "v2",
-            "dependencies": [{"name": "async", "type": "npm", "version": "1.2.0"}],
-        },
-        {
-            "name": "p2",
-            "type": "npm",
-            "version": "20210621",
-            "dependencies": [
-                {"name": "async", "type": "npm", "version": "1.2.0"},
-                {"name": "underscore", "type": "npm", "version": "1.13.0"},
-            ],
-        },
-    ]
-
-    expected_deps = [
-        {"name": "d1", "type": "go-package", "version": "1", "replaces": None},
-        {
-            "name": "d2",
-            "type": "go-package",
-            "version": "2",
-            "replaces": {"name": "rp", "type": "go-package", "version": "0.1"},
-        },
-        {"name": "d1", "type": "gomod", "version": "1", "replaces": None},
-        {"name": "d2", "replaces": None, "type": "gomod", "version": "2", "replaces": None},
-        # Only one async in the final dependencies list
-        {"name": "async", "type": "npm", "version": "1.2.0", "replaces": None},
-        {"name": "underscore", "type": "npm", "version": "1.13.0", "replaces": None},
-    ]
+    packages = copy.deepcopy(resolved_packages)
+    expected_deps = copy.deepcopy(expected_dependencies)
 
     # Since the tasks do not run asynchronously, set the number of packages
     # and dependencies manually for this test.
@@ -2451,15 +2441,13 @@ def test_fetch_requests_packages_and_dependencies(verbose, app, db, client, auth
     bundle_dir = RequestBundleDir(request.id, root=cachito_bundles_dir)
     app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
 
-    write_test_packages_data(packages, bundle_dir.packages_data)
+    write_test_packages_data(resolved_packages, bundle_dir.packages_data)
 
     rv = client.get(f"/api/v1/requests?verbose={str(verbose).lower()}")
 
     response_data = json.loads(rv.data)
     for package in response_data["items"]:
         if verbose:
-            sort_packages_and_deps_in_place(packages)
-            sort_packages_and_deps_in_place(expected_deps)
             for dep in (pkg_dep for pkg in packages for pkg_dep in pkg["dependencies"]):
                 dep.setdefault("replaces", None)
             assert package["packages"] == packages
