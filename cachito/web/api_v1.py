@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from collections import OrderedDict
 from copy import deepcopy
-import copy
 import functools
 import os
 
@@ -19,9 +18,7 @@ from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM
 from cachito.web.models import (
     ConfigFileBase64,
-    Dependency,
     EnvironmentVariable,
-    Package,
     PackageManager,
     Request,
     RequestState,
@@ -371,10 +368,7 @@ def patch_request(request_id):
         raise ValidationError("At least one key must be specified to update the request")
 
     valid_keys = {
-        "dependencies",
         "environment_variables",
-        "package",
-        "package_subpath",
         "state",
         "state_reason",
         "packages_count",
@@ -387,19 +381,7 @@ def patch_request(request_id):
         )
 
     for key, value in payload.items():
-        if key == "dependencies":
-            if not isinstance(value, list):
-                raise ValidationError('The value for "dependencies" must be an array')
-            if "package" not in payload:
-                raise ValidationError(
-                    'The "package" object must also be provided if the "dependencies" array is '
-                    "provided"
-                )
-            for dep in value:
-                Dependency.validate_json(dep, for_update=True)
-        elif key == "package":
-            Package.validate_json(value)
-        elif key == "environment_variables":
+        if key == "environment_variables":
             if not isinstance(value, dict):
                 raise ValidationError('The value for "{}" must be an object'.format(key))
             for env_var_name, env_var_info in value.items():
@@ -409,11 +391,6 @@ def patch_request(request_id):
                 raise ValidationError(f'The value for "{key}" must be an integer')
         elif not isinstance(value, str):
             raise ValidationError('The value for "{}" must be a string'.format(key))
-
-    if "package_subpath" in payload and "package" not in payload:
-        raise ValidationError(
-            'The "package" object must also be provided if "package_subpath" is provided'
-        )
 
     if "state" in payload and "state_reason" not in payload:
         raise ValidationError('The "state_reason" key is required when "state" is supplied')
@@ -441,30 +418,6 @@ def patch_request(request_id):
             flask.current_app.logger.info("Not adding a new state since it matches the last state")
         else:
             request.add_state(new_state, new_state_reason)
-
-    package_object = None
-    if "package" in payload:
-        package_object = Package.get_or_create(payload["package"])
-
-        package_attrs = {}
-        # The presence of "package_subpath" in payload indicates whether to modify the subpath.
-        # This is only allowed when creating a new package, so when the PATCH API is used to
-        # modify an existing package, the user must make sure to use the same subpath (or no
-        # subpath).
-        if "package_subpath" in payload:
-            package_attrs["subpath"] = payload["package_subpath"]
-
-        request.add_package(package_object, **package_attrs)
-
-    for dep_and_replaces in payload.get("dependencies", []):
-        dep = copy.deepcopy(dep_and_replaces)
-        replaces = dep.pop("replaces", None)
-
-        dep_object = Dependency.get_or_create(dep)
-        replaces_object = None
-        if replaces:
-            replaces_object = Dependency.get_or_create(replaces)
-        request.add_dependency(package_object, dep_object, replaces_object)
 
     for env_var_name, env_var_info in payload.get("environment_variables", {}).items():
         env_var_obj = EnvironmentVariable.query.filter_by(name=env_var_name, **env_var_info).first()

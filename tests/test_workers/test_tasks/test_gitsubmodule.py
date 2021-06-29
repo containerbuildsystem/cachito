@@ -10,10 +10,9 @@ archive_path = f"/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz
 
 
 @mock.patch("git.Repo")
-@mock.patch("cachito.workers.tasks.gitsubmodule.update_request_with_package")
 @mock.patch("cachito.workers.paths.get_worker_config")
 def test_add_git_submodules_as_package(
-    get_worker_config, mock_update_with_package, mock_repo, task_passes_state_check, tmpdir
+    get_worker_config, mock_repo, task_passes_state_check, tmpdir
 ):
     get_worker_config.return_value = mock.Mock(cachito_bundles_dir=tmpdir)
     submodule = mock.Mock()
@@ -28,8 +27,6 @@ def test_add_git_submodules_as_package(
         "version": "https://github.com/user/tour.git#522fb816eec295ad58bc488c74b2b46748d471b2",
     }
     gitsubmodule.add_git_submodules_as_package(3)
-    # Verify that update_request_with_package was called correctly
-    mock_update_with_package.assert_called_once_with(3, package, package_subpath="tour")
 
     bundle_dir = RequestBundleDir(3)
     expected = package.copy()

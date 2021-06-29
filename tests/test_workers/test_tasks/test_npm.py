@@ -82,11 +82,9 @@ def test_cleanup_npm_request(mock_exec_script):
 @mock.patch("cachito.workers.tasks.npm.nexus.get_ca_cert")
 @mock.patch("cachito.workers.tasks.npm.generate_npmrc_content")
 @mock.patch("cachito.workers.tasks.npm.update_request_with_config_files")
-@mock.patch("cachito.workers.tasks.npm.update_request_with_package")
-@mock.patch("cachito.workers.tasks.npm.update_request_with_deps")
+@mock.patch("cachito.workers.tasks.npm.update_request_env_vars")
 def test_fetch_npm_source(
-    mock_urwd,
-    mock_urwp,
+    mock_update_request_env_vars,
     mock_urwcf,
     mock_gnc,
     mock_gcc,
@@ -191,16 +189,14 @@ def test_fetch_npm_source(
         }
     )
     mock_urwcf.assert_called_once_with(request_id, expected_config_files)
-    mock_urwp.assert_called_once_with(
+
+    mock_update_request_env_vars.assert_called_once_with(
         request_id,
-        package,
         {
             "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
             "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"value": "true", "kind": "literal"},
         },
-        package_subpath=package_subpath or ".",
     )
-    mock_urwd.assert_called_once_with(request_id, package, deps)
 
     pkg_info = package.copy()
     pkg_info["dependencies"] = deps
@@ -219,11 +215,9 @@ def test_fetch_npm_source(
 @mock.patch("cachito.workers.tasks.npm.nexus.get_ca_cert")
 @mock.patch("cachito.workers.tasks.npm.generate_npmrc_content")
 @mock.patch("cachito.workers.tasks.npm.update_request_with_config_files")
-@mock.patch("cachito.workers.tasks.npm.update_request_with_package")
-@mock.patch("cachito.workers.tasks.npm.update_request_with_deps")
+@mock.patch("cachito.workers.tasks.npm.update_request_env_vars")
 def test_fetch_npm_source_multiple_paths(
-    mock_urwd,
-    mock_urwp,
+    mock_update_request_env_vars,
     mock_urwcf,
     mock_gnc,
     mock_gcc,
@@ -323,22 +317,13 @@ def test_fetch_npm_source_multiple_paths(
     ]
 
     mock_urwcf.assert_called_once_with(request_id, expected_config_files)
-    mock_urwp.assert_has_calls(
-        (
-            mock.call(
-                request_id,
-                package,
-                {
-                    "CHROMEDRIVER_SKIP_DOWNLOAD": {"kind": "literal", "value": "true"},
-                    "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"kind": "literal", "value": "true"},
-                },
-                package_subpath="old-client",
-            ),
-            mock.call(request_id, package_two, None, package_subpath="new-client/client"),
-        )
-    )
-    mock_urwd.assert_has_calls(
-        (mock.call(request_id, package, deps), mock.call(request_id, package_two, deps))
+
+    mock_update_request_env_vars.assert_called_once_with(
+        request_id,
+        {
+            "CHROMEDRIVER_SKIP_DOWNLOAD": {"kind": "literal", "value": "true"},
+            "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"kind": "literal", "value": "true"},
+        },
     )
 
 

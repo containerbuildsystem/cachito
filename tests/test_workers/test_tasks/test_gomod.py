@@ -67,8 +67,7 @@ from cachito.workers.tasks import gomod
 )
 @pytest.mark.parametrize("has_pkg_lvl_deps", (True, False))
 @mock.patch("cachito.workers.tasks.gomod.RequestBundleDir")
-@mock.patch("cachito.workers.tasks.gomod.update_request_with_package")
-@mock.patch("cachito.workers.tasks.gomod.update_request_with_deps")
+@mock.patch("cachito.workers.tasks.gomod.update_request_env_vars")
 @mock.patch("cachito.workers.tasks.gomod.set_request_state")
 @mock.patch("cachito.workers.tasks.gomod.get_request")
 @mock.patch("cachito.workers.tasks.gomod.resolve_gomod")
@@ -76,8 +75,7 @@ def test_fetch_gomod_source(
     mock_resolve_gomod,
     mock_get_request,
     mock_set_request_state,
-    mock_update_request_with_deps,
-    mock_update_request_with_package,
+    mock_update_request_env_vars,
     mock_bundle_dir,
     dep_replacements,
     expect_state_update,
@@ -165,8 +163,8 @@ def test_fetch_gomod_source(
                     'Fetching the gomod dependencies at the "{}" directory'.format(path),
                 )
             )
-            if i != 0:
-                sample_env_vars = None
+            if i == 0:
+                mock_update_request_env_vars.assert_called_once_with(1, sample_env_vars)
 
             pkg_calls.append(
                 mock.call(1, gomod_info["module"], sample_env_vars, package_subpath=path)
@@ -180,10 +178,6 @@ def test_fetch_gomod_source(
 
         mock_set_request_state.assert_has_calls(state_calls)
         mock_get_request.assert_has_calls(mock.call(1) for _ in state_calls)
-        mock_update_request_with_package.assert_has_calls(pkg_calls)
-        assert mock_update_request_with_package.call_count == len(pkg_calls)
-        mock_update_request_with_deps.assert_has_calls(dep_calls)
-        assert mock_update_request_with_deps.call_count == len(dep_calls)
 
     gomod_calls = [
         mock.call(

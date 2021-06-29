@@ -5,10 +5,7 @@ import os
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
-from cachito.workers.pkg_managers.general import (
-    update_request_with_deps,
-    update_request_with_package,
-)
+from cachito.workers.pkg_managers.general import update_request_env_vars
 from cachito.workers.pkg_managers.gomod import resolve_gomod, path_to_subpackage
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import (
@@ -89,6 +86,14 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             "Dependency replacements are only supported for a single go module path."
         )
 
+    env_vars = {
+        "GOCACHE": {"value": "deps/gomod", "kind": "path"},
+        "GOPATH": {"value": "deps/gomod", "kind": "path"},
+        "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
+    }
+    env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
+    update_request_env_vars(request_id, env_vars)
+
     packages_json_data = PackagesData()
 
     for i, subpath in enumerate(subpaths):
@@ -110,31 +115,14 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             log.exception("Failed to fetch gomod dependencies for request %d", request_id)
             raise
 
-        if i == 0:
-            env_vars = {
-                "GOCACHE": {"value": "deps/gomod", "kind": "path"},
-                "GOPATH": {"value": "deps/gomod", "kind": "path"},
-                "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
-            }
-            env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
-        else:
-            env_vars = None
-
         module_info = gomod["module"]
 
-        update_request_with_package(request_id, module_info, env_vars, package_subpath=subpath)
-        update_request_with_deps(request_id, module_info, gomod["module_deps"])
         packages_json_data.add_package(module_info, subpath, gomod["module_deps"])
 
         # add package deps
         for package in gomod["packages"]:
             pkg_info = package["pkg"]
             package_subpath = _package_subpath(module_info["name"], pkg_info["name"], subpath)
-
-            update_request_with_package(request_id, pkg_info, package_subpath=package_subpath)
-            if package.get("pkg_deps"):
-                update_request_with_deps(request_id, pkg_info, package["pkg_deps"])
-
             packages_json_data.add_package(pkg_info, package_subpath, package.get("pkg_deps", []))
 
     packages_json_data.write_to_file(bundle_dir.gomod_packages_data)
