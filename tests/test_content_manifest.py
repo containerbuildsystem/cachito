@@ -5,8 +5,13 @@ from unittest import mock
 import pytest
 
 from cachito.errors import ContentManifestError
-from cachito.web import content_manifest
-from cachito.web.models import Package, Request, RequestPackage
+from cachito.web.content_manifest import (
+    ContentManifest,
+    Package,
+    JSON_SCHEMA_URL,
+    PARENT_PURL_PLACEHOLDER,
+)
+from cachito.web.models import Request
 
 GIT_REPO = "https://github.com/namespace/repo"
 GIT_REF = "1798a59f297f5f3886e41bc054e538540581f8ce"
@@ -24,75 +29,86 @@ def default_toplevel_purl():
     return f"pkg:github/namespace/repo@{GIT_REF}"
 
 
-def test_process_go(default_request):
-    pkg = Package.from_json(
-        {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"}
-    )
-    pkg.id = 1
+def _load_packages_from_json(packages_json):
+    return [Package.from_json(package) for package in packages_json]
+
+
+def test_process_go(app, default_request):
+    packages_json = [
+        {
+            "name": "example.com/org/project",
+            "type": "go-package",
+            "version": "1.1.1",
+            "dependencies": [
+                {"name": "example.com/org/project/lib", "type": "go-package", "version": "2.2.2"}
+            ],
+        },
+        {
+            "name": "example.com/org/project",
+            "type": "gomod",
+            "version": "1.1.1",
+            "dependencies": [
+                {"name": "example.com/anotherorg/project/lib", "type": "gomod", "version": "3.3.3"}
+            ],
+        },
+    ]
+
     expected_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
-
-    dep = Package.from_json(
-        {"name": "example.com/org/project/lib", "type": "go-package", "version": "2.2.2"}
-    )
-    dep.id = 2
     expected_dep_purl = "pkg:golang/example.com%2Forg%2Fproject%2Flib@2.2.2"
+    expected_src_purl = "pkg:golang/example.com%2Fanotherorg%2Fproject%2Flib@3.3.3"
 
-    src = Package.from_json(
-        {"name": "example.com/anotherorg/project", "type": "gomod", "version": "3.3.3"}
-    )
-    src.id = 3
-    expected_src_purl = "pkg:golang/example.com%2Fanotherorg%2Fproject@3.3.3"
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
 
-    cm = content_manifest.ContentManifest(default_request)
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
 
-    # emulate to_json behavior to setup internal packages cache
-    cm._gomod_data.setdefault(pkg.name, {"purl": "not-important", "dependencies": []})
-    cm._gopkg_data.setdefault(
-        pkg.id, {"name": pkg.name, "purl": expected_purl, "dependencies": [], "sources": []}
-    )
-
-    cm.process_go_package(pkg, dep)
-    cm.process_gomod(pkg, src)
-    cm.set_go_package_sources()
-
-    expected_contents = {
-        pkg.id: {
+    expected_gopkg_contents = {
+        package: {
             "purl": expected_purl,
             "dependencies": [{"purl": expected_dep_purl}],
             "sources": [{"purl": expected_src_purl}],
-        }
+        },
+    }
+
+    expected_gomod_contents = {
+        package.name: {"purl": expected_purl, "dependencies": [{"purl": expected_src_purl}]}
     }
 
     assert cm._gopkg_data
-    assert pkg.id in cm._gopkg_data
-    assert cm._gopkg_data == expected_contents
+    assert package in cm._gopkg_data
+    assert package.name in cm._gomod_data
+    assert cm._gopkg_data == expected_gopkg_contents
+    assert cm._gomod_data == expected_gomod_contents
 
 
 def test_process_gomod_replace_parent_purl(default_request):
-    module = Package.from_json(
-        {"name": "example.com/org/project", "type": "gomod", "version": "1.1.1"}
-    )
-    module.id = 1
-    expected_module_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
-
-    module_dep = Package.from_json(
+    packages_json = [
         {
-            "name": "example.com/anotherorg/project",
+            "name": "example.com/org/project",
             "type": "gomod",
-            "version": "./staging/src/anotherorg/project",
-        }
-    )
-    module_dep.id = 2
+            "version": "1.1.1",
+            "dependencies": [
+                {
+                    "name": "example.com/anotherorg/project",
+                    "type": "gomod",
+                    "version": "./staging/src/anotherorg/project",
+                },
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+
+    expected_module_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
     expected_dependency_purl = f"{expected_module_purl}#staging/src/anotherorg/project"
 
-    cm = content_manifest.ContentManifest(default_request)
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
 
-    # emulate to_json behavior to setup internal packages cache
-    cm._gomod_data.setdefault(module.name, {"purl": expected_module_purl, "dependencies": []})
-
-    cm.process_gomod(module, module_dep)
     assert cm._gomod_data == {
-        module.name: {
+        package.name: {
             "purl": expected_module_purl,
             "dependencies": [{"purl": expected_dependency_purl}],
         },
@@ -100,129 +116,219 @@ def test_process_gomod_replace_parent_purl(default_request):
 
 
 def test_process_npm(default_request, default_toplevel_purl):
-    pkg = Package.from_json({"name": "grc-ui", "type": "npm", "version": "1.0.0"})
-    pkg.id = 1
-    expected_purl = default_toplevel_purl
-
     dep_commit_id = "7762177aacfb1ddf5ca45cebfe8de1da3b24f0ff"
-    dep = Package.from_json(
-        {
-            "name": "security-middleware",
-            "type": "npm",
-            "version": f"github:open-cluster-management/security-middleware#{dep_commit_id}",
-        }
-    )
-    dep.id = 2
-    expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{dep_commit_id}"
 
-    src = Package.from_json({"name": "@types/events", "type": "npm", "version": "3.0.0"})
-    src.id = 3
-    src.dev = True
+    packages_json = [
+        {
+            "name": "grc-ui",
+            "type": "npm",
+            "version": "1.0.0",
+            "dependencies": [
+                {
+                    "name": "security-middleware",
+                    "type": "npm",
+                    "version": f"github:open-cluster-management/security-middleware"
+                    f"#{dep_commit_id}",
+                },
+                {"name": "@types/events", "type": "npm", "version": "3.0.0", "dev": True},
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+
+    expected_purl = default_toplevel_purl
+    expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{dep_commit_id}"
     expected_src_purl = "pkg:npm/%40types/events@3.0.0"
 
-    cm = content_manifest.ContentManifest(default_request)
-
-    # emulate to_json behavior to setup internal packages cache
-    cm._npm_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
-
-    cm.process_npm_package(pkg, dep)
-    cm.process_npm_package(pkg, src)
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
 
     expected_contents = {
-        pkg.id: {
+        package: {
             "purl": expected_purl,
             "dependencies": [{"purl": expected_dep_purl}],
             "sources": [{"purl": expected_dep_purl}, {"purl": expected_src_purl}],
-        }
+        },
     }
 
     assert cm._npm_data
-    assert pkg.id in cm._npm_data
+    assert package in cm._npm_data
     assert cm._npm_data == expected_contents
 
 
 def test_process_yarn(default_request, default_toplevel_purl):
-    pkg = Package.from_json({"name": "grc-ui", "type": "yarn", "version": "1.0.0"})
-    pkg.id = 1
-    expected_purl = default_toplevel_purl
-
     dep_commit_id = "7762177aacfb1ddf5ca45cebfe8de1da3b24f0ff"
-    dep = Package.from_json(
-        {
-            "name": "security-middleware",
-            "type": "yarn",
-            "version": f"github:open-cluster-management/security-middleware#{dep_commit_id}",
-        }
-    )
-    dep.id = 2
-    expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{dep_commit_id}"
 
-    src = Package.from_json({"name": "@types/events", "type": "yarn", "version": "3.0.0"})
-    src.id = 3
-    src.dev = True
+    packages_json = [
+        {
+            "name": "grc-ui",
+            "type": "yarn",
+            "version": "1.0.0",
+            "dependencies": [
+                {
+                    "name": "security-middleware",
+                    "type": "yarn",
+                    "version": f"github:open-cluster-management/security-middleware"
+                    f"#{dep_commit_id}",
+                },
+                {"name": "@types/events", "type": "yarn", "version": "3.0.0", "dev": True},
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+
+    expected_purl = default_toplevel_purl
+    expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{dep_commit_id}"
     expected_src_purl = "pkg:npm/%40types/events@3.0.0"
 
-    cm = content_manifest.ContentManifest(default_request)
-
-    # emulate to_json behavior to setup internal packages cache
-    cm._yarn_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
-
-    cm.process_yarn_package(pkg, dep)
-    cm.process_yarn_package(pkg, src)
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
 
     expected_contents = {
-        pkg.id: {
+        package: {
             "purl": expected_purl,
             "dependencies": [{"purl": expected_dep_purl}],
             "sources": [{"purl": expected_dep_purl}, {"purl": expected_src_purl}],
-        }
+        },
     }
 
     assert cm._yarn_data
-    assert pkg.id in cm._yarn_data
+    assert package in cm._yarn_data
     assert cm._yarn_data == expected_contents
 
 
 def test_process_pip(default_request, default_toplevel_purl):
-    pkg = Package.from_json({"name": "requests", "type": "pip", "version": "2.24.0"})
-    pkg.id = 1
-    expected_purl = default_toplevel_purl
-
     dep_commit_id = "58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-    dep = Package.from_json(
-        {
-            "name": "cnr-server",
-            "type": "pip",
-            "version": f"git+https://github.com/quay/appr@{dep_commit_id}",
-        }
-    )
-    dep.id = 2
-    expected_dep_purl = f"pkg:github/quay/appr@{dep_commit_id}"
 
-    src = Package.from_json({"name": "setuptools", "type": "pip", "version": "49.1.1"})
-    src.id = 3
-    src.dev = True
+    packages_json = [
+        {
+            "name": "requests",
+            "type": "pip",
+            "version": "2.24.0",
+            "dependencies": [
+                {
+                    "name": "cnr-server",
+                    "type": "pip",
+                    "version": f"git+https://github.com/quay/appr@{dep_commit_id}",
+                },
+                {"name": "setuptools", "type": "pip", "version": "49.1.1", "dev": True},
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+
+    expected_purl = default_toplevel_purl
+    expected_dep_purl = f"pkg:github/quay/appr@{dep_commit_id}"
     expected_src_purl = "pkg:pypi/setuptools@49.1.1"
 
-    cm = content_manifest.ContentManifest(default_request)
-
-    # emulate to_json behavior to setup internal packages cache
-    cm._pip_data.setdefault(pkg.id, {"purl": expected_purl, "dependencies": [], "sources": []})
-
-    cm.process_pip_package(pkg, dep)
-    cm.process_pip_package(pkg, src)
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
 
     expected_contents = {
-        pkg.id: {
+        package: {
             "purl": expected_purl,
             "dependencies": [{"purl": expected_dep_purl}],
             "sources": [{"purl": expected_dep_purl}, {"purl": expected_src_purl}],
-        }
+        },
     }
 
     assert cm._pip_data
-    assert pkg.id in cm._pip_data
+    assert package in cm._pip_data
     assert cm._pip_data == expected_contents
+
+
+@pytest.mark.parametrize(
+    "package_json",
+    [
+        {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0"},
+        {
+            "name": "example.com/org/project",
+            "type": "gomod",
+            "version": "1.0.0",
+            "dev": True,
+            "path": "folder",
+        },
+        {
+            "name": "example.com/org/project",
+            "type": "gomod",
+            "version": "1.0.0",
+            "invalid-attribute": "some-value",
+        },
+        {
+            "name": "example.com/org/project",
+            "type": "gomod",
+            "version": "1.0.0",
+            "dependencies": [
+                {"name": "example.com/org/project/dep", "type": "gomod", "version": "1.0.0"},
+            ],
+        },
+    ],
+)
+def test_package_from_json(package_json):
+    package = Package.from_json(package_json)
+
+    assert package.name == package_json.get("name")
+    assert package.type == package_json.get("type")
+    assert package.version == package_json.get("version")
+    assert package.dev == package_json.get("dev", False)
+    assert package.path == package_json.get("path")
+
+    if "dependencies" in package_json:
+        dependency = package.dependencies[0]
+        dependency_json = package_json["dependencies"][0]
+
+        assert type(dependency) == Package
+        assert dependency.name == dependency_json["name"]
+        assert dependency.type == dependency_json["type"]
+        assert dependency.version == dependency_json["version"]
+
+
+@pytest.mark.parametrize(
+    "json1, json2, equality",
+    [
+        (
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0"},
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0"},
+            True,
+        ),
+        (
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0", "dev": True},
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0", "dev": True},
+            True,
+        ),
+        (
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0", "dev": True},
+            {"name": "example.com/org/project1", "type": "gomod", "version": "1.0.0", "dev": True},
+            False,
+        ),
+        (
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0", "dev": True},
+            {"name": "example.com/org/project", "type": "npm", "version": "1.0.0", "dev": True},
+            False,
+        ),
+        (
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0", "dev": True},
+            {"name": "example.com/org/project", "type": "gomod", "version": "2.0.0", "dev": True},
+            False,
+        ),
+        (
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0", "dev": True},
+            {"name": "example.com/org/project", "type": "gomod", "version": "1.0.0", "dev": False},
+            False,
+        ),
+    ],
+)
+def test_package_equality(json1, json2, equality):
+    package1 = Package.from_json(json1)
+    package2 = Package.from_json(json2)
+
+    assert (package1 == package2) == equality
 
 
 @pytest.mark.parametrize(
@@ -236,29 +342,24 @@ def test_process_pip(default_request, default_toplevel_purl):
     ],
 )
 @pytest.mark.parametrize("subpath", [None, "some/path"])
-@mock.patch("cachito.web.models.Package.to_top_level_purl")
+@mock.patch("cachito.web.content_manifest.Package.to_top_level_purl")
 def test_to_json(mock_top_level_purl, app, package, subpath):
     request = Request()
-    cm = content_manifest.ContentManifest(request)
 
+    if package and subpath:
+        package["path"] = subpath
+
+    packages = _load_packages_from_json([package]) if package else []
+
+    cm = ContentManifest(request, packages)
     image_contents = []
+
     if package:
-        pkg = Package.from_json(package)
-        request_package = RequestPackage(package=pkg, subpath=subpath)
-        request.request_packages.append(request_package)
-        content = {
-            "purl": mock_top_level_purl.return_value,
-            "dependencies": [],
-            "sources": [],
-        }
+        content = {"purl": mock_top_level_purl.return_value, "dependencies": [], "sources": []}
         image_contents.append(content)
 
     expected = {
-        "metadata": {
-            "icm_version": 1,
-            "icm_spec": content_manifest.JSON_SCHEMA_URL,
-            "image_layer_index": -1,
-        },
+        "metadata": {"icm_version": 1, "icm_spec": JSON_SCHEMA_URL, "image_layer_index": -1},
         "image_contents": image_contents,
     }
     assert cm.to_json() == expected
@@ -268,72 +369,7 @@ def test_to_json(mock_top_level_purl, app, package, subpath):
 
 
 @pytest.mark.parametrize(
-    "package, internal_attr, internal_data",
-    [
-        (
-            {"name": "grc-ui", "type": "npm", "version": "1.0.0"},
-            "_npm_data",
-            # The id of the mock Package is 1, the purl is also mocked
-            {1: {"purl": "mock-package-purl", "sources": [], "dependencies": []}},
-        ),
-        (
-            {"name": "requests", "type": "pip", "version": "2.24.0"},
-            "_pip_data",
-            {1: {"purl": "mock-package-purl", "sources": [], "dependencies": []}},
-        ),
-        (
-            {"name": "grc-ui", "type": "yarn", "version": "1.0.0"},
-            "_yarn_data",
-            {1: {"purl": "mock-package-purl", "sources": [], "dependencies": []}},
-        ),
-        (
-            {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"},
-            "_gopkg_data",
-            # go-package is special, it also gets "name"
-            {
-                1: {
-                    "name": "example.com/org/project",
-                    "purl": "mock-package-purl",
-                    "sources": [],
-                    "dependencies": [],
-                },
-            },
-        ),
-        (
-            {"name": "example.com/org/project", "type": "gomod", "version": "1.1.1"},
-            "_gomod_data",
-            # gomod is special, it is only used to finalize go-package data
-            {"example.com/org/project": {"purl": "mock-package-purl", "dependencies": []}},
-        ),
-    ],
-)
-@mock.patch("cachito.web.models.Package.to_top_level_purl")
-# set_go_package_sources must be mocked because it is destructive towards _gopkg_data
-@mock.patch("cachito.web.content_manifest.ContentManifest.set_go_package_sources")
-def test_to_json_properly_sets_internal_data(
-    mock_set_go_sources, mock_top_level_purl, app, package, internal_attr, internal_data
-):
-    # Half the unit tests "emulate to_json() behaviour" so we should probably test that behaviour
-    request = Request()
-
-    pkg = Package.from_json(package)
-    pkg.id = 1
-
-    request_package = RequestPackage(package=pkg)
-    request.request_packages.append(request_package)
-
-    mock_top_level_purl.return_value = "mock-package-purl"
-
-    cm = content_manifest.ContentManifest(request)
-    cm.to_json()
-
-    # Here we are only interested in the setup part of to_json()
-    # (sidenote: we really need to refactor to_json())
-    assert getattr(cm, internal_attr) == internal_data
-
-
-@pytest.mark.parametrize(
-    "packages",
+    "packages_json",
     [
         [
             {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"},
@@ -344,38 +380,35 @@ def test_to_json_properly_sets_internal_data(
                     "https://github.com/testrepo/tour.git#58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
                 ),
             },
-        ]
+        ],
     ],
 )
 @mock.patch("cachito.web.content_manifest.ContentManifest.generate_icm")
-def test_to_json_with_multiple_packages(mock_generate_icm, app, packages):
+def test_to_json_with_multiple_packages(mock_generate_icm, app, packages_json):
     request = Request()
-    cm = content_manifest.ContentManifest(request)
-
+    packages = _load_packages_from_json(packages_json)
+    cm = ContentManifest(request, packages)
     image_contents = []
-    for package in packages:
-        pkg = Package.from_json(package)
-        request_package = RequestPackage(package=pkg)
-        request.request_packages.append(request_package)
-        content = {"purl": pkg.to_purl(), "dependencies": [], "sources": []}
+
+    for package_json in packages_json:
+        package = Package.from_json(package_json)
+        content = {"purl": package.to_purl(), "dependencies": [], "sources": []}
         image_contents.append(content)
+
     res = cm.to_json()
+
     mock_generate_icm.assert_called_once_with(image_contents)
     assert res == mock_generate_icm.return_value
 
 
 @pytest.mark.parametrize("contents", [None, [], "foobar", 42, OrderedDict({"egg": "bacon"})])
 def test_generate_icm(contents, default_request):
-    cm = content_manifest.ContentManifest(default_request)
+    cm = ContentManifest(default_request, [])
     expected = OrderedDict(
         {
             "image_contents": contents or [],
             "metadata": OrderedDict(
-                {
-                    "icm_spec": content_manifest.JSON_SCHEMA_URL,
-                    "icm_version": 1,
-                    "image_layer_index": -1,
-                }
+                {"icm_spec": JSON_SCHEMA_URL, "icm_version": 1, "image_layer_index": -1}
             ),
         }
     )
@@ -410,7 +443,7 @@ def test_generate_icm(contents, default_request):
 )
 @mock.patch("flask.current_app.logger.warning")
 def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, default_request):
-    cm = content_manifest.ContentManifest(default_request)
+    cm = ContentManifest(default_request, [])
 
     main_purl = "pkg:golang/a-package"
     main_package_id = 1
@@ -419,7 +452,6 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
         main_package_id: {"name": pkg_name, "purl": main_purl, "sources": [], "dependencies": []}
     }
     cm._gomod_data = gomod_data
-
     cm.set_go_package_sources()
 
     sources = []
@@ -497,8 +529,8 @@ def test_set_go_package_sources_replace_parent_purl(
     gopkg_name, gomod_data, expected_parent_purl, default_request
 ):
     pre_replaced_dependencies = [
-        {"purl": f"{content_manifest.PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/foo"},
-        {"purl": f"{content_manifest.PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/bar"},
+        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/foo"},
+        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/bar"},
         {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
     ]
     post_replaced_dependencies = [
@@ -507,7 +539,7 @@ def test_set_go_package_sources_replace_parent_purl(
         {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
     ]
 
-    cm = content_manifest.ContentManifest(default_request)
+    cm = ContentManifest(default_request, [])
     cm._gomod_data = gomod_data
     cm._gopkg_data = {
         1: {
@@ -547,13 +579,13 @@ def test_set_go_package_sources_replace_parent_purl(
         ],
         [
             {"name": "example.com/org/project", "type": "go-package", "version": "./src/project"},
-            f"{content_manifest.PARENT_PURL_PLACEHOLDER}#src/project",
+            f"{PARENT_PURL_PLACEHOLDER}#src/project",
             True,
             True,
         ],
         [
             {"name": "example.com/org/project", "type": "gomod", "version": "./src/project"},
-            f"{content_manifest.PARENT_PURL_PLACEHOLDER}#src/project",
+            f"{PARENT_PURL_PLACEHOLDER}#src/project",
             True,
             True,
         ],
@@ -789,7 +821,7 @@ def test_purl_conversion_bogus_forge():
     ],
 )
 def test_vcs_purl_conversion(repo_url, expected_purl):
-    pkg = Package(name="foo")
+    pkg = Package(name="foo", type="", version="")
     assert pkg.to_vcs_purl(repo_url, GIT_REF) == expected_purl
 
 
@@ -809,14 +841,14 @@ def test_vcs_purl_conversion(repo_url, expected_purl):
 def test_top_level_purl_conversion(
     pkg_type, purl_method, method_args, default_request, has_subpath
 ):
-    pkg = Package(type=pkg_type)
+    pkg = Package(name="", type=pkg_type, version="")
 
     if purl_method is None:
         msg = f"{pkg_type!r} is not a valid top level package"
         with pytest.raises(ContentManifestError, match=msg):
             pkg.to_top_level_purl(default_request)
     else:
-        with mock.patch.object(pkg, purl_method) as mock_purl_method:
+        with mock.patch.object(Package, purl_method) as mock_purl_method:
             mock_purl_method.return_value = "pkg:generic/foo"
             purl = pkg.to_top_level_purl(
                 default_request, subpath="some/path" if has_subpath else None

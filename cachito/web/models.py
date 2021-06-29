@@ -808,7 +808,20 @@ class Request(db.Model):
         :return: the ContentManifest object for the request
         :rtype: ContentManifest
         """
-        return content_manifest.ContentManifest(self)
+        packages_data = self._get_packages_data()
+        packages = [
+            content_manifest.Package.from_json(package) for package in packages_data.packages
+        ]
+
+        return content_manifest.ContentManifest(self, packages)
+
+    def _get_packages_data(self):
+        bundle_dir = RequestBundleDir(self.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"])
+
+        packages_data = PackagesData()
+        packages_data.load(bundle_dir.packages_data)
+
+        return packages_data
 
     def to_json(self, verbose=True):
         """
@@ -866,11 +879,7 @@ class Request(db.Model):
             latest_state = states[0]
             rv["state_history"] = states
 
-            bundle_dir = RequestBundleDir(
-                self.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"]
-            )
-            packages_data = PackagesData()
-            packages_data.load(bundle_dir.packages_data)
+            packages_data = self._get_packages_data()
             rv["packages"] = packages_data.packages
             rv["dependencies"] = packages_data.all_dependencies
 

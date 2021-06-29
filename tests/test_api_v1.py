@@ -15,12 +15,11 @@ import pytest
 
 from cachito.common.paths import RequestBundleDir
 from cachito.errors import CachitoError, ValidationError
-from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER
+from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER, Package
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
     Flag,
-    Package,
     Request,
     RequestPackage,
     RequestStateMapping,
@@ -42,6 +41,17 @@ from cachito.common.packages_data import PackagesData
 RE_INVALID_PACKAGES_VALUE = (
     r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'
 )
+
+
+def _write_test_packages_data(packages: List[Dict[str, Any]], filename: Union[str, Path]) -> None:
+    packages_data = PackagesData()
+    for pkg in packages:
+        packages_data.add_package(
+            {"name": pkg["name"], "type": pkg["type"], "version": pkg["version"]},
+            ".",
+            pkg["dependencies"],
+        )
+    packages_data.write_to_file(filename)
 
 
 @mock.patch("cachito.web.api_v1.status")
@@ -134,7 +144,7 @@ def test_create_and_fetch_request(
     for key in data.keys() - {"dependency_replacements", "pkg_managers"}:
         assert data[key] == created_request[key]
 
-    created_request["pkg_managers"] == expected_pkg_managers
+    assert created_request["pkg_managers"] == expected_pkg_managers
 
     if user:
         assert created_request["user"] == "tom_hanks@DOMAIN.LOCAL"
@@ -412,7 +422,7 @@ def test_fetch_paginated_requests(
         request = Request.query.get(r_id)
         request.packages_count = 1
         request.dependencies_count = len(sample_deps_replace)
-        write_test_packages_data(
+        _write_test_packages_data(
             [pkg_info], RequestBundleDir(r_id, cachito_bundles_dir).packages_data
         )
     db.session.commit()
@@ -1693,7 +1703,9 @@ def test_request_fetch_request_content_manifest_invalid(client, worker_auth_env)
 
 
 @pytest.mark.parametrize("state", ["complete", "stale", "in_progress", "failed"])
+@mock.patch("cachito.web.models.Request._get_packages_data")
 def test_fetch_request_content_manifest_go(
+    mock_get_packages_data,
     app,
     client,
     db,
@@ -1739,11 +1751,12 @@ def test_fetch_request_content_manifest_go(
     }
     expected = deep_sort_icm(expected)
 
-    # emulate worker
-    payload = {"dependencies": sample_deps, "package": sample_package}
-    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    payload = {"dependencies": sample_pkg_deps, "package": sample_pkg_lvl_pkg}
-    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+    # mock packages.json file contents
+    sample_pkg_lvl_pkg["dependencies"] = sample_pkg_deps
+    sample_package["dependencies"] = sample_deps
+    packages_data = PackagesData()
+    packages_data._packages = [sample_pkg_lvl_pkg, sample_package]
+    mock_get_packages_data.return_value = packages_data
 
     rv = client.get("/api/v1/requests/1")
     assert rv.status_code == 200
@@ -1764,8 +1777,17 @@ def test_fetch_request_content_manifest_go(
 
 @pytest.mark.parametrize("pkg_manager, purl_type", [("npm", "npm"), ("pip", "pypi")])
 @pytest.mark.parametrize("state", ["complete", "stale", "in_progress", "failed"])
+@mock.patch("cachito.web.models.Request._get_packages_data")
 def test_fetch_request_content_manifest_npm_or_pip(
-    app, client, db, auth_env, worker_auth_env, state, pkg_manager, purl_type
+    mock_get_packages_data,
+    app,
+    client,
+    db,
+    auth_env,
+    worker_auth_env,
+    state,
+    pkg_manager,
+    purl_type,
 ):
     data = {
         "repo": "https://github.com/release-engineering/dummy.git",
@@ -1789,16 +1811,13 @@ def test_fetch_request_content_manifest_npm_or_pip(
         {"dev": True, "name": "dep-cc", "replaces": None, "type": pkg_manager, "version": "3.0.0"},
         {"dev": False, "name": "dep-dd", "replaces": None, "type": pkg_manager, "version": "4.0.0"},
     ]
-    payload = {
-        "dependencies": deps[:2],
-        "package": pkgs[0],
-    }
-    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    payload = {
-        "dependencies": deps[2:],
-        "package": pkgs[1],
-    }
-    client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
+
+    pkgs[0]["dependencies"] = deps[:2]
+    pkgs[1]["dependencies"] = deps[2:]
+    packages_data = PackagesData()
+    packages_data._packages = pkgs
+
+    mock_get_packages_data.return_value = packages_data
 
     rv = client.get("/api/v1/requests/1")
     assert rv.status_code == 200
@@ -1924,7 +1943,8 @@ def test_get_environment_variables(app, client, db, worker_auth_env, env_vars):
 
     env_vars_expected = env_vars or {}
 
-    EnvironmentVariable.query.count() == len(env_vars_expected)
+    assert EnvironmentVariable.query.count() == len(env_vars_expected)
+
     for name, info in env_vars_expected.items():
         env_var_obj = EnvironmentVariable.query.filter_by(name=name, **info).first()
         assert env_var_obj
@@ -2141,80 +2161,104 @@ def test_validate_package_manager_exclusivity(
         _validate_package_manager_exclusivity(pkg_managers, package_configs, mutually_exclusive)
 
 
-def test_get_content_manifests_by_requests(app, client, db, auth_env):
-    data = {
-        "repo": "https://github.com/release-engineering/dummy.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["npm"],
-    }
-    with app.test_request_context(environ_base=auth_env):
-        request1 = Request.from_json(data)
-    request1.add_state(RequestStateMapping.complete.name, "Set complete directly for test")
-    db.session.add(request1)
+def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
+    # create request objects
+    request_data = [
+        (
+            # request_json, request_state
+            {
+                "repo": "https://github.com/release-engineering/dummy.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["npm"],
+            },
+            RequestStateMapping.complete,
+        ),
+        (
+            {
+                "repo": "https://github.com/release-engineering/dummy-foo.git",
+                "ref": "450b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["npm"],
+            },
+            RequestStateMapping.complete,
+        ),
+        (
+            {
+                "repo": "https://github.com/release-engineering/dummy-bar.git",
+                "ref": "b50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["npm"],
+            },
+            RequestStateMapping.in_progress,
+        ),
+    ]
 
-    data = {
-        "repo": "https://github.com/release-engineering/dummy-foo.git",
-        "ref": "450b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["npm"],
-    }
-    with app.test_request_context(environ_base=auth_env):
-        request2 = Request.from_json(data)
-    request2.add_state(RequestStateMapping.complete.name, "Set complete directly for test")
-    db.session.add(request1)
+    requests = []
 
-    data = {
-        "repo": "https://github.com/release-engineering/dummy-bar.git",
-        "ref": "b50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["npm"],
-    }
-    with app.test_request_context(environ_base=auth_env):
-        request3 = Request.from_json(data)
-    request3.add_state(RequestStateMapping.in_progress.name, "Set in_progress directly for test")
-    db.session.add(request3)
+    for item in request_data:
+        request_json = item[0]
+        state = item[1]
 
-    pkg1 = Package(name="pkg1", version="0.1", type="npm")
-    pkg2 = Package(name="pkg2", version="0.2", type="npm")
-    pkg3 = Package(name="pkg3", version="0.2", type="npm")
-    db.session.add(pkg1)
-    db.session.add(pkg2)
-    db.session.add(pkg3)
+        with app.test_request_context(environ_base=auth_env):
+            request = Request.from_json(request_json)
 
-    request1.add_package(pkg1)
-    request2.add_package(pkg2)
-    request3.add_package(pkg3)
+        request.add_state(state.name, f"Set {state.name} directly for test")
+        db.session.add(request)
+
+        requests.append(request)
 
     db.session.commit()
+
+    # create packages json files
+    cachito_bundles_dir = str(tmpdir)
+    app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
+
+    package_data = [
+        {"name": "pkg1", "version": "0.1", "type": "npm", "dependencies": []},
+        {"name": "pkg2", "version": "0.2", "type": "npm", "dependencies": []},
+        {"name": "pkg3", "version": "0.2", "type": "npm", "dependencies": []},
+    ]
+
+    for i in range(len(package_data)):
+        to_write = [package_data[i]]
+        request_id = requests[i].id
+
+        bundle_dir = RequestBundleDir(request_id, root=cachito_bundles_dir)
+        _write_test_packages_data(to_write, bundle_dir.packages_data)
+
+    # define api call parameters and corresponding expected result data
+    pkg1 = Package.from_json(package_data[0])
+    pkg2 = Package.from_json(package_data[1])
 
     test_data = [
         # requests, expected_image_contents
         ["", []],
         ["requests=", []],
         [
-            f"requests={request1.id}",
-            [{"purl": pkg1.to_top_level_purl(request1), "dependencies": [], "sources": []}],
+            f"requests={requests[0].id}",
+            [{"purl": pkg1.to_top_level_purl(requests[0]), "dependencies": [], "sources": []}],
         ],
         [
-            f"requests={request1.id},,{request2.id}",
+            f"requests={requests[0].id},,{requests[1].id}",
             [
-                {"purl": pkg1.to_top_level_purl(request1), "dependencies": [], "sources": []},
-                {"purl": pkg2.to_top_level_purl(request2), "dependencies": [], "sources": []},
+                {"purl": pkg1.to_top_level_purl(requests[0]), "dependencies": [], "sources": []},
+                {"purl": pkg2.to_top_level_purl(requests[1]), "dependencies": [], "sources": []},
             ],
         ],
         [
-            f"requests={request3.id}",
-            f"Request {request3.id} is in state {request3.state.state_name}",
+            f"requests={requests[2].id}",
+            f"Request {requests[2].id} is in state {requests[2].state.state_name}",
         ],
         [
-            f"requests={request1.id},{request3.id}",
-            f"Request {request3.id} is in state {request3.state.state_name}",
+            f"requests={requests[1].id},{requests[2].id}",
+            f"Request {requests[2].id} is in state {requests[2].state.state_name}",
         ],
         ["requests=a100", "a100 is not an integer"],
         [
-            f"requests={request1.id},{request2.id + 100}",
-            f"Cannot find request(s) {request2.id + 100}.",
+            f"requests={requests[0].id},{requests[1].id + 100}",
+            f"Cannot find request(s) {requests[1].id + 100}.",
         ],
     ]
 
+    # run tests
     for requests, expected_image_contents in test_data:
         resp = client.get(f"/api/v1/content-manifest?{requests}")
         if isinstance(expected_image_contents, str):
@@ -2322,17 +2366,6 @@ def create_request_in_db(app, db, auth_env):
     return request
 
 
-def write_test_packages_data(packages: List[Dict[str, Any]], filename: Union[str, Path]) -> None:
-    packages_data = PackagesData()
-    for pkg in packages:
-        packages_data.add_package(
-            {"name": pkg["name"], "type": pkg["type"], "version": pkg["version"]},
-            ".",
-            pkg["dependencies"],
-        )
-    packages_data.write_to_file(filename)
-
-
 # For writing test easily, these packages are sorted.
 resolved_packages = [
     {
@@ -2409,7 +2442,7 @@ def test_fetch_request_packages_and_dependencies(
     app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
 
     if packages is not None:
-        write_test_packages_data(
+        _write_test_packages_data(
             packages, RequestBundleDir(request.id, root=cachito_bundles_dir).packages_data,
         )
 
@@ -2441,7 +2474,7 @@ def test_fetch_requests_packages_and_dependencies(verbose, app, db, client, auth
     bundle_dir = RequestBundleDir(request.id, root=cachito_bundles_dir)
     app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
 
-    write_test_packages_data(resolved_packages, bundle_dir.packages_data)
+    _write_test_packages_data(resolved_packages, bundle_dir.packages_data)
 
     rv = client.get(f"/api/v1/requests?verbose={str(verbose).lower()}")
 
