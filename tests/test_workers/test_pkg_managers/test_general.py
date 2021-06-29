@@ -7,93 +7,11 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers.pkg_managers.general import (
     download_binary_file,
+    update_request_env_vars,
     update_request_with_config_files,
-    update_request_with_deps,
-    update_request_with_package,
     verify_checksum,
     ChecksumInfo,
 )
-
-
-@mock.patch("cachito.workers.config.Config.cachito_deps_patch_batch_size", 5)
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_deps(mock_requests, sample_deps_replace, sample_package):
-    mock_requests.patch.return_value.ok = True
-    update_request_with_deps(1, sample_package, sample_deps_replace)
-    url = "http://cachito.domain.local/api/v1/requests/1"
-    calls = [
-        mock.call(
-            url,
-            json={"dependencies": sample_deps_replace[:5], "package": sample_package},
-            timeout=60,
-        ),
-        mock.call(
-            url,
-            json={"dependencies": sample_deps_replace[5:10], "package": sample_package},
-            timeout=60,
-        ),
-        mock.call(
-            url,
-            json={"dependencies": sample_deps_replace[10:], "package": sample_package},
-            timeout=60,
-        ),
-    ]
-    assert mock_requests.patch.call_count == 3
-    mock_requests.patch.assert_has_calls(calls)
-
-
-@pytest.mark.parametrize(
-    "package_subpath, include_subpath", [(None, False), (".", False), ("some/path", True)],
-)
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_package(mock_requests, package_subpath, include_subpath):
-    mock_requests.patch.return_value.ok = True
-    package = {
-        "name": "helloworld",
-        "type": "gomod",
-        "version": "v0.0.0-20200324130456-8aedc0ec8bb5",
-    }
-    env_vars = {
-        "GOCACHE": {"value": "deps/gomod", "kind": "path"},
-        "GOPATH": {"value": "deps/gomod", "kind": "path"},
-        "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
-    }
-    expected_json = {
-        "environment_variables": env_vars,
-        "package": package,
-    }
-    if include_subpath:
-        expected_json["package_subpath"] = package_subpath
-
-    update_request_with_package(1, package, env_vars, package_subpath=package_subpath)
-    mock_requests.patch.assert_called_once_with(
-        "http://cachito.domain.local/api/v1/requests/1", json=expected_json, timeout=60
-    )
-
-
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_package_failed(mock_requests):
-    mock_requests.patch.return_value.ok = False
-    package = {
-        "name": "helloworld",
-        "type": "gomod",
-        "version": "v0.0.0-20200324130456-8aedc0ec8bb5",
-    }
-    with pytest.raises(CachitoError, match="Setting a package on request 1 failed"):
-        update_request_with_package(1, package)
-
-
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_package_failed_connection(mock_requests):
-    mock_requests.patch.side_effect = requests.ConnectTimeout()
-    package = {
-        "name": "helloworld",
-        "type": "gomod",
-        "version": "v0.0.0-20200324130456-8aedc0ec8bb5",
-    }
-    expected_msg = "The connection failed when adding a package to the request 1"
-    with pytest.raises(CachitoError, match=expected_msg):
-        update_request_with_package(1, package)
 
 
 @mock.patch("cachito.workers.requests.requests_auth_session")
@@ -193,3 +111,39 @@ def test_download_binary_file_failed(mock_requests_session):
     expected = "Could not download http://example.org/example.tar.gz: Something went wrong"
     with pytest.raises(CachitoError, match=expected):
         download_binary_file("http://example.org/example.tar.gz", "/example.tar.gz")
+
+
+@mock.patch("cachito.workers.requests.requests_auth_session")
+def test_update_request_env_vars(requests_auth_session):
+    requests_auth_session.patch.return_value.ok = True
+    env_vars = {
+        "GOCACHE": {"value": "deps/gomod", "kind": "path"},
+        "GOPATH": {"value": "deps/gomod", "kind": "path"},
+        "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
+    }
+
+    update_request_env_vars(1, env_vars)
+
+    expected_json = {
+        "environment_variables": env_vars,
+    }
+    requests_auth_session.patch.assert_called_once_with(
+        "http://cachito.domain.local/api/v1/requests/1", json=expected_json, timeout=60
+    )
+
+
+@pytest.mark.parametrize(
+    "side_effect,expected_error",
+    [
+        [requests.HTTPError(), "failed when updating environment variables"],
+        [
+            mock.Mock(ok=False, status_code=400),
+            "Updating environment variables on request 1 failed",
+        ],
+    ],
+)
+@mock.patch("cachito.workers.requests.requests_auth_session")
+def test_update_request_env_vars_failed(requests_auth_session, side_effect, expected_error):
+    requests_auth_session.patch.side_effect = [side_effect]
+    with pytest.raises(CachitoError, match=expected_error):
+        update_request_env_vars(1, {"environment_variables": {}})

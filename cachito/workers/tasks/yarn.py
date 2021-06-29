@@ -12,9 +12,8 @@ from cachito.workers import nexus
 from cachito.workers.config import get_worker_config, validate_yarn_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
+    update_request_env_vars,
     update_request_with_config_files,
-    update_request_with_deps,
-    update_request_with_package,
 )
 from cachito.workers.pkg_managers.general_js import (
     finalize_nexus_for_js_request,
@@ -157,14 +156,10 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
         if i == 0:
             default_env = get_worker_config().cachito_default_environment_variables
             env_vars = {**default_env.get("npm", {}), **default_env.get("yarn", {})}
-        else:
-            env_vars = None
+            update_request_env_vars(request_id, env_vars)
 
         pkg_info = package_and_deps_info["package"]
         pkg_deps = package_and_deps_info["deps"]
-
-        update_request_with_package(request_id, pkg_info, env_vars, package_subpath=subpath)
-        update_request_with_deps(request_id, pkg_info, pkg_deps)
         packages_json_data.add_package(pkg_info, subpath, pkg_deps)
 
     packages_json_data.write_to_file(bundle_dir.yarn_packages_data)

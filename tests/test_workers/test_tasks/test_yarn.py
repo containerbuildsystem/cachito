@@ -138,8 +138,7 @@ def test_yarn_lock_to_str(mock_lockfile):
 @mock.patch("cachito.workers.tasks.yarn.make_base64_config_file")
 @mock.patch("cachito.workers.tasks.yarn._yarn_lock_to_str")
 @mock.patch("cachito.workers.tasks.yarn.get_worker_config")
-@mock.patch("cachito.workers.tasks.yarn.update_request_with_package")
-@mock.patch("cachito.workers.tasks.yarn.update_request_with_deps")
+@mock.patch("cachito.workers.tasks.yarn.update_request_env_vars")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_username")
 @mock.patch("cachito.workers.tasks.yarn.finalize_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_url")
@@ -151,8 +150,7 @@ def test_fetch_yarn(
     mock_get_yarn_repo_url,
     mock_finalize_nexus,
     mock_get_yarn_username,
-    mock_update_deps,
-    mock_update_package,
+    mock_update_env_vars,
     mock_worker_config,
     mock_yarn_lock_to_str,
     mock_b64_config_file,
@@ -252,15 +250,7 @@ def test_fetch_yarn(
         ]
     )
     mock_worker_config.assert_called_once()
-    mock_update_package.assert_has_calls(
-        [
-            mock.call(1, rv1["package"], {"A": "1", "B": "3", "C": "4"}, package_subpath="."),
-            mock.call(1, rv2["package"], None, package_subpath="sub"),
-        ]
-    )
-    mock_update_deps.assert_has_calls(
-        [mock.call(1, rv1["package"], rv1["deps"]), mock.call(1, rv2["package"], rv2["deps"])]
-    )
+    mock_update_env_vars.assert_called_once_with(1, {"A": "1", "B": "3", "C": "4"})
     mock_get_yarn_username.assert_called_once_with(1)
     mock_finalize_nexus.assert_called_once_with(
         mock_get_yarn_username.return_value, mock_get_yarn_repo_name.return_value
@@ -311,8 +301,7 @@ def test_fetch_yarn(
 @mock.patch("cachito.workers.tasks.yarn.make_base64_config_file")
 @mock.patch("cachito.workers.tasks.yarn._yarn_lock_to_str")
 @mock.patch("cachito.workers.tasks.yarn.get_worker_config")
-@mock.patch("cachito.workers.tasks.yarn.update_request_with_package")
-@mock.patch("cachito.workers.tasks.yarn.update_request_with_deps")
+@mock.patch("cachito.workers.tasks.yarn.update_request_env_vars")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_username")
 @mock.patch("cachito.workers.tasks.yarn.finalize_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_url")
@@ -324,8 +313,7 @@ def test_fetch_yarn_no_configs(
     mock_get_yarn_repo_url,
     mock_finalize_nexus,
     mock_get_yarn_username,
-    mock_update_deps,
-    mock_update_package,
+    mock_update_env_vars,
     mock_worker_config,
     mock_yarn_lock_to_str,
     mock_b64_config_file,

@@ -9,9 +9,8 @@ from cachito.workers import nexus
 from cachito.workers.config import get_worker_config, validate_pip_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
+    update_request_env_vars,
     update_request_with_config_files,
-    update_request_with_deps,
-    update_request_with_package,
 )
 from cachito.workers.pkg_managers.pip import (
     PipRequirementsFile,
@@ -118,18 +117,15 @@ def fetch_pip_source(request_id, package_configs=None):
     worker_config = get_worker_config()
     env_vars.update(worker_config.cachito_default_environment_variables.get("pip", {}))
 
-    packages_json_data = PackagesData()
+    update_request_env_vars(request_id, env_vars)
 
+    packages_json_data = PackagesData()
     # Finally, perform DB operations
     for pkg_cfg, pkg_data in zip(package_configs, packages_data):
         pkg_subpath = os.path.normpath(pkg_cfg.get("path", "."))
         pkg_info = pkg_data["package"]
         pkg_deps = pkg_data["dependencies"]
-
-        update_request_with_package(request_id, pkg_info, env_vars, package_subpath=pkg_subpath)
-        update_request_with_deps(request_id, pkg_info, pkg_deps)
         packages_json_data.add_package(pkg_info, pkg_subpath, pkg_deps)
-
     packages_json_data.write_to_file(bundle_dir.pip_packages_data)
 
     if pip_config_files:

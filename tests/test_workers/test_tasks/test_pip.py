@@ -32,8 +32,7 @@ def test_cleanup_pip_request(mock_exec_script):
 @mock.patch("cachito.workers.tasks.pip.prepare_nexus_for_pip_request")
 @mock.patch("cachito.workers.tasks.pip.set_request_state")
 @mock.patch("cachito.workers.tasks.pip.get_request")
-@mock.patch("cachito.workers.tasks.pip.update_request_with_deps")
-@mock.patch("cachito.workers.tasks.pip.update_request_with_package")
+@mock.patch("cachito.workers.tasks.pip.update_request_env_vars")
 @mock.patch("cachito.workers.tasks.pip.update_request_with_config_files")
 @mock.patch("cachito.workers.tasks.pip.nexus.get_ca_cert")
 @mock.patch("cachito.workers.tasks.pip.PipRequirementsFile._read_lines")
@@ -43,8 +42,7 @@ def test_fetch_pip_source(
     mock_read,
     mock_cert,
     mock_update_cfg,
-    mock_update_pkg,
-    mock_update_deps,
+    mock_update_env_vars,
     mock_get_request,
     mock_set_state,
     mock_prepare_nexus,
@@ -112,14 +110,8 @@ def test_fetch_pip_source(
 
     pip.fetch_pip_source(request["id"], package_configs=package_configs)
 
-    mock_update_pkg.assert_called_once_with(
-        request["id"], pkg_data["package"], env_vars, package_subpath=package_subpath or "."
-    )
-    mock_update_deps.assert_called_once_with(
-        request["id"],
-        pkg_data["package"],
-        [{"name": "bar", "version": "2.0", "type": "pip", "dev": True}],
-    )
+    mock_update_env_vars.assert_called_once_with(request["id"], env_vars)
+
     if cfg_contents:
         mock_update_cfg.assert_called_once_with(
             request["id"], cfg_contents,

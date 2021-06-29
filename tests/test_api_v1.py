@@ -21,7 +21,6 @@ from cachito.web.models import (
     EnvironmentVariable,
     Flag,
     Request,
-    RequestPackage,
     RequestStateMapping,
     _validate_package_manager_exclusivity,
 )
@@ -1180,110 +1179,6 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
     assert len(get_rv.json["state_history"]) == 2
 
 
-def test_add_dep_twice_diff_replaces(app, client, db, worker_auth_env):
-    data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-        "pkg_managers": ["gomod"],
-    }
-    # flask_login.current_user is used in Request.from_json, which requires a request context
-    with app.test_request_context(environ_base=worker_auth_env):
-        request = Request.from_json(data)
-    db.session.add(request)
-    db.session.commit()
-
-    payload = {
-        "dependencies": [{"name": "all_systems_go", "type": "gomod", "version": "v1.0.0"}],
-        "package": {"name": "retrodep", "type": "gomod", "version": "v1.0.0"},
-    }
-    patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
-    assert patch_rv.status_code == 200
-
-    # Add the dependency again with replaces set this time
-    payload2 = {
-        "dependencies": [
-            {
-                "name": "all_systems_go",
-                "type": "gomod",
-                "replaces": {"name": "all_systems_go", "type": "gomod", "version": "v1.1.0"},
-                "version": "v1.0.0",
-            }
-        ],
-        "package": {"name": "retrodep", "type": "gomod", "version": "v1.0.0"},
-    }
-
-    patch_rv = client.patch("/api/v1/requests/1", json=payload2, environ_base=worker_auth_env)
-    assert patch_rv.status_code == 400
-    assert "can't have a new replacement set" in patch_rv.json["error"]
-
-
-@pytest.mark.parametrize(
-    "subpath_1, subpath_2, is_conflict",
-    [
-        ("some/path", "some/path", False),
-        # "" and "." are stored as null, so the following are not conflicts
-        (None, "", False),
-        (None, ".", False),
-        ("", ".", False),
-        (".", "", False),
-        # If subpath is not part of payload, there is never a conflict
-        (None, None, False),
-        (".", None, False),
-        ("some/path", None, False),
-        # Different subpath is a conflict
-        (None, "some/path", True),
-        (".", "some/path", True),
-        ("some/path", ".", True),
-        ("some/path", "some/other/path", True),
-    ],
-)
-def test_set_package_subpath_conflict(
-    subpath_1, subpath_2, is_conflict, app, client, db, sample_package, worker_auth_env
-):
-    data = {
-        "repo": "https://github.com/release-engineering/retrodep.git",
-        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
-    }
-    # flask_login.current_user is used in Request.from_json, which requires a request context
-    with app.test_request_context(environ_base=worker_auth_env):
-        request = Request.from_json(data)
-    db.session.add(request)
-    db.session.commit()
-
-    payload_1 = {"package": sample_package}
-    if subpath_1 is not None:
-        payload_1["package_subpath"] = subpath_1
-
-    rv_1 = client.patch("/api/v1/requests/1", json=payload_1, environ_base=worker_auth_env)
-    assert rv_1.status_code == 200
-
-    payload_2 = {"package": sample_package}
-    if subpath_2 is not None:
-        payload_2["package_subpath"] = subpath_2
-
-    rv_2 = client.patch("/api/v1/requests/1", json=payload_2, environ_base=worker_auth_env)
-
-    def normalize(subpath):
-        if not subpath or subpath == ".":
-            return None
-        return subpath
-
-    if is_conflict:
-        assert rv_2.status_code == 400
-        assert rv_2.json == {
-            "error": (
-                f"Cannot change subpath for package {sample_package!r} "
-                f"(from: {normalize(subpath_1)!r}, to: {normalize(subpath_2)!r})"
-            )
-        }
-    else:
-        assert rv_2.status_code == 200
-        # Check that subpath was not modified
-        request_package = RequestPackage.query.filter_by(request_id=1).first()
-        assert request_package
-        assert request_package.subpath == normalize(subpath_1)
-
-
 def test_set_state_not_logged_in(client, db):
     payload = {"state": "complete", "state_reason": "Completed successfully"}
     rv = client.patch("/api/v1/requests/1", json=payload)
@@ -1365,72 +1260,6 @@ def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
             'The "state" key is required when "state_reason" is supplied',
         ),
         (1, "some string", 400, "The input data must be a JSON object"),
-        (1, {"dependencies": "test"}, 400, 'The value for "dependencies" must be an array'),
-        (
-            1,
-            {
-                "dependencies": ["test"],
-                "package": {"name": "han-solo", "type": "npm", "version": "5.0.0"},
-            },
-            400,
-            (
-                "A dependency must be a JSON object with the following keys: name, type, version. "
-                "It may also contain the following optional keys if applicable: dev, replaces."
-            ),
-        ),
-        (
-            1,
-            {
-                "dependencies": [
-                    {"name": "pizza", "type": "gomod", "replaces": "bad", "version": "v1.4.2"}
-                ],
-                "package": {"name": "han-solo", "type": "gomod", "version": "5.0.0"},
-            },
-            400,
-            "A dependency must be a JSON object with the following keys: name, type, version. "
-            "It may also contain the following optional keys if applicable: dev.",
-        ),
-        (
-            1,
-            {
-                "dependencies": [{"type": "gomod", "version": "v1.4.2"}],
-                "package": {"name": "han-solo", "type": "gomod", "version": "5.0.0"},
-            },
-            400,
-            (
-                "A dependency must be a JSON object with the following keys: name, type, version. "
-                "It may also contain the following optional keys if applicable: dev, replaces."
-            ),
-        ),
-        (
-            1,
-            {"package": {"type": "gomod", "version": "v1.4.2"}},
-            400,
-            "A package must be a JSON object with the following keys: name, type, version.",
-        ),
-        (
-            1,
-            {
-                "package": {
-                    "name": "github.com/release-engineering/retrodep/v2",
-                    "type": "gomod",
-                    "version": 3,
-                }
-            },
-            400,
-            'The "version" key of the package must be a string',
-        ),
-        (
-            1,
-            {
-                "dependencies": [
-                    {"name": "github.com/Masterminds/semver", "type": "gomod", "version": 3.0}
-                ],
-                "package": {"name": "han-solo", "type": "gomod", "version": "5.0.0"},
-            },
-            400,
-            'The "version" key of the dependency must be a string',
-        ),
         (
             1,
             {"environment_variables": "spam"},
@@ -1478,55 +1307,6 @@ def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
             {"environment_variables": {"spam": {"value": "maps", "kind": "ham"}}},
             400,
             "The environment variable kind, ham, is not supported",
-        ),
-        (
-            1,
-            {
-                "dependencies": [
-                    {
-                        "dev": True,
-                        "name": "github.com/Masterminds/semver",
-                        "type": "gomod",
-                        "version": "v3.0.0",
-                    }
-                ],
-                "package": {"name": "han-solo", "type": "gomod", "version": "5.0.0"},
-            },
-            400,
-            'The "dev" key is not supported on the package manager gomod',
-        ),
-        (
-            1,
-            {
-                "dependencies": [
-                    {
-                        "dev": 123,
-                        "name": "@angular-devkit/build-angular",
-                        "type": "npm",
-                        "version": "0.803.26",
-                    }
-                ],
-                "package": {"name": "han-solo", "type": "npm", "version": "5.0.0"},
-            },
-            400,
-            'The "dev" key of the dependency must be a boolean',
-        ),
-        (
-            1,
-            {
-                "dependencies": [
-                    {"name": "@angular-devkit/build-angular", "type": "npm", "version": "0.803.26"}
-                ],
-            },
-            400,
-            'The "package" object must also be provided if the "dependencies" array is provided',
-        ),
-        (1, {"package_subpath": None}, 400, 'The value for "package_subpath" must be a string'),
-        (
-            1,
-            {"package_subpath": "some/path"},
-            400,
-            'The "package" object must also be provided if "package_subpath" is provided',
         ),
         (1, {"packages_count": 1.5}, 400, 'The value for "packages_count" must be an integer'),
         (
