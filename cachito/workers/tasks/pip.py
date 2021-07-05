@@ -120,7 +120,6 @@ def fetch_pip_source(request_id, package_configs=None):
     update_request_env_vars(request_id, env_vars)
 
     packages_json_data = PackagesData()
-    # Finally, perform DB operations
     for pkg_cfg, pkg_data in zip(package_configs, packages_data):
         pkg_subpath = os.path.normpath(pkg_cfg.get("path", "."))
         pkg_info = pkg_data["package"]
