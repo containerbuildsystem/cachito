@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import collections
-import hashlib
 import logging
 import os
 from typing import Dict
 
 import requests
 
-from cachito.errors import CachitoError
+from cachito.common.checksum import get_hasher, compute_file_checksum
+from cachito.errors import CachitoError, UnknownHashAlgorithm
 from cachito.workers.config import get_worker_config
 
 __all__ = [
@@ -102,7 +102,7 @@ def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]
         raise CachitoError(f"Updating environment variables on request {request_id} failed")
 
 
-def verify_checksum(file_path, checksum_info, chunk_size=10240):
+def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int = 10240):
     """
     Verify the checksum of the file at the given path matches the expected checksum info.
 
@@ -112,20 +112,15 @@ def verify_checksum(file_path, checksum_info, chunk_size=10240):
     :raise CachitoError: if the checksum is not as expected
     """
     filename = os.path.basename(file_path)
+
     try:
-        hasher = hashlib.new(checksum_info.algorithm)
-    except ValueError as exc:
+        hasher = get_hasher(checksum_info.algorithm)
+    except UnknownHashAlgorithm as exc:
         msg = f"Cannot perform checksum on the file {filename}, {exc}"
         log.exception(msg)
         raise CachitoError(msg)
 
-    with open(file_path, "rb") as f:
-        while True:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                break
-            hasher.update(chunk)
-    computed_hexdigest = hasher.hexdigest()
+    computed_hexdigest = compute_file_checksum(hasher, file_path, chunk_size)
 
     if computed_hexdigest != checksum_info.hexdigest:
         msg = (

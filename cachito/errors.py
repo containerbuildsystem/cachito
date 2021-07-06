@@ -19,3 +19,7 @@ class ContentManifestError(CachitoError, ValueError):
 
 class CachitoNotImplementedError(CachitoError, ValueError):
     """An error was encountered during request validation."""
+
+
+class UnknownHashAlgorithm(CachitoError):
+    """The hash algorithm is unknown by Cachito."""
