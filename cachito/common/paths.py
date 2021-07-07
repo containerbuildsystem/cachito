@@ -55,6 +55,7 @@ class RequestBundleDir(type(Path())):
         self.yarn_deps_dir = self.joinpath("deps", "yarn")
 
         self.bundle_archive_file = Path(root, f"{request_id}.tar.gz")
+        self.bundle_archive_checksum = Path(root, f"{request_id}.checksum.sha256")
 
         self.packages_data = Path(root, f"{request_id}-packages.json")
         self.gomod_packages_data = self.joinpath("gomod_packages.json")

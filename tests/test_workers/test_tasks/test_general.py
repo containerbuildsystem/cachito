@@ -10,10 +10,11 @@ from unittest import mock
 import pytest
 from requests import Timeout
 
+from cachito.common.checksum import hash_file
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers import tasks
 from cachito.workers.paths import RequestBundleDir, SourcesDir
-from cachito.workers.tasks.general import _enforce_sandbox
+from cachito.workers.tasks.general import _enforce_sandbox, save_bundle_archive_checksum
 
 from tests.helper_utils import Symlink, write_file_tree
 
@@ -249,9 +250,11 @@ def test_aggregate_packages_data(
 @mock.patch("cachito.workers.tasks.general.create_bundle_archive")
 @mock.patch("cachito.workers.tasks.general.aggregate_packages_data")
 @mock.patch("cachito.workers.tasks.general.set_packages_and_deps_counts")
+@mock.patch("cachito.workers.tasks.general.save_bundle_archive_checksum")
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 def test_finalize_request(
     mock_set_state,
+    mock_save_bundle_archive_checksum,
     mock_set_counts,
     mock_aggregate_data,
     mock_create_archive,
@@ -272,6 +275,27 @@ def test_finalize_request(
 
     mock_get_request.assert_called_once_with(42)
     mock_create_archive.assert_called_once_with(42, ["some-flag"])
+    mock_save_bundle_archive_checksum.assert_called_once_with(42)
     mock_aggregate_data.assert_called_once_with(42, ["pip"])
     mock_set_counts.assert_called_once_with(42, 1, 2)
     mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")
+
+
+@pytest.mark.parametrize("bundle_archive_exists", [True, False])
+@mock.patch("cachito.workers.paths.get_worker_config")
+def test_save_bundle_archive_checksum(get_worker_config, bundle_archive_exists, tmpdir):
+    request_id = 1
+    get_worker_config.return_value = mock.Mock(cachito_bundles_dir=str(tmpdir))
+
+    if bundle_archive_exists:
+        bundle_dir = RequestBundleDir(request_id)
+        file_content = b"1234"
+        bundle_dir.bundle_archive_file.write_bytes(file_content)
+
+        save_bundle_archive_checksum(request_id)
+
+        expected_checksum = hash_file(bundle_dir.bundle_archive_file).hexdigest()
+        assert expected_checksum == bundle_dir.bundle_archive_checksum.read_text(encoding="utf-8")
+    else:
+        with pytest.raises(CachitoError, match=r"Bundle archive .+ does not exist"):
+            save_bundle_archive_checksum(request_id)

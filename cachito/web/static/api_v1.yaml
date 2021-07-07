@@ -468,6 +468,11 @@ paths:
       responses:
         "200":
           description: Downloads the bundle
+          headers:
+            Digest:
+              schema:
+                type: string
+              description: The base64 encoded sha256 digest of the bundle. For example, sha-256=X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=
           content:
             application/gzip: {}
         "404":

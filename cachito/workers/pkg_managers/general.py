@@ -6,7 +6,7 @@ from typing import Dict
 
 import requests
 
-from cachito.common.checksum import get_hasher, compute_file_checksum
+from cachito.common.checksum import hash_file
 from cachito.errors import CachitoError, UnknownHashAlgorithm
 from cachito.workers.config import get_worker_config
 
@@ -114,13 +114,13 @@ def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int
     filename = os.path.basename(file_path)
 
     try:
-        hasher = get_hasher(checksum_info.algorithm)
+        hasher = hash_file(file_path, chunk_size, checksum_info.algorithm)
     except UnknownHashAlgorithm as exc:
         msg = f"Cannot perform checksum on the file {filename}, {exc}"
         log.exception(msg)
         raise CachitoError(msg)
 
-    computed_hexdigest = compute_file_checksum(hasher, file_path, chunk_size)
+    computed_hexdigest = hasher.hexdigest()
 
     if computed_hexdigest != checksum_info.hexdigest:
         msg = (
