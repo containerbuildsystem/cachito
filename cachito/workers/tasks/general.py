@@ -8,8 +8,9 @@ from typing import List
 
 import requests
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
+from cachito.errors import CachitoError, ValidationError
 from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks.celery import app
@@ -27,6 +28,7 @@ __all__ = [
     "fetch_app_source",
     "finalize_request",
     "get_request",
+    "save_bundle_archive_checksum",
 ]
 log = logging.getLogger(__name__)
 
@@ -154,12 +156,26 @@ def aggregate_packages_data(request_id: int, pkg_managers: List[str]) -> Package
     return aggregated_data
 
 
+def save_bundle_archive_checksum(request_id: int) -> None:
+    """Compute and store bundle archive's checksum.
+
+    :param int request_id: the request id.
+    """
+    bundle_dir = RequestBundleDir(request_id)
+    archive_file = bundle_dir.bundle_archive_file
+    if not archive_file.exists():
+        raise CachitoError(f"Bundle archive {archive_file} does not exist.")
+    checksum = hash_file(archive_file).hexdigest()
+    bundle_dir.bundle_archive_checksum.write_text(checksum, encoding="utf-8")
+
+
 @app.task(priority=10)
 @runs_if_request_in_progress
 def finalize_request(request_id):
     """Execute tasks to finalize the request creation."""
     request = get_request(request_id)
     create_bundle_archive(request_id, request.get("flags", []))
+    save_bundle_archive_checksum(request_id)
     data = aggregate_packages_data(request_id, request["pkg_managers"])
     set_packages_and_deps_counts(request_id, len(data.packages), len(data.all_dependencies))
     set_request_state(request_id, "complete", "Completed successfully")

@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
 import json
-import os.path
 import re
-import tempfile
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Dict, List, Union
@@ -13,6 +11,7 @@ import flask
 import kombu.exceptions
 import pytest
 
+from cachito.common.checksum import hash_file
 from cachito.common.paths import RequestBundleDir
 from cachito.errors import CachitoError, ValidationError
 from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER, Package
@@ -946,22 +945,25 @@ def test_create_request_using_disabled_pkg_manager(app, auth_env, client, db):
     assert rv.json == {"error": "The following package managers are not enabled: npm"}
 
 
-@mock.patch("pathlib.Path.exists")
-@mock.patch("cachito.web.api_v1.Request")
-def test_download_archive(mock_request, mock_exists, client, app):
-    request_id = 1
-    request = mock.Mock(id=request_id)
-    request.state.state_name = "complete"
-    mock_request.query.get_or_404.return_value = request
-    mock_exists.return_value = True
+def test_download_archive(app, client, db, tmpdir):
+    request = Request(repo="https://git.host/ns/tool.git", ref="1234")
+    request.add_state(RequestStateMapping.complete.name, "For testing download.")
+    db.session.add(request)
+    db.session.commit()
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        with open(os.path.join(temp_dir, "1.tar.gz"), "w") as f:
-            f.write("hello")
-        with mock.patch.dict(flask.current_app.config, values={"CACHITO_BUNDLES_DIR": temp_dir}):
-            resp = client.get(f"/api/v1/requests/{request_id}/download")
-            assert "hello" == resp.data.decode()
-            assert "attachment; filename=cachito-1.tar.gz" == resp.headers["Content-Disposition"]
+    app.config["CACHITO_BUNDLES_DIR"] = str(tmpdir)
+
+    file_content = b"1234"
+    bundle_dir = RequestBundleDir(request.id, str(tmpdir))
+    bundle_dir.bundle_archive_file.write_bytes(file_content)
+    hasher = hash_file(bundle_dir.bundle_archive_file)
+    bundle_dir.bundle_archive_checksum.write_text(hasher.hexdigest(), encoding="utf-8")
+
+    resp = client.get(f"/api/v1/requests/{request.id}/download")
+    assert file_content == resp.data
+    filename = bundle_dir.bundle_archive_file.name
+    assert f"attachment; filename=cachito-{filename}" == resp.headers["Content-Disposition"]
+    assert "sha-256=A6xnQhbz4Vx2HuGl4lXwZ5U2I8iziLRFnhP5eNfIRvQ=" == resp.headers["Digest"]
 
 
 @mock.patch("cachito.web.api_v1.Request")
@@ -980,6 +982,28 @@ def test_download_archive_not_complete(mock_request, client, db, app):
     assert rv.status_code == 400
     assert rv.json == {
         "error": 'The request must be in the "complete" state before downloading the archive'
+    }
+
+
+def test_download_modified_bundle_archive(app, client, db, tmpdir):
+    request = Request(repo="https://git.host/ns/tool.git", ref="1234")
+    request.add_state(RequestStateMapping.complete.name, "For testing download.")
+    db.session.add(request)
+    db.session.commit()
+
+    app.config["CACHITO_BUNDLES_DIR"] = str(tmpdir)
+    logger = mock.Mock()
+    app.logger = logger
+
+    bundle_dir = RequestBundleDir(request.id, str(tmpdir))
+    bundle_dir.bundle_archive_checksum.write_text("1234", encoding="utf-8")
+    # Modify the bundle archive. So, when download, a different checksum will be computed.
+    bundle_dir.bundle_archive_file.write_bytes(b"1234")
+
+    rv = client.get("/api/v1/requests/1/download")
+    assert rv.status_code == 500
+    assert rv.json == {
+        "error": f"Checksum of bundle archive {bundle_dir.bundle_archive_file.name} has changed."
     }
 
 
@@ -1050,6 +1074,8 @@ def test_set_state_stale(
     bundle_dir.bundle_archive_file.write_bytes(b"01234")
     bundle_dir.packages_data.write_bytes(b"{}")
 
+    bundle_dir.bundle_archive_checksum.write_text("1234", encoding="utf-8")
+
     state = "stale"
     state_reason = "The request has expired"
     payload = {"state": state, "state_reason": state_reason}
@@ -1067,6 +1093,7 @@ def test_set_state_stale(
     assert fetched_request["state_reason"] == state_reason
 
     assert not bundle_dir.bundle_archive_file.exists()
+    assert not bundle_dir.bundle_archive_checksum.exists()
     assert not bundle_dir.packages_data.exists()
 
     if "npm" in pkg_managers:

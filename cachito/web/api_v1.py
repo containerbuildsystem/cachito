@@ -12,7 +12,9 @@ import kombu.exceptions
 from sqlalchemy import func
 from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound, BadRequest
 
+from cachito.common.checksum import hash_file
 from cachito.common.paths import RequestBundleDir
+from cachito.common.utils import b64encode
 from cachito.errors import CachitoError, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM
@@ -211,15 +213,25 @@ def download_archive(request_id):
         )
         raise InternalServerError()
 
+    hasher = hash_file(bundle_dir.bundle_archive_file)
+    checksum = hasher.hexdigest()
+    store_checksum = bundle_dir.bundle_archive_checksum.read_text(encoding="utf-8")
+    if checksum != store_checksum:
+        msg = "Checksum of bundle archive {} has changed."
+        flask.current_app.logger.error(msg.format(bundle_dir.bundle_archive_file))
+        raise InternalServerError(msg.format(bundle_dir.bundle_archive_file.name))
+
     flask.current_app.logger.debug(
         "Sending the bundle at %s for request %d", bundle_dir.bundle_archive_file, request_id
     )
-    return flask.send_file(
+    resp = flask.send_file(
         str(bundle_dir.bundle_archive_file),
         mimetype="application/gzip",
         as_attachment=True,
         attachment_filename=f"cachito-{request_id}.tar.gz",
     )
+    resp.headers["Digest"] = f"sha-256={b64encode(bytes.fromhex(store_checksum))}"
+    return resp
 
 
 @api_v1.route("/requests", methods=["POST"])
@@ -445,6 +457,7 @@ def patch_request(request_id):
         )
         try:
             bundle_dir.bundle_archive_file.unlink()
+            bundle_dir.bundle_archive_checksum.unlink()
             bundle_dir.packages_data.unlink()
         except:  # noqa E722
             flask.current_app.logger.exception(
