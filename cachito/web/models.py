@@ -340,11 +340,20 @@ class Request(db.Model):
 
         return content_manifest.ContentManifest(self, packages)
 
-    def _get_packages_data(self):
-        bundle_dir = RequestBundleDir(self.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"])
+    def _is_complete(self):
+        if self.state:
+            return self.state.state_name == RequestStateMapping.complete.name
 
+        return False
+
+    def _get_packages_data(self):
         packages_data = PackagesData()
-        packages_data.load(bundle_dir.packages_data)
+
+        if self._is_complete():
+            bundle_dir = RequestBundleDir(
+                self.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"]
+            )
+            packages_data.load(bundle_dir.packages_data)
 
         return packages_data
 

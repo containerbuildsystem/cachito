@@ -145,8 +145,9 @@ class PackagesData:
         :type file_name: str or pathlib.Path
         """
         if not os.path.exists(file_name):
-            log.debug("No data is loaded from non-existing file %s.", file_name)
+            log.warning("No data is loaded from non-existing file %s.", file_name)
             return
+
         with open(file_name, "r", encoding="utf-8") as f:
             data = json.load(f)
             packages = data.get("packages")
