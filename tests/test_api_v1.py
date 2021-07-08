@@ -405,6 +405,8 @@ def test_fetch_paginated_requests(
             request = Request.from_json(data)
             request.packages_count = 0
             request.dependencies_count = 0
+            request.add_state(RequestStateMapping.complete.name, "Completed")
+
             db.session.add(request)
     db.session.commit()
 
@@ -445,7 +447,7 @@ def test_fetch_paginated_requests(
     assert response["meta"]["per_page"] == 10
 
     # per_page and page parameters are honored
-    rv = client.get("/api/v1/requests?page=3&per_page=5&verbose=True&state=in_progress")
+    rv = client.get("/api/v1/requests?page=3&per_page=5&verbose=True&state=complete")
     assert rv.status_code == 200
     response = rv.json
     fetched_requests = response["items"]
@@ -458,7 +460,7 @@ def test_fetch_paginated_requests(
         assert f"page={page_num}" in pagination_metadata[page]
         assert "per_page=5" in pagination_metadata[page]
         assert "verbose=True" in pagination_metadata[page]
-        assert "state=in_progress" in pagination_metadata[page]
+        assert "state=complete" in pagination_metadata[page]
     assert pagination_metadata["total"] == sample_requests_count
     assert fetched_requests[0]["dependencies"] == pkg_info["dependencies"]
     assert fetched_requests[0]["packages"] == packages_data["packages"]
