@@ -559,6 +559,7 @@ with the `mod_auth_gssapi` module.
 
 * `gomod-vendor` - the flag to indicate the vendoring requirement for gomod dependencies. If present in the
   Cachito request, Cachito will run `go mod vendor` instead of `go mod download` to gather dependencies.
+  See [gomod vendoring](#gomod-vendoring) for more details.
 
 * `gomod-vendor-check` - like `gomod-vendor`, but if the `vendor/` directory is already present,
   Cachito will refuse to make changes in your repository. Should be preferred over `gomod-vendor`.
@@ -694,6 +695,19 @@ the dependencies in the `deps/gomod` directory.
 
 Cachito will provide environment variables in the REST API to set for the Go tooling to use this
 cache when building the application.
+
+#### gomod vendoring
+
+When the user enables vendoring mode via the `gomod-vendor[-check]` [flag](#flags), Cachito will
+not build the module cache. The `deps/gomod` directory will be empty. Instead, the vendored modules
+will be present in the main module's `vendor` directory. Check the official documentation about
+[vendoring](https://golang.org/ref/mod#vendoring) for more details.
+
+One important thing to note is that only a subset of the module dependency graph will be vendored.
+As explained in the docs, only modules containing packages needed for building and testing the main
+module will be present. Commands that expect the entire dependency graph to be available may not
+work as expected, if at all. Notably, `go mod tidy` and other `go mod` commands ignore the vendor
+directory and instead try to download the modules or access the module cache (which is empty).
 
 #### Go package level dependencies and the go-package Cachito package type
 
