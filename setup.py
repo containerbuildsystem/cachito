@@ -25,6 +25,7 @@ setup(
             "Flask-Migrate",
             "Flask-SQLAlchemy",
             "psycopg2-binary",
+            "prometheus-flask-exporter",
         ],
     },
     entry_points={
