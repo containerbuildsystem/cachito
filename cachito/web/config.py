@@ -26,6 +26,14 @@ class Config(object):
     CACHITO_USER_REPRESENTATIVES: List[str] = []
     CACHITO_WORKER_USERNAMES: List[str] = []
 
+    # Temp dir used by the Prometheus Flask Exporter to coalesce the metrics from the threads
+    if "PROMETHEUS_MULTIPROC_DIR" not in os.environ.keys():
+        raise ConfigError(
+            "The environment variable PROMETHEUS_MULTIPROC_DIR must be set prior to execution"
+        )
+    else:
+        PROMETHEUS_METRICS_TEMP_DIR = os.environ["PROMETHEUS_MULTIPROC_DIR"]
+
 
 class ProductionConfig(Config):
     """The production Cachito Flask configuration."""
@@ -89,6 +97,7 @@ def validate_cachito_config(config, cli=False):
         "CACHITO_LOG_FORMAT",
         "CACHITO_BUNDLES_DIR",
         "SQLALCHEMY_DATABASE_URI",
+        "PROMETHEUS_METRICS_TEMP_DIR",
     ):
         if config_var == "CACHITO_BUNDLES_DIR":
             if cli:

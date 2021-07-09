@@ -4,3 +4,4 @@ Flask-Migrate
 Flask-SQLAlchemy
 psycopg2-binary
 SQLAlchemy<1.5
+prometheus-flask-exporter

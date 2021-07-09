@@ -209,6 +209,7 @@ flask==2.0.1 \
     #   flask-login
     #   flask-migrate
     #   flask-sqlalchemy
+    #   prometheus-flask-exporter
 flask-login==0.5.0 \
     --hash=sha256:6d33aef15b5bcead780acc339464aae8a6e28f13c90d8b1cf9de8b549d1c0b4b \
     --hash=sha256:7451b5001e17837ba58945aead261ba425fdf7b4f0448777e597ddab39f4fba0
@@ -377,6 +378,15 @@ ply==3.11 \
     # via
     #   -r requirements.txt
     #   pyarn
+prometheus-client==0.11.0 \
+    --hash=sha256:3a8baade6cb80bcfe43297e33e7623f3118d660d41387593758e2fb1ea173a86 \
+    --hash=sha256:b014bc76815eb1399da8ce5fc84b7717a3e63652b0c0f8804092c9363acab1b2
+    # via
+    #   -r requirements-web.txt
+    #   prometheus-flask-exporter
+prometheus-flask-exporter==0.18.2 \
+    --hash=sha256:fc487e385d95cb5efd045d6a315c4ecf68c42661e7bfde0526af75ed3c4f8c1b
+    # via -r requirements-web.txt
 prompt-toolkit==3.0.16 \
     --hash=sha256:0fa02fa80363844a4ab4b8d6891f62dd0645ba672723130423ca4037b80c1974 \
     --hash=sha256:62c811e46bd09130fb11ab759012a4ae385ce4fb2073442d1898867a824183bd
