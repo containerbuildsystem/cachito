@@ -23,6 +23,8 @@ else
 DOWN_OPTS := -v
 endif
 
+UP_OPTS ?=
+
 all: venv run-start
 
 clean: run-down
@@ -44,7 +46,7 @@ run run-start:
 	# - nexus needs to write to ./tmp/nexus-data
 	# - integration tests need to write to (and create) ./tmp/cachito-archives
 	chmod -R 0777 ./tmp
-	$(CACHITO_COMPOSE_ENGINE) up
+	$(CACHITO_COMPOSE_ENGINE) up $(UP_OPTS)
 
 run-down run-stop:
 	$(CACHITO_COMPOSE_ENGINE) down $(DOWN_OPTS)
