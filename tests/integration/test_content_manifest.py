@@ -3,7 +3,7 @@
 import pytest
 import requests
 
-import utils
+from . import utils
 
 
 def test_invalid_content_manifest_request(test_env):

@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-import utils
+from . import utils
 
 
 @pytest.mark.skipif(not shutil.which("go"), reason="requires go to be installed")

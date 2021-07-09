@@ -4,7 +4,7 @@ from os import path
 import tarfile
 from pathlib import Path
 
-import utils
+from . import utils
 
 
 def test_check_downloaded_output(test_env, default_requests, tmpdir):

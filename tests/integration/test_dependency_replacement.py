@@ -2,7 +2,7 @@
 
 from os import path
 
-import utils
+from . import utils
 
 
 def test_dependency_replacement(test_env, tmpdir):

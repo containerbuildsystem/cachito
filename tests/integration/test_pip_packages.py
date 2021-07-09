@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import utils
+from . import utils
 
 
 def test_failing_pip_local_path(test_env):
