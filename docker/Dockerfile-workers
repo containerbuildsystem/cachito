@@ -21,8 +21,8 @@ RUN dnf -y install \
 COPY . .
 
 # All the requirements except pyarn should already be installed
-RUN pip3 install -r requirements.txt --no-deps --require-hashes
-RUN pip3 install . --no-deps
+RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes
+RUN pip3 install . --no-deps --no-cache-dir
 
 # Use the system CA bundle for the requests library
 ENV REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
