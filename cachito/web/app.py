@@ -17,6 +17,7 @@ from cachito.web.auth import load_user_from_request, user_loader
 from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
 from cachito.web.errors import json_error
+from cachito.web.metrics import init_metrics
 
 
 def healthcheck():
@@ -109,6 +110,8 @@ def create_app(config_obj=None):
     app.register_error_handler(CachitoError, json_error)
     app.register_error_handler(ValidationError, json_error)
     app.register_error_handler(ContentManifestError, json_error)
+
+    init_metrics(app)
 
     return app
 

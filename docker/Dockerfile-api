@@ -29,5 +29,8 @@ ENV REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
 # Disable gitpython check for the git executable, cachito-api doesn't use git
 ENV GIT_PYTHON_REFRESH=quiet
 
+# Environment variable used by the Prometheus Flask exporter.
+ENV DEBUG_METRICS=false
+
 EXPOSE 8080
 CMD ["/usr/sbin/httpd", "-DFOREGROUND"]
