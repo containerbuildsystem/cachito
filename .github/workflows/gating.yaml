@@ -87,3 +87,21 @@ jobs:
         pip install tox
     - name: Test with tox
       run: tox -e black
+
+  hadolint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile:
+          - Dockerfile-api
+          - Dockerfile-flower
+          - Dockerfile-workers
+    steps:
+    - uses: actions/checkout@v2
+    - uses: hadolint/hadolint-action@v1.5.0
+      with:
+        dockerfile: docker/${{ matrix.dockerfile }}
+        # Ignore list:
+        # * DL3041 - Specify version with dnf install -y <package>-<version>
+        ignore: DL3041
+        failure-threshold: warning

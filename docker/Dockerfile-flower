@@ -6,6 +6,6 @@ RUN dnf -y install \
     --setopt=install_weak_deps=false \
     --setopt=tsflags=nodocs \
     python3-pip
-RUN pip3 install flower==0.9.7
+RUN pip3 install flower==0.9.7 --no-cache-dir
 
 COPY ./docker/flower-waits-for-cachito.sh /usr/local/bin/
