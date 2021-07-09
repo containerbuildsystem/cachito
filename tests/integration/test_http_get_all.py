@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import utils
+from . import utils
 
 
 def test_http_get_all(test_env):

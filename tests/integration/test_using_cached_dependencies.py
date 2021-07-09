@@ -8,7 +8,7 @@ import string
 import git
 import pytest
 
-import utils
+from . import utils
 
 
 class TestCachedPackage:

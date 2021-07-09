@@ -6,7 +6,7 @@ from collections import namedtuple
 import pytest
 import yaml
 
-import utils
+from . import utils
 
 DefaultRequest = namedtuple("DefaultRequest", "initial_response complete_response")
 

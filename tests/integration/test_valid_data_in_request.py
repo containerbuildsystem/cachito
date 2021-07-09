@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-import utils
+from . import utils
 
 
 def test_valid_data_in_request(test_env, default_requests):

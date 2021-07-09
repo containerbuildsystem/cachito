@@ -2,7 +2,7 @@
 
 import pytest
 
-import utils
+from . import utils
 
 
 @pytest.mark.parametrize(
