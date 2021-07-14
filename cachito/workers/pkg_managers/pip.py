@@ -30,6 +30,7 @@ from cachito.workers.pkg_managers.general import (
     verify_checksum,
     download_binary_file,
 )
+from cachito.workers.requests import requests_session
 from cachito.workers.scm import Git
 
 
@@ -1526,9 +1527,6 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
 
     :return: Dict with package name, version and download path
     """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_session
-
     package = requirement.package
     version = requirement.version_specs[0][1]
 

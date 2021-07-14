@@ -10,7 +10,7 @@ from cachito.workers.celery_logging import (
     setup_task_logging,
     setup_task_logging_customization,
 )
-from cachito.workers.config import configure_celery, validate_celery_config
+from cachito.workers.config import app, validate_celery_config  # noqa: F401
 
 
 # Workaround https://github.com/celery/celery/issues/5416
@@ -21,8 +21,6 @@ if celery.version_info < (4, 3) and sys.version_info >= (3, 7):  # pragma: no co
     routes_re._pattern_type = Pattern
 
 
-app = celery.Celery()
-configure_celery(app)
 celeryd_init.connect(validate_celery_config)
 task_prerun.connect(setup_task_logging_customization)
 task_prerun.connect(setup_task_logging)

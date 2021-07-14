@@ -142,11 +142,11 @@ def test_get_request_state(mock_get_request_or_fail, id, state):
     )
 
 
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_set_request_state(mock_requests):
+@mock.patch.object(requests_auth_session, "patch")
+def test_set_request_state(mock_patch):
     utils.set_request_state(1, "complete", "Completed successfully")
     expected_payload = {"state": "complete", "state_reason": "Completed successfully"}
-    mock_requests.patch.assert_called_once_with(
+    mock_patch.assert_called_once_with(
         "http://cachito.domain.local/api/v1/requests/1", json=expected_payload, timeout=60
     )
 
@@ -159,11 +159,9 @@ def test_set_request_state_connection_failed(mock_requests_patch):
         utils.set_request_state(1, "complete", "Completed successfully")
 
 
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_set_request_state_bad_status_code(mock_requests):
-    mock_requests.patch.return_value.raise_for_status.side_effect = [
-        requests.HTTPError("Unauthorized")
-    ]
+@mock.patch.object(requests_auth_session, "patch")
+def test_set_request_state_bad_status_code(mock_patch):
+    mock_patch.return_value.raise_for_status.side_effect = [requests.HTTPError("Unauthorized")]
     expected = 'Setting the state to "complete" on request 1 failed'
     with pytest.raises(CachitoError, match=expected):
         utils.set_request_state(1, "complete", "Completed successfully")

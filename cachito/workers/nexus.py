@@ -9,6 +9,7 @@ import requests.auth
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
+from cachito.workers.requests import requests_session
 
 
 log = logging.getLogger(__name__)
@@ -62,9 +63,6 @@ def create_or_update_script(script_name, script_path):
     :param str script_path: the path of the script
     :raise CachitoError: if the request fails
     """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_session
-
     config = get_worker_config()
     auth = requests.auth.HTTPBasicAuth(config.cachito_nexus_username, config.cachito_nexus_password)
 
@@ -150,9 +148,6 @@ def execute_script(script_name, payload):
     :param dict payload: the JSON payload to send as arguments to the script
     :raise NexusScriptError: if the script execution fails
     """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_session
-
     config = get_worker_config()
     auth = requests.auth.HTTPBasicAuth(config.cachito_nexus_username, config.cachito_nexus_password)
     script_url = f"{config.cachito_nexus_url.rstrip('/')}/service/rest/v1/script/{script_name}/run"
@@ -311,9 +306,6 @@ def search_components(in_nexus_hoster=True, **query_params):
     :rtype: list<dict>
     :raise CachitoError: if the search fails
     """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_session
-
     config = get_worker_config()
     if in_nexus_hoster:
         username, password = get_nexus_hoster_credentials()
@@ -436,9 +428,6 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
         https://issues.sonatype.org/browse/NEXUS-21946 for further reference.
     :raise CachitoError: if the upload fails
     """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_session
-
     config = get_worker_config()
     if to_nexus_hoster:
         username, password = get_nexus_hoster_credentials()

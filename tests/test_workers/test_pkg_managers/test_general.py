@@ -12,11 +12,12 @@ from cachito.workers.pkg_managers.general import (
     verify_checksum,
     ChecksumInfo,
 )
+from cachito.workers.requests import requests_auth_session, requests_session
 
 
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_config_files(mock_requests):
-    mock_requests.post.return_value.ok = True
+@mock.patch.object(requests_auth_session, "post")
+def test_update_request_with_config_files(mock_post):
+    mock_post.return_value.ok = True
 
     config_files = [
         {
@@ -27,22 +28,22 @@ def test_update_request_with_config_files(mock_requests):
     ]
     update_request_with_config_files(1, config_files)
 
-    mock_requests.post.assert_called_once()
-    assert mock_requests.post.call_args[0][0].endswith("/api/v1/requests/1/configuration-files")
+    mock_post.assert_called_once()
+    assert mock_post.call_args[0][0].endswith("/api/v1/requests/1/configuration-files")
 
 
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_config_files_failed_connection(mock_requests):
-    mock_requests.post.side_effect = requests.ConnectionError()
+@mock.patch.object(requests_auth_session, "post")
+def test_update_request_with_config_files_failed_connection(mock_post):
+    mock_post.side_effect = requests.ConnectionError()
 
     expected = "The connection failed when adding configuration files to the request 1"
     with pytest.raises(CachitoError, match=expected):
         update_request_with_config_files(1, [])
 
 
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_with_config_files_failed(mock_requests):
-    mock_requests.post.return_value.ok = False
+@mock.patch.object(requests_auth_session, "post")
+def test_update_request_with_config_files_failed(mock_post):
+    mock_post.return_value.ok = False
 
     expected = "Adding configuration files on request 1 failed"
     with pytest.raises(CachitoError, match=expected):
@@ -86,12 +87,12 @@ def test_verify_checksum_unsupported_algorithm(tmpdir):
 @pytest.mark.parametrize("auth", [None, ("user", "password")])
 @pytest.mark.parametrize("insecure", [True, False])
 @pytest.mark.parametrize("chunk_size", [1024, 2048])
-@mock.patch("cachito.workers.requests.requests_session")
-def test_download_binary_file(mock_requests_session, auth, insecure, chunk_size, tmpdir):
+@mock.patch.object(requests_session, "get")
+def test_download_binary_file(mock_get, auth, insecure, chunk_size, tmpdir):
     url = "http://example.org/example.tar.gz"
     content = b"file content"
 
-    mock_response = mock_requests_session.get.return_value
+    mock_response = mock_get.return_value
     mock_response.iter_content.return_value = [content]
 
     download_path = tmpdir.join("example.tar.gz")
@@ -100,22 +101,22 @@ def test_download_binary_file(mock_requests_session, auth, insecure, chunk_size,
     )
 
     assert download_path.read_binary() == content
-    mock_requests_session.get.assert_called_with(url, stream=True, auth=auth, verify=not insecure)
+    mock_get.assert_called_with(url, stream=True, auth=auth, verify=not insecure)
     mock_response.iter_content.assert_called_with(chunk_size=chunk_size)
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_download_binary_file_failed(mock_requests_session):
-    mock_requests_session.get.side_effect = [requests.RequestException("Something went wrong")]
+@mock.patch.object(requests_session, "get")
+def test_download_binary_file_failed(mock_get):
+    mock_get.side_effect = [requests.RequestException("Something went wrong")]
 
     expected = "Could not download http://example.org/example.tar.gz: Something went wrong"
     with pytest.raises(CachitoError, match=expected):
         download_binary_file("http://example.org/example.tar.gz", "/example.tar.gz")
 
 
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_env_vars(requests_auth_session):
-    requests_auth_session.patch.return_value.ok = True
+@mock.patch.object(requests_auth_session, "patch")
+def test_update_request_env_vars(mock_patch):
+    mock_patch.return_value.ok = True
     env_vars = {
         "GOCACHE": {"value": "deps/gomod", "kind": "path"},
         "GOPATH": {"value": "deps/gomod", "kind": "path"},
@@ -127,7 +128,7 @@ def test_update_request_env_vars(requests_auth_session):
     expected_json = {
         "environment_variables": env_vars,
     }
-    requests_auth_session.patch.assert_called_once_with(
+    mock_patch.assert_called_once_with(
         "http://cachito.domain.local/api/v1/requests/1", json=expected_json, timeout=60
     )
 
@@ -142,8 +143,8 @@ def test_update_request_env_vars(requests_auth_session):
         ],
     ],
 )
-@mock.patch("cachito.workers.requests.requests_auth_session")
-def test_update_request_env_vars_failed(requests_auth_session, side_effect, expected_error):
-    requests_auth_session.patch.side_effect = [side_effect]
+@mock.patch.object(requests_auth_session, "patch")
+def test_update_request_env_vars_failed(mock_patch, side_effect, expected_error):
+    mock_patch.side_effect = [side_effect]
     with pytest.raises(CachitoError, match=expected_error):
         update_request_env_vars(1, {"environment_variables": {}})
