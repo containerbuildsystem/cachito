@@ -110,8 +110,8 @@ class DevelopmentConfig(Config):
     cachito_athens_url = "http://athens:3000"
     cachito_bundles_dir = os.path.join(ARCHIVES_VOLUME, "bundles")
     cachito_log_level = "DEBUG"
-    cachito_nexus_password = "cachito"
-    cachito_nexus_proxy_password = "cachito_unprivileged"
+    cachito_nexus_password = "cachito"  # nosec
+    cachito_nexus_proxy_password = "cachito_unprivileged"  # nosec
     cachito_nexus_proxy_username = "cachito_unprivileged"
     cachito_nexus_pypi_proxy_url = "http://nexus:8081/repository/cachito-pip-proxy/"
     cachito_nexus_url = "http://nexus:8081"
@@ -163,7 +163,7 @@ def configure_celery(celery_app):
         # a hack taken from flask.config.from_pyfile.
         _user_config = {}
         with open(prod_config_file_path, mode="rb") as config_file:
-            exec(compile(config_file.read(), prod_config_file_path, "exec"), _user_config)
+            exec(compile(config_file.read(), prod_config_file_path, "exec"), _user_config)  # nosec
 
         # Celery doesn't support configuring from multiple objects, so this is a way for
         # the configuration in prod_config_file_path to override the defaults in ProductionConfig

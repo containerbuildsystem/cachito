@@ -13,8 +13,8 @@ import urllib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from xml.etree import ElementTree
 
+import defusedxml.ElementTree
 import pkg_resources
 import requests
 from packaging.utils import canonicalize_name, canonicalize_version
@@ -1235,7 +1235,7 @@ def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
     :raise CachitoError: if the script execution fails
     """
     # Generate a 24-32 character (each byte is two hex characters) password
-    password = secrets.token_hex(random.randint(12, 16))
+    password = secrets.token_hex(random.randint(12, 16))  # nosec
     payload = {
         "password": password,
         "pip_repository_name": pip_repo_name,
@@ -1539,7 +1539,7 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
     except requests.RequestException as e:
         raise CachitoError(f"PyPI query failed: {e}")
 
-    html = ElementTree.fromstring(pypi_resp.text)
+    html = defusedxml.ElementTree.fromstring(pypi_resp.text)
     # Find all anchors anywhere in the doc, the PEP does not specify where they should be
     links = html.iter("a")
 
