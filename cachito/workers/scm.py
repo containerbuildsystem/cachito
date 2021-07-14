@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 import logging
 import os
-import subprocess
+import subprocess  # nosec
 import tarfile
 import tempfile
 import urllib.parse

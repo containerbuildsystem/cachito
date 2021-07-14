@@ -3,7 +3,7 @@
 import json
 import logging
 import re
-import subprocess
+import subprocess  # nosec
 from typing import Iterator
 
 from cachito.errors import CachitoError
@@ -31,7 +31,7 @@ def run_cmd(cmd, params, exc_msg=None):
     params.setdefault("timeout", conf.cachito_subprocess_timeout)
 
     try:
-        response = subprocess.run(cmd, **params)
+        response = subprocess.run(cmd, **params)  # nosec
     except subprocess.TimeoutExpired as e:
         raise CachitoError(str(e))
 
