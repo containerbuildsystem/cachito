@@ -7,12 +7,13 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers.pkg_managers.general import (
     download_binary_file,
+    pkg_requests_session,
     update_request_env_vars,
     update_request_with_config_files,
     verify_checksum,
     ChecksumInfo,
 )
-from cachito.workers.requests import requests_auth_session, requests_session
+from cachito.workers.requests import requests_auth_session
 
 
 @mock.patch.object(requests_auth_session, "post")
@@ -87,7 +88,7 @@ def test_verify_checksum_unsupported_algorithm(tmpdir):
 @pytest.mark.parametrize("auth", [None, ("user", "password")])
 @pytest.mark.parametrize("insecure", [True, False])
 @pytest.mark.parametrize("chunk_size", [1024, 2048])
-@mock.patch.object(requests_session, "get")
+@mock.patch.object(pkg_requests_session, "get")
 def test_download_binary_file(mock_get, auth, insecure, chunk_size, tmpdir):
     url = "http://example.org/example.tar.gz"
     content = b"file content"
@@ -105,7 +106,7 @@ def test_download_binary_file(mock_get, auth, insecure, chunk_size, tmpdir):
     mock_response.iter_content.assert_called_with(chunk_size=chunk_size)
 
 
-@mock.patch.object(requests_session, "get")
+@mock.patch.object(pkg_requests_session, "get")
 def test_download_binary_file_failed(mock_get):
     mock_get.side_effect = [requests.RequestException("Something went wrong")]
 
