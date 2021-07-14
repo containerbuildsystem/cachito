@@ -9,7 +9,11 @@ import requests
 from cachito.common.checksum import hash_file
 from cachito.errors import CachitoError, UnknownHashAlgorithm
 from cachito.workers.config import get_worker_config
-from cachito.workers.requests import requests_auth_session, requests_session
+from cachito.workers.requests import (
+    SAFE_REQUEST_METHODS,
+    get_requests_session,
+    requests_auth_session,
+)
 
 __all__ = [
     "update_request_with_config_files",
@@ -20,6 +24,8 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 ChecksumInfo = collections.namedtuple("ChecksumInfo", "algorithm hexdigest")
+
+pkg_requests_session = get_requests_session(retry_options={"allowed_methods": SAFE_REQUEST_METHODS})
 
 
 def _get_request_url(request_id):
@@ -139,7 +145,7 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
     :raise CachitoError: If download failed
     """
     try:
-        resp = requests_session.get(url, stream=True, verify=not insecure, auth=auth)
+        resp = pkg_requests_session.get(url, stream=True, verify=not insecure, auth=auth)
         resp.raise_for_status()
     except requests.RequestException as e:
         raise CachitoError(f"Could not download {url}: {e}")

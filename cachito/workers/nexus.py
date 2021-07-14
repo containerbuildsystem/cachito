@@ -9,10 +9,14 @@ import requests.auth
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.requests import requests_session
+from cachito.workers.requests import SAFE_REQUEST_METHODS, get_requests_session
 
 
 log = logging.getLogger(__name__)
+
+nexus_requests_session = get_requests_session(
+    retry_options={"allowed_methods": SAFE_REQUEST_METHODS}
+)
 
 # special object that indicates that we want to search for a component with the `null` group
 NULL_GROUP = object()
@@ -68,7 +72,7 @@ def create_or_update_script(script_name, script_path):
 
     def _request(http_method, url, error_msg, **kwargs):
         try:
-            return requests_session.request(
+            return nexus_requests_session.request(
                 http_method, url, auth=auth, timeout=config.cachito_nexus_timeout, **kwargs
             )
         except requests.RequestException:
@@ -154,7 +158,7 @@ def execute_script(script_name, payload):
 
     log.info("Executing the Nexus script %s", script_name)
     try:
-        rv = requests_session.post(
+        rv = nexus_requests_session.post(
             script_url, auth=auth, json=payload, timeout=config.cachito_nexus_timeout
         )
     except requests.RequestException:
@@ -326,7 +330,7 @@ def search_components(in_nexus_hoster=True, **query_params):
     items = []
     while True:
         try:
-            rv = requests_session.get(
+            rv = nexus_requests_session.get(
                 url, auth=auth, params=params, timeout=config.cachito_nexus_timeout
             )
         except requests.RequestException:
@@ -441,7 +445,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
     endpoint = f"{nexus_url}/service/rest/v1/components"
 
     try:
-        rv = requests_session.post(
+        rv = nexus_requests_session.post(
             endpoint,
             auth=auth,
             files=payload,

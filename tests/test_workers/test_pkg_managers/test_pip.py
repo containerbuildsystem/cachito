@@ -13,7 +13,6 @@ import requests
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import pip, general
-from cachito.workers.requests import requests_session
 from tests.helper_utils import write_file_tree
 
 
@@ -2363,7 +2362,7 @@ class TestDownload:
     )
     # Package name should be normalized before querying PyPI
     @pytest.mark.parametrize("package_name", ["AioWSGI", "aiowsgi"])
-    @mock.patch.object(requests_session, "get")
+    @mock.patch.object(general.pkg_requests_session, "get")
     @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
     def test_download_pypi_package(
         self,

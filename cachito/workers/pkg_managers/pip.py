@@ -27,10 +27,10 @@ from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
     ChecksumInfo,
-    verify_checksum,
     download_binary_file,
+    pkg_requests_session,
+    verify_checksum,
 )
-from cachito.workers.requests import requests_session
 from cachito.workers.scm import Git
 
 
@@ -1533,7 +1533,7 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
     # See https://www.python.org/dev/peps/pep-0503/
     package_url = f"{pypi_proxy_url.rstrip('/')}/simple/{canonicalize_name(package)}/"
     try:
-        pypi_resp = requests_session.get(package_url, auth=pypi_proxy_auth)
+        pypi_resp = pkg_requests_session.get(package_url, auth=pypi_proxy_auth)
         pypi_resp.raise_for_status()
     except requests.RequestException as e:
         raise CachitoError(f"PyPI query failed: {e}")

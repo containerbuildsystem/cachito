@@ -8,7 +8,6 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.requests import requests_session
 
 
 def setup_module():
@@ -146,7 +145,7 @@ def test_get_nexus_hoster_url(mock_gwc, cachito_nexus_hoster_url, cachito_nexus_
     assert nexus._get_nexus_hoster_url() == expected
 
 
-@mock.patch.object(requests_session, "request")
+@mock.patch.object(nexus.nexus_requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_create(mock_request):
     mock_get = mock.Mock()
@@ -163,7 +162,7 @@ def test_create_or_update_create(mock_request):
     assert request_calls[1][0][0] == "post"
 
 
-@mock.patch.object(requests_session, "request")
+@mock.patch.object(nexus.nexus_requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_update(mock_request):
     mock_get = mock.Mock()
@@ -181,7 +180,7 @@ def test_create_or_update_update(mock_request):
     assert request_calls[1][0][0] == "put"
 
 
-@mock.patch.object(requests_session, "request")
+@mock.patch.object(nexus.nexus_requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_already_set(mock_request):
     mock_get = mock.Mock()
@@ -195,7 +194,7 @@ def test_create_or_update_already_set(mock_request):
     assert mock_request.call_args[0][0] == "get"
 
 
-@mock.patch.object(requests_session, "request")
+@mock.patch.object(nexus.nexus_requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_get_fails(mock_request):
     mock_get = mock.Mock()
@@ -210,7 +209,7 @@ def test_create_or_update_get_fails(mock_request):
     assert mock_request.call_args[0][0] == "get"
 
 
-@mock.patch.object(requests_session, "request")
+@mock.patch.object(nexus.nexus_requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_get_connection_error(mock_request):
     mock_request.side_effect = requests.ConnectionError()
@@ -223,7 +222,7 @@ def test_create_or_update_get_connection_error(mock_request):
     assert mock_request.call_args[0][0] == "get"
 
 
-@mock.patch.object(requests_session, "request")
+@mock.patch.object(nexus.nexus_requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_create_fails(mock_request):
     mock_get = mock.Mock()
@@ -242,7 +241,7 @@ def test_create_or_update_create_fails(mock_request):
     assert request_calls[1][0][0] == "post"
 
 
-@mock.patch.object(requests_session, "request")
+@mock.patch.object(nexus.nexus_requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
 def test_create_or_update_update_fails(mock_request):
     mock_get = mock.Mock()
@@ -281,7 +280,7 @@ def test_create_or_update_scripts(mock_cous):
     assert len(expected_scripts) == 0, error_msg
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 def test_execute_script(mock_post):
     mock_post.return_value.ok = True
 
@@ -293,7 +292,7 @@ def test_execute_script(mock_post):
     assert mock_post.call_args[0][0].endswith("/service/rest/v1/script/js_cleanup/run")
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 def test_execute_script_connection_error(mock_post):
     mock_post.side_effect = requests.ConnectionError
 
@@ -306,7 +305,7 @@ def test_execute_script_connection_error(mock_post):
     mock_post.assert_called_once()
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 def test_execute_script_failed(mock_post):
     mock_post.return_value.ok = False
     mock_post.return_value.text = "some error"
@@ -472,7 +471,7 @@ def test_get_raw_component_asset_url_sanity_check(mock_get_component_info, compo
         nexus.get_raw_component_asset_url("cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz")
 
 
-@mock.patch.object(requests_session, "get")
+@mock.patch.object(nexus.nexus_requests_session, "get")
 def test_search_components(mock_get, components_search_results):
     # Split up the components_search_results fixture into two pages to test pagination
     first_page = copy.deepcopy(components_search_results)
@@ -498,7 +497,7 @@ def test_search_components(mock_get, components_search_results):
 
 
 @pytest.mark.parametrize("hoster", [True, False])
-@mock.patch.object(requests_session, "get")
+@mock.patch.object(nexus.nexus_requests_session, "get")
 @mock.patch("requests.auth.HTTPBasicAuth")
 @mock.patch("cachito.workers.nexus.get_worker_config")
 def test_search_components_auth(mock_gwc, mock_auth, mock_get, components_search_results, hoster):
@@ -525,7 +524,7 @@ def test_search_components_auth(mock_gwc, mock_auth, mock_get, components_search
         mock_auth.assert_called_once_with(local_credential, local_credential)
 
 
-@mock.patch.object(requests_session, "get")
+@mock.patch.object(nexus.nexus_requests_session, "get")
 def test_search_components_connection_error(mock_get):
     mock_get.side_effect = requests.ConnectionError()
 
@@ -534,7 +533,7 @@ def test_search_components_connection_error(mock_get):
         nexus.search_components(repository="cachito-js-hosted", type="npm")
 
 
-@mock.patch.object(requests_session, "get")
+@mock.patch.object(nexus.nexus_requests_session, "get")
 def test_search_components_failed(mock_get):
     mock_get.return_value.ok = False
 
@@ -543,7 +542,7 @@ def test_search_components_failed(mock_get):
         nexus.search_components(repository="cachito-js-hosted", type="npm")
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 @pytest.mark.parametrize("use_hoster", [True, False])
 def test_upload_asset_only_component(mock_post, use_hoster):
     mock_open = mock.mock_open(read_data=b"some tgz file")
@@ -561,7 +560,7 @@ def test_upload_asset_only_component(mock_post, use_hoster):
     assert mock_post.call_args[1]["auth"].password == "cachito"
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 def test_upload_asset_only_component_connection_error(mock_post):
     mock_open = mock.mock_open(read_data=b"some tgz file")
     mock_post.side_effect = requests.ConnectionError()
@@ -572,7 +571,7 @@ def test_upload_asset_only_component_connection_error(mock_post):
             nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 def test_upload_asset_only_component_failed(mock_post):
     mock_open = mock.mock_open(read_data=b"some tgz file")
     mock_post.return_value.ok = False
@@ -590,7 +589,7 @@ def test_upload_asset_only_component_wrong_type():
         nexus.upload_asset_only_component("cachito-js-hosted", repo_type, "/path/to/rxjs-6.5.5.tgz")
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 @pytest.mark.parametrize("use_hoster", [True, False])
 def test_upload_raw_component(mock_post, use_hoster):
     mock_open = mock.mock_open(read_data=b"some tgz file")
@@ -610,7 +609,7 @@ def test_upload_raw_component(mock_post, use_hoster):
     assert mock_post.call_args[1]["auth"].password == "cachito"
 
 
-@mock.patch.object(requests_session, "post")
+@mock.patch.object(nexus.nexus_requests_session, "post")
 def test_upload_raw_component_failed(mock_post):
     mock_open = mock.mock_open(read_data=b"some tgz file")
     mock_post.return_value.ok = False
