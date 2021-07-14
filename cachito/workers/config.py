@@ -4,12 +4,14 @@ import tempfile
 import logging
 from typing import Dict, List, Optional
 
+import celery
 import kombu
 
 from cachito.errors import ConfigError
 
-
 ARCHIVES_VOLUME = os.path.join(tempfile.gettempdir(), "cachito-archives")
+
+app = celery.Celery()
 
 
 class Config(object):
@@ -302,7 +304,7 @@ def validate_pip_config():
 
 def get_worker_config():
     """Get the Celery worker configuration."""
-    # Import this here to avoid a circular import
-    import cachito.workers.tasks.celery
+    return app.conf
 
-    return cachito.workers.tasks.celery.app.conf
+
+configure_celery(app)

@@ -10,6 +10,7 @@ import requests
 from cachito.errors import ValidationError, CachitoError
 from cachito.workers.celery_logging import get_function_arg_value
 from cachito.workers.config import get_worker_config
+from cachito.workers.requests import requests_auth_session, requests_session
 
 __all__ = [
     "make_base64_config_file",
@@ -242,9 +243,6 @@ def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_m
     :param status_error_msg: error message to raise if the response status is 4xx or 5xx
     :raises CachitoError: if the connection fails or the API returns an error response
     """
-    # Import this here to avoid a circular import (tasks -> requests -> tasks)
-    from cachito.workers.requests import requests_session
-
     config = get_worker_config()
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
 
@@ -278,9 +276,6 @@ def _patch_request_or_fail(
     :param status_error_msg: error message to raise if the response status is 4xx or 5xx
     :raises CachitoError: if the connection fails or the API returns an error response
     """
-    # Import this here to avoid a circular import (tasks -> requests -> tasks)
-    from cachito.workers.requests import requests_auth_session
-
     config = get_worker_config()
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
 

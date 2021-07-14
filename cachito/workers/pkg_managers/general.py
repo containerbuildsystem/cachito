@@ -9,6 +9,7 @@ import requests
 from cachito.common.checksum import hash_file
 from cachito.errors import CachitoError, UnknownHashAlgorithm
 from cachito.workers.config import get_worker_config
+from cachito.workers.requests import requests_auth_session, requests_session
 
 __all__ = [
     "update_request_with_config_files",
@@ -40,9 +41,6 @@ def update_request_with_config_files(request_id, config_files):
     :param list config_files: the list of configuration files to add to the request
     :raise CachitoError: if the request to the Cachito API fails
     """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_auth_session
-
     log.info("Adding %d configuration files to the request %d", len(config_files), request_id)
     config = get_worker_config()
     request_url = _get_request_url(request_id) + "/configuration-files"
@@ -76,8 +74,6 @@ def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]
         "kind" attributes, e.g. {"NAME": {"value": "VALUE", "kind": "KIND"}}.
     :raise CachitoError: if the request to the Cachito API fails
     """
-    from cachito.workers.requests import requests_auth_session
-
     config = get_worker_config()
     request_url = _get_request_url(request_id)
     payload = {"environment_variables": env_vars}
@@ -142,9 +138,6 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
     :param int chunk_size: Chunk size param for Response.iter_content()
     :raise CachitoError: If download failed
     """
-    # Import this here to avoid a circular import
-    from cachito.workers.requests import requests_session
-
     try:
         resp = requests_session.get(url, stream=True, verify=not insecure, auth=auth)
         resp.raise_for_status()

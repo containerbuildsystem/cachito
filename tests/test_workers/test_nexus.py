@@ -8,6 +8,7 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
+from cachito.workers.requests import requests_session
 
 
 def setup_module():
@@ -145,118 +146,118 @@ def test_get_nexus_hoster_url(mock_gwc, cachito_nexus_hoster_url, cachito_nexus_
     assert nexus._get_nexus_hoster_url() == expected
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
-def test_create_or_update_create(mock_requests):
+def test_create_or_update_create(mock_request):
     mock_get = mock.Mock()
     mock_get.status_code = 404
     mock_post = mock.Mock()
     mock_post.ok = True
-    mock_requests.request.side_effect = [mock_get, mock_post]
+    mock_request.side_effect = [mock_get, mock_post]
 
     nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
-    assert mock_requests.request.call_count == 2
-    request_calls = mock_requests.request.call_args_list
+    assert mock_request.call_count == 2
+    request_calls = mock_request.call_args_list
     assert request_calls[0][0][0] == "get"
     assert request_calls[1][0][0] == "post"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
-def test_create_or_update_update(mock_requests):
+def test_create_or_update_update(mock_request):
     mock_get = mock.Mock()
     mock_get.status_code = 200
     mock_get.json.return_value = {"content": "println('Goodbye')"}
     mock_put = mock.Mock()
     mock_put.ok = True
-    mock_requests.request.side_effect = [mock_get, mock_put]
+    mock_request.side_effect = [mock_get, mock_put]
 
     nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
-    assert mock_requests.request.call_count == 2
-    request_calls = mock_requests.request.call_args_list
+    assert mock_request.call_count == 2
+    request_calls = mock_request.call_args_list
     assert request_calls[0][0][0] == "get"
     assert request_calls[1][0][0] == "put"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
-def test_create_or_update_already_set(mock_requests):
+def test_create_or_update_already_set(mock_request):
     mock_get = mock.Mock()
     mock_get.status_code = 200
     mock_get.json.return_value = {"content": "println('Hello')"}
-    mock_requests.request.side_effect = [mock_get]
+    mock_request.side_effect = [mock_get]
 
     nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
-    assert mock_requests.request.call_count == 1
-    assert mock_requests.request.call_args[0][0] == "get"
+    assert mock_request.call_count == 1
+    assert mock_request.call_args[0][0] == "get"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
-def test_create_or_update_get_fails(mock_requests):
+def test_create_or_update_get_fails(mock_request):
     mock_get = mock.Mock()
     mock_get.status_code = 400
-    mock_requests.request.side_effect = [mock_get]
+    mock_request.side_effect = [mock_get]
 
     expected = "Failed to determine if the Nexus script oh_so exists"
     with pytest.raises(CachitoError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
-    assert mock_requests.request.call_count == 1
-    assert mock_requests.request.call_args[0][0] == "get"
+    assert mock_request.call_count == 1
+    assert mock_request.call_args[0][0] == "get"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
-def test_create_or_update_get_connection_error(mock_requests):
-    mock_requests.request.side_effect = requests.ConnectionError()
+def test_create_or_update_get_connection_error(mock_request):
+    mock_request.side_effect = requests.ConnectionError()
 
     expected = "The connection failed when determining if the Nexus script oh_so exists"
     with pytest.raises(CachitoError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
-    assert mock_requests.request.call_count == 1
-    assert mock_requests.request.call_args[0][0] == "get"
+    assert mock_request.call_count == 1
+    assert mock_request.call_args[0][0] == "get"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
-def test_create_or_update_create_fails(mock_requests):
+def test_create_or_update_create_fails(mock_request):
     mock_get = mock.Mock()
     mock_get.status_code = 404
     mock_post = mock.Mock()
     mock_post.ok = False
-    mock_requests.request.side_effect = [mock_get, mock_post]
+    mock_request.side_effect = [mock_get, mock_post]
 
     expected = "Failed to create/update the Nexus script oh_so"
     with pytest.raises(CachitoError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
-    assert mock_requests.request.call_count == 2
-    request_calls = mock_requests.request.call_args_list
+    assert mock_request.call_count == 2
+    request_calls = mock_request.call_args_list
     assert request_calls[0][0][0] == "get"
     assert request_calls[1][0][0] == "post"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "request")
 @mock.patch("cachito.workers.nexus.open", mock.mock_open(read_data="println('Hello')"))
-def test_create_or_update_update_fails(mock_requests):
+def test_create_or_update_update_fails(mock_request):
     mock_get = mock.Mock()
     mock_get.status_code = 200
     mock_get.json.return_value = {"content": "println('Goodby')"}
     mock_put = mock.Mock()
     mock_put.ok = False
-    mock_requests.request.side_effect = [mock_get, mock_put]
+    mock_request.side_effect = [mock_get, mock_put]
 
     expected = "Failed to create/update the Nexus script oh_so"
     with pytest.raises(CachitoError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
-    assert mock_requests.request.call_count == 2
-    request_calls = mock_requests.request.call_args_list
+    assert mock_request.call_count == 2
+    request_calls = mock_request.call_args_list
     assert request_calls[0][0][0] == "get"
     assert request_calls[1][0][0] == "put"
 
@@ -280,21 +281,21 @@ def test_create_or_update_scripts(mock_cous):
     assert len(expected_scripts) == 0, error_msg
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_execute_script(mock_requests):
-    mock_requests.post.return_value.ok = True
+@mock.patch.object(requests_session, "post")
+def test_execute_script(mock_post):
+    mock_post.return_value.ok = True
 
     nexus.execute_script(
         "js_cleanup", {"repository_name": "cachito-npm-1", "username": "cachito-npm-1"}
     )
 
-    mock_requests.post.assert_called_once()
-    assert mock_requests.post.call_args[0][0].endswith("/service/rest/v1/script/js_cleanup/run")
+    mock_post.assert_called_once()
+    assert mock_post.call_args[0][0].endswith("/service/rest/v1/script/js_cleanup/run")
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_execute_script_connection_error(mock_requests):
-    mock_requests.post.side_effect = requests.ConnectionError
+@mock.patch.object(requests_session, "post")
+def test_execute_script_connection_error(mock_post):
+    mock_post.side_effect = requests.ConnectionError
 
     expected = "Could not connect to the Nexus instance to execute the script js_cleanup"
     with pytest.raises(NexusScriptError, match=expected):
@@ -302,13 +303,13 @@ def test_execute_script_connection_error(mock_requests):
             "js_cleanup", {"repository_name": "cachito-npm-1", "username": "cachito-npm-1"}
         )
 
-    mock_requests.post.assert_called_once()
+    mock_post.assert_called_once()
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_execute_script_failed(mock_requests):
-    mock_requests.post.return_value.ok = False
-    mock_requests.post.return_value.text = "some error"
+@mock.patch.object(requests_session, "post")
+def test_execute_script_failed(mock_post):
+    mock_post.return_value.ok = False
+    mock_post.return_value.text = "some error"
 
     expected = "The Nexus script js_cleanup failed with: some error"
     with pytest.raises(NexusScriptError, match=expected):
@@ -316,7 +317,7 @@ def test_execute_script_failed(mock_requests):
             "js_cleanup", {"repository_name": "cachito-npm-1", "username": "cachito-npm-1"}
         )
 
-    mock_requests.post.assert_called_once()
+    mock_post.assert_called_once()
 
 
 @mock.patch("cachito.workers.nexus.os.path.exists")
@@ -471,8 +472,8 @@ def test_get_raw_component_asset_url_sanity_check(mock_get_component_info, compo
         nexus.get_raw_component_asset_url("cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz")
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_search_components(mock_requests, components_search_results):
+@mock.patch.object(requests_session, "get")
+def test_search_components(mock_get, components_search_results):
     # Split up the components_search_results fixture into two pages to test pagination
     first_page = copy.deepcopy(components_search_results)
     first_page["items"].pop(1)
@@ -487,22 +488,20 @@ def test_search_components(mock_requests, components_search_results):
     mock_rv_second.ok = True
     mock_rv_second.json.return_value = second_page
 
-    mock_requests.get.side_effect = [mock_rv_first, mock_rv_second]
+    mock_get.side_effect = [mock_rv_first, mock_rv_second]
 
     results = nexus.search_components(repository="cachito-js-hosted", type="npm")
 
     assert results == components_search_results["items"]
 
-    assert mock_requests.get.call_count == 2
+    assert mock_get.call_count == 2
 
 
 @pytest.mark.parametrize("hoster", [True, False])
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "get")
 @mock.patch("requests.auth.HTTPBasicAuth")
 @mock.patch("cachito.workers.nexus.get_worker_config")
-def test_search_components_auth(
-    mock_gwc, mock_auth, mock_requests, components_search_results, hoster
-):
+def test_search_components_auth(mock_gwc, mock_auth, mock_get, components_search_results, hoster):
     hoster_credential = "hoster"
     local_credential = "local"
     mock_gwc.return_value.cachito_nexus_hoster_username = hoster_credential
@@ -513,42 +512,42 @@ def test_search_components_auth(
     mock_rv = mock.Mock()
     mock_rv.ok = True
     mock_rv.json.return_value = components_search_results
-    mock_requests.get.return_value = mock_rv
+    mock_get.return_value = mock_rv
     results = nexus.search_components(
         in_nexus_hoster=hoster, repository="cachito-js-hosted", type="npm"
     )
 
     assert results == components_search_results["items"]
-    assert mock_requests.get.call_count == 1
+    assert mock_get.call_count == 1
     if hoster:
         mock_auth.assert_called_once_with(hoster_credential, hoster_credential)
     else:
         mock_auth.assert_called_once_with(local_credential, local_credential)
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_search_components_connection_error(mock_requests):
-    mock_requests.get.side_effect = requests.ConnectionError()
+@mock.patch.object(requests_session, "get")
+def test_search_components_connection_error(mock_get):
+    mock_get.side_effect = requests.ConnectionError()
 
     expected = "Could not connect to the Nexus instance to search for components"
     with pytest.raises(CachitoError, match=expected):
         nexus.search_components(repository="cachito-js-hosted", type="npm")
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_search_components_failed(mock_requests):
-    mock_requests.get.return_value.ok = False
+@mock.patch.object(requests_session, "get")
+def test_search_components_failed(mock_get):
+    mock_get.return_value.ok = False
 
     expected = "Failed to search for components in Nexus"
     with pytest.raises(CachitoError, match=expected):
         nexus.search_components(repository="cachito-js-hosted", type="npm")
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "post")
 @pytest.mark.parametrize("use_hoster", [True, False])
-def test_upload_asset_only_component(mock_requests, use_hoster):
+def test_upload_asset_only_component(mock_post, use_hoster):
     mock_open = mock.mock_open(read_data=b"some tgz file")
-    mock_requests.post.return_value.ok = True
+    mock_post.return_value.ok = True
 
     with mock.patch("cachito.workers.nexus.open", mock_open):
         nexus.upload_asset_only_component(
@@ -556,16 +555,16 @@ def test_upload_asset_only_component(mock_requests, use_hoster):
         )
 
     expected_asset = {"npm.asset": ("rxjs-6.5.5.tgz", b"some tgz file")}
-    assert mock_requests.post.call_args[1]["files"] == expected_asset
-    assert mock_requests.post.call_args[1]["params"] == {"repository": "cachito-js-hosted"}
-    assert mock_requests.post.call_args[1]["auth"].username == "cachito"
-    assert mock_requests.post.call_args[1]["auth"].password == "cachito"
+    assert mock_post.call_args[1]["files"] == expected_asset
+    assert mock_post.call_args[1]["params"] == {"repository": "cachito-js-hosted"}
+    assert mock_post.call_args[1]["auth"].username == "cachito"
+    assert mock_post.call_args[1]["auth"].password == "cachito"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_upload_asset_only_component_connection_error(mock_requests):
+@mock.patch.object(requests_session, "post")
+def test_upload_asset_only_component_connection_error(mock_post):
     mock_open = mock.mock_open(read_data=b"some tgz file")
-    mock_requests.post.side_effect = requests.ConnectionError()
+    mock_post.side_effect = requests.ConnectionError()
 
     expected = "Could not connect to the Nexus instance to upload a component"
     with mock.patch("cachito.workers.nexus.open", mock_open):
@@ -573,10 +572,10 @@ def test_upload_asset_only_component_connection_error(mock_requests):
             nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_upload_asset_only_component_failed(mock_requests):
+@mock.patch.object(requests_session, "post")
+def test_upload_asset_only_component_failed(mock_post):
     mock_open = mock.mock_open(read_data=b"some tgz file")
-    mock_requests.post.return_value.ok = False
+    mock_post.return_value.ok = False
 
     expected = "Failed to upload a component to Nexus"
     with mock.patch("cachito.workers.nexus.open", mock_open):
@@ -591,30 +590,30 @@ def test_upload_asset_only_component_wrong_type():
         nexus.upload_asset_only_component("cachito-js-hosted", repo_type, "/path/to/rxjs-6.5.5.tgz")
 
 
-@mock.patch("cachito.workers.requests.requests_session")
+@mock.patch.object(requests_session, "post")
 @pytest.mark.parametrize("use_hoster", [True, False])
-def test_upload_raw_component(mock_requests, use_hoster):
+def test_upload_raw_component(mock_post, use_hoster):
     mock_open = mock.mock_open(read_data=b"some tgz file")
-    mock_requests.post.return_value.ok = True
+    mock_post.return_value.ok = True
 
     components = [{"path": "path/to/foo-1.0.0.tgz", "filename": "foo-1.0.0.tar.gz"}]
     with mock.patch("cachito.workers.nexus.open", mock_open):
         nexus.upload_raw_component("cachito-pip-raw", "foo/1.0.0", components, use_hoster)
 
-    assert mock_requests.post.call_args[1]["data"] == {
+    assert mock_post.call_args[1]["data"] == {
         "raw.asset1.filename": "foo-1.0.0.tar.gz",
         "raw.directory": "foo/1.0.0",
     }
-    assert mock_requests.post.call_args[1]["files"] == {"raw.asset1": b"some tgz file"}
-    assert mock_requests.post.call_args[1]["params"] == {"repository": "cachito-pip-raw"}
-    assert mock_requests.post.call_args[1]["auth"].username == "cachito"
-    assert mock_requests.post.call_args[1]["auth"].password == "cachito"
+    assert mock_post.call_args[1]["files"] == {"raw.asset1": b"some tgz file"}
+    assert mock_post.call_args[1]["params"] == {"repository": "cachito-pip-raw"}
+    assert mock_post.call_args[1]["auth"].username == "cachito"
+    assert mock_post.call_args[1]["auth"].password == "cachito"
 
 
-@mock.patch("cachito.workers.requests.requests_session")
-def test_upload_raw_component_failed(mock_requests):
+@mock.patch.object(requests_session, "post")
+def test_upload_raw_component_failed(mock_post):
     mock_open = mock.mock_open(read_data=b"some tgz file")
-    mock_requests.post.return_value.ok = False
+    mock_post.return_value.ok = False
 
     components = [{"path": "path/to/foo-1.0.0.tgz", "filename": "foo-1.0.0.tar.gz"}]
     expected = "Failed to upload a component to Nexus"
