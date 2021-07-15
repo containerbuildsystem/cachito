@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 import textwrap
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Set
+from typing import Optional, List, Dict, Any, Set, Union
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus, run_cmd
@@ -113,7 +113,7 @@ def download_dependencies(
         log.info("Processing %d %s dependencies to stage in Nexus", len(deps), pkg_manager)
         downloaded_deps = set()
         # This must be done in batches to prevent Nexus from erroring with "Header is too large"
-        deps_batches = []
+        deps_batches: List[List] = []
         counter = 0
         batch_size = get_worker_config().cachito_js_download_batch_size
         for dep in deps:
@@ -344,9 +344,9 @@ def _get_js_component_info_from_nexus(
     :raise CachitoError: if the search fails or more than one component is returned
     """
     if name.startswith("@"):
-        component_group, component_name = name.split("/", 1)
+        component_group_with_prefix, component_name = name.split("/", 1)
         # Remove the "@" prefix
-        component_group = component_group[1:]
+        component_group: Union[str, object] = component_group_with_prefix[1:]
     else:
         component_name = name
         component_group = nexus.NULL_GROUP
@@ -550,7 +550,7 @@ class JSDependency:
     # The actual semver version of the dependency
     # In package-lock.json, this either the "version" key or not present
     # In yarn.lock, this is always the "version" key
-    version: str = None
+    version: Optional[str] = None
 
     # The hash algorithm and base64-encoded checksum of the dependency
     # In package-lock.json, this is the "integrity" key and will always be present for registry
@@ -558,7 +558,7 @@ class JSDependency:
     # In yarn.lock, the "integrity" key seems to be present only for registry deps by default, but
     # all resolved urls also have a SHA1 checksum in the fragment part. It is unclear how yarn
     # decides whether to check the integrity value or the checksum in the url when both are present.
-    integrity: str = None
+    integrity: Optional[str] = None
 
     @property
     def qualified_name(self):

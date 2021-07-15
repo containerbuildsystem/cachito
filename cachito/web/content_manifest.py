@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 import os
 import re
+from typing import Optional
 import urllib.parse
 
 import flask
@@ -253,7 +254,7 @@ class Package:
     version: str
     dev: bool = False
     dependencies: list = field(default_factory=list)
-    path: str = None
+    path: Optional[str] = None
 
     def __repr__(self):
         return (

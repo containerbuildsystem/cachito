@@ -8,6 +8,7 @@ import re
 import secrets
 import shutil
 import tarfile
+from typing import Optional
 import zipfile
 import urllib
 from abc import ABC, abstractmethod
@@ -428,7 +429,7 @@ class ASTpathelem:
 
     node: ast.AST
     attr: str  # Child node is (in) this field
-    index: int = None  # If field is a list, this is the index of the child node
+    index: Optional[int] = None  # If field is a list, this is the index of the child node
 
     @property
     def field(self):

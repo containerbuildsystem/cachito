@@ -63,6 +63,7 @@ jobs:
           - bandit
           - black
           - flake8
+          - mypy
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1

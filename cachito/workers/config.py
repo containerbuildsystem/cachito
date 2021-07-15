@@ -2,6 +2,7 @@
 import os
 import tempfile
 import logging
+from typing import Dict, List, Optional
 
 import kombu
 
@@ -18,7 +19,7 @@ class Config(object):
     broker_transport_options = {"max_retries": 10}
     # Refer to README.md for information on all the Cachito configuration options
     cachito_api_timeout = 60
-    cachito_auth_type = None
+    cachito_auth_type: Optional[str] = None
     cachito_default_environment_variables = {
         "gomod": {"GOSUMDB": {"value": "off", "kind": "literal"}},
         "npm": {
@@ -34,22 +35,22 @@ class Config(object):
     cachito_log_level = "INFO"
     cachito_js_download_batch_size = 30
     cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
-    cachito_nexus_hoster_password = None
-    cachito_nexus_hoster_url = None
-    cachito_nexus_hoster_username = None
+    cachito_nexus_hoster_password: Optional[str] = None
+    cachito_nexus_hoster_url: Optional[str] = None
+    cachito_nexus_hoster_username: Optional[str] = None
     cachito_nexus_js_hosted_repo_name = "cachito-js-hosted"
     cachito_nexus_max_search_attempts = 5
     cachito_nexus_npm_proxy_url = "http://localhost:8081/repository/cachito-js/"
     cachito_nexus_pip_raw_repo_name = "cachito-pip-raw"
-    cachito_nexus_proxy_password = None
-    cachito_nexus_proxy_username = None
+    cachito_nexus_proxy_password: Optional[str] = None
+    cachito_nexus_proxy_username: Optional[str] = None
     cachito_nexus_request_repo_prefix = "cachito-"
     cachito_nexus_timeout = 60
     cachito_nexus_username = "cachito"
-    cachito_npm_file_deps_allowlist = {}
-    cachito_yarn_file_deps_allowlist = {}
-    cachito_gomod_file_deps_allowlist = {}
-    cachito_request_file_logs_dir = None
+    cachito_npm_file_deps_allowlist: Dict[str, List[str]] = {}
+    cachito_yarn_file_deps_allowlist: Dict[str, List[str]] = {}
+    cachito_gomod_file_deps_allowlist: Dict[str, List[str]] = {}
+    cachito_request_file_logs_dir: Optional[str] = None
     cachito_request_file_logs_format = (
         "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
     )
@@ -120,7 +121,7 @@ class DevelopmentConfig(Config):
     cachito_gomod_file_deps_allowlist = {
         "github.com/cachito-testing/cachito-gomod-local-deps": ["github.com/cachito-testing/*"],
     }
-    cachito_request_file_logs_dir = "/var/log/cachito/requests"
+    cachito_request_file_logs_dir: Optional[str] = "/var/log/cachito/requests"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
 
 
