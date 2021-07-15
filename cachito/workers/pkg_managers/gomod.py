@@ -97,7 +97,11 @@ def match_parent_module(package_name: str, module_names: Iterable[str]) -> Optio
     :return: longest matching module name or None (no module matches)
     """
     contains_this_package = functools.partial(contains_package, package_name=package_name)
-    return max(filter(contains_this_package, module_names), key=len, default=None)
+    return max(
+        filter(contains_this_package, module_names),
+        key=len,  # type: ignore
+        default=None,
+    )
 
 
 def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=None):
@@ -383,7 +387,7 @@ def _module_lines_from_modules_txt(app_dir: str) -> List[str]:
     is guaranteed to contain only the content written in it by go.
     """
     modules_txt = Path(app_dir) / "vendor" / "modules.txt"
-    module_lines = []
+    module_lines: List[str] = []
     has_packages = {}
 
     log.debug("Parsing modules from vendor/modules.txt")

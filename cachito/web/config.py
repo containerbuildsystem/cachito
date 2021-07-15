@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
 import tempfile
+from typing import List, Optional
 
 from cachito.errors import ConfigError
 
@@ -11,8 +12,8 @@ class Config(object):
     """The base Cachito Flask configuration."""
 
     # Additional loggers to set to the level defined in CACHITO_LOG_LEVEL
-    CACHITO_ADDITIONAL_LOGGERS = []
-    CACHITO_DEFAULT_PACKAGE_MANAGERS = ["gomod"]
+    CACHITO_ADDITIONAL_LOGGERS: List[str] = []
+    CACHITO_DEFAULT_PACKAGE_MANAGERS: List[str] = ["gomod"]
     # This sets the level of the "flask.app" logger, which is accessed from current_app.logger
     CACHITO_LOG_LEVEL = "INFO"
     CACHITO_LOG_FORMAT = "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
@@ -20,10 +21,10 @@ class Config(object):
     # Pairs of mutually exclusive package managers (cannot process the same package)
     CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS = [("npm", "yarn")]
     CACHITO_PACKAGE_MANAGERS = ["gomod"]
-    CACHITO_REQUEST_FILE_LOGS_DIR = None
+    CACHITO_REQUEST_FILE_LOGS_DIR: Optional[str] = None
     # Users that are allowed to use the "user" property when creating a request
-    CACHITO_USER_REPRESENTATIVES = []
-    CACHITO_WORKER_USERNAMES = []
+    CACHITO_USER_REPRESENTATIVES: List[str] = []
+    CACHITO_WORKER_USERNAMES: List[str] = []
 
 
 class ProductionConfig(Config):

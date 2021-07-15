@@ -4,7 +4,7 @@ import os
 import shutil
 import tarfile
 from pathlib import Path
-from typing import List
+from typing import Any, Callable, List, Optional
 
 import requests
 
@@ -122,7 +122,7 @@ def create_bundle_archive(request_id: int, flags: List[str]) -> None:
     def filter_git_dir(tar_info):
         return tar_info if os.path.basename(tar_info.name) != ".git" else None
 
-    tar_filter = filter_git_dir
+    tar_filter: Optional[Callable[[Any], Any]] = filter_git_dir
     if "include-git-dir" in flags:
         tar_filter = None
 

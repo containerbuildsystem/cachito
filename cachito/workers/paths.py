@@ -2,6 +2,7 @@
 
 import logging
 import pathlib
+from typing import Any
 
 from cachito.common import paths
 from cachito.workers.config import get_worker_config
@@ -35,7 +36,10 @@ class RequestBundleDir(paths.RequestBundleDir):
 
 # Similar with cachito.common.paths.RequestBundleDir, this base type will be the
 # correct type for Linux or Windows individually.
-class SourcesDir(type(pathlib.Path())):
+base_path: Any = type(pathlib.Path())
+
+
+class SourcesDir(base_path):
     """
     Represents a sources directory tree for a package.
 

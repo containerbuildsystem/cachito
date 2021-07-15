@@ -2,7 +2,7 @@
 import json
 import logging
 import os
-from typing import List
+from typing import List, Set
 
 import pyarn.lockfile
 
@@ -115,7 +115,7 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
     prepare_nexus_for_js_request(repo_name)
 
     yarn_config_files = []
-    downloaded_deps = set()
+    downloaded_deps: Set[str] = set()
     packages_json_data = PackagesData()
 
     for i, subpath in enumerate(subpaths):

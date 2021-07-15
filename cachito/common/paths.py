@@ -3,15 +3,18 @@
 import logging
 import os
 from pathlib import Path
+from typing import Any
 import shutil
 
 log = logging.getLogger(__name__)
 
-
 # Subclassing from type(Path()) is a workaround because pathlib does not
 # support subclass from Path directly. This base type will be the correct type
 # for Linux or Windows individually.
-class RequestBundleDir(type(Path())):
+base_path: Any = type(Path())
+
+
+class RequestBundleDir(base_path):
     """
     Represents a directory tree for a request.
 

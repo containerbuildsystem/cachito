@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Tuple, Union
+from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 
 from cachito.errors import CachitoError
 
@@ -69,8 +69,8 @@ class PackagesData:
 
     def __init__(self) -> None:
         """Initialize an empty PackagesData instance."""
-        self._index = set()
-        self._packages = []
+        self._index: Set[Tuple[str, str, str]] = set()
+        self._packages: List[Dict[str, Any]] = []
 
     @property
     def packages(self) -> List[Dict[str, Any]]:

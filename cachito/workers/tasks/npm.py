@@ -2,7 +2,7 @@
 import json
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
@@ -211,11 +211,10 @@ def generate_npmrc_config_files(
         config_files.append(make_base64_config_file(ca_cert, ca_path))
 
     for subpath in subpaths:
+        custom_ca_path: Optional[str] = None
         if ca_cert:
             # Determine the relative path to the registry-ca.pem file
             custom_ca_path = os.path.relpath("registry-ca.pem", start=subpath)
-        else:
-            custom_ca_path = None
 
         npm_rc = generate_npmrc_content(
             proxy_repo_url, username, password, custom_ca_path=custom_ca_path
