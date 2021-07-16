@@ -4,9 +4,9 @@ from werkzeug.exceptions import HTTPException
 
 from cachito.errors import (
     CachitoError,
+    CachitoNotImplementedError,
     ContentManifestError,
     ValidationError,
-    CachitoNotImplementedError,
 )
 
 

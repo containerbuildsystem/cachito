@@ -12,9 +12,8 @@ import requests
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.pkg_managers import pip, general
+from cachito.workers.pkg_managers import general, pip
 from tests.helper_utils import write_file_tree
-
 
 THIS_MODULE_DIR = Path(__file__).resolve().parent
 GIT_REF = "9a557920b2a6d4110f838506120904a6fda421a2"

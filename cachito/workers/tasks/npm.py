@@ -14,8 +14,8 @@ from cachito.workers.pkg_managers.general import (
     update_request_with_config_files,
 )
 from cachito.workers.pkg_managers.general_js import (
-    generate_npmrc_content,
     finalize_nexus_for_js_request,
+    generate_npmrc_content,
     prepare_nexus_for_js_request,
 )
 from cachito.workers.pkg_managers.npm import (
@@ -26,9 +26,9 @@ from cachito.workers.pkg_managers.npm import (
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import (
+    get_request,
     make_base64_config_file,
     runs_if_request_in_progress,
-    get_request,
     set_request_state,
 )
 

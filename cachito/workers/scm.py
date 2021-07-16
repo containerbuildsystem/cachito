@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from abc import ABC, abstractmethod
 import logging
 import os
 import subprocess  # nosec
@@ -7,13 +6,13 @@ import tarfile
 import tempfile
 import urllib.parse
 import zlib
+from abc import ABC, abstractmethod
 
 import git
 
 from cachito.errors import CachitoError
 from cachito.workers import run_cmd
 from cachito.workers.paths import SourcesDir
-
 
 log = logging.getLogger(__name__)
 

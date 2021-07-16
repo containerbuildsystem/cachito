@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
-from cachito.workers.pkg_managers import npm, general_js
+from cachito.workers.pkg_managers import general_js, npm
 
 
 @pytest.fixture()

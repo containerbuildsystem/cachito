@@ -11,21 +11,21 @@ import git
 import pytest
 
 from cachito.errors import CachitoError, ValidationError
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
 from cachito.workers.pkg_managers.gomod import (
-    get_golang_version,
-    resolve_gomod,
-    contains_package,
-    path_to_subpackage,
-    match_parent_module,
+    _fail_unless_allowlisted,
+    _get_allowed_local_deps,
     _merge_bundle_dirs,
     _merge_files,
-    _vet_local_deps,
-    _fail_unless_allowlisted,
     _set_full_local_dep_relpaths,
-    _get_allowed_local_deps,
+    _vet_local_deps,
+    contains_package,
+    get_golang_version,
+    match_parent_module,
+    path_to_subpackage,
+    resolve_gomod,
 )
-from cachito.workers.paths import RequestBundleDir
 from tests.helper_utils import assert_directories_equal, write_file_tree
 
 

@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
 import os
+
 import pytest
 
-from cachito.errors import CachitoError
 from cachito.common.packages_data import PackagesData, unique_packages
+from cachito.errors import CachitoError
 
 
 @pytest.mark.parametrize(

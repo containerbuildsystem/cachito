@@ -7,7 +7,6 @@ import requests
 from cachito.errors import CachitoError
 from cachito.workers.cleanup_job import main
 
-
 mock_complete = {
     "items": [
         {

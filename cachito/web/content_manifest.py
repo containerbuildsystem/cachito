@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from copy import deepcopy
-from dataclasses import dataclass, field
 import os
 import re
-from typing import Optional
 import urllib.parse
+from copy import deepcopy
+from dataclasses import dataclass, field
+from typing import Optional
 
 import flask
 import pkg_resources
+
 from cachito.errors import ContentManifestError
 from cachito.web.utils import deep_sort_icm
 from cachito.workers.pkg_managers import gomod

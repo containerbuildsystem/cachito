@@ -2,8 +2,8 @@
 import copy
 from unittest import mock
 
-import requests
 import pytest
+import requests
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus

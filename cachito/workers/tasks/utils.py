@@ -3,11 +3,11 @@ import base64
 import functools
 import logging
 from pathlib import Path
-from typing import Union, Callable
+from typing import Callable, Union
 
 import requests
 
-from cachito.errors import ValidationError, CachitoError
+from cachito.errors import CachitoError, ValidationError
 from cachito.workers.celery_logging import get_function_arg_value
 from cachito.workers.config import get_worker_config
 from cachito.workers.requests import requests_auth_session, requests_session

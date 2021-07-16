@@ -5,10 +5,9 @@ from unittest import mock
 import pytest
 import requests
 
-from cachito.errors import ValidationError, CachitoError
-from cachito.workers.requests import requests_session, requests_auth_session
+from cachito.errors import CachitoError, ValidationError
+from cachito.workers.requests import requests_auth_session, requests_session
 from cachito.workers.tasks import utils
-
 from tests.helper_utils import write_file_tree
 
 

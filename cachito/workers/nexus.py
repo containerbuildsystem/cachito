@@ -11,7 +11,6 @@ from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.requests import SAFE_REQUEST_METHODS, get_requests_session
 
-
 log = logging.getLogger(__name__)
 
 nexus_requests_session = get_requests_session(

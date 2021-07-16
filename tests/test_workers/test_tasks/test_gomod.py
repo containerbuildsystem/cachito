@@ -6,8 +6,8 @@ from unittest import mock
 
 import pytest
 
-from cachito.errors import CachitoError
 from cachito.common.packages_data import PackagesData
+from cachito.errors import CachitoError
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
 

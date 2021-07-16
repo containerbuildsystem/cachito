@@ -2,9 +2,9 @@
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Any
-import shutil
 
 log = logging.getLogger(__name__)
 

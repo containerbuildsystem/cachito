@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 
 import requests
 
-from cachito.workers.requests import get_requests_session
-from cachito.workers.config import get_worker_config
 from cachito.errors import CachitoError
+from cachito.workers.config import get_worker_config
+from cachito.workers.requests import get_requests_session
 
 log = logging.getLogger(__name__)
 

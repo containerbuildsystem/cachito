@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from unittest import mock
 
-import requests
 import pytest
+import requests
 
 from cachito.errors import CachitoError
 from cachito.workers.pkg_managers.general import (
+    ChecksumInfo,
     download_binary_file,
     pkg_requests_session,
     update_request_env_vars,
     update_request_with_config_files,
     verify_checksum,
-    ChecksumInfo,
 )
 from cachito.workers.requests import requests_auth_session
 

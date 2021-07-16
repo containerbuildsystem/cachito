@@ -4,19 +4,19 @@ import logging
 from os.path import normpath
 from pathlib import Path
 from typing import Dict, Optional
-
-import pyarn.lockfile
 from urllib.parse import urlparse
 
+import pyarn.lockfile
+
 from cachito.errors import CachitoError
+from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general_js import (
+    JSDependency,
     convert_hex_sha_to_npm,
     download_dependencies,
-    process_non_registry_dependency,
     get_yarn_component_info_from_non_hosted_nexus,
-    JSDependency,
+    process_non_registry_dependency,
 )
-from cachito.workers.config import get_worker_config
 
 __all__ = [
     "get_yarn_proxy_repo_name",

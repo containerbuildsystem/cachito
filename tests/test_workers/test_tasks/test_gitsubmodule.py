@@ -1,7 +1,7 @@
 import json
-from cachito.workers.paths import RequestBundleDir
 from unittest import mock
 
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import gitsubmodule
 
 url = "https://github.com/release-engineering/retrodep.git"

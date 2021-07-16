@@ -4,13 +4,13 @@ import os
 import tempfile
 from unittest import mock
 
+import flask_migrate
 import git
 import pytest
-import flask_migrate
 
 from cachito.web import db as _db
-from cachito.web.config import TEST_DB_FILE
 from cachito.web.app import create_app
+from cachito.web.config import TEST_DB_FILE
 
 
 @pytest.fixture()

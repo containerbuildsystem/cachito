@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from typing import Optional
-import pytest
 from unittest import mock
+
+import pytest
 
 from cachito.web.models import PackageManager, Request, RequestStateMapping
 

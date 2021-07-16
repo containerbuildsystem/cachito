@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from flask import Blueprint, send_from_directory
 
-
 docs = Blueprint("docs", __name__)
 
 

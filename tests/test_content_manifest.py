@@ -6,10 +6,10 @@ import pytest
 
 from cachito.errors import ContentManifestError
 from cachito.web.content_manifest import (
-    ContentManifest,
-    Package,
     JSON_SCHEMA_URL,
     PARENT_PURL_PLACEHOLDER,
+    ContentManifest,
+    Package,
 )
 from cachito.web.models import Request
 
