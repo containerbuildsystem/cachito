@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from os import path
 import shutil
 import subprocess
+from os import path
 
 import pytest
 

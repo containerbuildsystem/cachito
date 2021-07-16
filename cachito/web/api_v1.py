@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from collections import OrderedDict
-from copy import deepcopy
 import functools
 import os
+from collections import OrderedDict
+from copy import deepcopy
 
-from celery import chain
 import flask
+import kombu.exceptions
+from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
-import kombu.exceptions
 from sqlalchemy import func
-from werkzeug.exceptions import Forbidden, InternalServerError, Gone, NotFound, BadRequest
+from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
 
 from cachito.common.checksum import hash_file
 from cachito.common.paths import RequestBundleDir

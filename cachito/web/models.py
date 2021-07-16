@@ -1,24 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from collections import OrderedDict
-from copy import deepcopy
-from enum import Enum
 import functools
 import itertools
 import os
 import re
+from collections import OrderedDict
+from copy import deepcopy
+from enum import Enum
 from typing import Any, Dict, List
 
 import flask
-from flask_login import UserMixin, current_user
 import sqlalchemy.sql
+from flask_login import UserMixin, current_user
 from werkzeug.exceptions import Forbidden
 
+from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.errors import ValidationError
-from cachito.web import content_manifest
-from cachito.web import db
+from cachito.web import content_manifest, db
 from cachito.web.validation import validate_dependency_replacements
-from cachito.common.packages_data import PackagesData
 
 
 def is_request_ref_valid(ref: str) -> bool:

@@ -6,7 +6,6 @@ import time
 import requests
 import requests.auth
 
-
 base_url = 'http://nexus:8081'
 while True:
     print('Waiting for the Nexus server to be up...')

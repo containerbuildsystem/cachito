@@ -3,19 +3,19 @@ import logging
 import os
 from timeit import default_timer as timer
 
-from flask import current_app, Flask
+from flask import Flask, current_app
 from flask.logging import default_handler
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from sqlalchemy.exc import SQLAlchemyError
-from werkzeug.exceptions import default_exceptions, InternalServerError
+from werkzeug.exceptions import InternalServerError, default_exceptions
 
 from cachito.errors import CachitoError, ContentManifestError, ValidationError
-from cachito.web.auth import user_loader, load_user_from_request
+from cachito.web import db
+from cachito.web.api_v1 import api_v1
+from cachito.web.auth import load_user_from_request, user_loader
 from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
-from cachito.web.api_v1 import api_v1
-from cachito.web import db
 from cachito.web.errors import json_error
 
 

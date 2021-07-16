@@ -12,6 +12,7 @@ import kombu.exceptions
 import pytest
 
 from cachito.common.checksum import hash_file
+from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.errors import CachitoError, ValidationError
 from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER, Package
@@ -34,7 +35,6 @@ from cachito.workers.tasks import (
     fetch_yarn_source,
     finalize_request,
 )
-from cachito.common.packages_data import PackagesData
 
 RE_INVALID_PACKAGES_VALUE = (
     r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'

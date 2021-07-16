@@ -7,9 +7,9 @@ import os
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general_js import (
+    JSDependency,
     download_dependencies,
     process_non_registry_dependency,
-    JSDependency,
 )
 
 __all__ = [

@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from unittest.mock import patch
-from io import BytesIO
 import os
+from io import BytesIO
+from unittest.mock import patch
 
 import celery
 import pytest
 
+from cachito.errors import ConfigError
 from cachito.workers.config import (
     configure_celery,
     validate_celery_config,
@@ -14,7 +15,6 @@ from cachito.workers.config import (
     validate_pip_config,
     validate_yarn_config,
 )
-from cachito.errors import ConfigError
 
 
 @patch("os.path.isfile", return_value=False)

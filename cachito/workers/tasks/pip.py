@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from pathlib import Path
 import logging
 import os
+from pathlib import Path
 
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
@@ -15,23 +15,22 @@ from cachito.workers.pkg_managers.general import (
 from cachito.workers.pkg_managers.pip import (
     PipRequirementsFile,
     finalize_nexus_for_pip_request,
+    get_hosted_repositories_username,
     get_index_url,
     get_pypi_hosted_repo_name,
     get_pypi_hosted_repo_url,
     get_raw_component_name,
     get_raw_hosted_repo_name,
-    get_hosted_repositories_username,
     prepare_nexus_for_pip_request,
     resolve_pip,
 )
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import (
+    get_request,
     make_base64_config_file,
     runs_if_request_in_progress,
-    get_request,
     set_request_state,
 )
-
 
 log = logging.getLogger(__name__)
 __all__ = ["cleanup_pip_request", "fetch_pip_source"]

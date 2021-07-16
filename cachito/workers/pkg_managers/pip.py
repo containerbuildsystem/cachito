@@ -8,12 +8,12 @@ import re
 import secrets
 import shutil
 import tarfile
-from typing import Optional
-import zipfile
 import urllib
+import zipfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import defusedxml.ElementTree
 import pkg_resources
@@ -32,7 +32,6 @@ from cachito.workers.pkg_managers.general import (
     verify_checksum,
 )
 from cachito.workers.scm import Git
-
 
 log = logging.getLogger(__name__)
 

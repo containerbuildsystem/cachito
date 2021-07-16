@@ -11,14 +11,14 @@ import requests
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError, ValidationError
-from cachito.workers.scm import Git
 from cachito.workers.paths import RequestBundleDir
+from cachito.workers.scm import Git
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import (
-    runs_if_request_in_progress,
     get_request,
-    set_request_state,
+    runs_if_request_in_progress,
     set_packages_and_deps_counts,
+    set_request_state,
 )
 
 __all__ = [

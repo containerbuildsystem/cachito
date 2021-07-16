@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import logging
 import os
 import tempfile
-import logging
 from typing import Dict, List, Optional
 
 import celery

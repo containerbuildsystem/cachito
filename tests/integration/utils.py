@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from collections import namedtuple
 import hashlib
 import json
 import os
 import shutil
 import time
+from collections import namedtuple
 
 import jsonschema
 import requests
+import yaml
 from requests.packages.urllib3.util.retry import Retry
 from requests_kerberos import HTTPKerberosAuth
-import yaml
 
 from tests.helper_utils import assert_directories_equal
 

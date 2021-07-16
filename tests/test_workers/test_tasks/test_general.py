@@ -15,7 +15,6 @@ from cachito.errors import CachitoError, ValidationError
 from cachito.workers import tasks
 from cachito.workers.paths import RequestBundleDir, SourcesDir
 from cachito.workers.tasks.general import _enforce_sandbox, save_bundle_archive_checksum
-
 from tests.helper_utils import Symlink, write_file_tree
 
 

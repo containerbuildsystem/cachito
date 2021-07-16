@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import hashlib
+
 import pytest
 
 from cachito.common.checksum import hash_file

@@ -28,10 +28,10 @@ from cachito.workers.pkg_managers.yarn import (
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.npm import generate_npmrc_config_files
 from cachito.workers.tasks.utils import (
-    make_base64_config_file,
     AssertPackageFiles,
-    runs_if_request_in_progress,
     get_request,
+    make_base64_config_file,
+    runs_if_request_in_progress,
     set_request_state,
 )
 

@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from datetime import datetime
 import fnmatch
 import functools
 import logging
@@ -8,16 +7,17 @@ import os.path
 import re
 import shutil
 import tempfile
-from pathlib import PureWindowsPath, Path
-from typing import Tuple, List, Iterable, Optional, Dict
+from datetime import datetime
+from pathlib import Path, PureWindowsPath
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import git
 import semver
 
 from cachito.errors import CachitoError, ValidationError
+from cachito.workers import load_json_stream, run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers import run_cmd, load_json_stream
 
 __all__ = [
     "get_golang_version",

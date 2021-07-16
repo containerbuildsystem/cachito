@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
-from typing import Dict, Any
-
-import pytest
+from typing import Any, Dict
 from unittest.mock import patch
 
-from cachito.workers import run_cmd, load_json_stream
+import pytest
+
+from cachito.workers import load_json_stream, run_cmd
 
 
 @pytest.mark.parametrize(

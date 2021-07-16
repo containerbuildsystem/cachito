@@ -12,14 +12,14 @@ import tarfile
 import tempfile
 import textwrap
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers.pkg_managers.general import verify_checksum, ChecksumInfo
+from cachito.workers.pkg_managers.general import ChecksumInfo, verify_checksum
 
 __all__ = [
     "download_dependencies",

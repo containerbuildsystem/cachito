@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
-from pathlib import Path
 import random
 import shutil
 import string
+from pathlib import Path
 
 import git
 import pytest

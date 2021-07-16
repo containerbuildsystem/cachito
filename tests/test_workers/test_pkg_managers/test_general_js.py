@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import json
 import io
+import json
 import os
 import tarfile
 import textwrap
@@ -11,8 +11,8 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.pkg_managers import general, general_js, npm
 from cachito.workers.paths import RequestBundleDir
+from cachito.workers.pkg_managers import general, general_js, npm
 
 
 @pytest.mark.parametrize("nexus_ca_cert_exists", (True, False))

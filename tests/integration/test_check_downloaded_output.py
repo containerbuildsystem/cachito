@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from os import path
 import tarfile
+from os import path
 from pathlib import Path
 
 from . import utils
