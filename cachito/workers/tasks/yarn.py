@@ -8,7 +8,7 @@ import pyarn.lockfile
 
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
-from cachito.workers import nexus
+from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config, validate_yarn_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
@@ -95,6 +95,9 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
     :param list package_configs: the list of optional package configurations submitted by the user
     :raise CachitoError: if the task fails
     """
+    version_output = run_cmd(["node", "--version"], {})
+    log.info(f"Node.js version: {version_output.strip()}")
+
     if package_configs is None:
         package_configs = []
 

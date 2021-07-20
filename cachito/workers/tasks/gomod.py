@@ -4,6 +4,7 @@ import os
 
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
+from cachito.workers import run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.pkg_managers.general import update_request_env_vars
 from cachito.workers.pkg_managers.gomod import resolve_gomod, path_to_subpackage
@@ -54,6 +55,9 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     :param list package_configs: the list of optional package configurations submitted by the user
     :raises CachitoError: if the dependencies could not be retrieved
     """
+    version_output = run_cmd(["go", "version"], {})
+    log.info(f"Go version: {version_output.strip()}")
+
     config = get_worker_config()
     if package_configs is None:
         package_configs = []

@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
-from cachito.workers import nexus
+from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config, validate_npm_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
@@ -101,6 +101,11 @@ def fetch_npm_source(request_id, package_configs=None):
     :param list package_configs: the list of optional package configurations submitted by the user
     :raise CachitoError: if the task fails
     """
+    version_output = run_cmd(["npm", "--version"], {})
+    log.info(f"npm version: {version_output.strip()}")
+    version_output = run_cmd(["node", "--version"], {})
+    log.info(f"Node.js version: {version_output.strip()}")
+
     if package_configs is None:
         package_configs = []
 

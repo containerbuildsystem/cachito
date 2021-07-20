@@ -5,7 +5,7 @@ import os
 
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
-from cachito.workers import nexus
+from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config, validate_pip_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
@@ -57,6 +57,9 @@ def fetch_pip_source(request_id, package_configs=None):
     :param int request_id: the Cachito request ID this is for
     :param list package_configs: the list of optional package configurations submitted by the user
     """
+    version_output = run_cmd(["pip", "--version"], {})
+    log.info(f"pip version: {version_output.strip()}")
+
     validate_pip_config()
     bundle_dir: RequestBundleDir = RequestBundleDir(request_id)
 
