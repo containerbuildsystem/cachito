@@ -696,13 +696,16 @@ Offline Installations   | ✓     | x   | x   | x    |
 
 Tool   | Version |
 ---    | ---     |
-Go     | 1.15.12 |
-npm    | 6.14.13 |
-node   | 14.17.0 |
-pip    | 20.2.2  |
-Python | 3.9.5   |
-git    | 2.31.1  |
-Yarn   | 1.x     |
+Go     | 1.16.5  |
+Npm    | 6.14.13 |
+Node   | 14.17.0 |
+Pip    | 21.0.1  |
+Python | 3.9.6   |
+Git    | 2.31.1  |
+Yarn*  | 1.x     |
+
+* Cachito does not use the Yarn runtime. The processing of yarn.lock files is handled by
+  [PYarn](https://github.com/containerbuildsystem/pyarn), which is compatible with any 1.x file.
 
 ### gomod
 
