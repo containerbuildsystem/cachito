@@ -221,7 +221,7 @@ def download_archive(request_id):
         flask.current_app.logger.error(msg.format(bundle_dir.bundle_archive_file))
         raise InternalServerError(msg.format(bundle_dir.bundle_archive_file.name))
 
-    flask.current_app.logger.debug(
+    flask.current_app.logger.info(
         "Sending the bundle at %s for request %d", bundle_dir.bundle_archive_file, request_id
     )
     resp = flask.send_file(
@@ -337,7 +337,7 @@ def create_request():
         db.session.commit()
         raise CachitoError(error)
 
-    flask.current_app.logger.debug("Successfully scheduled request %d", request.id)
+    flask.current_app.logger.info("Successfully scheduled request %d", request.id)
     return flask.jsonify(request.to_json()), 201
 
 
@@ -465,7 +465,7 @@ def patch_request(request_id):
             )
 
     if delete_bundle_temp and bundle_dir.exists():
-        flask.current_app.logger.debug(
+        flask.current_app.logger.info(
             "Deleting the temporary files used to create the bundle at %s", bundle_dir
         )
         try:
