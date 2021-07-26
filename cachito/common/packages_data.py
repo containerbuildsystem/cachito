@@ -145,14 +145,13 @@ class PackagesData:
         :type file_name: str or pathlib.Path
         """
         if not os.path.exists(file_name):
-            log.warning("No data is loaded from non-existing file %s.", file_name)
-            return
+            raise CachitoError(f"File {file_name} does not exist.")
 
         with open(file_name, "r", encoding="utf-8") as f:
             data = json.load(f)
             packages = data.get("packages")
             if packages is None:
-                log.warning("Packages data file does not include key 'packages'.")
+                raise CachitoError(f"Packages data file does not include key 'packages'.")
                 return
             for p in packages:
                 self.add_package(p, p.get("path", os.curdir), p["dependencies"])

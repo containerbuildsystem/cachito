@@ -1036,8 +1036,9 @@ def test_set_state(state, app, client, db, worker_auth_env, tmpdir):
 
     assert patch_rv.status_code == 200
 
-    get_rv = client.get(f"/api/v1/requests/{request_id}")
-    assert get_rv.status_code == 200
+    with mock.patch("cachito.common.packages_data.PackagesData.load", return_value="{}"):
+        get_rv = client.get(f"/api/v1/requests/{request_id}")
+        assert get_rv.status_code == 200
 
     fetched_request = get_rv.json
     assert fetched_request["state"] == state
@@ -1201,7 +1202,8 @@ def test_set_state_no_duplicate(app, client, db, worker_auth_env):
         patch_rv = client.patch("/api/v1/requests/1", json=payload, environ_base=worker_auth_env)
         assert patch_rv.status_code == 200
 
-    get_rv = client.get("/api/v1/requests/1")
+    with mock.patch("cachito.common.packages_data.PackagesData.load", return_value="{}"):
+       get_rv = client.get("/api/v1/requests/1")
     assert get_rv.status_code == 200
 
     # Make sure no duplicate states were added
@@ -1494,7 +1496,8 @@ def test_fetch_request_content_manifest_empty(app, client, db, worker_auth_env):
     db.session.add(request)
     db.session.commit()
 
-    rv = client.get("/api/v1/requests/1/content-manifest")
+    with mock.patch("cachito.common.packages_data.PackagesData.load", return_value="{}"):
+        rv = client.get("/api/v1/requests/1/content-manifest")
 
     expected = {
         "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},

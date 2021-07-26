@@ -76,6 +76,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
 
         # missing gomod files is supported if there is only one path referenced
         if config.cachito_gomod_ignore_missing_gomod_file and len(subpaths) == 1:
+            PackagesData().write_to_file(bundle_dir.gomod_packages_data)
             log.warning("go.mod file missing for request at %s", invalid_files_print)
             return
 
