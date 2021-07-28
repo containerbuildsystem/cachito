@@ -144,18 +144,18 @@ class PackagesData:
             ``os.curdir``. If the file does not exist, nothing is changed internally.
         :type file_name: str or pathlib.Path
         """
-        if not os.path.exists(file_name):
-            log.warning("No data is loaded from non-existing file %s.", file_name)
-            return
+        try:
+            with open(file_name, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                packages = data.get("packages")
 
-        with open(file_name, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            packages = data.get("packages")
-            if packages is None:
-                log.warning("Packages data file does not include key 'packages'.")
-                return
-            for p in packages:
-                self.add_package(p, p.get("path", os.curdir), p["dependencies"])
+                log.info("File %s loaded with %i packages.", file_name, len(data.get("packages")))
+
+                for p in packages:
+                    self.add_package(p, p.get("path", os.curdir), p["dependencies"])
+        except FileNotFoundError:
+            log.info("File % not found.", file_name)
+            return
 
     def sort(self):
         """Sort both added packages and every package's dependencies in place.
