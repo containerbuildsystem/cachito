@@ -31,6 +31,8 @@ class Config(object):
             "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"value": "true", "kind": "literal"},
         },
     }
+    cachito_finalize_request_packages_check_interval = 1.0
+    cachito_finalize_request_packages_check_max_attempts = 10
     cachito_deps_patch_batch_size = 50
     cachito_gomod_ignore_missing_gomod_file = True
     cachito_gomod_strict_vendor = False
@@ -141,6 +143,8 @@ class TestingConfig(DevelopmentConfig):
             "SKIP_SASS_BINARY_DOWNLOAD_FOR_CI": {"value": "true", "kind": "literal"},
         },
     }
+    cachito_finalize_request_packages_check_interval = 0.1
+    cachito_finalize_request_packages_check_max_attempts = 3
     cachito_npm_file_deps_allowlist = {"han_solo": ["millennium-falcon"]}
     cachito_request_file_logs_dir = None
 

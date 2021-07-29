@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import tarfile
+import time
 from pathlib import Path
 from typing import Any, Callable, List, Optional
 
@@ -11,6 +12,7 @@ import requests
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError, ValidationError
+from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.scm import Git
 from cachito.workers.tasks.celery import app
@@ -169,6 +171,51 @@ def save_bundle_archive_checksum(request_id: int) -> None:
     bundle_dir.bundle_archive_checksum.write_text(checksum, encoding="utf-8")
 
 
+def _check_packages_data_on_api(
+    request_id: int, packages_count: int, dependencies_count: int
+) -> bool:
+    request = get_request(request_id)
+    actual_packages_count = len(request.get("packages", []))
+    actual_dependencies_count = len(request.get("dependencies", []))
+
+    if actual_packages_count == packages_count and actual_dependencies_count == dependencies_count:
+        return True
+
+    if actual_packages_count != 0 or actual_dependencies_count != 0:
+        log.warning(
+            "Mismatch in the number of expected packages while checking the written data."
+            f"Expected {packages_count} packages, got {actual_packages_count}."
+            f"Expected {dependencies_count} dependencies, got {actual_dependencies_count}."
+        )
+
+    return False
+
+
+def _wait_until_packages_file_is_available(
+    request_id: int, packages_count: int, dependencies_count: int
+) -> None:
+    config = get_worker_config()
+    interval = config.cachito_finalize_request_packages_check_interval
+    max_attempts = config.cachito_finalize_request_packages_check_max_attempts
+
+    if max_attempts == 0:
+        return
+
+    attempts = 0
+    check_passed = False
+
+    while not check_passed and attempts < max_attempts:
+        if attempts > 0:
+            time.sleep(interval)
+
+        log.info("Checking if the packages file was properly loaded (attempt %i).", attempts + 1)
+        check_passed = _check_packages_data_on_api(request_id, packages_count, dependencies_count)
+        attempts += 1
+
+    if not check_passed:
+        raise CachitoError("Packages file could not be loaded.")
+
+
 @app.task(priority=10)
 @runs_if_request_in_progress
 def finalize_request(request_id):
@@ -177,5 +224,10 @@ def finalize_request(request_id):
     create_bundle_archive(request_id, request.get("flags", []))
     save_bundle_archive_checksum(request_id)
     data = aggregate_packages_data(request_id, request["pkg_managers"])
-    set_packages_and_deps_counts(request_id, len(data.packages), len(data.all_dependencies))
+
+    packages_count = len(data.packages)
+    dependencies_count = len(data.all_dependencies)
+
+    set_packages_and_deps_counts(request_id, packages_count, dependencies_count)
+    _wait_until_packages_file_is_available(request_id, packages_count, dependencies_count)
     set_request_state(request_id, "complete", "Completed successfully")

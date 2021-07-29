@@ -5,6 +5,7 @@ import os.path
 import pathlib
 import shutil
 import tarfile
+from contextlib import nullcontext
 from unittest import mock
 
 import pytest
@@ -245,12 +246,22 @@ def test_aggregate_packages_data(
         assert expected == json.load(f)
 
 
+@mock.patch("cachito.workers.tasks.general.get_worker_config")
 @mock.patch("cachito.workers.tasks.general.get_request")
 @mock.patch("cachito.workers.tasks.general.create_bundle_archive")
 @mock.patch("cachito.workers.tasks.general.aggregate_packages_data")
 @mock.patch("cachito.workers.tasks.general.set_packages_and_deps_counts")
 @mock.patch("cachito.workers.tasks.general.save_bundle_archive_checksum")
 @mock.patch("cachito.workers.tasks.general.set_request_state")
+# parameters for packages file check before request gets finalized
+@pytest.mark.parametrize(
+    "max_attempts,attempts_until_file_is_ready,raise_error",
+    [
+        [0, 0, False],  # check is turned off
+        [1, 5, True],  # attempts exceeded, file could not be loaded,
+        [5, 5, False],  # file was loaded correctly after 5 attempts
+    ],
+)
 def test_finalize_request(
     mock_set_state,
     mock_save_bundle_archive_checksum,
@@ -258,26 +269,55 @@ def test_finalize_request(
     mock_aggregate_data,
     mock_create_archive,
     mock_get_request,
+    mock_get_worker_config,
     task_passes_state_check,
+    max_attempts,
+    attempts_until_file_is_ready,
+    raise_error,
 ):
+    config = mock_get_worker_config.return_value
+    config.cachito_finalize_request_packages_check_max_attempts = max_attempts
+    config.cachito_finalize_request_packages_check_interval = 0.01
+
     pkg = {"name": "foo", "version": "1.0", "type": "pip"}
-    mock_get_request.return_value = {
+    packages_data = {
         "flags": ["some-flag"],
         "pkg_managers": ["pip"],
         "packages": [pkg],
         "dependencies": [pkg, pkg],
     }
 
+    # the mock always receives an extra call to first load the request
+    expected_mock_calls = attempts_until_file_is_ready + 1
+
+    def side_effect(*args):
+        call_count = mock_get_request.call_count
+
+        if call_count == expected_mock_calls:
+            return packages_data
+        else:
+            return {**packages_data, "packages": [], "dependencies": []}
+
+    mock_get_request.side_effect = side_effect
     mock_aggregate_data.return_value = mock.Mock(packages=[pkg], all_dependencies=[pkg, pkg])
+    expected_error_message = "Packages file could not be loaded."
 
-    tasks.finalize_request(42)
+    with raise_error and pytest.raises(CachitoError, match=expected_error_message) or nullcontext():
+        tasks.finalize_request(42)
 
-    mock_get_request.assert_called_once_with(42)
+    mock_get_request.assert_called_with(42)
     mock_create_archive.assert_called_once_with(42, ["some-flag"])
     mock_save_bundle_archive_checksum.assert_called_once_with(42)
     mock_aggregate_data.assert_called_once_with(42, ["pip"])
     mock_set_counts.assert_called_once_with(42, 1, 2)
-    mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")
+
+    if not raise_error:
+        assert mock_get_request.call_count == expected_mock_calls
+        mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")
+    else:
+        # the exception will be thrown once max_attempts is reached
+        assert mock_get_request.call_count == max_attempts + 1
+        mock_set_state.assert_not_called()
 
 
 @pytest.mark.parametrize("bundle_archive_exists", [True, False])
