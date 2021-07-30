@@ -37,12 +37,11 @@ setup(
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     license="GPLv3+",
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     setup_requires=['setuptools-git-versioning'],
     version_config={
         "dev_template": "{tag}.post{ccount}-git.{sha}",
