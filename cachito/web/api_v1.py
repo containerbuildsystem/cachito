@@ -358,7 +358,8 @@ def create_request():
             tasks.fetch_yarn_source.si(request.id, yarn_package_configs).on_error(error_callback)
         )
 
-    chain_tasks.append(tasks.finalize_request.si(request.id).on_error(error_callback))
+    chain_tasks.append(tasks.process_fetched_sources.si(request.id).on_error(error_callback))
+    chain_tasks.append(tasks.finalize_request.s(request.id).on_error(error_callback))
 
     try:
         chain(chain_tasks).delay()
