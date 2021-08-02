@@ -5,6 +5,7 @@ import os.path
 import pathlib
 import shutil
 import tarfile
+from contextlib import nullcontext
 from unittest import mock
 
 import pytest
@@ -277,13 +278,59 @@ def test_process_fetched_sources(
     mock_set_counts.assert_called_once_with(42, 1, 2)
 
 
+@mock.patch("cachito.workers.tasks.general.get_worker_config")
+@mock.patch("cachito.workers.tasks.general.get_request")
 @mock.patch("cachito.workers.tasks.general.set_request_state")
+# parameters for packages file check before request gets finalized
+@pytest.mark.parametrize(
+    "max_attempts,attempts_until_file_is_ready,raise_error",
+    [
+        [0, 0, False],  # check is turned off
+        [1, 5, True],  # attempts exceeded, file could not be loaded,
+        [5, 5, False],  # file was loaded correctly after 5 attempts
+    ],
+)
 def test_finalize_request(
     mock_set_state,
+    mock_get_request,
+    mock_get_worker_config,
     task_passes_state_check,
+    max_attempts,
+    attempts_until_file_is_ready,
+    raise_error,
 ):
-    tasks.finalize_request((1, 2), 42)
-    mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")
+    config = mock_get_worker_config.return_value
+    config.cachito_finalize_request_packages_check_max_attempts = max_attempts
+    config.cachito_finalize_request_packages_check_interval = 0.01
+
+    pkg = {"name": "foo", "version": "1.0", "type": "pip"}
+    packages_data = {
+        "flags": ["some-flag"],
+        "pkg_managers": ["pip"],
+        "packages": [pkg],
+        "dependencies": [pkg, pkg],
+    }
+
+    def side_effect(*args):
+        call_count = mock_get_request.call_count
+
+        if call_count == attempts_until_file_is_ready:
+            return packages_data
+        else:
+            return {**packages_data, "packages": [], "dependencies": []}
+
+    mock_get_request.side_effect = side_effect
+    expected_error_message = "Packages file could not be loaded."
+
+    with raise_error and pytest.raises(CachitoError, match=expected_error_message) or nullcontext():
+        tasks.finalize_request((1, 2), 42)
+
+    if not raise_error:
+        assert mock_get_request.call_count == attempts_until_file_is_ready
+        mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")
+    else:
+        assert mock_get_request.call_count == max_attempts
+        mock_set_state.assert_not_called()
 
 
 @pytest.mark.parametrize("bundle_archive_exists", [True, False])
