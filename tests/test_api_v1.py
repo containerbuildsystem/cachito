@@ -33,8 +33,8 @@ from cachito.workers.tasks import (
     fetch_npm_source,
     fetch_pip_source,
     fetch_yarn_source,
-    process_fetched_sources,
     finalize_request,
+    process_fetched_sources,
 )
 
 RE_INVALID_PACKAGES_VALUE = (

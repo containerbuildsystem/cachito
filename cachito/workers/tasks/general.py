@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import tarfile
+import time
 from pathlib import Path
 from typing import Any, Callable, List, Optional
 
@@ -11,6 +12,7 @@ import requests
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError, ValidationError
+from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.scm import Git
 from cachito.workers.tasks.celery import app
@@ -29,7 +31,7 @@ __all__ = [
     "finalize_request",
     "get_request",
     "save_bundle_archive_checksum",
-    "process_fetched_sources"
+    "process_fetched_sources",
 ]
 log = logging.getLogger(__name__)
 
@@ -173,10 +175,7 @@ def save_bundle_archive_checksum(request_id: int) -> None:
 @app.task(priority=10)
 @runs_if_request_in_progress
 def process_fetched_sources(request_id):
-    """
-    Writes the bundle archive, packages file and checksum file.
-    It also updates the request with the number of packages and dependencies fetched.
-    """
+    """Generate files for request and updates the request with packages/dependencies counts."""
     request = get_request(request_id)
     create_bundle_archive(request_id, request.get("flags", []))
     save_bundle_archive_checksum(request_id)
@@ -190,8 +189,31 @@ def process_fetched_sources(request_id):
     return packages_count, dependencies_count
 
 
+def _check_packages_data_on_api(
+    request_id: int, packages_count: int, dependencies_count: int
+) -> None:
+    request = get_request(request_id)
+    actual_packages_count = len(request.get("packages", []))
+    actual_dependencies_count = len(request.get("dependencies", []))
+
+    if actual_packages_count == packages_count and actual_dependencies_count == dependencies_count:
+        return
+
+    log.error(
+        "Mismatch in the number of expected packages while checking the written data. "
+        f"Expected {packages_count} packages, got {actual_packages_count}. "
+        f"Expected {dependencies_count} dependencies, got {actual_dependencies_count}. "
+    )
+
+    raise CachitoError("Packages file could not be loaded.")
+
+
 @app.task(priority=10)
 @runs_if_request_in_progress
 def finalize_request(counts, request_id):
-    """Execute tasks to finalize the request creation."""
+    """Check if the packages file can be read by the API and set the request state to complete."""
+    packages_count = counts[0]
+    dependencies_count = counts[1]
+
+    _check_packages_data_on_api(request_id, packages_count, dependencies_count)
     set_request_state(request_id, "complete", "Completed successfully")
