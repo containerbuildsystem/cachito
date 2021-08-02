@@ -29,6 +29,7 @@ __all__ = [
     "finalize_request",
     "get_request",
     "save_bundle_archive_checksum",
+    "process_fetched_sources",
 ]
 log = logging.getLogger(__name__)
 
@@ -169,13 +170,25 @@ def save_bundle_archive_checksum(request_id: int) -> None:
     bundle_dir.bundle_archive_checksum.write_text(checksum, encoding="utf-8")
 
 
-@app.task(priority=10)
+@app.task
 @runs_if_request_in_progress
-def finalize_request(request_id):
-    """Execute tasks to finalize the request creation."""
+def process_fetched_sources(request_id):
+    """Generate files for request and updates the request with packages/dependencies counts."""
     request = get_request(request_id)
     create_bundle_archive(request_id, request.get("flags", []))
     save_bundle_archive_checksum(request_id)
     data = aggregate_packages_data(request_id, request["pkg_managers"])
-    set_packages_and_deps_counts(request_id, len(data.packages), len(data.all_dependencies))
+
+    packages_count = len(data.packages)
+    dependencies_count = len(data.all_dependencies)
+
+    set_packages_and_deps_counts(request_id, packages_count, dependencies_count)
+
+    return packages_count, dependencies_count
+
+
+@app.task(priority=10)
+@runs_if_request_in_progress
+def finalize_request(counts, request_id):
+    """Execute tasks to finalize the request creation."""
     set_request_state(request_id, "complete", "Completed successfully")

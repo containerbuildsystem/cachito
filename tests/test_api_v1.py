@@ -34,6 +34,7 @@ from cachito.workers.tasks import (
     fetch_pip_source,
     fetch_yarn_source,
     finalize_request,
+    process_fetched_sources,
 )
 
 RE_INVALID_PACKAGES_VALUE = (
@@ -176,7 +177,8 @@ def test_create_and_fetch_request(
         )
     if "yarn" in expected_pkg_managers:
         expected.append(fetch_yarn_source.si(created_request["id"], []).on_error(error_callback))
-    expected.append(finalize_request.si(created_request["id"]).on_error(error_callback))
+    expected.append(process_fetched_sources.si(created_request["id"]).on_error(error_callback))
+    expected.append(finalize_request.s(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
 
     request_id = created_request["id"]
@@ -217,7 +219,8 @@ def test_create_request_with_gomod_package_configs(
             False,
         ).on_error(error_callback),
         fetch_gomod_source.si(1, [], package_value["gomod"]).on_error(error_callback),
-        finalize_request.si(1).on_error(error_callback),
+        process_fetched_sources.si(1).on_error(error_callback),
+        finalize_request.s(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -246,7 +249,8 @@ def test_create_request_with_npm_package_configs(
             False,
         ).on_error(error_callback),
         fetch_npm_source.si(1, package_value["npm"]).on_error(error_callback),
-        finalize_request.si(1).on_error(error_callback),
+        process_fetched_sources.si(1).on_error(error_callback),
+        finalize_request.s(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -285,7 +289,8 @@ def test_create_request_with_pip_package_configs(mock_chain, app, auth_env, clie
             False,
         ).on_error(error_callback),
         fetch_pip_source.si(1, package_value["pip"]).on_error(error_callback),
-        finalize_request.si(1).on_error(error_callback),
+        process_fetched_sources.si(1).on_error(error_callback),
+        finalize_request.s(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -314,7 +319,8 @@ def test_create_request_with_yarn_package_configs(
             False,
         ).on_error(error_callback),
         fetch_yarn_source.si(1, package_value["yarn"]).on_error(error_callback),
-        finalize_request.si(1).on_error(error_callback),
+        process_fetched_sources.si(1).on_error(error_callback),
+        finalize_request.s(1).on_error(error_callback),
     ]
     mock_chain.assert_called_once_with(expected)
 
@@ -365,7 +371,8 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
                 False,
             ).on_error(error_callback),
             fetch_gomod_source.si(1, [], []).on_error(error_callback),
-            finalize_request.si(1).on_error(error_callback),
+            process_fetched_sources.si(1).on_error(error_callback),
+            finalize_request.s(1).on_error(error_callback),
         ]
     )
 
