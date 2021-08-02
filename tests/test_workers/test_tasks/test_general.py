@@ -250,9 +250,7 @@ def test_aggregate_packages_data(
 @mock.patch("cachito.workers.tasks.general.aggregate_packages_data")
 @mock.patch("cachito.workers.tasks.general.set_packages_and_deps_counts")
 @mock.patch("cachito.workers.tasks.general.save_bundle_archive_checksum")
-@mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_finalize_request(
-    mock_set_state,
+def test_process_fetched_sources(
     mock_save_bundle_archive_checksum,
     mock_set_counts,
     mock_aggregate_data,
@@ -270,13 +268,21 @@ def test_finalize_request(
 
     mock_aggregate_data.return_value = mock.Mock(packages=[pkg], all_dependencies=[pkg, pkg])
 
-    tasks.finalize_request(42)
+    tasks.process_fetched_sources(42)
 
     mock_get_request.assert_called_once_with(42)
     mock_create_archive.assert_called_once_with(42, ["some-flag"])
     mock_save_bundle_archive_checksum.assert_called_once_with(42)
     mock_aggregate_data.assert_called_once_with(42, ["pip"])
     mock_set_counts.assert_called_once_with(42, 1, 2)
+
+
+@mock.patch("cachito.workers.tasks.general.set_request_state")
+def test_finalize_request(
+    mock_set_state,
+    task_passes_state_check,
+):
+    tasks.finalize_request((1, 2), 42)
     mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")
 
 
