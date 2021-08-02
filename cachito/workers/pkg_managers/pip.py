@@ -52,7 +52,7 @@ SDIST_EXT_PATTERN = r"|".join(map(re.escape, SDIST_FILE_EXTENSIONS))
 
 def get_pip_metadata(package_dir):
     """
-    Attempt to get the name and and version of a Pip package.
+    Attempt to get the name and version of a Pip package.
 
     First, try to parse the setup.py script (if present) and extract name and version
     from keyword arguments to the setuptools.setup() call. If either name or version
@@ -76,7 +76,9 @@ def get_pip_metadata(package_dir):
         name = setup_py.get_name()
         version = setup_py.get_version()
     else:
-        log.warning("No setup.py in directory, package is likely not Pip compatible")
+        log.warning(
+            "No setup.py found in directory %s, package is likely not pip compatible", package_dir
+        )
 
     if not (name and version) and setup_cfg.exists():
         log.info("Filling in missing metadata from setup.cfg")

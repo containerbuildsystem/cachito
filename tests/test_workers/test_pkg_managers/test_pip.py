@@ -17,6 +17,7 @@ from tests.helper_utils import write_file_tree
 
 THIS_MODULE_DIR = Path(__file__).resolve().parent
 GIT_REF = "9a557920b2a6d4110f838506120904a6fda421a2"
+PKG_DIR = "/foo/package_dir"
 
 
 def setup_module():
@@ -70,13 +71,13 @@ def test_get_pip_metadata(
     expect_version = py_version or cfg_version
 
     if expect_name and expect_version:
-        name, version = pip.get_pip_metadata("/foo/package_dir")
+        name, version = pip.get_pip_metadata(PKG_DIR)
 
         assert name == expect_name
         assert version == expect_version
     else:
         with pytest.raises(CachitoError) as exc_info:
-            pip.get_pip_metadata("/foo/package_dir")
+            pip.get_pip_metadata(PKG_DIR)
 
         if expect_name:
             missing = "version"
@@ -96,7 +97,10 @@ def test_get_pip_metadata(
     if py_exists:
         assert "Extracting metadata from setup.py" in caplog.text
     else:
-        assert "No setup.py in directory, package is likely not Pip compatible" in caplog.text
+        assert (
+            f"No setup.py found in directory {PKG_DIR}, package is likely not pip compatible"
+            in caplog.text
+        )
 
     if not (py_name and py_version) and cfg_exists:
         assert "Filling in missing metadata from setup.cfg" in caplog.text
