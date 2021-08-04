@@ -679,6 +679,17 @@ Offline Installations   | ✓     | x   | x   | x    |
   they could find ways to do an offline install for any package manager, but only `gomod` supports
   this out of the box (i.e. the user does not need to change their workflow).
 
+#### Limitations
+
+Cachito collects all dependencies of specified package manager types from a repository
+regardless of whether they are used by a certain application or not.
+For example, if some repository contains global `go.mod` file, dependencies from the file would be
+used for all container images built from the repository (see [gomod](#gomod) for more details).
+
+Meanwhile, Cachito still allows distinguishing between multiple applications from one source using
+**Multiple Paths** feature. So it could be used as a solution in that case (depends on the
+repository structure).
+
 ### Actual Tool Versions
 
 Tool   | Version |
