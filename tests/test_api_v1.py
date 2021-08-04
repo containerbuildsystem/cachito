@@ -2161,7 +2161,7 @@ def test_filter_requests(
         assert sorted(expected_repos) == sorted(got_repos)
 
 
-def create_request_in_db(app, db, auth_env):
+def create_request_in_db(app, db, auth_env, state=RequestStateMapping.complete):
     data = {
         "repo": "https://localhost.git/dummy.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -2169,7 +2169,7 @@ def create_request_in_db(app, db, auth_env):
     }
     with app.test_request_context(environ_base=auth_env):
         request = Request.from_json(data)
-    request.add_state(RequestStateMapping.complete.name, "Set complete directly for test")
+    request.add_state(state.name, "Set complete directly for test")
     db.session.add(request)
     db.session.commit()
     return request
@@ -2297,3 +2297,44 @@ def test_fetch_requests_packages_and_dependencies(verbose, app, db, client, auth
         else:
             assert package["packages"] == len(packages)
             assert package["dependencies"] == len(expected_deps)
+
+
+def test_fetch_packages_file(app, db, client, auth_env, tmpdir):
+    request = create_request_in_db(app, db, auth_env)
+    db.session.commit()
+
+    packages = copy.deepcopy(resolved_packages)
+    expected_deps = copy.deepcopy(expected_dependencies)
+
+    cachito_bundles_dir = str(tmpdir)
+    bundle_dir = RequestBundleDir(request.id, root=cachito_bundles_dir)
+    app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
+
+    _write_test_packages_data(resolved_packages, bundle_dir.packages_data)
+
+    rv = client.get(f"/api/v1/requests/{request.id}/packages")
+
+    response_data = json.loads(rv.data)
+
+    for dep in response_data["dependencies"]:
+        dep.setdefault("replaces", None)
+
+    assert response_data["packages"] == packages
+    assert response_data["dependencies"] == expected_deps
+
+
+@pytest.mark.parametrize(
+    "state,expected_status",
+    [
+        [RequestStateMapping.complete, 500],
+        [RequestStateMapping.in_progress, 404],
+        [RequestStateMapping.failed, 404],
+        [RequestStateMapping.stale, 404],
+    ],
+)
+def test_fetch_missing_packages_file(app, db, client, auth_env, state, expected_status):
+    request = create_request_in_db(app, db, auth_env, state)
+
+    rv = client.get(f"/api/v1/requests/{request.id}/packages")
+
+    assert rv.status_code == expected_status

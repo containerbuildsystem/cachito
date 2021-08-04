@@ -534,6 +534,59 @@ paths:
                 error:
                   type: string
                   example: The logs for the Cachito request 1 no longer exist
+  "/requests/{id}/packages":
+    get:
+      description: Return the packages and dependencies for a request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the Cachito request
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lists packages and dependencies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dependencies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PackageWithReplaces"
+                  packages:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Package"
+                        - type: object
+                          properties:
+                            dependencies:
+                              type: array
+                              items:
+                                $ref: "#/components/schemas/PackageWithReplaces"
+        "404":
+          description: The request does not exist or the packages file is not present
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "The packages file is not present for request"
+        "500":
+          description: Request is at invalid state. The packages file is not present.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid state: packages file was not found."
   "/content-manifest":
     get:
       description: Return the content manifest of the specified requests
