@@ -13,6 +13,7 @@ from sqlalchemy import func
 from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
 
 from cachito.common.checksum import hash_file
+from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.common.utils import b64encode
 from cachito.errors import CachitoError, ValidationError
@@ -232,6 +233,39 @@ def download_archive(request_id):
     )
     resp.headers["Digest"] = f"sha-256={b64encode(bytes.fromhex(store_checksum))}"
     return resp
+
+
+@api_v1.route("/requests/<int:request_id>/packages", methods=["GET"])
+def list_packages_and_dependencies(request_id):
+    """
+    Return the contents of the packages file for a request.
+
+    The primary intent of this endpoint is to allow the packages file verification by the workers.
+    All dependencies are also gathered and deduped under a separate key for convenience.
+
+    :rtype: flask.Response
+    :raise NotFound: the file is not present. It is a valid state.
+    :raise InternalServerError: the file is not present for a completed request. This is an invalid
+    state.
+    """
+    request = Request.query.get_or_404(request_id)
+
+    bundle_dir = RequestBundleDir(request_id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"])
+
+    if not bundle_dir.packages_data.exists():
+        message = f"The file at {bundle_dir.packages_data} for request {request_id} doesn't exist."
+
+        if request.state.state_name == RequestStateMapping.complete.name:
+            flask.current_app.logger.error(message)
+            raise InternalServerError("Invalid state: packages file was not found.")
+
+        flask.current_app.logger.info(message)
+        raise NotFound("The packages file is not present for this request.")
+
+    packages_data = PackagesData()
+    packages_data.load(bundle_dir.packages_data)
+
+    return {"packages": packages_data.packages, "dependencies": packages_data.all_dependencies}
 
 
 @api_v1.route("/requests", methods=["POST"])
