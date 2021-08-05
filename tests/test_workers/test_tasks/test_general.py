@@ -5,6 +5,7 @@ import os.path
 import pathlib
 import shutil
 import tarfile
+from contextlib import nullcontext
 from unittest import mock
 
 import pytest
@@ -277,13 +278,57 @@ def test_process_fetched_sources(
     mock_set_counts.assert_called_once_with(42, 1, 2)
 
 
+@mock.patch("cachito.workers.tasks.general.get_request_packages_and_dependencies")
 @mock.patch("cachito.workers.tasks.general.set_request_state")
+@pytest.mark.parametrize("expected_counts,raise_error", [[(1, 2), False], [(2, 3), True]])
 def test_finalize_request(
     mock_set_state,
+    mock_get_request_packages_and_dependencies,
     task_passes_state_check,
+    expected_counts,
+    raise_error,
 ):
-    tasks.finalize_request((1, 2), 42)
-    mock_set_state.assert_called_once_with(42, "complete", "Completed successfully")
+    request_id = 42
+    pkg = {"name": "foo", "version": "1.0", "type": "pip"}
+    packages_data = {
+        "packages": [pkg],
+        "dependencies": [pkg, pkg],
+    }
+
+    error_message = (
+        f"Error checking packages data for request {request_id}. "
+        f"Expected {expected_counts[0]} packages, got 1. "
+        f"Expected {expected_counts[1]} dependencies, got 2. "
+    )
+
+    with raise_error and pytest.raises(CachitoError, match=error_message) or nullcontext():
+        mock_get_request_packages_and_dependencies.return_value = packages_data
+        tasks.finalize_request(expected_counts, request_id)
+
+    mock_get_request_packages_and_dependencies.assert_called_once_with(request_id)
+
+    if not raise_error:
+        mock_set_state.assert_called_once_with(request_id, "complete", "Completed successfully")
+
+
+@mock.patch("cachito.workers.tasks.general.get_request_packages_and_dependencies")
+@mock.patch("cachito.workers.tasks.general.set_request_state")
+def test_finalize_request_with_error_when_fetching_api(
+    mock_set_state, mock_get_request_packages_and_dependencies, task_passes_state_check,
+):
+    request_id = 42
+    error_message = f"Packages file could not be loaded for request {request_id}"
+
+    def side_effect(*args):
+        raise CachitoError(error_message)
+
+    mock_get_request_packages_and_dependencies.side_effect = side_effect
+
+    with pytest.raises(CachitoError, match=error_message):
+        tasks.finalize_request((1, 2), request_id)
+
+    mock_get_request_packages_and_dependencies.assert_called_once_with(42)
+    mock_set_state.assert_not_called()
 
 
 @pytest.mark.parametrize("bundle_archive_exists", [True, False])

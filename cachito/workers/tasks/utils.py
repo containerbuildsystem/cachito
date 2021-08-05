@@ -181,6 +181,25 @@ def get_request_state(request_id):
     return request["state"]
 
 
+def get_request_packages_and_dependencies(request_id: int):
+    """
+    Get the contents of the packages file from the Cachito API.
+
+    :param request_id: the Cachito request ID this is for
+    :raises CachitoError: if the connection fails or the API returns an error response
+    """
+    log.info("Getting packages file for request %d", request_id)
+    request = _get_request_or_fail(
+        request_id,
+        connect_error_msg=(
+            f"The connection failed while loading packages file for request {request_id}: {{exc}}"
+        ),
+        status_error_msg=f"Packages file could not be loaded for request {request_id}: {{exc}}",
+        endpoint="packages",
+    )
+    return request
+
+
 def set_request_state(request_id, state, state_reason):
     """
     Set the state of the request using the Cachito API.
@@ -231,7 +250,9 @@ def set_packages_and_deps_counts(request_id: int, packages_count: int, dependenc
     )
 
 
-def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_msg: str) -> dict:
+def _get_request_or_fail(
+    request_id: int, connect_error_msg: str, status_error_msg: str, endpoint: str = None
+) -> dict:
     """
     Try to download the JSON data for a request from the Cachito API.
 
@@ -245,6 +266,9 @@ def _get_request_or_fail(request_id: int, connect_error_msg: str, status_error_m
     """
     config = get_worker_config()
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
+
+    if endpoint:
+        request_url += f"/{endpoint}"
 
     try:
         rv = requests_session.get(request_url, timeout=config.cachito_api_timeout)

@@ -16,6 +16,7 @@ from cachito.workers.scm import Git
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import (
     get_request,
+    get_request_packages_and_dependencies,
     runs_if_request_in_progress,
     set_packages_and_deps_counts,
     set_request_state,
@@ -187,8 +188,29 @@ def process_fetched_sources(request_id):
     return packages_count, dependencies_count
 
 
+def _check_packages_data_on_api(
+    request_id: int, packages_count: int, dependencies_count: int
+) -> None:
+    request = get_request_packages_and_dependencies(request_id)
+    actual_packages_count = len(request.get("packages", []))
+    actual_dependencies_count = len(request.get("dependencies", []))
+
+    if actual_packages_count == packages_count and actual_dependencies_count == dependencies_count:
+        return
+
+    raise CachitoError(
+        f"Error checking packages data for request {request_id}. "
+        f"Expected {packages_count} packages, got {actual_packages_count}. "
+        f"Expected {dependencies_count} dependencies, got {actual_dependencies_count}. "
+    )
+
+
 @app.task(priority=10)
 @runs_if_request_in_progress
 def finalize_request(counts, request_id):
-    """Execute tasks to finalize the request creation."""
+    """Check if the packages file can be read by the API and set the request state to complete."""
+    packages_count = counts[0]
+    dependencies_count = counts[1]
+
+    _check_packages_data_on_api(request_id, packages_count, dependencies_count)
     set_request_state(request_id, "complete", "Completed successfully")
