@@ -12,7 +12,7 @@ class Config(object):
     """The base Cachito Flask configuration."""
 
     # Additional loggers to set to the level defined in CACHITO_LOG_LEVEL
-    CACHITO_ADDITIONAL_LOGGERS: List[str] = []
+    CACHITO_ADDITIONAL_LOGGERS: List[str] = ["cachito.common.packages_data"]
     CACHITO_DEFAULT_PACKAGE_MANAGERS: List[str] = ["gomod"]
     # This sets the level of the "flask.app" logger, which is accessed from current_app.logger
     CACHITO_LOG_LEVEL = "INFO"
