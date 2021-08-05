@@ -1,12 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import logging
 import os
 import shutil
 from pathlib import Path
 from typing import Any
-
-log = logging.getLogger(__name__)
 
 # Subclassing from type(Path()) is a workaround because pathlib does not
 # support subclass from Path directly. This base type will be the correct type
