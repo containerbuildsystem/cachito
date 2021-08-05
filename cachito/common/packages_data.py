@@ -136,6 +136,22 @@ class PackagesData:
         with open(file_name, "w", encoding="utf-8") as f:
             json.dump({"packages": self._packages}, f)
 
+    def _clear_nfs_cache(self, file_name: Union[str, Path]) -> None:
+        """
+        Force the NFS to clear its cache by listing the directory's contents.
+
+        This solution is intended for the specific use case of the application being deployed
+        to a container environment that shares a single NFS volume. The NFS cache may cause
+        issues for a second container reading the file right after it got written.
+
+        :param file_name: an absolute or relative filename that contains the packages file.
+        """
+        dirname = os.path.dirname(file_name)
+
+        if os.path.exists(dirname):
+            log.info("Forcing the clearance of cache for %s directory", dirname)
+            os.listdir(dirname)
+
     def load(self, file_name: Union[str, Path]) -> None:
         """Load data from a specified file written by write_to_file method.
 
@@ -144,6 +160,8 @@ class PackagesData:
             ``os.curdir``. If the file does not exist, nothing is changed internally.
         :type file_name: str or pathlib.Path
         """
+        self._clear_nfs_cache(file_name)
+
         if not os.path.exists(file_name):
             log.warning("No data is loaded from non-existing file %s.", file_name)
             return
