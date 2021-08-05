@@ -168,6 +168,7 @@ class PackagesData:
 
         with open(file_name, "r", encoding="utf-8") as f:
             data = json.load(f)
+            log.info("Loaded file %s: %s", file_name, data)
             packages = data.get("packages")
             if packages is None:
                 log.warning("Packages data file does not include key 'packages'.")

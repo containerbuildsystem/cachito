@@ -295,11 +295,7 @@ def test_finalize_request(
         "dependencies": [pkg, pkg],
     }
 
-    error_message = (
-        f"Error checking packages data for request {request_id}. "
-        f"Expected {expected_counts[0]} packages, got 1. "
-        f"Expected {expected_counts[1]} dependencies, got 2. "
-    )
+    error_message = f"Error checking packages data for request {request_id}."
 
     with raise_error and pytest.raises(CachitoError, match=error_message) or nullcontext():
         mock_get_request_packages_and_dependencies.return_value = packages_data
