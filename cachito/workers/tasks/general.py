@@ -195,14 +195,16 @@ def _check_packages_data_on_api(
     actual_packages_count = len(request.get("packages", []))
     actual_dependencies_count = len(request.get("dependencies", []))
 
+    log.info(
+        f"Checking the packages file contents for request {request_id}. "
+        f"Expected {packages_count} packages, got {actual_packages_count}. "
+        f"Expected {dependencies_count} dependencies, got {actual_dependencies_count}."
+    )
+
     if actual_packages_count == packages_count and actual_dependencies_count == dependencies_count:
         return
 
-    raise CachitoError(
-        f"Error checking packages data for request {request_id}. "
-        f"Expected {packages_count} packages, got {actual_packages_count}. "
-        f"Expected {dependencies_count} dependencies, got {actual_dependencies_count}. "
-    )
+    raise CachitoError(f"Error checking packages data for request {request_id}.")
 
 
 @app.task(priority=10)
