@@ -340,8 +340,9 @@ class Request(db.Model):
         return content_manifest.ContentManifest(self, packages)
 
     def _is_complete(self):
-        if self.state:
-            return self.state.state_name == RequestStateMapping.complete.name
+        if len(self.states) > 0:
+            latest_state = self.states[-1]
+            return latest_state.state_name == RequestStateMapping.complete.name
 
         return False
 
