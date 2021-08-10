@@ -16,6 +16,8 @@ from cachito.web.models import Request
 GIT_REPO = "https://github.com/namespace/repo"
 GIT_REF = "1798a59f297f5f3886e41bc054e538540581f8ce"
 
+DEFAULT_PURL = f"pkg:github/namespace/repo@{GIT_REF}"
+
 
 @pytest.fixture
 def default_request():
@@ -26,7 +28,7 @@ def default_request():
 @pytest.fixture
 def default_toplevel_purl():
     """Get VCS purl for default request."""
-    return f"pkg:github/namespace/repo@{GIT_REF}"
+    return DEFAULT_PURL
 
 
 def _load_packages_from_json(packages_json):
@@ -826,36 +828,52 @@ def test_vcs_purl_conversion(repo_url, expected_purl):
 
 
 @pytest.mark.parametrize(
-    "pkg_type, purl_method, method_args",
+    "package, path, expected_purl",
     [
-        ("gomod", "to_purl", []),
-        ("go-package", "to_purl", []),
-        ("npm", "to_vcs_purl", [GIT_REPO, GIT_REF]),
-        ("pip", "to_vcs_purl", [GIT_REPO, GIT_REF]),
-        ("yarn", "to_vcs_purl", [GIT_REPO, GIT_REF]),
-        ("git-submodule", "to_purl", []),
-        ("bogus", None, None),
+        (
+            {"type": "gomod", "name": "k8s.io/kubernetes", "version": "v1.0.0"},
+            None,
+            "pkg:golang/k8s.io%2Fkubernetes@v1.0.0",
+        ),
+        (
+            {"type": "go-package", "name": "k8s.io/kubernetes/cmd/kubectl", "version": "v1.0.0"},
+            "cmd/kubectl",
+            # no subpath in purl, name already reflects it
+            "pkg:golang/k8s.io%2Fkubernetes%2Fcmd%2Fkubectl@v1.0.0",
+        ),
+        (
+            {
+                "type": "git-submodule",
+                "name": "foo",
+                "version": f"https://github.com/org/foo#{GIT_REF}",
+            },
+            "foo",
+            # no subpath in purl, it points to different repo
+            f"pkg:github/org/foo@{GIT_REF}",
+        ),
     ],
 )
-@pytest.mark.parametrize("has_subpath", [False, True])
-def test_top_level_purl_conversion(
-    pkg_type, purl_method, method_args, default_request, has_subpath
-):
-    pkg = Package(name="", type=pkg_type, version="")
+def test_top_level_purl_conversion_specialized(package, path, expected_purl, default_request):
+    """Test top-level purl conversion for package types that can use specialized purls."""
+    pkg = Package(**package)
+    purl = pkg.to_top_level_purl(default_request, subpath=path)
+    assert purl == expected_purl
 
-    if purl_method is None:
-        msg = f"{pkg_type!r} is not a valid top level package"
-        with pytest.raises(ContentManifestError, match=msg):
-            pkg.to_top_level_purl(default_request)
-    else:
-        with mock.patch.object(Package, purl_method) as mock_purl_method:
-            mock_purl_method.return_value = "pkg:generic/foo"
-            purl = pkg.to_top_level_purl(
-                default_request, subpath="some/path" if has_subpath else None
-            )
 
-        assert mock_purl_method.called_once_with(*method_args)
-        if has_subpath and pkg_type != "git-submodule":
-            assert purl == "pkg:generic/foo#some/path"
-        else:
-            assert purl == "pkg:generic/foo"
+@pytest.mark.parametrize("pkg_manager", ["npm", "pip", "yarn"])
+@pytest.mark.parametrize(
+    "path, expected_purl", [(None, DEFAULT_PURL), ("some/subpath", f"{DEFAULT_PURL}#some/subpath")]
+)
+def test_top_level_purl_conversion_generic(pkg_manager, path, expected_purl, default_request):
+    """Test top-level purl conversion for package types that must use generic purls."""
+    pkg = Package(name="foo", version="1.0.0", type=pkg_manager)
+    purl = pkg.to_top_level_purl(default_request, subpath=path)
+    assert purl == expected_purl
+
+
+def test_top_level_purl_conversion_bogus(default_request):
+    pkg = Package(name="foo", version="1.0.0", type="bogus")
+
+    msg = "'bogus' is not a valid top level package"
+    with pytest.raises(ContentManifestError, match=msg):
+        pkg.to_top_level_purl(default_request)

@@ -435,13 +435,16 @@ class Package:
         """
         if self.type in ("gomod", "go-package", "git-submodule"):
             purl = self.to_purl()
+            # purls for git submodules point to a different repo, path is neither needed nor valid
+            # golang package and module names should reflect the path already
+            include_path = False
         elif self.type in ("npm", "pip", "yarn"):
             purl = self.to_vcs_purl(request.repo, request.ref)
+            include_path = True
         else:
             raise ContentManifestError(f"{self.type!r} is not a valid top level package")
 
-        # purls for git submodules point to a different repo, subpath is neither needed nor valid
-        if subpath and self.type != "git-submodule":
+        if subpath and include_path:
             purl = f"{purl}#{subpath}"
 
         return purl
