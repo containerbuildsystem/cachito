@@ -163,16 +163,18 @@ class PackagesData:
         self._clear_nfs_cache(file_name)
 
         if not os.path.exists(file_name):
-            log.warning("No data is loaded from non-existing file %s.", file_name)
+            log.warning("Skipping the loading of non-existing file %s.", file_name)
             return
 
         with open(file_name, "r", encoding="utf-8") as f:
             data = json.load(f)
-            log.info("Loaded file %s: %s", file_name, data)
             packages = data.get("packages")
             if packages is None:
-                log.warning("Packages data file does not include key 'packages'.")
+                log.warning("Packages data file %s does not include key 'packages'.", file_name)
                 return
+
+            log.info("Loaded file %s, found %i packages.", file_name, len(packages))
+
             for p in packages:
                 self.add_package(p, p.get("path", os.curdir), p["dependencies"])
 
