@@ -131,7 +131,22 @@ def get_request(request_id):
     :rtype: flask.Response
     :raise NotFound: if the request is not found
     """
-    return flask.jsonify(Request.query.get_or_404(request_id).to_json())
+    json = Request.query.get_or_404(request_id).to_json()
+
+    if json["state"] == RequestStateMapping.complete.name:
+        package_count = len(json["packages"])
+        dependency_count = len(json["dependencies"])
+
+        flask.current_app.logger.info(
+            "Returning data for request %i. Found %i packages and %i dependencies. "
+            "The following package managers were used: %s.",
+            request_id,
+            package_count,
+            dependency_count,
+            json["pkg_managers"],
+        )
+
+    return flask.jsonify(json)
 
 
 @api_v1.route("/requests/<int:request_id>/configuration-files", methods=["GET"])
