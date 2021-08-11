@@ -24,6 +24,7 @@ can be published alongside the application for license compliance.
 
 ## Table of Contents
 
+* [More Documentation](#more-documentation)
 * [Coding Standards](#coding-standards)
 * [Quick Start](#quick-start)
 * [Pre-built Container Images](#pre-built-container-images)
@@ -36,6 +37,18 @@ can be published alongside the application for license compliance.
 * [Flags](#flags)
 * [Nexus](#nexus)
 * [Package Managers](#package-managers)
+
+## More Documentation
+
+Documents that outgrew this README can be found in the `docs/` drectory.
+
+* [docs/](./docs)
+  * [dependency_confusion.md](./docs/dependency_confusion.md) is a short analysis of a supply chain
+    attack and its impact on Cachito users
+  * [metadata.md](./docs/metadata.md) describes Cachito request metadata
+  * [pip.md](./docs/pip.md) is a guide for using pip with Cachito
+  * [using_requests_locally.md](./docs/using_requests_locally.md) explains how to use Cachito
+    requests to run builds on your PC
 
 ## Coding Standards
 
