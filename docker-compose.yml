@@ -9,10 +9,9 @@ services:
       POSTGRES_INITDB_ARGS: "--auth='ident' --auth='trust'"
 
   rabbitmq:
-    image: rabbitmq:3.7-management
-    environment:
-      RABBITMQ_DEFAULT_USER: cachito
-      RABBITMQ_DEFAULT_PASS: cachito
+    image: rabbitmq:3.9-management
+    volumes:
+      - ./docker/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:z
     ports:
       # The RabbitMQ management console
       - 8081:15672
