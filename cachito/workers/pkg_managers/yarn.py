@@ -333,7 +333,7 @@ def _replace_deps_in_package_json(package_json, nexus_replacements):
     package_json_new = copy.deepcopy(package_json)
     modified = False
 
-    for dep_type in ("dependencies", "devDependencies"):
+    for dep_type in ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies"):
         for dep_name, dep_version in package_json.get(dep_type, {}).items():
             new_version = _match_to_new_version(dep_name, dep_version, expanded_replacements)
             if not new_version:
