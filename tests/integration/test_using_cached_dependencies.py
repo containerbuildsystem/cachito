@@ -413,8 +413,7 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
 
     gomod:
         * get a pseudo-version for dependency commit
-        * replace a `require` string with old dependency
-          with new one in the go.mod file
+        * add a new dependency in the go.mod file
         * return replacement rules based on commit and pseudo-version
 
     npm & yarn:
@@ -457,13 +456,7 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
     elif env_data["pkg_managers"] == ["gomod"]:
         dep_version = get_pseudo_version(dep_repo, new_dep_commits[0])
 
-        with open(os.path.join(repo_dir, "go.mod"), "r") as f:
-            base_gomod_file = [
-                line for line in f.read().split("\n") if not line.startswith("require")
-            ]
-        with open(os.path.join(repo_dir, "go.mod"), "w+") as f:
-            for line in base_gomod_file:
-                f.write(f"{line}\n")
+        with open(os.path.join(repo_dir, "go.mod"), "a") as f:
             go_dep = env_data["https_dep_repo"][len("https://") :]
             if go_dep.endswith(".git"):
                 go_dep = go_dep[: -len(".git")]

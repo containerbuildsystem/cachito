@@ -161,6 +161,18 @@ gomod_cached_deps:
         replaces: null
         type: "gomod"
         version: "DEP_VERSION"
+      - name: "golang.org/x/text"
+        replaces: null
+        type: "gomod"
+        version: "v0.0.0-20170915032832-14c0d48ead0c"
+      - name: "rsc.io/quote"
+        replaces: null
+        type: "gomod"
+        version: "v1.5.2"
+      - name: "rsc.io/sampler"
+        replaces: null
+        type: "gomod"
+        version: "v1.3.0"
       name: "github.com/cachito-testing/cachito-gomod-with-deps"
       type: "gomod"
       version: "MAIN_VERSION"
@@ -185,6 +197,18 @@ gomod_cached_deps:
       replaces: null
       type: "gomod"
       version: "DEP_VERSION"
+    - name: "golang.org/x/text"
+      replaces: null
+      type: "gomod"
+      version: "v0.0.0-20170915032832-14c0d48ead0c"
+    - name: "rsc.io/quote"
+      replaces: null
+      type: "gomod"
+      version: "v1.5.2"
+    - name: "rsc.io/sampler"
+      replaces: null
+      type: "gomod"
+      version: "v1.3.0"
   # Expected files
   expected_files: []
   # Expected content manifest data
@@ -197,6 +221,9 @@ gomod_cached_deps:
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
     source_purls:
     - "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@DEP_VERSION"
+    - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+    - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
 # Test npm with cached dependencies
 npm_cached_deps:
   # Use local version of repos.
