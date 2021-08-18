@@ -431,7 +431,8 @@ def test_get_package_and_deps(package_lock_deps, package_and_deps):
     assert deps_info == package_and_deps
 
 
-def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_deps):
+@pytest.mark.parametrize("type", ("dependencies", "devDependencies"))
+def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_deps, type):
     package_lock = {
         "name": "star-wars",
         "version": "5.0.0",
@@ -452,10 +453,10 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
         },
     }
     package_json = {
-        "dependencies": {
+        type: {
             "rxjs": {"version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b"},
             "tslib": {"version": "1.11.1"},
-        }
+        },
     }
 
     def _mock_get_deps(_deps, file_deps_allowlist):
@@ -494,7 +495,7 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
             ],
         }
         replacements = [
-            ("rxjs", "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b")
+            ("rxjs", "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"),
         ]
 
         return name_to_deps, replacements
@@ -558,11 +559,11 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
         },
         "package": {"name": "star-wars", "type": "npm", "version": "5.0.0"},
         "package.json": {
-            "dependencies": {
+            type: {
                 # Verify that package.json was updated with the hosted version of rxjs
                 "rxjs": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
                 "tslib": {"version": "1.11.1"},
-            }
+            },
         },
     }
 
