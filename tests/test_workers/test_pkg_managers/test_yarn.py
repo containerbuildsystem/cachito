@@ -23,11 +23,16 @@ GIT_DEP_NEXUS_URL = "http://nexus.example.org/repository/js/leftpad.tar.gz"
 MOCK_INTEGRITY = "sha1-abcdefghijklmnopqrstuvwxyzo="
 MOCK_NEXUS_VERSION = "1.0.0-external"
 
+OPTIONAL_DEP_URL = "git+https://github.com/example/pathval.git"
+PEER_DEP_URL = "git+https://github.com/example/deep-eql.git"
+
 EXAMPLE_PACKAGE_JSON = {
     "name": "foo",
     "version": "1.0.0",
     "dependencies": {"chai": "^4.2.0", "fecha": HTTP_DEP_URL},
     "devDependencies": {"leftpad": GIT_DEP_URL},
+    "optionalDependencies": {"pathval": OPTIONAL_DEP_URL},
+    "peerDependencies": {"deep-eql": PEER_DEP_URL},
 }
 
 
@@ -488,16 +493,20 @@ def test_set_proxy_resolved_urls_no_urls():
             None,
         ),
         (
-            # both external dependencies are replaced
+            # all external dependencies are replaced
             {
                 f"fecha@{HTTP_DEP_URL}": {"version": "1.0.0-external"},
                 f"leftpad@{GIT_DEP_URL}": {"version": "2.0.0-external"},
+                f"pathval@{OPTIONAL_DEP_URL}": {"version": "3.0.0-external"},
+                f"deep-eql@{PEER_DEP_URL}": {"version": "4.0.0-external"},
             },
             EXAMPLE_PACKAGE_JSON,
             replaced_example_packjson(
                 [
                     ("dependencies", "fecha", "1.0.0-external"),
                     ("devDependencies", "leftpad", "2.0.0-external"),
+                    ("optionalDependencies", "pathval", "3.0.0-external"),
+                    ("peerDependencies", "deep-eql", "4.0.0-external"),
                 ]
             ),
         ),
