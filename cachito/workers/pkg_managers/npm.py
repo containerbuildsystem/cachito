@@ -229,7 +229,12 @@ def get_package_and_deps(package_json_path, package_lock_path):
 
         package_json_original = copy.deepcopy(package_json)
         for dep_name, dep_version in top_level_replacements:
-            for dep_type in ("dependencies", "devDependencies"):
+            for dep_type in (
+                "dependencies",
+                "devDependencies",
+                "optionalDependencies",
+                "peerDependencies",
+            ):
                 if dep_name in package_json.get(dep_type, {}):
                     log.info(
                         "Replacing the version of %s in %s from %s to %s in package.json",
