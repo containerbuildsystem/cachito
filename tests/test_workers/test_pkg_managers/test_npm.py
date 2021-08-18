@@ -431,7 +431,9 @@ def test_get_package_and_deps(package_lock_deps, package_and_deps):
     assert deps_info == package_and_deps
 
 
-@pytest.mark.parametrize("type", ("dependencies", "devDependencies"))
+@pytest.mark.parametrize(
+    "type", ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies")
+)
 def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_deps, type):
     package_lock = {
         "name": "star-wars",
