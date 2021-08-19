@@ -2,8 +2,10 @@
 import io
 import json
 import os
+import os.path
 import tarfile
 import textwrap
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -11,7 +13,6 @@ import pytest
 from cachito.errors import CachitoError
 from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import general, general_js, npm
 
 
@@ -34,8 +35,6 @@ def test_download_dependencies(
     pkg_manager,
     tmpdir,
 ):
-    bundles_dir = tmpdir.mkdir("bundles")
-    mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
     mock_gwc.return_value.cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
     mock_td_path = tmpdir.mkdir("cachito-agfdsk")
     mock_td.return_value.__enter__.return_value = str(mock_td_path)
@@ -93,10 +92,12 @@ def test_download_dependencies(
         },
     ]
     request_id = 1
-    request_bundle_dir = bundles_dir.mkdir("temp").mkdir(str(request_id))
-    deps_path = os.path.join(request_bundle_dir, f"deps/{pkg_manager}")
     proxy_repo_url = npm.get_npm_proxy_repo_url(request_id)
-    general_js.download_dependencies(request_id, deps, proxy_repo_url, pkg_manager=pkg_manager)
+    download_dir = tmpdir.join("deps")
+    download_dir.mkdir()
+    general_js.download_dependencies(
+        Path(download_dir), deps, proxy_repo_url, pkg_manager=pkg_manager
+    )
 
     mock_npm_rc_path = str(mock_td_path.join(".npmrc"))
     if nexus_ca_cert_exists:
@@ -129,25 +130,25 @@ def test_download_dependencies(
     run_cmd_env_vars = mock_run_cmd.call_args[0][1]["env"]
     assert run_cmd_env_vars["NPM_CONFIG_CACHE"] == str(mock_td_path.join("cache"))
     assert run_cmd_env_vars["NPM_CONFIG_USERCONFIG"] == mock_npm_rc_path
-    assert mock_run_cmd.call_args[0][1]["cwd"] == f"{deps_path}"
-    dep1_source_path = RequestBundleDir(f"{deps_path}/angular-devkit-architect-0.803.26.tgz")
-    dep1_dest_path = RequestBundleDir(
-        f"{deps_path}/@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz"
+    assert mock_run_cmd.call_args[0][1]["cwd"] == download_dir
+
+    dep1_source_path = os.path.join(download_dir, "angular-devkit-architect-0.803.26.tgz")
+    dep1_dest_path = os.path.join(
+        download_dir, "@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz"
     )
-    dep2_source_path = RequestBundleDir(f"{deps_path}/angular-animations-8.2.14.tgz")
-    dep2_dest_path = RequestBundleDir(
-        f"{deps_path}/@angular/animations/angular-animations-8.2.14.tgz"
+    dep2_source_path = os.path.join(download_dir, "angular-animations-8.2.14.tgz")
+    dep2_dest_path = os.path.join(download_dir, "@angular/animations/angular-animations-8.2.14.tgz")
+    dep3_source_path = os.path.join(
+        download_dir, "rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz"
     )
-    dep3_source_path = RequestBundleDir(
-        f"{deps_path}/rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz"
+    dep3_dest_path = os.path.join(
+        download_dir,
+        "github/ReactiveX/rxjs/"
+        "rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz",
     )
-    dep3_dest_path = RequestBundleDir(
-        f"{deps_path}/github/ReactiveX/rxjs/rxjs-6.5.5-external-gitcommit-"
-        "78032157f5c1655436829017bbda787565b48c30.tgz"
-    )
-    dep4_source_path = RequestBundleDir(f"{deps_path}/exsp-2.10.2-external-sha512-abcdefg.tar.gz")
-    dep4_dest_path = RequestBundleDir(
-        f"{deps_path}/external-exsp/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
+    dep4_source_path = os.path.join(download_dir, "exsp-2.10.2-external-sha512-abcdefg.tar.gz")
+    dep4_dest_path = os.path.join(
+        download_dir, "external-exsp/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
     )
     mock_move.assert_has_calls(
         [
@@ -202,7 +203,11 @@ def test_download_dependencies_skip_deps(
         },
     ]
     proxy_repo_url = npm.get_npm_proxy_repo_url(1)
-    general_js.download_dependencies(1, deps, proxy_repo_url, {"@angular/animations@8.2.14"})
+    download_dir = tmpdir.join("deps")
+    download_dir.mkdir()
+    general_js.download_dependencies(
+        Path(download_dir), deps, proxy_repo_url, {"@angular/animations@8.2.14"}
+    )
 
     mock_run_cmd.assert_called_once()
     # This ensures that the skipped dependency is not downloaded

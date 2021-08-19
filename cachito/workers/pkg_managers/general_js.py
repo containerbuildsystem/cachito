@@ -12,13 +12,13 @@ import tarfile
 import tempfile
 import textwrap
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
 from cachito.errors import CachitoError
 from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import ChecksumInfo, verify_checksum
 
 __all__ = [
@@ -39,7 +39,7 @@ log = logging.getLogger(__name__)
 
 
 def download_dependencies(
-    request_id: int,
+    download_dir: Path,
     deps: List[Dict[str, Any]],
     proxy_repo_url: str,
     skip_deps: Optional[Set[str]] = None,
@@ -54,7 +54,10 @@ def download_dependencies(
     because the dependency is bundled as part of another dependency, and thus already present in
     the tarball of the dependency that bundles it.
 
-    :param int request_id: the ID of the request these dependencies are being downloaded for
+    :param download_dir: the downloaded tarball of each dependency will be stored under this
+        directory with necessary parent directory components created. For example, the tarball
+        of a dependency foo is stored under <download_dir>/github/repo_namespace/foo.tar.gz
+    :type download_dir: pathlib.Path
     :param deps: a list of dependencies where each dependency has the keys: bundled, name,
         version, and version_in_nexus
     :type deps: list[dict[str, any]]
@@ -67,6 +70,8 @@ def download_dependencies(
     :rtype: set[str]
     :raises CachitoError: if any of the downloads fail
     """
+    assert pkg_manager == "npm" or pkg_manager == "yarn"  # nosec
+
     if skip_deps is None:
         skip_deps = set()
 
@@ -98,18 +103,8 @@ def download_dependencies(
             "NPM_CONFIG_USERCONFIG": npm_rc_file,
             "PATH": os.environ.get("PATH", ""),
         }
-        bundle_dir = RequestBundleDir(request_id)
-        if pkg_manager == "npm":
-            deps_download_dir = bundle_dir.npm_deps_dir
-        elif pkg_manager == "yarn":
-            deps_download_dir = bundle_dir.yarn_deps_dir
-        else:
-            raise ValueError(f"Invalid package manager: {pkg_manager!r}")
-
-        deps_download_dir.mkdir(exist_ok=True)
         # Download the dependencies directly in the bundle directory
-        run_params = {"env": env, "cwd": str(deps_download_dir)}
-
+        run_params = {"env": env, "cwd": str(download_dir)}
         log.info("Processing %d %s dependencies to stage in Nexus", len(deps), pkg_manager)
         downloaded_deps = set()
         # This must be done in batches to prevent Nexus from erroring with "Header is too large"
@@ -185,10 +180,10 @@ def download_dependencies(
                         dir_path = f"external-{dir_path}"
 
                 # Create the target directory for the dependency
-                dep_dir = deps_download_dir.joinpath(*dir_path.split("/", 1))
+                dep_dir = download_dir.joinpath(*dir_path.split("/", 1))
                 dep_dir.mkdir(exist_ok=True, parents=True)
                 # Move the dependency into the target directory
-                shutil.move(deps_download_dir.joinpath(tarball), dep_dir.joinpath(tarball))
+                shutil.move(str(download_dir.joinpath(tarball)), str(dep_dir.joinpath(tarball)))
 
         return downloaded_deps
 
