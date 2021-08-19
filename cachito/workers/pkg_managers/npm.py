@@ -6,6 +6,7 @@ import os
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.config import get_worker_config
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general_js import (
     JSDependency,
     download_dependencies,
@@ -302,8 +303,10 @@ def resolve_npm(app_source_path, request, skip_deps=None):
     # By downloading the dependencies, it stores the tarballs in the bundle and also stages the
     # content in the npm repository for the request
     proxy_repo_url = get_npm_proxy_repo_url(request["id"])
+    bundle_dir = RequestBundleDir(request["id"])
+    bundle_dir.npm_deps_dir.mkdir(exist_ok=True)
     package_and_deps_info["downloaded_deps"] = download_dependencies(
-        request["id"], package_and_deps_info["deps"], proxy_repo_url, skip_deps
+        bundle_dir.npm_deps_dir, package_and_deps_info["deps"], proxy_repo_url, skip_deps,
     )
 
     # Remove all the "bundled" keys since that is an implementation detail that should not be

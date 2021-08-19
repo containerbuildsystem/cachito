@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import yarn
 from cachito.workers.pkg_managers.general_js import JSDependency
 
@@ -601,7 +602,9 @@ def test_replace_deps_in_yarn_lock_dependencies():
 @mock.patch("cachito.workers.pkg_managers.yarn._set_proxy_resolved_urls")
 @mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_package_json")
 @mock.patch("cachito.workers.pkg_managers.yarn._replace_deps_in_yarn_lock")
+@mock.patch("cachito.workers.config.get_worker_config")
 def test_resolve_yarn(
+    get_worker_config,
     mock_replace_yarnlock,
     mock_replace_packjson,
     mock_set_proxy_urls,
@@ -611,7 +614,9 @@ def test_resolve_yarn(
     mock_get_package_and_deps,
     have_nexus_replacements,
     any_urls_in_yarn_lock,
+    tmpdir,
 ):
+    get_worker_config.return_value = mock.Mock(cachito_bundles_dir=str(tmpdir))
     n_pop_calls = 0
 
     def dict_pop_mocker():
@@ -665,7 +670,11 @@ def test_resolve_yarn(
     )
     mock_get_repo_url.assert_called_once_with(1)
     mock_download_deps.assert_called_once_with(
-        1, mock_deps, mock_get_repo_url.return_value, skip_deps={"foobar"}, pkg_manager="yarn"
+        RequestBundleDir(1).yarn_deps_dir,
+        mock_deps,
+        mock_get_repo_url.return_value,
+        skip_deps={"foobar"},
+        pkg_manager="yarn",
     )
     assert n_pop_calls == len(mock_deps) * 2
 

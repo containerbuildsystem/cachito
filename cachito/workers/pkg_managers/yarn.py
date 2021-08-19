@@ -10,6 +10,7 @@ import pyarn.lockfile
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general_js import (
     JSDependency,
     convert_hex_sha_to_npm,
@@ -418,8 +419,10 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
     # By downloading the dependencies, it stores the tarballs in the bundle and also stages the
     # content in the yarn repository for the request
     proxy_repo_url = get_yarn_proxy_repo_url(request["id"])
+    bundle_dir = RequestBundleDir(request["id"])
+    bundle_dir.yarn_deps_dir.mkdir(exist_ok=True)
     package_and_deps_info["downloaded_deps"] = download_dependencies(
-        request["id"],
+        bundle_dir.yarn_deps_dir,
         package_and_deps_info["deps"],
         proxy_repo_url,
         skip_deps=skip_deps,

@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from cachito.errors import CachitoError
+from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import general_js, npm
 
 
@@ -574,7 +575,18 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
 @mock.patch("cachito.workers.pkg_managers.npm.os.path.exists")
 @mock.patch("cachito.workers.pkg_managers.npm.get_package_and_deps")
 @mock.patch("cachito.workers.pkg_managers.npm.download_dependencies")
-def test_resolve_npm(mock_dd, mock_gpad, mock_exists, shrink_wrap, package_lock, package_and_deps):
+@mock.patch("cachito.workers.config.get_worker_config")
+def test_resolve_npm(
+    get_worker_config,
+    mock_dd,
+    mock_gpad,
+    mock_exists,
+    shrink_wrap,
+    package_lock,
+    package_and_deps,
+    tmpdir,
+):
+    get_worker_config.return_value = mock.Mock(cachito_bundles_dir=str(tmpdir))
     package_json = True
     mock_dd.return_value = {
         "@angular-devkit/architect@0.803.26",
@@ -618,7 +630,7 @@ def test_resolve_npm(mock_dd, mock_gpad, mock_exists, shrink_wrap, package_lock,
     mock_gpad.assert_called_once_with(package_json_path, lock_file_path)
     # We can't verify the actual correct deps value was passed in since the deps that were passed
     # in were mutated and mock does not keep a deepcopy of the function arguments.
-    mock_dd.assert_called_once_with(1, mock.ANY, mock.ANY, mock.ANY)
+    mock_dd.assert_called_once_with(RequestBundleDir(1).npm_deps_dir, mock.ANY, mock.ANY, mock.ANY)
 
 
 @mock.patch("cachito.workers.pkg_managers.npm.os.path.exists")
