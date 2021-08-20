@@ -8,6 +8,7 @@ from typing import Iterator
 
 from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
+from cachito.workers.errors import CachitoCalledProcessError
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +38,9 @@ def run_cmd(cmd, params, exc_msg=None):
 
     if response.returncode != 0:
         log.error('The command "%s" failed with: %s', " ".join(cmd), response.stderr)
-        raise CachitoError(exc_msg or "An unexpected error occurred")
+        raise CachitoCalledProcessError(
+            exc_msg or "An unexpected error occurred", response.returncode
+        )
 
     return response.stdout
 
