@@ -11,12 +11,14 @@ from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import backoff
 import git
 import semver
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers import load_json_stream, run_cmd
 from cachito.workers.config import get_worker_config
+from cachito.workers.errors import CachitoCalledProcessError
 from cachito.workers.paths import RequestBundleDir
 
 __all__ = [
@@ -31,6 +33,39 @@ log = logging.getLogger(__name__)
 run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
 
 MODULE_VERSION_RE = re.compile(r"/v\d+$")
+
+
+def run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
+    """Run gomod command that downloads dependencies.
+
+    Such commands may fail due to network errors (go is bad at retrying), so the entire operation
+    will be retried a configurable number of times.
+
+    The backoff is constant. The download commands are typically used for multiple dependencies
+    at the same time, and the failure can be caused by any of them. Exponential backoff would make
+    more sense if we were downloading dependencies individually.
+    """
+    n_tries = get_worker_config().cachito_gomod_download_max_tries
+
+    @backoff.on_exception(
+        backoff.constant,
+        CachitoCalledProcessError,
+        jitter=None,  # use the constant 1s backoff rather than a random value between 0 and 1
+        max_tries=n_tries,
+        logger=log,
+    )
+    def run_go(_cmd, _params) -> str:
+        log.debug(f"Running {_cmd}")
+        return run_gomod_cmd(_cmd, _params)
+
+    try:
+        return run_go(cmd, params)
+    except CachitoCalledProcessError:
+        err_msg = (
+            f"Processing gomod dependencies failed. Cachito tried the {' '.join(cmd)} command "
+            f"{n_tries} times. This may indicate a problem with your repository or Cachito itself."
+        )
+        raise CachitoError(err_msg)
 
 
 class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
@@ -162,7 +197,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             _vendor_deps(run_params, can_make_changes, git_dir_path)
         else:
             log.info("Downloading the gomod dependencies")
-            run_gomod_cmd(("go", "mod", "download"), run_params)
+            run_download_cmd(("go", "mod", "download"), run_params)
         if dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
 
@@ -340,7 +375,7 @@ def _vendor_deps(run_params: dict, can_make_changes: bool, git_dir: str):
     :raise ValidationError: if vendor directory changed and Cachito is not allowed to make changes
     """
     log.info("Vendoring the gomod dependencies")
-    run_gomod_cmd(("go", "mod", "vendor"), run_params)
+    run_download_cmd(("go", "mod", "vendor"), run_params)
     app_dir = run_params["cwd"]
     if not can_make_changes and _vendor_changed(git_dir, app_dir):
         raise ValidationError(

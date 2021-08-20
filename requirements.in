@@ -2,6 +2,7 @@
 # https://github.com/celery/py-amqp/pull/350
 # but cachito is still being affected by the regression
 amqp==5.0.2
+backoff
 celery>=5
 defusedxml
 gitpython

@@ -460,13 +460,17 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
 
 @pytest.mark.parametrize(("go_mod_rc", "go_list_rc"), ((0, 1), (1, 0)))
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 @mock.patch("subprocess.run")
-def test_go_list_cmd_failure(mock_run, mock_temp_dir, tmpdir, go_mod_rc, go_list_rc):
+def test_go_list_cmd_failure(
+    mock_run, mock_worker_config, mock_temp_dir, tmpdir, go_mod_rc, go_list_rc
+):
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
 
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+    mock_worker_config.return_value.cachito_gomod_download_max_tries = 1
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
@@ -474,9 +478,8 @@ def test_go_list_cmd_failure(mock_run, mock_temp_dir, tmpdir, go_mod_rc, go_list
         mock.Mock(returncode=go_list_rc, stdout=_generate_mock_cmd_output()),  # go list -m all
     ]
 
-    with pytest.raises(CachitoError) as exc_info:
+    with pytest.raises(CachitoError, match="Processing gomod dependencies failed"):
         resolve_gomod(archive_path, request)
-    assert str(exc_info.value) == "Processing gomod dependencies failed"
 
 
 @pytest.mark.parametrize(
@@ -987,7 +990,7 @@ def test_should_vendor_deps_strict(flags, vendor_exists, expect_error, tmp_path)
 
 @pytest.mark.parametrize("can_make_changes", [True, False])
 @pytest.mark.parametrize("vendor_changed", [True, False])
-@mock.patch("cachito.workers.pkg_managers.gomod.run_gomod_cmd")
+@mock.patch("cachito.workers.pkg_managers.gomod.run_download_cmd")
 @mock.patch("cachito.workers.pkg_managers.gomod._vendor_changed")
 def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor_changed):
     git_dir = "/fake/repo"
@@ -1232,3 +1235,45 @@ def test_load_list_deps():
 )
 def test_get_dep_version(dep_info, expect_version):
     assert gomod._get_dep_version(dep_info) == expect_version
+
+
+@pytest.mark.parametrize("tries_needed", [1, 2, 3])
+@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
+@mock.patch("subprocess.run")
+@mock.patch("time.sleep")
+def test_run_download_cmd_success(mock_sleep, mock_run, mock_worker_config, tries_needed, caplog):
+    mock_worker_config.return_value.cachito_gomod_download_max_tries = 3
+
+    failure = mock.Mock(returncode=1, stdout="")
+    success = mock.Mock(returncode=0, stdout="")
+    mock_run.side_effect = [failure for _ in range(tries_needed - 1)] + [success]
+
+    gomod.run_download_cmd(["go", "mod", "download"], {})
+    assert mock_run.call_count == tries_needed
+    assert mock_sleep.call_count == tries_needed - 1
+
+    assert caplog.text.count("Backing off run_go(...) for 1.0s") == tries_needed - 1
+
+
+@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
+@mock.patch("subprocess.run")
+@mock.patch("time.sleep")
+def test_run_download_cmd_failure(mock_sleep, mock_run, mock_worker_config, caplog):
+    mock_worker_config.return_value.cachito_gomod_download_max_tries = 3
+
+    failure = mock.Mock(returncode=1, stdout="")
+    mock_run.side_effect = [failure] * 3
+
+    expect_msg = (
+        "Processing gomod dependencies failed. Cachito tried the go mod download command 3 times. "
+        "This may indicate a problem with your repository or Cachito itself."
+    )
+
+    with pytest.raises(CachitoError, match=expect_msg):
+        gomod.run_download_cmd(["go", "mod", "download"], {})
+
+    assert mock_run.call_count == 3
+    assert mock_sleep.call_count == 2
+
+    assert caplog.text.count("Backing off run_go(...) for 1.0s") == 2
+    assert "Giving up run_go(...) after 3 tries" in caplog.text
