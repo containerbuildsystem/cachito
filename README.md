@@ -440,6 +440,8 @@ Custom configuration for the Celery workers are listed below:
   `value` must be a string which specifies the value of the environment variable. The `kind` must
   also be a string which specifies the type of value, either `"path"` or `"literal"`. Check
   `cachito/workers/config.py::Config` for the default value of this configuration.
+* `cachito_gomod_download_max_tries` - how many times to try `go mod` subprocess calls used for
+  downloading dependencies. Cachito will retry the entire operation for any non-zero return code.
 * `cachito_gomod_ignore_missing_gomod_file` - if `True` and the request specifies the `gomod`
   package manager but there is no `go.mod` file present in the repository, Cachito will skip
   the `gomod` package manager for the request. If `False`, the request will fail if the `go.mod`

@@ -32,6 +32,7 @@ class Config(object):
         },
     }
     cachito_deps_patch_batch_size = 50
+    cachito_gomod_download_max_tries = 3
     cachito_gomod_ignore_missing_gomod_file = True
     cachito_gomod_strict_vendor = False
     cachito_log_level = "INFO"
