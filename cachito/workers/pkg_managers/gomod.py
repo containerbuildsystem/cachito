@@ -256,7 +256,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
         log.info("Retrieving the list of package level dependencies")
         package_info = _load_list_deps(
-            run_gomod_cmd(["go", "list", "-deps", "-json", "./..."], run_params)
+            run_gomod_cmd(["go", "list", "-e", "-deps", "-json", "./..."], run_params)
         )
 
         packages = []
