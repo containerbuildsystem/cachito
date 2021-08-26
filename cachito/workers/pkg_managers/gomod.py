@@ -41,16 +41,16 @@ def run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
     Such commands may fail due to network errors (go is bad at retrying), so the entire operation
     will be retried a configurable number of times.
 
-    The backoff is constant. The download commands are typically used for multiple dependencies
-    at the same time, and the failure can be caused by any of them. Exponential backoff would make
-    more sense if we were downloading dependencies individually.
+    Cachito will reuse the same cache directory between retries, so Go will not have to download
+    the same dependency twice. The backoff is exponential, Cachito will wait 1s -> 2s -> 4s -> ...
+    before retrying.
     """
     n_tries = get_worker_config().cachito_gomod_download_max_tries
 
     @backoff.on_exception(
-        backoff.constant,
+        backoff.expo,
         CachitoCalledProcessError,
-        jitter=None,  # use the constant 1s backoff rather than a random value between 0 and 1
+        jitter=None,  # use deterministic backoff, do not apply jitter
         max_tries=n_tries,
         logger=log,
     )
