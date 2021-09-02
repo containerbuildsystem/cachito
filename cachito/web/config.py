@@ -11,6 +11,7 @@ TEST_DB_FILE = os.path.join(os.environ.get("TOX_ENV_DIR") or tempfile.gettempdir
 class Config(object):
     """The base Cachito Flask configuration."""
 
+    DEBUG = False
     # Additional loggers to set to the level defined in CACHITO_LOG_LEVEL
     CACHITO_ADDITIONAL_LOGGERS: List[str] = ["cachito.common.packages_data"]
     CACHITO_DEFAULT_PACKAGE_MANAGERS: List[str] = ["gomod"]
@@ -25,6 +26,8 @@ class Config(object):
     # Users that are allowed to use the "user" property when creating a request
     CACHITO_USER_REPRESENTATIVES: List[str] = []
     CACHITO_WORKER_USERNAMES: List[str] = []
+    LOGIN_DISABLED = False
+    TESTING = False
 
     # Temp dir used by the Prometheus Flask Exporter to coalesce the metrics from the threads
     if "PROMETHEUS_MULTIPROC_DIR" not in os.environ.keys():
@@ -38,12 +41,13 @@ class Config(object):
 class ProductionConfig(Config):
     """The production Cachito Flask configuration."""
 
-    DEBUG = False
+    pass
 
 
 class DevelopmentConfig(Config):
     """The development Cachito Flask configuration."""
 
+    DEBUG = True
     CACHITO_BUNDLES_DIR = os.path.join(tempfile.gettempdir(), "cachito-archives", "bundles")
     CACHITO_LOG_LEVEL = "DEBUG"
     CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS = [("npm", "yarn"), ("gomod", "git-submodule")]
@@ -64,7 +68,6 @@ class TestingConfig(DevelopmentConfig):
     # after the migration completes...
     #   https://github.com/miguelgrinberg/Flask-Migrate/issues/153
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{TEST_DB_FILE}"
-    DEBUG = True
     LOGIN_DISABLED = False
     TESTING = True
 
