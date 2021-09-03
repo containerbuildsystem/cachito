@@ -39,11 +39,11 @@ def init_metrics(app):
     cachito_metrics["request_duration"] = request_duration
 
 
-def requests_inc(state):
+def requests_inc(state: str) -> None:
     """Increase the number of requests in given state."""
     cachito_metrics["gauge_state"].labels(state=state, host=hostname).inc()
 
 
-def requests_dec(state):
+def requests_dec(state: str) -> None:
     """Decrease the number of requests in the given state."""
     cachito_metrics["gauge_state"].labels(state=state, host=hostname).dec()
