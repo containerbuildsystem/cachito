@@ -1,9 +1,11 @@
 import os
 import socket
 
-from prometheus_client import multiprocess
+from prometheus_client import Gauge, multiprocess
 from prometheus_client.core import CollectorRegistry
 from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
+
+cachito_metrics = {}
 
 
 def init_metrics(app):
@@ -24,3 +26,8 @@ def init_metrics(app):
         default_labels={"host": hostname}, group_by="endpoint", defaults_prefix="cachito_flask"
     )
     metrics.init_app(app)
+    gauge_state = Gauge("requests", "Requests in each state", ["state"])
+
+    cachito_metrics["gauge_state"] = gauge_state
+
+    return metrics
