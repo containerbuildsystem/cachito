@@ -25,6 +25,7 @@ from cachito.common.utils import b64encode
 from cachito.errors import MessageBrokerError, NoWorkers, RequestErrorOrigin, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM
+from cachito.web.metrics import cachito_metrics
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -336,6 +337,9 @@ def create_request():
     db.session.add(request)
     db.session.commit()
 
+    cachito_metrics["gauge_state"].labels(state="total").inc()
+    cachito_metrics["gauge_state"].labels(state=request.state.state_name).inc()
+
     if current_user.is_authenticated:
         flask.current_app.logger.info(
             "The user %s submitted request %d", current_user.username, request.id
@@ -423,7 +427,9 @@ def create_request():
             "Failed to schedule the task for request %d. Failing the request.", request.id
         )
         error = "Failed to schedule the task to the workers. Please try again."
+        cachito_metrics["gauge_state"].labels(state=request.state.state_name).dec()
         request.add_state("failed", error)
+        cachito_metrics["gauge_state"].labels(state=request.state.state_name).inc()
         db.session.commit()
         raise MessageBrokerError(error)
 
@@ -506,7 +512,10 @@ def patch_request(request_id):
     delete_bundle_temp = False
     cleanup_nexus = []
     delete_logs = False
+
     if "state" in payload and "state_reason" in payload:
+        cachito_metrics["gauge_state"].labels(state=payload["state"]).inc()
+        cachito_metrics["gauge_state"].labels(state=request.state.state_name).dec()
         new_state = payload["state"]
         delete_bundle = new_state == "stale" and request.state.state_name != "failed"
         if new_state in ("stale", "failed"):
@@ -521,6 +530,10 @@ def patch_request(request_id):
         if request.state.state_name == new_state and request.state.state_reason == new_state_reason:
             flask.current_app.logger.info("Not adding a new state since it matches the last state")
         else:
+            if new_state == "complete":
+                cachito_metrics["request_duration"].observe(
+                    (datetime.now() - request.created).total_seconds()
+                )
             request.add_state(new_state, new_state_reason)
 
     # If the request fails, a RequestError object will be added to the DB

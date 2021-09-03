@@ -7,6 +7,7 @@ from unittest import mock
 import flask_migrate
 import git
 import pytest
+from prometheus_client import REGISTRY
 
 from cachito.web import db as _db
 from cachito.web.app import create_app
@@ -16,13 +17,17 @@ from cachito.web.config import TEST_DB_FILE
 @pytest.fixture()
 def app(request):
     """Return Flask application for the pytest session."""
-    return _make_app(request, "cachito.web.config.TestingConfig")
+    # yield allows for the lines following it to function as a destructor for the tests
+    yield _make_app(request, "cachito.web.config.TestingConfig")
+    unregister_metrics()
 
 
 @pytest.fixture()
 def app_no_auth(request):
     """Return Flask application without authentication for the pytest session."""
-    return _make_app(request, "cachito.web.config.TestingConfigNoAuth")
+    # yield allows for the lines following it to function as a destructor for the tests
+    yield _make_app(request, "cachito.web.config.TestingConfigNoAuth")
+    unregister_metrics()
 
 
 def _make_app(request, config):
@@ -56,13 +61,17 @@ def auth_ssl_env():
 @pytest.fixture()
 def client(app):
     """Return Flask application client for the pytest session."""
-    return app.test_client()
+    # yield allows for the lines following it to function as a destructor for the tests
+    yield app.test_client()
+    unregister_metrics()
 
 
 @pytest.fixture()
 def client_no_auth(app_no_auth):
     """Return Flask application client without authentication for the pytest session."""
-    return app_no_auth.test_client()
+    # yield allows for the lines following it to function as a destructor for the tests
+    yield app_no_auth.test_client()
+    unregister_metrics()
 
 
 @pytest.fixture()
@@ -305,3 +314,15 @@ def task_passes_state_check():
         yield
 
     mock_get_state.assert_called()
+
+
+def unregister_metrics():
+    """
+    Destructor for the metrics.
+
+    Tear down the registered metrics between tests to prevent duplicate metrics from being
+    registered
+    """
+    for collector, names in tuple(REGISTRY._collector_to_names.items()):
+        if any(name.startswith("flask_") or name.startswith("cachito") for name in names):
+            REGISTRY.unregister(collector)
