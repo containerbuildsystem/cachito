@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from collections import OrderedDict
 
 from flask import request, url_for
 
@@ -10,8 +9,7 @@ def deep_sort_icm(orig_item):
 
     The function for sorting image content manifests
 
-    All dicts in the content manifest will be turned into OrderedDicts with alphabetically
-    sorted keys. All lists of dicts with a "purl" key will be sorted alphabetically by the
+    All lists of dicts with a "purl" key will be sorted alphabetically by the
     "purl" value. Any other objects will be left as is.
 
     :param orig_item: Original content manifest to be sorted
@@ -21,12 +19,10 @@ def deep_sort_icm(orig_item):
     if isinstance(orig_item, list):
         sorted_item = [deep_sort_icm(item) for item in orig_item]
         # If item is a list of dicts with the "purl" key, sort by the "purl" value
-        if sorted_item and isinstance(sorted_item[0], OrderedDict) and "purl" in sorted_item[0]:
+        if sorted_item and isinstance(sorted_item[0], dict) and "purl" in sorted_item[0]:
             sorted_item = sorted(sorted_item, key=lambda item: item["purl"])
     elif isinstance(orig_item, dict):
-        items = ((k, deep_sort_icm(v)) for k, v in orig_item.items())
-        # Sort items by key
-        sorted_item = OrderedDict(sorted(items, key=lambda keyval: keyval[0]))
+        sorted_item = {k: deep_sort_icm(v) for k, v in orig_item.items()}
     else:
         sorted_item = orig_item
     return sorted_item

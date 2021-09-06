@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import functools
+import json
 import os
 from collections import OrderedDict
 from copy import deepcopy
+from typing import Any, Dict
 
 import flask
 import kombu.exceptions
 from celery import chain
-from flask import stream_with_context
+from flask import current_app, stream_with_context
 from flask_login import current_user, login_required
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload, load_only
@@ -184,7 +186,7 @@ def get_request_content_manifest(request_id):
         )
     content_manifest = request.content_manifest
     content_manifest_json = content_manifest.to_json()
-    return flask.jsonify(content_manifest_json)
+    return create_jsonify_response(content_manifest_json)
 
 
 @api_v1.route("/requests/<int:request_id>/environment-variables", methods=["GET"])
@@ -651,6 +653,14 @@ def get_request_logs(request_id):
     )
 
 
+def create_jsonify_response(content_manifest: Dict[str, Any]) -> flask.Response:
+    """Customize the dumped content manifest by sorting the keys."""
+    return current_app.response_class(
+        json.dumps(content_manifest, sort_keys=True),
+        mimetype=current_app.config["JSONIFY_MIMETYPE"],
+    )
+
+
 @api_v1.route("/content-manifest", methods=["GET"])
 def get_content_manifest_by_requests():
     """
@@ -694,4 +704,4 @@ def get_content_manifest_by_requests():
     for request in requests:
         manifest = request.content_manifest.to_json()
         assembled_icm["image_contents"].extend(manifest["image_contents"])
-    return flask.jsonify(deep_sort_icm(assembled_icm))
+    return create_jsonify_response(deep_sort_icm(assembled_icm))
