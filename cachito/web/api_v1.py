@@ -10,6 +10,7 @@ from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload, load_only
 from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
 
 from cachito.common.checksum import hash_file
@@ -663,32 +664,34 @@ def get_content_manifest_by_requests():
     arg = flask.request.args.get("requests")
     if not arg:
         return flask.jsonify(BASE_ICM)
-    request_ids = []
+    request_ids = set()
     item: str
     for item in arg.split(","):
         if not item.strip():
             continue
         if not item.strip().isdigit():
             raise BadRequest(f"{item} is not an integer.")
-        request_ids.append(int(item))
+        request_ids.add(int(item))
 
-    requests = Request.query.filter(Request.id.in_(request_ids))
-    found_requests_ids = [request.id for request in requests]
-
-    ids_diff = list(map(str, set(request_ids) - set(found_requests_ids)))
-    if ids_diff:
-        raise BadRequest(f"Cannot find request(s) {', '.join(ids_diff)}.")
-
-    assembled_icm = deepcopy(BASE_ICM)
+    requests = Request.query.filter(Request.id.in_(request_ids)).options(
+        load_only("id"), joinedload(Request.state)
+    )
+    states = (RequestStateMapping.complete.name, RequestStateMapping.stale.name)
     request: Request
     for request in requests:
-        if request.state.state_name not in (
-            RequestStateMapping.complete.name,
-            RequestStateMapping.stale.name,
-        ):
+        if request.state.state_name not in states:
             raise BadRequest(
                 f"Request {request.id} is in state {request.state.state_name}, "
                 f"not complete or stale."
             )
-        assembled_icm["image_contents"].extend(request.content_manifest.to_json()["image_contents"])
+        request_ids.remove(request.id)
+
+    if request_ids:
+        nonexistent_ids = ",".join(map(str, request_ids))
+        raise BadRequest(f"Cannot find request(s) {nonexistent_ids}.")
+
+    assembled_icm = deepcopy(BASE_ICM)
+    for request in requests:
+        manifest = request.content_manifest.to_json()
+        assembled_icm["image_contents"].extend(manifest["image_contents"])
     return flask.jsonify(deep_sort_icm(assembled_icm))
