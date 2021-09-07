@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from operator import itemgetter
+
 from flask import request, url_for
+
+CONTAINER_TYPES = (dict, list)
+SORT_KEY_BY_PURL = itemgetter("purl")
 
 
 def deep_sort_icm(orig_item):
@@ -16,16 +21,23 @@ def deep_sort_icm(orig_item):
     :return: Recursively sorted dict or list according to orig_item
     :rtype: Any
     """
+    if isinstance(orig_item, dict):
+        sorted_item = {}
+        for k, v in orig_item.items():
+            if v and isinstance(v, CONTAINER_TYPES):
+                sorted_item[k] = deep_sort_icm(v)
+            else:
+                sorted_item[k] = v
+        return sorted_item
+
     if isinstance(orig_item, list):
         sorted_item = [deep_sort_icm(item) for item in orig_item]
         # If item is a list of dicts with the "purl" key, sort by the "purl" value
         if sorted_item and isinstance(sorted_item[0], dict) and "purl" in sorted_item[0]:
-            sorted_item = sorted(sorted_item, key=lambda item: item["purl"])
-    elif isinstance(orig_item, dict):
-        sorted_item = {k: deep_sort_icm(v) for k, v in orig_item.items()}
-    else:
-        sorted_item = orig_item
-    return sorted_item
+            sorted_item.sort(key=SORT_KEY_BY_PURL)
+        return sorted_item
+
+    raise TypeError("Unknown type is included in the content manifest.")
 
 
 def pagination_metadata(pagination_query, **kwargs):

@@ -60,3 +60,24 @@ def test_deep_sort_icm(orig_items):
         }
     ]
     assert deep_sort_icm(orig_items) == expected
+
+
+@pytest.mark.parametrize(
+    "error_icm",
+    [
+        "image content manifest",
+        {
+            "image_contents": [
+                {
+                    "dependencies": [],
+                    "purl": "0sample-URL",
+                    "sources": [("purl", "0sample-URL"), ("purl", "1sample-URL")],
+                },
+            ],
+            "metadata": {"icm_spec": "sample-URL", "icm_version": 1, "image_layer_index": -1},
+        },
+    ],
+)
+def test_deep_sort_icm_raises_error_when_unknown_type_included(error_icm):
+    with pytest.raises(TypeError, match="Unknown type is included in the content manifest"):
+        deep_sort_icm(error_icm)
