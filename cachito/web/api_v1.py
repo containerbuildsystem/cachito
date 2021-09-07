@@ -683,8 +683,10 @@ def get_content_manifest_by_requests():
             raise BadRequest(f"{item} is not an integer.")
         request_ids.add(int(item))
 
-    requests = Request.query.filter(Request.id.in_(request_ids)).options(
-        load_only("id"), joinedload(Request.state)
+    requests = (
+        Request.query.filter(Request.id.in_(request_ids))
+        .options(load_only("id"), joinedload(Request.state))
+        .all()
     )
     states = (RequestStateMapping.complete.name, RequestStateMapping.stale.name)
     request: Request
@@ -704,4 +706,8 @@ def get_content_manifest_by_requests():
     for request in requests:
         manifest = request.content_manifest.to_json()
         assembled_icm["image_contents"].extend(manifest["image_contents"])
-    return create_jsonify_response(deep_sort_icm(assembled_icm))
+    if len(requests) == 1:
+        final_icm = assembled_icm
+    else:
+        final_icm = deep_sort_icm(assembled_icm)
+    return create_jsonify_response(final_icm)
