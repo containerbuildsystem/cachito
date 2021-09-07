@@ -3,8 +3,7 @@ import os
 import re
 import urllib.parse
 from copy import deepcopy
-from dataclasses import dataclass, field
-from typing import Optional
+from typing import List, Optional
 
 import flask
 import pkg_resources
@@ -242,7 +241,6 @@ class ContentManifest:
         return deep_sort_icm(icm)
 
 
-@dataclass(frozen=True)
 class Package:
     """
     A package within a content manifest.
@@ -250,12 +248,24 @@ class Package:
     It is used primarily to generate a package URL (purl).
     """
 
-    name: str
-    type: str
-    version: str
-    dev: bool = False
-    dependencies: list = field(default_factory=list)
-    path: Optional[str] = None
+    __slots__ = ("name", "type", "version", "dev", "dependencies", "path")
+
+    def __init__(
+        self,
+        name: str,
+        type: str,
+        version: str,
+        dev: bool = False,
+        path: Optional[str] = None,
+        dependencies: Optional[List] = None,
+    ):
+        """Initialize package data."""
+        self.name = name
+        self.type = type
+        self.version = version
+        self.dev = dev
+        self.dependencies = [] if dependencies is None else dependencies
+        self.path = path
 
     def __repr__(self):
         return (
