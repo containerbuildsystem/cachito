@@ -21,23 +21,20 @@ def deep_sort_icm(orig_item):
     :return: Recursively sorted dict or list according to orig_item
     :rtype: Any
     """
-    if isinstance(orig_item, dict):
-        sorted_item = {}
-        for k, v in orig_item.items():
-            if v and isinstance(v, CONTAINER_TYPES):
-                sorted_item[k] = deep_sort_icm(v)
-            else:
-                sorted_item[k] = v
-        return sorted_item
-
-    if isinstance(orig_item, list):
-        sorted_item = [deep_sort_icm(item) for item in orig_item]
+    if orig_item and isinstance(orig_item, dict):
+        keys = orig_item.keys()
+        for key in keys:
+            val = orig_item[key]
+            if val and isinstance(val, CONTAINER_TYPES):
+                deep_sort_icm(val)
+    elif orig_item and isinstance(orig_item, list):
+        for item in orig_item:
+            deep_sort_icm(item)
         # If item is a list of dicts with the "purl" key, sort by the "purl" value
-        if sorted_item and isinstance(sorted_item[0], dict) and "purl" in sorted_item[0]:
-            sorted_item.sort(key=SORT_KEY_BY_PURL)
-        return sorted_item
-
-    raise TypeError("Unknown type is included in the content manifest.")
+        if isinstance(orig_item[0], dict) and "purl" in orig_item[0]:
+            orig_item.sort(key=SORT_KEY_BY_PURL)
+    else:
+        raise TypeError("Unknown type is included in the content manifest.")
 
 
 def pagination_metadata(pagination_query, **kwargs):

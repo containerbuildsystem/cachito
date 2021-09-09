@@ -1565,7 +1565,7 @@ def test_fetch_request_content_manifest_go(
         "image_contents": [image_content],
         "metadata": {"icm_version": 1, "icm_spec": json_schema_url, "image_layer_index": -1},
     }
-    expected = deep_sort_icm(expected)
+    deep_sort_icm(expected)
 
     # mock packages.json file contents
     sample_pkg_lvl_pkg["dependencies"] = sample_pkg_deps
@@ -2083,7 +2083,8 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
         else:
             assembled_icm = BASE_ICM.copy()
             assembled_icm["image_contents"] = expected_image_contents
-            assert deep_sort_icm(assembled_icm) == json.loads(resp.data)
+            deep_sort_icm(assembled_icm)
+            assert assembled_icm == json.loads(resp.data)
 
 
 @pytest.mark.parametrize(
