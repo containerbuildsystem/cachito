@@ -706,8 +706,6 @@ def get_content_manifest_by_requests():
     for request in requests:
         manifest = request.content_manifest.to_json()
         assembled_icm["image_contents"].extend(manifest["image_contents"])
-    if len(requests) == 1:
-        final_icm = assembled_icm
-    else:
-        final_icm = deep_sort_icm(assembled_icm)
-    return create_jsonify_response(final_icm)
+    if len(requests) > 1:
+        deep_sort_icm(assembled_icm)
+    return create_jsonify_response(assembled_icm)

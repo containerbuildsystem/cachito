@@ -238,7 +238,8 @@ class ContentManifest:
         """
         icm = deepcopy(BASE_ICM)
         icm["image_contents"] = image_contents or []
-        return deep_sort_icm(icm)
+        deep_sort_icm(icm)
+        return icm
 
 
 class Package:

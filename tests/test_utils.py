@@ -59,7 +59,8 @@ def test_deep_sort_icm(orig_items):
             "metadata": {"icm_spec": "sample-URL", "icm_version": 1, "image_layer_index": -1},
         }
     ]
-    assert deep_sort_icm(orig_items) == expected
+    deep_sort_icm(orig_items)
+    assert orig_items == expected
 
 
 @pytest.mark.parametrize(
