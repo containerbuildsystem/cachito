@@ -27,6 +27,7 @@ setup(
             "Flask-SQLAlchemy",
             "psycopg2-binary",
             "prometheus-flask-exporter",
+            "pydantic",
         ],
     },
     entry_points={

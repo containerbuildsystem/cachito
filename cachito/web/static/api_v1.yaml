@@ -637,6 +637,99 @@ paths:
                   error:
                     type: string
                     example: "Request 1 is in state in_progress, not complete or stale."
+  "/request-metrics":
+    get:
+      description: Return a list of requests with a final state information
+      parameters:
+      - name: finished_from
+        description: The earliest possible date/time of request end (date, datetime or timestamp format)
+        in: query
+        required: false
+        schema:
+          type: string
+        examples:
+          date:
+            value: "2021-12-01"
+          datetime:
+            value: "2021-12-01T12:00:00"
+          timestamp:
+            value: "1623456789"
+      - name: finished_to
+        description: The latest possible date/time of request end (date, datetime or timestamp format)
+        in: query
+        required: false
+        schema:
+          type: string
+        examples:
+          date:
+            value: "2021-12-31"
+          datetime:
+            value: "2021-12-31T12:00:00"
+          timestamp:
+            value: "1633456789"
+      responses:
+        "200":
+          description: List of requests with corresponding metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RequestMetrics"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errors:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    example:
+                      finished_from: invalid date format
+                      finished_to: invalid date format
+
+  "/request-metrics/summary":
+    get:
+      description: Return a summary about number and duration of requests
+      parameters:
+      - name: finished_from
+        description: The earliest possible date/time of request end (date, datetime or timestamp format)
+        in: query
+        required: true
+        schema:
+          type: string
+          example: "2021-12-01"
+      - name: finished_to
+        description: The latest possible date/time of request end (date, datetime or timestamp format)
+        in: query
+        required: true
+        schema:
+          type: string
+          example: "2021-12-31"
+      responses:
+        "200":
+          description: Aggregated data about all requests of the given period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestMetricsSummary"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errors:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    example:
+                      finished_from: invalid date format
+                      finished_to: invalid date format
 
 components:
   schemas:
@@ -802,6 +895,55 @@ components:
       - content
       - path
       - type
+    RequestMetrics:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1234
+        final_state:
+          type: string
+          example: "complete"
+        final_state_reason:
+          type: string
+          example: "Completed successfully"
+        finished:
+          type: string
+          format: date-time
+          example: "2021-12-31T12:34:56.789012"
+        duration:
+          type: number
+          format: float
+          example: 4.321
+        time_in_queue:
+          type: number
+          format: float
+          example: 0.234
+    RequestMetricsSummary:
+      type: object
+      properties:
+        duration_avg:
+          type: number
+          format: float
+          example: 2.345
+        duration_50:
+          type: number
+          format: float
+          example: 2.109
+        duration_95:
+          type: number
+          format: float
+          example: 4.321
+        time_in_queue_avg:
+          type: number
+          format: float
+          example: 0.321
+        time_in_queue_95:
+          type: number
+          format: float
+          example: 0.987
+        total:
+          type: integer
     RequestNew:
       type: object
       properties:

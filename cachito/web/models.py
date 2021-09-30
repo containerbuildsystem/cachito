@@ -11,6 +11,7 @@ from typing import Any, Dict, List
 import flask
 import sqlalchemy.sql
 from flask_login import UserMixin, current_user
+from sqlalchemy import TIMESTAMP, func
 from werkzeug.exceptions import Forbidden
 
 from cachito.common.packages_data import PackagesData
@@ -655,6 +656,44 @@ class RequestState(db.Model):
     def __repr__(self):
         return '<RequestState id={} state="{}" request_id={}>'.format(
             self.id, self.state_name, self.request_id
+        )
+
+    @classmethod
+    def get_final_states_query(cls):
+        """Return query that filters complete/failed states and includes a 'duration' column."""
+        in_progress = (
+            db.session.query(
+                cls.request_id,
+                cls.updated,
+                func.lag(cls.updated, 1)
+                .over(partition_by=cls.request_id, order_by=cls.updated)
+                .label("created"),
+                func.row_number()
+                .over(partition_by=cls.request_id, order_by=cls.updated)
+                .label("num"),
+            ).filter(cls.state == RequestStateMapping.in_progress.value)
+        ).subquery()
+        return (
+            db.session.query(
+                cls.request_id,
+                cls.state,
+                cls.state_reason,
+                cls.updated,
+                func.extract(
+                    "epoch", cls.updated.cast(TIMESTAMP) - in_progress.c.created.cast(TIMESTAMP),
+                ).label("duration"),
+                func.extract(
+                    "epoch",
+                    in_progress.c.updated.cast(TIMESTAMP) - in_progress.c.created.cast(TIMESTAMP),
+                ).label("time_in_queue"),
+            )
+            .join(in_progress, in_progress.c.request_id == cls.request_id)
+            .filter(
+                cls.state.in_(
+                    [RequestStateMapping.complete.value, RequestStateMapping.failed.value]
+                )
+            )
+            .filter(in_progress.c.num == 2)
         )
 
 
