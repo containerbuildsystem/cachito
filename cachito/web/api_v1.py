@@ -5,7 +5,7 @@ import os
 import tempfile
 from collections import OrderedDict
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any, Dict, Union
 
 import flask
@@ -735,3 +735,102 @@ def get_content_manifest_by_requests():
     if len(requests) > 1:
         deep_sort_icm(assembled_icm)
     return send_content_manifest_back(assembled_icm)
+
+
+class RequestMetricsArgs(pydantic.BaseModel):
+    """Query parameters for /request-metrics endpoint."""
+
+    finished_from: Union[datetime, date, None]
+    finished_to: Union[datetime, date, None]
+
+
+@api_v1.route("/request-metrics", methods=["GET"])
+def get_request_metrics():
+    """Return a list of completed requests with a final state information."""
+    max_per_page = flask.current_app.config["CACHITO_MAX_PER_PAGE"]
+    args = RequestMetricsArgs(**flask.request.args)
+    query = RequestState.get_final_states_query().order_by(RequestState.request_id.desc())
+    finished_to = args.finished_to
+    if type(finished_to) is date:
+        finished_to = datetime.combine(finished_to, time.max)
+    if args.finished_from:
+        query = query.filter(RequestState.updated >= args.finished_from)
+    if finished_to:
+        query = query.filter(RequestState.updated <= finished_to)
+
+    pagination_query = query.paginate(max_per_page=max_per_page)
+    return flask.jsonify(
+        {
+            "items": [
+                {
+                    "id": state.request_id,
+                    "final_state": RequestStateMapping(state.state).name,
+                    "final_state_reason": state.state_reason,
+                    "finished": state.updated.isoformat(),
+                    "duration": state.duration,
+                    "time_in_queue": state.time_in_queue,
+                }
+                for state in pagination_query.items
+            ],
+            "meta": pagination_metadata(pagination_query),
+        }
+    )
+
+
+class RequestMetricsSummaryArgs(pydantic.BaseModel):
+    """Query parameters for /request-metrics/summary endpoint."""
+
+    finished_from: Union[datetime, date]
+    finished_to: Union[datetime, date]
+
+
+@api_v1.route("/request-metrics/summary", methods=["GET"])
+def get_request_metrics_summary():
+    """Return a summary about completed requests for a given period of time."""
+    args = RequestMetricsSummaryArgs(**flask.request.args)
+    finished_to = args.finished_to
+    if isinstance(finished_to, date):
+        finished_to = datetime.combine(finished_to, time.max)
+    requests = (
+        RequestState.get_final_states_query()
+        .filter(RequestState.updated >= args.finished_from)
+        .filter(RequestState.updated <= finished_to)
+    ).subquery()
+
+    states_summary = dict.fromkeys(["complete", "failed"], 0)
+    states_summary.update(
+        {
+            RequestStateMapping(state.state).name: state.requests
+            for state in db.session.query(
+                requests.c.state, func.count(requests.c.request_id).label("requests")
+            ).group_by(requests.c.state)
+        }
+    )
+
+    (
+        duration_avg,
+        duration_50,
+        duration_95,
+        time_in_queue_avg,
+        time_in_queue_95,
+        total_requests,
+    ) = db.session.query(
+        func.avg(requests.c.duration),
+        func.percentile_cont(0.5).within_group(requests.c.duration),
+        func.percentile_cont(0.95).within_group(requests.c.duration),
+        func.avg(requests.c.time_in_queue),
+        func.percentile_cont(0.95).within_group(requests.c.time_in_queue),
+        func.count(requests.c.request_id),
+    ).one()
+
+    return flask.jsonify(
+        {
+            "duration_avg": duration_avg,
+            "duration_50": duration_50,
+            "duration_95": duration_95,
+            "time_in_queue_avg": time_in_queue_avg,
+            "time_in_queue_95": time_in_queue_95,
+            "total": total_requests,
+            **states_summary,
+        }
+    )

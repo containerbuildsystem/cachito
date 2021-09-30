@@ -3,11 +3,12 @@ import copy
 import json
 import re
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Dict, List, Union
 from unittest import mock
+from urllib.parse import urlencode
 
 import flask
 import kombu.exceptions
@@ -2419,3 +2420,80 @@ def test_fetch_missing_packages_file(app, db, client, auth_env, state, expected_
     rv = client.get(f"/api/v1/requests/{request.id}/packages")
 
     assert rv.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+    "finished_list,finished_filter,expected_num,response_status",
+    [
+        (["2021-01-15", "2021-01-16", "2021-01-17"], {"finished_from": "2021-01-16"}, 2, 200),
+        (["2021-01-15", "2021-01-16", "2021-01-17"], {"finished_to": "2021-01-15"}, 1, 200),
+        (["2021-01-15", "2021-01-16", "2021-01-17"], {"finished_to": "2021-01-15T00:00"}, 1, 200),
+        (
+            ["2021-01-15", "2021-01-16", "2021-01-17"],
+            {"finished_from": "2021-01-16T00:01", "finished_to": "2021-01-16T23:59"},
+            0,
+            200,
+        ),
+        (
+            ["2021-01-16T12:05", "2021-01-16T13:05"],
+            {"finished_from": "2021-01-16T12:00", "finished_to": "2021-01-16T13:00"},
+            1,
+            200,
+        ),
+        (
+            ["2021-01-15", "2021-01-16", "2021-01-17"],
+            {"finished_from": "2021-01-15", "finished_to": "2021-01-17T00:00"},
+            3,
+            200,
+        ),
+        (
+            ["2021-01-16T00:00", "2021-01-16T12:00", "2021-01-16T23:59"],
+            {"finished_from": "2021-01-16", "finished_to": "2021-01-16"},
+            3,
+            200,
+        ),
+        ([], {"finished_from": "wrong format"}, None, 400),
+        ([], {"finished_from": ""}, None, 400),
+    ],
+)
+def test_get_request_metrics(
+    app, db, client, auth_env, finished_list, finished_filter, expected_num, response_status
+):
+    data = {
+        "repo": "https://localhost.git/dummy.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "pkg_managers": ["npm"],
+    }
+    final_state_reason = "Complete"
+    for finished_iso in finished_list:
+        finished = datetime.fromisoformat(finished_iso)
+        with app.test_request_context(environ_base=auth_env):
+            request = Request.from_json(data)
+        request.add_state(RequestStateMapping.in_progress.name, "Init")
+        request.add_state(RequestStateMapping.in_progress.name, "Start something")
+        request.add_state(RequestStateMapping.complete.name, final_state_reason),
+
+        db.session.add(request)
+        db.session.commit()
+
+        for i, state in enumerate(reversed(request.states)):
+            state.updated = finished - timedelta(minutes=i)
+            db.session.add(state)
+        db.session.commit()
+
+    rv = client.get(f"/api/v1/request-metrics?{urlencode(finished_filter)}")
+    assert rv.status_code == response_status
+    if response_status == 200:
+        assert len(rv.json["items"]) == expected_num
+        assert rv.json["meta"]["total"] == expected_num
+        for request_data in rv.json["items"]:
+            assert not {
+                "id",
+                "final_state",
+                "final_state_reason",
+                "finished",
+                "duration",
+                "time_in_queue",
+            }.difference(request_data)
+            assert request_data["final_state"] == RequestStateMapping.complete.name
+            assert request_data["final_state_reason"] == final_state_reason
