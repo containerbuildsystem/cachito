@@ -146,6 +146,26 @@ paths:
             type: string
             example: gomod
             default: null
+        - name: created_from
+          in: query
+          description: >
+            Filter requests by the given date or datetime (inclusive).
+            This argument filters all requests created after the
+            specified date or datetime.
+          schema:
+            type: string
+            example: "2019-09-17T18:52:57.577851"
+            default: null
+        - name: created_to
+          in: query
+          description: >
+            Filter requests by the given date or datetime (inclusive).
+            This argument filters all requests created before the
+            specified date or datetime.
+          schema:
+            type: string
+            example: "2019-09-17T18:52:57.577851"
+            default: null
       responses:
         "200":
           description: A list of requests
@@ -749,6 +769,9 @@ components:
         user:
           type: string
           example: tbrady@DOMAIN.LOCAL
+        created:
+          type: string
+          example: "2019-09-17T18:52:57.577851"
     Request:
       allOf:
       - type: object
@@ -825,6 +848,9 @@ components:
             The user this request is created on behalf of. This is reserved for privileged users
             that can act as a representative.
           example: tbrady@DOMAIN.LOCAL
+        created:
+          type: string
+          example: "2019-09-17T18:52:57.577851"
       required:
       - ref
       - repo
