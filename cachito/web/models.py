@@ -286,6 +286,7 @@ class Request(db.Model):
     """A Cachito user request."""
 
     id = db.Column(db.Integer, primary_key=True)
+    created = db.Column(db.DateTime(), nullable=False, index=True, default=sqlalchemy.func.now())
     repo = db.Column(db.String, nullable=False, index=True)
     ref = db.Column(db.String, nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -376,6 +377,7 @@ class Request(db.Model):
             env_vars_json[env_var.name] = env_var.value
         rv = {
             "id": self.id,
+            "created": self.created.isoformat(),
             "repo": self.repo,
             "ref": self.ref,
             "pkg_managers": pkg_managers,
@@ -450,7 +452,14 @@ class Request(db.Model):
         """
         # Validate all required parameters are present
         required_params = {"repo", "ref"}
-        optional_params = {"dependency_replacements", "flags", "packages", "pkg_managers", "user"}
+        optional_params = {
+            "created",
+            "dependency_replacements",
+            "flags",
+            "packages",
+            "pkg_managers",
+            "user",
+        }
 
         missing_params = required_params - set(kwargs.keys()) - optional_params
         if missing_params:
