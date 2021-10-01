@@ -2,6 +2,8 @@
 import copy
 import json
 import re
+import urllib.parse
+from datetime import datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Dict, List, Union
@@ -503,6 +505,77 @@ def test_create_request_filter_state(app, auth_env, client, db):
         fetched_requests = rv.json["items"]
         assert len(fetched_requests) == 1
         assert fetched_requests[0]["state"] == state
+
+
+@pytest.mark.parametrize(
+    "created_list, filter, expected_num",
+    [
+        (
+            ["2021-01-01", "2021-02-02"],
+            {"created_from": "2021-01-15", "created_to": "2021-01-31"},
+            0,
+        ),
+        (
+            ["2021-01-01T17:01:09.452358", "2021-02-02T17:01:09.452358"],
+            {
+                "created_from": "2021-01-15T17:01:09.452358",
+                "created_to": "2021-01-31T17:01:09.452358",
+            },
+            0,
+        ),
+        (
+            ["2021-01-01", "2021-02-02"],
+            {"created_from": "2021-01-01", "created_to": "2021-01-01"},
+            1,
+        ),
+        (
+            ["2021-01-01T17:01:09.452358", "2021-02-02T17:01:09.452358"],
+            {
+                "created_from": "2021-01-01T17:01:09.452358",
+                "created_to": "2021-01-01T17:01:09.452358",
+            },
+            1,
+        ),
+        (
+            ["2021-01-01", "2021-02-02"],
+            {"created_from": "2021-01-01", "created_to": "2021-02-02"},
+            2,
+        ),
+        (
+            ["2021-01-01T17:01:09.452358", "2021-02-02T17:01:09.452358"],
+            {
+                "created_from": "2021-01-01T17:01:09.452358",
+                "created_to": "2021-02-02T17:01:09.452358",
+            },
+            2,
+        ),
+    ],
+)
+def test_requests_created_filter(app, auth_env, client, db, created_list, filter, expected_num):
+    # flask_login.current_user is used in Request.from_json, which requires a request context
+    with app.test_request_context(environ_base=auth_env):
+        # Make a request with earliest creation datetime
+        data = {
+            "created": datetime.fromisoformat(created_list[0]),
+            "repo": "https://github.com/release-engineering/retrodep.git",
+            "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            "pkg_managers": ["gomod"],
+        }
+        request = Request.from_json(data)
+        db.session.add(request)
+        data = {
+            "created": datetime.fromisoformat(created_list[1]),
+            "repo": "https://github.com/release-engineering/retrodep.git",
+            "ref": "12a0692be09fc18ce82a71904562d8408fe2296a",
+            "pkg_managers": ["gomod"],
+        }
+        request = Request.from_json(data)
+        db.session.add(request)
+    db.session.commit()
+    rv = client.get(f"/api/v1/requests?{urllib.parse.urlencode(filter)}")
+    assert rv.status_code == 200
+    fetched_requests = rv.json["items"]
+    assert len(fetched_requests) == expected_num
 
 
 def test_fetch_request_config(app, client, db, worker_auth_env):

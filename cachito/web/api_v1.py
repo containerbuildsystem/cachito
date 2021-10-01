@@ -5,10 +5,12 @@ import os
 import tempfile
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict
+from datetime import date, datetime
+from typing import Any, Dict, Union
 
 import flask
 import kombu.exceptions
+import pydantic
 from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
@@ -37,6 +39,13 @@ from cachito.web.utils import deep_sort_icm, pagination_metadata, str_to_bool
 from cachito.workers import tasks
 
 api_v1 = flask.Blueprint("api_v1", __name__)
+
+
+class RequestsArgs(pydantic.BaseModel):
+    """Query parameters for /request endpoint."""
+
+    created_from: Union[datetime, date, None]
+    created_to: Union[datetime, date, None]
 
 
 @api_v1.route("/status", methods=["GET"])
@@ -72,6 +81,16 @@ def get_requests():
     # The call to `paginate` will inspect the current HTTP request for the
     # pagination parameters `page` and `per_page`.
     query = Request.query.order_by(Request.id.desc())
+    args = RequestsArgs(**flask.request.args)
+    if args.created_from:
+        query = query.filter(Request.created >= args.created_from)
+    if args.created_to:
+        if isinstance(args.created_to, date):
+            query = query.filter(
+                Request.created <= datetime.combine(args.created_to, datetime.max.time())
+            )
+        else:
+            query = query.filter(Request.created <= args.created_to)
     if state:
         if state not in RequestStateMapping.get_state_names():
             states = ", ".join(RequestStateMapping.get_state_names())
