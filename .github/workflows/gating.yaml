@@ -101,6 +101,17 @@ jobs:
         ignore: DL3041
         failure-threshold: warning
 
+  test_swagger_editor_validator_remote:
+    runs-on: ubuntu-latest
+    name: Swagger Editor Validator Remote
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Validate OpenAPI definition
+        uses: char0n/swagger-editor-validate@v1.2.1
+        with:
+          definition-file: cachito/web/static/api_v1.yaml
+
   integration_tests:
     name: Integration tests
     runs-on: ubuntu-latest
