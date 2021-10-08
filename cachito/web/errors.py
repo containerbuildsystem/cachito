@@ -44,3 +44,25 @@ def json_error(error):
         response = jsonify({"error": msg})
         response.status_code = status_code
     return response
+
+
+def validation_error(error):
+    """
+    Handle pydandic ValidationError.
+
+    Prepare JSON response in the following format:
+    {
+      "errors": {
+        "field1": "error message",
+        ...
+      }
+    }
+
+    :param Exception error: validation error
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    """
+    errors = {".".join(error["loc"]): error["msg"] for error in error.errors()}
+    response = jsonify({"errors": errors})
+    response.status_code = 400
+    return response
