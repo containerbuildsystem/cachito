@@ -3,5 +3,6 @@ flask-login
 Flask-Migrate
 Flask-SQLAlchemy
 psycopg2-binary
+pydantic
 SQLAlchemy<1.5
 prometheus-flask-exporter

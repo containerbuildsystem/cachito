@@ -3,6 +3,7 @@ import logging
 import os
 from timeit import default_timer as timer
 
+import pydantic
 from flask import Flask, current_app
 from flask.logging import default_handler
 from flask_login import LoginManager
@@ -16,7 +17,7 @@ from cachito.web.api_v1 import api_v1
 from cachito.web.auth import load_user_from_request, user_loader
 from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
-from cachito.web.errors import json_error
+from cachito.web.errors import json_error, validation_error
 from cachito.web.metrics import init_metrics
 
 
@@ -110,6 +111,7 @@ def create_app(config_obj=None):
     app.register_error_handler(CachitoError, json_error)
     app.register_error_handler(ValidationError, json_error)
     app.register_error_handler(ContentManifestError, json_error)
+    app.register_error_handler(pydantic.ValidationError, validation_error)
 
     init_metrics(app)
 
