@@ -190,7 +190,7 @@ paths:
             schema:
               $ref: '#/components/schemas/RequestNew'
       security:
-      - "Kerberos Authentication": []
+      - negotiateAuth: []
       responses:
         "201":
           description: The request was initiated
@@ -295,7 +295,7 @@ paths:
             schema:
               $ref: '#/components/schemas/RequestUpdate'
       security:
-      - "Kerberos Authentication": []
+      - negotiateAuth: []
   "/requests/{id}/configuration-files":
     get:
       description: Return the configuration files of a request
@@ -377,7 +377,7 @@ paths:
               items:
                 $ref: "#/components/schemas/RequestConfiguration"
       security:
-      - "Kerberos Authentication": []
+      - negotiateAuth: []
   "/requests/{id}/content-manifest":
     get:
       description: Return the content manifest of a request
@@ -518,22 +518,24 @@ paths:
                 Done processing Cachito request 1
         '404':
           description: Either logs for Cachito requests are not enabled in Cachito, Cachito can't find the request, or the log file is missing
-          application/json:
-            schema:
-              type: object
-              properties:
-                error:
-                  type: string
-                  example: The requested resource was not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
         '410':
           description: The logs for the Cachito request have been removed due to the request being in the stale state
-          application/json:
-            schema:
-              type: object
-              properties:
-                error:
-                  type: string
-                  example: The logs for the Cachito request 1 no longer exist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The logs for the Cachito request 1 no longer exist
   "/requests/{id}/packages":
     get:
       description: Return the packages and dependencies for a request
@@ -670,15 +672,14 @@ components:
         value:
           type: string
           description: The value of the environment variable
+          example: "deps/gomod"
         kind:
           type: string
           description: The kind of the environment variable, e.g. "path" or "literal"
+          example: "path"
       required:
       - kind
       - value
-    example:
-      value: deps/gomod
-      kind: path
     Pagination:
       type: object
       properties:
@@ -763,8 +764,8 @@ components:
       type: object
       properties:
         content:
-          type: any
-          description: This varies based on the type
+          type: string
+          description: Configuration file as base64 encoded string
           example: IlNodXQgdXAgYnJhaW4gb3IgSSdsbCBzdGFiIHlvdSB3aXRoIGEgUS1UaXAiIC0gSG9tZXIgSi4gU2ltcHNvbg==
         path:
           type: string
@@ -772,7 +773,7 @@ components:
           example: app/.npmrc
         type:
           type: string
-          description: The type of the configuration file content
+          description: The type of the configuration file content (currently only "base64" is supported)
           example: base64
       required:
       - content
@@ -943,6 +944,6 @@ components:
                     purl:
                       $ref: "#/components/schemas/Purl"
   securitySchemes:
-    "Kerberos Authentication":
+    negotiateAuth:  # Kerberos
       type: http
-      scheme: negotiate
+      scheme: Negotiate
