@@ -26,6 +26,11 @@ def test_env():
 
 
 @pytest.fixture(scope="session")
+def api_client(test_env):
+    return utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+
+
+@pytest.fixture(scope="session")
 def default_requests(test_env):
     """
     Create a new request for every package manager in Cachito.
