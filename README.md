@@ -392,13 +392,23 @@ Follow the steps below for database data and/or schema migrations:
 * Make any adjustments to the migration script as necessary
 * To test the migration script,
   * Populate the database with some dummy data as per the requirement
-  * Run `cachito db upgrade`
+  * Run `cachito db upgrade` (see upgrade optional data below)
   * Also test the downgrade by running `cachito db downgrade <previous revision>`
     (where previous revision is the revision ID of the previous migration script)
 * Remove the configuration of `SQLALCHEMY_DATABASE_URI` that you set earlier
 * Remove `cachito-migration.db`
 * Commit your changes
 * Check "615c19a1cee1_add_npm.py" as an example that does a schema change and a data migration
+
+### Database migration optional data
+
+There are arguments to add migration optional data while upgrading Cachito Database:
+
+* `delete_data=True` - an argument to delete unused tables from the database
+  (usage: `cachito db upgrade -x delete_data=True`).
+
+Run `cachito db upgrade --help` to get more info about additional arguments consumed by custom env.py scripts.
+
 
 ## API Documentation
 
