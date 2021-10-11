@@ -31,6 +31,7 @@ class Client:
         self._cachito_api_url = cachito_api_url
         self._cachito_api_auth_type = cachito_api_auth_type
         self._timeout = timeout
+        self.requests_session = get_requests_session()
 
     def fetch_request(self, request_id):
         """
@@ -41,8 +42,7 @@ class Client:
         :rtype: Response
         :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
         """
-        requests_session = get_requests_session()
-        resp = requests_session.get(f"{self._cachito_api_url}/requests/{request_id}")
+        resp = self.requests_session.get(f"{self._cachito_api_url}/requests/{request_id}")
         resp.raise_for_status()
         return Response(resp.json(), resp.json()["id"], resp.status_code)
 
@@ -55,8 +55,7 @@ class Client:
         :rtype: Response
         :raises requests.exceptions.HTTPError: if the request to the Cachito API fails
         """
-        requests_session = get_requests_session()
-        resp = requests_session.post(
+        resp = self.requests_session.post(
             f"{self._cachito_api_url}/requests",
             headers={"Content-Type": "application/json"},
             json=payload,
@@ -78,7 +77,7 @@ class Client:
         download_archive(download_url, file_name_tar)
         shutil.unpack_archive(file_name_tar, source_name)
 
-    def wait_for_complete_request(self, response):
+    def wait_for_complete_request(self, response: Response):
         """
         Wait for a request to complete fetching the application source and dependencies.
 
@@ -113,9 +112,8 @@ class Client:
             query_params = {}
         request_url = f"{self._cachito_api_url}/requests"
         all_items = []
-        requests_session = get_requests_session()
         while request_url:
-            resp = requests_session.get(request_url, params=query_params, timeout=15)
+            resp = self.requests_session.get(request_url, params=query_params, timeout=15)
             resp.raise_for_status()
             all_items += resp.json()["items"]
             if not all_pages:
@@ -132,12 +130,23 @@ class Client:
         :return: An object that contains the response from the Cachito API
         :rtype: Response
         """
-        requests_session = get_requests_session()
-        resp = requests_session.get(
+        resp = self.requests_session.get(
             f"{self._cachito_api_url}/requests/{request_id}/content-manifest"
         )
         resp.raise_for_status()
         return Response(resp.json(), request_id, resp.status_code)
+
+    def fetch_request_metrics(self, **params) -> requests.Response:
+        resp = self.requests_session.get(f"{self._cachito_api_url}/request-metrics", params=params)
+        resp.raise_for_status()
+        return resp
+
+    def fetch_request_metrics_summary(self, **params) -> requests.Response:
+        resp = self.requests_session.get(
+            f"{self._cachito_api_url}/request-metrics/summary", params=params,
+        )
+        resp.raise_for_status()
+        return resp
 
     def _get_authentication_params(self):
         """
