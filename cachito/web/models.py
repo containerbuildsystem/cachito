@@ -286,7 +286,7 @@ class Request(db.Model):
     """A Cachito user request."""
 
     id = db.Column(db.Integer, primary_key=True)
-    created = db.Column(db.DateTime(), nullable=False, index=True, default=sqlalchemy.func.now())
+    created = db.Column(db.DateTime(), nullable=True, index=True, default=sqlalchemy.func.now())
     repo = db.Column(db.String, nullable=False, index=True)
     ref = db.Column(db.String, nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
