@@ -61,6 +61,7 @@ def get_status_short():
         status(short=True)
         retval = {"ok": True}
     except CachitoError as e:
+        flask.current_app.logger.error(e)
         retval = {"ok": False, "reason": str(e)}
 
     return flask.jsonify(retval), 200 if retval["ok"] else 503
