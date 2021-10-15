@@ -34,4 +34,4 @@ ENV GIT_COMMITTER_NAME=cachito \
     GIT_AUTHOR_EMAIL=cachito@localhost
 
 EXPOSE 8080
-CMD ["celery", "-A", "cachito.workers.tasks", "worker", "--without-heartbeat", "--loglevel=info"]
+CMD ["celery", "-A", "cachito.workers.tasks", "worker", "--loglevel=info"]
