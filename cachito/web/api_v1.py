@@ -85,12 +85,12 @@ def get_requests():
     if args.created_from:
         query = query.filter(Request.created >= args.created_from)
     if args.created_to:
-        if isinstance(args.created_to, date):
+        if isinstance(args.created_to, datetime):
+            query = query.filter(Request.created <= args.created_to)
+        else:
             query = query.filter(
                 Request.created <= datetime.combine(args.created_to, datetime.max.time())
             )
-        else:
-            query = query.filter(Request.created <= args.created_to)
     if state:
         if state not in RequestStateMapping.get_state_names():
             states = ", ".join(RequestStateMapping.get_state_names())
