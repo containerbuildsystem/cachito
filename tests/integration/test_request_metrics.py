@@ -56,3 +56,11 @@ def test_get_request_metrics_summary(api_client):
     assert summary["duration_avg"] > 0
     assert summary["time_in_queue_avg"] > 0
     assert summary["time_in_queue_95"] > 0
+
+    # Check empty datetime range
+    resp = api_client.fetch_request_metrics_summary(
+        finished_from=finished_from, finished_to=finished_from,
+    )
+    assert resp.status_code == 200
+    summary = resp.json()
+    assert summary["total"] == 0
