@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from datetime import date, datetime, time
 from operator import itemgetter
+from typing import Union
 
 from flask import request, url_for
 
@@ -98,3 +100,17 @@ def str_to_bool(item):
         return item.lower() in ("true", "1")
     else:
         return False
+
+
+def normalize_end_date(value: Union[datetime, date, None]):
+    """
+    Convert date value to the end of the day datetime.
+
+    The function doesn't touch values of any other input types.
+    Example:
+        Input value: date(2021, 10, 21)
+        Output value: datetime(2021, 10, 21, 23, 59, 59, 999999)
+    """
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return datetime.combine(value, time.max)
+    return value
