@@ -2456,34 +2456,51 @@ def test_fetch_missing_packages_file(app, db, client, auth_env, state, expected_
         ([], {"finished_from": ""}, None, 400),
     ],
 )
+@pytest.mark.parametrize(
+    "state_names,final_state",
+    [
+        (["in_progress", "in_progress", "complete", "stale"], "complete"),
+        (["in_progress", "failed", "stale"], "failed"),
+        (["in_progress"], None),
+    ],
+)
 def test_get_request_metrics(
-    app, db, client, auth_env, finished_list, finished_filter, expected_num, response_status
+    app,
+    db,
+    client,
+    auth_env,
+    finished_list,
+    finished_filter,
+    expected_num,
+    response_status,
+    state_names,
+    final_state,
 ):
     data = {
         "repo": "https://localhost.git/dummy.git",
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "pkg_managers": ["npm"],
     }
-    final_state_reason = "Complete"
     for finished_iso in finished_list:
         finished = datetime.fromisoformat(finished_iso)
         with app.test_request_context(environ_base=auth_env):
             request = Request.from_json(data)
-        request.add_state(RequestStateMapping.in_progress.name, "Init")
-        request.add_state(RequestStateMapping.in_progress.name, "Start something")
-        request.add_state(RequestStateMapping.complete.name, final_state_reason),
-
+        for state_name in state_names[1:]:
+            request.add_state(state_name, f"State: {state_name}")
         db.session.add(request)
         db.session.commit()
 
-        for i, state in enumerate(reversed(request.states)):
-            state.updated = finished - timedelta(minutes=i)
+        for i, state in enumerate(request.states):
+            minutes = i - state_names.index(final_state) if final_state else i
+            state.updated = finished + timedelta(minutes=minutes)
             db.session.add(state)
         db.session.commit()
 
     rv = client.get(f"/api/v1/request-metrics?{urlencode(finished_filter)}")
     assert rv.status_code == response_status
     if response_status == 200:
+        if not final_state:
+            expected_num = 0
         assert len(rv.json["items"]) == expected_num
         assert rv.json["meta"]["total"] == expected_num
         for request_data in rv.json["items"]:
@@ -2495,5 +2512,5 @@ def test_get_request_metrics(
                 "duration",
                 "time_in_queue",
             }.difference(request_data)
-            assert request_data["final_state"] == RequestStateMapping.complete.name
-            assert request_data["final_state_reason"] == final_state_reason
+            assert request_data["final_state"] == final_state
+            assert request_data["final_state_reason"] == f"State: {final_state}"
