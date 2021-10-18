@@ -661,17 +661,15 @@ class RequestState(db.Model):
     @classmethod
     def get_final_states_query(cls):
         """Return query that filters complete/failed states and includes a 'duration' column."""
-        in_progress = (
-            db.session.query(
-                cls.request_id,
-                cls.updated,
-                func.lag(cls.updated, 1)
-                .over(partition_by=cls.request_id, order_by=cls.updated)
-                .label("created"),
-                func.row_number()
-                .over(partition_by=cls.request_id, order_by=cls.updated)
-                .label("num"),
-            ).filter(cls.state == RequestStateMapping.in_progress.value)
+        # We enumerate states for each request and get 'updated' field of the following state.
+        # It allows to find out time between two states.
+        states = db.session.query(
+            cls.request_id,
+            cls.updated,
+            func.lead(cls.updated, 1)
+            .over(partition_by=cls.request_id, order_by=cls.updated)
+            .label("next_updated"),
+            func.row_number().over(partition_by=cls.request_id, order_by=cls.updated).label("num"),
         ).subquery()
         return (
             db.session.query(
@@ -680,20 +678,21 @@ class RequestState(db.Model):
                 cls.state_reason,
                 cls.updated,
                 func.extract(
-                    "epoch", cls.updated.cast(TIMESTAMP) - in_progress.c.created.cast(TIMESTAMP),
+                    "epoch", cls.updated.cast(TIMESTAMP) - states.c.updated.cast(TIMESTAMP),
                 ).label("duration"),
                 func.extract(
                     "epoch",
-                    in_progress.c.updated.cast(TIMESTAMP) - in_progress.c.created.cast(TIMESTAMP),
+                    states.c.next_updated.cast(TIMESTAMP) - states.c.updated.cast(TIMESTAMP),
                 ).label("time_in_queue"),
             )
-            .join(in_progress, in_progress.c.request_id == cls.request_id)
+            .join(states, states.c.request_id == cls.request_id)
             .filter(
                 cls.state.in_(
                     [RequestStateMapping.complete.value, RequestStateMapping.failed.value]
                 )
             )
-            .filter(in_progress.c.num == 2)
+            # We need only 'init' state information here to join it with the final state.
+            .filter(states.c.num == 1)
         )
 
 
