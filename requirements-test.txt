@@ -303,9 +303,9 @@ jinja2==3.0.1 \
     # via
     #   -r requirements-web.txt
     #   flask
-jsonschema==4.1.0 \
-    --hash=sha256:2b3cca28580511d44326f0e7fc582eab3cbe31aabd1a1c2cfa74a399796ffd84 \
-    --hash=sha256:9dd7c33b4a96138dc37bb86b3610d3b12d30d96433d4d73435ca3025804154a8
+jsonschema==4.1.2 \
+    --hash=sha256:166870c8ab27bd712a8627e0598de4685bd8d199c4d7bd7cacc3d941ba0c6ca0 \
+    --hash=sha256:5c1a282ee6b74235057421fd0f766ac5f2972f77440927f6471c9e8493632fac
     # via -r requirements-test.in
 kombu==5.0.2 \
     --hash=sha256:6dc509178ac4269b0e66ab4881f70a2035c33d3a622e20585f965986a5182006 \
@@ -629,8 +629,10 @@ typing-extensions==3.10.0.2 \
     --hash=sha256:d8226d10bc02a29bcc81df19a26e56a9647f8b0a6d4a83924139f4a8b01f17b7 \
     --hash=sha256:f1d25edafde516b146ecd0613dabcc61409817af4766fbbcfb8d1ad4ec441a34
     # via
+    #   -r requirements-web.txt
     #   -r requirements.txt
     #   gitpython
+    #   pydantic
 urllib3==1.26.5 \
     --hash=sha256:753a0374df26658f99d826cfe40394a686d05985786d946fbe4165b5148f5a7c \
     --hash=sha256:a7acd0977125325f516bda9735fa7142b909a8d01e8b2e4c8108d0984e6e0098
