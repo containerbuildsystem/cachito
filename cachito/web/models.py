@@ -378,7 +378,7 @@ class Request(db.Model):
             env_vars_json[env_var.name] = env_var.value
         rv = {
             "id": self.id,
-            "created": self.created.isoformat(),
+            "created": None if self.created is None else self.created.isoformat(),
             "repo": self.repo,
             "ref": self.ref,
             "pkg_managers": pkg_managers,
