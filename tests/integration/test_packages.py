@@ -11,6 +11,10 @@ from . import utils
         ("pip_packages", "without_deps"),
         ("pip_packages", "with_deps"),
         ("pip_packages", "multiple"),
+        ("go_generate_packages", "go_generate"),
+        ("go_generate_packages", "go_generate_generated"),
+        ("go_generate_packages", "go_generate_imported"),
+        ("go_generate_packages", "go_generate_imported_generated"),
         ("gomod_packages", "without_deps"),
         pytest.param(
             "gomod_packages",
