@@ -521,7 +521,10 @@ Custom configuration for the Celery workers are listed below:
   by local paths, e.g. `replace github.com/org/some-module => ./staging/src/some-module`. This is a
   dictionary where keys are module names and values are lists of packages that the corresponding module
   is allowed to replace. The packages may contain wildcards supported by Python's `fnmatch`, e.g.
-  `github.com/org/*` (this will allow all packages starting with `github.com/org/`).
+  `github.com/org/*` (this will allow all packages starting with `github.com/org/`). A submodule allowed
+  to be replaced by a local module by default (e.g. `<this-module>/submodule => ./local-module`),where a
+  submodule is an internal module (placed in non-root directory) in a multi-module hierarchy (read more about
+  [multi-module repositories](https://github.com/golang/go/wiki/Modules#faqs--multi-module-repositories)).
 * `cachito_request_file_logs_dir` - the directory to write the request specific log files. If `None`, per
   request log files are not created. This defaults to `None`.
 * `cachito_request_file_logs_format` - the format for the log messages of the request specific log files.
@@ -761,7 +764,8 @@ packages use `go-package`. Packages can be matched to their parent modules based
 names always start with the module name. In the `dependencies` section of a Go package, Cachito
 will list only the packages that were imported by that package (a.k.a. package level deps). In the
 `dependencies` section of a Go module, Cachito will list all the modules specified as dependencies
-in `go.mod`.
+in `go.mod`. Submodules allowed to be replaced by a local module by default, no entry required
+in the `cachito_gomod_file_deps_allowlist` config variable.
 
 In the Content Manifests shipped at the `/api/v1/requests/<id>/content-manifest` API endpoint, all
 top-level purls and the purls of all `dependencies` refer to Go packages. The purls for the parent
