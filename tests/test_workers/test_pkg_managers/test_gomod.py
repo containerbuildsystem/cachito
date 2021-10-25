@@ -14,7 +14,7 @@ from cachito.errors import CachitoError, ValidationError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
 from cachito.workers.pkg_managers.gomod import (
-    _fail_unless_allowlisted,
+    _fail_unless_allowed,
     _get_allowed_local_deps,
     _merge_bundle_dirs,
     _merge_files,
@@ -651,7 +651,7 @@ def test_merge_files(file_1_content, file_2_content, result_file_content):
         assert_directories_equal(dir_2, dir_3)
 
 
-@mock.patch("cachito.workers.pkg_managers.gomod._fail_unless_allowlisted")
+@mock.patch("cachito.workers.pkg_managers.gomod._fail_unless_allowed")
 def test_vet_local_deps(mock_fail_allowlist):
     dependencies = [
         {"name": "foo", "version": "./local/foo"},
@@ -707,6 +707,7 @@ def test_vet_local_deps_parent_dir(path):
         ("example/module", "example/package", ["*/package"], None),
         ("example/module", "example/package", ["*/*"], None),
         ("example/module", "example/package", ["*"], None),
+        ("example/module", "example/module/submodule", [], None),
         (
             "example/module",
             "example/package",
@@ -751,12 +752,12 @@ def test_vet_local_deps_parent_dir(path):
         ),
     ],
 )
-def test_fail_unless_allowlisted(module_name, package_name, allowed_patterns, expect_error):
+def test_fail_unless_allowed(module_name, package_name, allowed_patterns, expect_error):
     if expect_error:
         with pytest.raises(CachitoError, match=re.escape(expect_error)):
-            _fail_unless_allowlisted(module_name, package_name, allowed_patterns)
+            _fail_unless_allowed(module_name, package_name, allowed_patterns)
     else:
-        _fail_unless_allowlisted(module_name, package_name, allowed_patterns)
+        _fail_unless_allowed(module_name, package_name, allowed_patterns)
 
 
 @pytest.mark.parametrize(
