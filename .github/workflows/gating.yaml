@@ -36,7 +36,8 @@ jobs:
         COVERALLS_FLAG_NAME: python-${{ matrix.python-version }}
         COVERALLS_PARALLEL: true
       run: |
-        pip3 install --upgrade pip
+        sudo apt install python3-testresources
+        pip3 install --upgrade pip==20.0.2
         pip3 install --upgrade setuptools
         pip3 install --upgrade coveralls
         coveralls --service=github
@@ -48,7 +49,8 @@ jobs:
     steps:
       - name: Finished
         run: |
-          pip3 install --upgrade pip
+          sudo apt install python3-testresources
+          pip3 install --upgrade pip==20.0.2
           pip3 install --upgrade setuptools
           pip3 install --upgrade coveralls
           coveralls --finish --service=github
