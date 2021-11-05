@@ -711,12 +711,12 @@ Offline Installations   | ✓     | x   | x   | x    |
 
 Tool   | Version |
 ---    | ---     |
-Go     | 1.16.5  |
-Npm    | 6.14.13 |
-Node   | 14.17.0 |
-Pip    | 21.0.1  |
-Python | 3.9.6   |
-Git    | 2.31.1  |
+Go     | 1.16.8  |
+Npm    | 8.0.0   |
+Node   | 16.11.0 |
+Pip    | 21.2.3  |
+Python | 3.10.0  |
+Git    | 2.33.1  |
 Yarn*  | 1.x     |
 
 * Cachito does not use the Yarn runtime. The processing of yarn.lock files is handled by

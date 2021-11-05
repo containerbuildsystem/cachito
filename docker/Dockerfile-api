@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:34
+FROM registry.fedoraproject.org/fedora:35
 LABEL maintainer="Red Hat"
 
 WORKDIR /src
@@ -8,6 +8,8 @@ RUN dnf -y install \
     --setopt=tsflags=nodocs \
     httpd \
     gcc \
+    libffi-devel \
+    libpq-devel \
     mod_auth_gssapi \
     mod_ssl \
     mod_wsgi \
@@ -15,6 +17,7 @@ RUN dnf -y install \
     python3-pip \
     python3-setuptools \
     python-devel \
+    redhat-rpm-config \
     && dnf clean all
 COPY . .
 COPY ./docker/cachito-httpd.conf /etc/httpd/conf/httpd.conf

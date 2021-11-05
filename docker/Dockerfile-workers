@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:34
+FROM registry.fedoraproject.org/fedora:35
 LABEL maintainer="Red Hat"
 
 WORKDIR /src
@@ -10,6 +10,7 @@ RUN dnf -y install \
     gcc \
     git-core \
     krb5-devel \
+    libffi-devel \
     mercurial \
     npm \
     procps \
