@@ -38,7 +38,7 @@ jobs:
       run: |
         pip3 install --upgrade pip
         pip3 install --upgrade setuptools
-        pip3 install --upgrade coveralls
+        pip3 install --upgrade coveralls==3.2.0
         coveralls --service=github
 
   coveralls-finish:
