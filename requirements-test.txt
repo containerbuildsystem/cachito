@@ -391,9 +391,9 @@ prometheus-client==0.11.0 \
     # via
     #   -r requirements-web.txt
     #   prometheus-flask-exporter
-prometheus-flask-exporter==0.18.4 \
-    --hash=sha256:66d6eb2124f2d97bc983ae7573322dce9104291a3052b436e6a7fb43a25abdbd \
-    --hash=sha256:dc3587a9890c86b9a9f0a489fa7db5c782f9e7f4616a2dec25d80350131d8c05
+prometheus-flask-exporter==0.18.5 \
+    --hash=sha256:38a3a1fdaf4fc98f988d33f551a8005d778d6b43ca0a2bc4aafb19d0449a48b9 \
+    --hash=sha256:f9a03e88a8415fe96f785c31fc82bbd290a606aaab87bd244414637d55ef0ba4
     # via -r requirements-web.txt
 prompt-toolkit==3.0.16 \
     --hash=sha256:0fa02fa80363844a4ab4b8d6891f62dd0645ba672723130423ca4037b80c1974 \
