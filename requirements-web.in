@@ -2,6 +2,7 @@ Flask
 flask-login
 Flask-Migrate
 Flask-SQLAlchemy
+greenlet>=1.1.0
 psycopg2-binary
 pydantic
 SQLAlchemy<1.5
