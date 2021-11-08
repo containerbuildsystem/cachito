@@ -11,6 +11,7 @@ from . import utils
         ("pip_packages", "without_deps"),
         ("pip_packages", "with_deps"),
         ("pip_packages", "multiple"),
+        ("pip_packages", "git_submodule"),
         ("go_generate_packages", "go_generate"),
         ("go_generate_packages", "go_generate_generated"),
         ("go_generate_packages", "go_generate_imported"),
@@ -31,8 +32,10 @@ from . import utils
         ("gomod_vendor_check", "no_vendor"),
         ("npm_packages", "without_deps"),
         ("npm_packages", "with_deps"),
+        ("npm_packages", "git_submodule"),
         ("yarn_packages", "without_deps"),
         ("yarn_packages", "with_deps"),
+        ("yarn_packages", "git_submodule"),
     ],
 )
 def test_packages(env_package, env_name, test_env, tmpdir):
