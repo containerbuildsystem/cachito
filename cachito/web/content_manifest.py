@@ -255,7 +255,7 @@ class Package:
         self,
         name: str,
         type: str,
-        version: str,
+        version: Optional[str] = None,
         dev: bool = False,
         path: Optional[str] = None,
         dependencies: Optional[List] = None,
@@ -319,7 +319,7 @@ class Package:
         :raise ContentManifestError: if the there is no implementation for the package type
         """
         if self.type in ("go-package", "gomod"):
-            if self.version.startswith("."):
+            if self.version and self.version.startswith("."):
                 # Package is relative to the parent module
                 normpath = os.path.normpath(self.version)
                 return f"{PARENT_PURL_PLACEHOLDER}#{normpath}"
@@ -327,8 +327,10 @@ class Package:
             # Use only the PURL "name" field to avoid ambiguity for Go modules/packages
             # see https://github.com/package-url/purl-spec/issues/63 for further reference
             purl_name = urllib.parse.quote(self.name, safe="")
-            return f"pkg:golang/{purl_name}@{self.version}"
-
+            if self.version:
+                return f"pkg:golang/{purl_name}@{self.version}"
+            else:
+                return f"pkg:golang/{purl_name}"
         elif self.type == "npm" or self.type == "yarn":
             purl_name = urllib.parse.quote(self.name)
             match = re.match(

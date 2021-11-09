@@ -4,14 +4,14 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Set, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 from cachito.errors import CachitoError
 
 log = logging.getLogger(__name__)
 
 
-def _package_sort_key(package: Dict[str, Any]) -> Tuple[str, bool, str, str]:
+def _package_sort_key(package: Dict[str, Any]) -> Tuple[str, bool, str, Optional[str]]:
     """Return the sort key for sorting packages.
 
     :param package: a mapping representing a package information. It must

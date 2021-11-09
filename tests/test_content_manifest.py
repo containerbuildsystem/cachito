@@ -585,6 +585,7 @@ def test_set_go_package_sources_replace_parent_purl(
             True,
             True,
         ],
+        [{"name": "fmt", "type": "go-package", "version": ""}, "pkg:golang/fmt", True, True],
         [
             {"name": "example.com/org/project", "type": "gomod", "version": "./src/project"},
             f"{PARENT_PURL_PLACEHOLDER}#src/project",
