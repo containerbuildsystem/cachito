@@ -309,12 +309,14 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             pkg_level_deps = []
             for dep_name in package_info[pkg_name].get("Deps", []):
                 dep_info = package_info.get(dep_name)
-                if dep_info is None:  # dependency is from the standard library
-                    continue
 
                 processed_pkg_deps.add(dep_name)
-                # If the dependency does not have a version, we'll use the module version
-                version = _get_dep_version(dep_info) or module_version
+                if "Standard" in dep_info:
+                    version = None
+                else:
+                    # If the dependency does not have a version, we'll use the module version
+                    version = _get_dep_version(dep_info) or module_version
+
                 pkg_level_deps.append({"name": dep_name, "type": "go-package", "version": version})
 
             # Top-level packages always use the module version
@@ -472,11 +474,8 @@ def _load_list_deps(list_deps_output: str) -> Dict[str, dict]:
     package_info = {}
 
     for pkg in load_json_stream(list_deps_output):
-        if pkg.get("Standard"):  # standard library, we ignore those
-            continue
-
         info = {}
-        for k in ("Module", "Deps"):
+        for k in ("Module", "Deps", "Standard"):
             v = pkg.get(k)
             if v is not None:
                 info[k] = v
@@ -510,6 +509,9 @@ def _vet_local_deps(dependencies: List[dict], module_name: str, allowed_patterns
     for dep in dependencies:
         name = dep["name"]
         version = dep["version"]
+
+        if not version:
+            continue  # go stdlib
 
         if version.startswith("."):
             log.debug(
@@ -563,7 +565,7 @@ def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[di
         dep_name = dep["name"]
         dep_path = dep["version"]
 
-        if not dep_path.startswith("."):
+        if not dep_path or not dep_path.startswith("."):
             continue
 
         # The gomod module that contains this go-package dependency

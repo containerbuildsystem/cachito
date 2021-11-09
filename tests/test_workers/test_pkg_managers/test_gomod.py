@@ -10,6 +10,7 @@ from unittest import mock
 import git
 import pytest
 
+from cachito.common.packages_data import _package_sort_key
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
@@ -105,6 +106,7 @@ mock_pkg_deps = dedent(
             "Main": true
         },
         "Deps": [
+            "fmt",
             "github.com/op/go-logging",
             "github.com/Masterminds/semver",
             "github.com/pkg/errors",
@@ -124,6 +126,44 @@ mock_pkg_deps = dedent(
                 "Version": "v1.0.1"
             }
         }
+    }
+    {
+        "ImportPath": "fmt",
+        "Standard": true,
+        "Deps": [
+          "errors",
+          "internal/bytealg",
+          "internal/cpu",
+          "internal/fmtsort",
+          "internal/oserror",
+          "internal/poll",
+          "internal/race",
+          "internal/reflectlite",
+          "internal/syscall/execenv",
+          "internal/syscall/unix",
+          "internal/testlog",
+          "internal/unsafeheader",
+          "io",
+          "io/fs",
+          "math",
+          "math/bits",
+          "os",
+          "path",
+          "reflect",
+          "runtime",
+          "runtime/internal/atomic",
+          "runtime/internal/math",
+          "runtime/internal/sys",
+          "sort",
+          "strconv",
+          "sync",
+          "sync/atomic",
+          "syscall",
+          "time",
+          "unicode",
+          "unicode/utf8",
+          "unsafe"
+        ]
     }
     """
 )
@@ -215,7 +255,7 @@ def test_resolve_gomod(
     sample_deps_replace,
     sample_deps_replace_new_name,
     sample_package,
-    sample_pkg_deps,
+    sample_pkg_deps_without_replace,
 ):
     mock_cmd_output = _generate_mock_cmd_output(go_list_error_pkg)
     # Mock the tempfile.TemporaryDirectory context manager
@@ -276,6 +316,11 @@ def test_resolve_gomod(
     assert gomod["module"] == sample_package
     assert gomod["module_deps"] == expected_deps
     assert len(gomod["packages"]) == 1
+    if dep_replacement is None:
+        assert (
+            sorted(gomod["packages"][0]["pkg_deps"], key=_package_sort_key)
+            == sample_pkg_deps_without_replace
+        )
 
     mock_merge_tree.assert_called_once_with(
         os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
@@ -1203,6 +1248,7 @@ def test_load_list_deps():
             ],
         },
         "github.com/some-org/other-module/generated/foo": {},
+        "unsafe": {"Standard": True},
     }
 
 
