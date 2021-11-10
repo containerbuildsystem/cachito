@@ -711,7 +711,7 @@ Offline Installations   | ✓     | x   | x   | x    |
 
 Tool   | Version |
 ---    | ---     |
-Go     | 1.16.8  |
+Go     | 1.17    |
 Npm    | 8.0.0   |
 Node   | 16.11.0 |
 Pip    | 21.2.3  |
