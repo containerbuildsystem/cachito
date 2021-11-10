@@ -101,7 +101,13 @@ cryptography==3.4.6 \
     --hash=sha256:9e98b452132963678e3ac6c73f7010fe53adf72209a32854d55690acac3f6724 \
     --hash=sha256:df186fcbf86dc1ce56305becb8434e4b6b7504bc724b71ad7a3239e0c9d14ef2 \
     --hash=sha256:fec7fb46b10da10d9e1d078d1ff8ed9e05ae14f431fdbd11145edd0550b9a964
-    # via requests-kerberos
+    # via
+    #   pyspnego
+    #   requests-kerberos
+decorator==5.1.0 \
+    --hash=sha256:7b12e7c3c6ab203a29e157335e9122cb03de9ab7264b137594103fd4a683b374 \
+    --hash=sha256:e59913af105b9860aa2c8d3272d9de5a56a4e608db9a2f167a8480b323d529a7
+    # via gssapi
 defusedxml==0.7.1 \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
@@ -114,6 +120,27 @@ gitpython==3.1.24 \
     --hash=sha256:dc0a7f2f697657acc8d7f89033e8b1ea94dd90356b2983bca89dc8d2ab3cc647 \
     --hash=sha256:df83fdf5e684fef7c6ee2c02fc68a5ceb7e7e759d08b694088d0cacb4eba59e5
     # via -r requirements.in
+gssapi==1.7.2 \
+    --hash=sha256:0b02bbdd850c079b1d453546579fc283f0646f56ff4b39cd3b0e27263a6af97e \
+    --hash=sha256:145bee55bff2461d2704b958bb6f45f6abf11442efe0f2e7a612f0ab049613f2 \
+    --hash=sha256:14bde0adcb6fd435021292899f8111396e54c039b47f107e97c40608ee451b84 \
+    --hash=sha256:20b5365557684856c9b20160b26eaba664afd92a7c098b4bc0c0b2aaf7e5a31c \
+    --hash=sha256:2b4b979c075062654a64aeb6faf579f3070d6e52a9c94b10e77eaea0ef88795d \
+    --hash=sha256:33aa276927a82ec630bf580fdd187399062568e699901c33ff8191d3ae9daa4f \
+    --hash=sha256:3d07a74a57cf0df22d0db9452cf500d487736e91cbd21aefffefa3d53e8d8ca2 \
+    --hash=sha256:5231e3d5d299cefe535a854b7e8d4700775704e75fa33fc3aba1cf83a3e2e7a0 \
+    --hash=sha256:65b2820fd547398c55c69ab6884245b268ea56702f6411149a3be6e520e3efd5 \
+    --hash=sha256:69983699e9ef39fb7f84b02039d739362fb39959285bb5fdd0efcc19943aa5b3 \
+    --hash=sha256:6ad1df7dd638485402c5b9afef5b7355d855266a09e2f7d55e5f0c8ee0f6a2e7 \
+    --hash=sha256:7123301f368f4198c46c62ee791878e7174fe7eed05c5d602708e0c5ec6774db \
+    --hash=sha256:748efbcf7cfb31183cd75e5314493e79fe3521b3ec00d090a77e23f7c75fa59d \
+    --hash=sha256:a01dbcd17760cdd77701006105e00a1bd213bd6e189b6602242f175ab488afee \
+    --hash=sha256:b199f59450c4cdc85d7d4f0f35f2b7b7420e536309d0370a5ea0734d56d06e38 \
+    --hash=sha256:b2b57d01debcaa79b91a9c7e40ccc200cbcae9afe48f15cc54901ddf733b4d91 \
+    --hash=sha256:c02a563d7e8b4005ccfc1f6080eaf0805c052876397ea9fb03b7ee725bbbbccc \
+    --hash=sha256:fcde5311a574c2ac314dddaf9608310bd7a4eae3b361ab6374c552428534b51b \
+    --hash=sha256:fe5e95c88fd737117374223683e319b0d80024f7d176822f14a12be0663cc3d7
+    # via pyspnego
 idna==2.10 \
     --hash=sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6 \
     --hash=sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0
@@ -124,6 +151,17 @@ kombu==5.0.2 \
     # via
     #   -r requirements.in
     #   celery
+krb5==0.2.0 \
+    --hash=sha256:0930bcc03dff6f87342f15214dfd971e3af3e1c7013e2b26858b9064cd869491 \
+    --hash=sha256:21e40bd3f05db9d66aaa0e23556889f47cdb9ee5f32a48bd4103ba5c1b9f5db2 \
+    --hash=sha256:61a9c8aa2d71c12a26fd4110967e6a31002627ef20fc8199406281f8c833f196 \
+    --hash=sha256:67df5e0f974ea97d4bfb4ef8f8cc4a2172894b6cdba01f3315f33abcfb2cc41b \
+    --hash=sha256:6aadccabfd7bd2bfcd02afba67586fb34f09dc761adb706e313d2a1c4f17e7c0 \
+    --hash=sha256:7873197ac130607000c70d5b6c6b2232c69c76d6b88142d7417dfb5bde2269d1 \
+    --hash=sha256:86d0ae09c4239cbe14a7da5ac46020eee3a9f9d9f54f11fc126f2e9a19bb3584 \
+    --hash=sha256:a4e97e118d57ebae10cfaff11ece2b9f453c9c0406db9e18b9966c126014aad5 \
+    --hash=sha256:c99f9d78fa23b6ece55697be201fdffeb932d14a8302c1d4af0bd48553675d2e
+    # via pyspnego
 packaging==21.2 \
     --hash=sha256:096d689d78ca690e4cd8a89568ba06d07ca097e3306a4381635073ca91479966 \
     --hash=sha256:14317396d1e8cdb122989b916fa2c7e9ca8e2be9e8060a6eff75b6b7b4d8a7e0
@@ -144,13 +182,24 @@ pycparser==2.20 \
     --hash=sha256:2d475327684562c3a96cc71adf7dc8c4f0565175cf86b6d7a404ff4c771f15f0 \
     --hash=sha256:7582ad22678f0fcd81102833f60ef8d0e57288b6b5fb00323d101be910e35705
     # via cffi
-pykerberos==1.2.1 \
-    --hash=sha256:4f2dca8df5f84a3be039c026893850d731a8bb38395292e1610ffb0a08ba876c
-    # via requests-kerberos
 pyparsing==2.4.7 \
     --hash=sha256:c203ec8783bf771a155b207279b9bccb8dea02d8f0c9e5f8ead507bc3246ecc1 \
     --hash=sha256:ef9d7589ef3c200abe66653d3f1ab1033c3c419ae9b9bdb1240a85b024efc88b
     # via packaging
+pyspnego[kerberos]==0.3.1 \
+    --hash=sha256:19da2de9d55d73d05b2798d4e5bd7ee5980e573ae50dc2f2bc460df5eaffe5ea \
+    --hash=sha256:27dd07b6b918c289d2820c685b346a198498354cf3a1bfe9ec19cff9fa8fce2f \
+    --hash=sha256:37c4d80a0c90bd2b670c583b2efbd210c26f54b1f7661c0cbc684a954b88c1c3 \
+    --hash=sha256:6387b4631120205240d1be25aff7a78d41db9b99bb5803b3ac6b7b6ed80b8920 \
+    --hash=sha256:6df4b5233ec28358992adadfef5be76807ca1424e7c0fbf430424759edc85f8b \
+    --hash=sha256:75a0d4be4236f6b7c2ded0b43fd03e942c48cdbe91c2856f45f22884b7e92ddc \
+    --hash=sha256:9235a3159a4e1648d6bb4d170b8d68ecf5b1f55fa2f3157335ce74df5c192468 \
+    --hash=sha256:a0d41d43657cd4d4456ca734ec00b6e24c95a144499cfc429371a310c4b10d7a \
+    --hash=sha256:b02c9b61f85c96f969c78f492b35915a590dddabf987687eb1256ef2fd8fbdcb \
+    --hash=sha256:ccb8d9cea310f1715d5ed3d2d092db9bf50ff2762cf94a0dd9dfab7774a727fe \
+    --hash=sha256:e15d16b205fbc5e945244b974312e9796467913f69736fdad262edee0c3c105f \
+    --hash=sha256:f4a00cc3796d34212b391caecb3fd636cdefea798cb4ac231f893bdade674f01
+    # via requests-kerberos
 pytz==2021.1 \
     --hash=sha256:83a4a90894bf38e243cf052c8b58f381bfe9a7a483f6a9cab140bc7f702ac4da \
     --hash=sha256:eb10ce3e7736052ed3623d49975ce333bcd712c7bb19a58b9e2089d4057d0798
@@ -192,9 +241,9 @@ requests==2.26.0 \
     # via
     #   -r requirements.in
     #   requests-kerberos
-requests-kerberos==0.12.0 \
-    --hash=sha256:5733abc0b6524815f6fc72d5c0ec9f3fb89137b852adea2a461c45931f5675e0 \
-    --hash=sha256:9d21f15241c53c2ad47e813138b9aee4b9acdd04b82048c4388ade15f40a52fd
+requests-kerberos==0.13.0 \
+    --hash=sha256:12766e209b975e081916b550b77b7a8b084c43f98beba1407182ef9a7bef88d5 \
+    --hash=sha256:477e153773cc430c514d0a679e1f5ea89a0e675ac2342c413866e03d1e82a817
     # via -r requirements.in
 semver==2.13.0 \
     --hash=sha256:ced8b23dceb22134307c1b8abfa523da14198793d9787ac838e70e29e77458d4 \
@@ -208,6 +257,11 @@ smmap==3.0.5 \
     --hash=sha256:7bfcf367828031dc893530a29cb35eb8c8f2d7c8f2d0989354d75d24c8573714 \
     --hash=sha256:84c2751ef3072d4f6b2785ec7ee40244c6f45eb934d9e543e2c51f1bd3d54c50
     # via gitdb
+typing-extensions==3.10.0.2 \
+    --hash=sha256:49f75d16ff11f1cd258e1b988ccff82a3ca5570217d7ad8c5f48205dd99a677e \
+    --hash=sha256:d8226d10bc02a29bcc81df19a26e56a9647f8b0a6d4a83924139f4a8b01f17b7 \
+    --hash=sha256:f1d25edafde516b146ecd0613dabcc61409817af4766fbbcfb8d1ad4ec441a34
+    # via gitpython
 urllib3==1.26.5 \
     --hash=sha256:753a0374df26658f99d826cfe40394a686d05985786d946fbe4165b5148f5a7c \
     --hash=sha256:a7acd0977125325f516bda9735fa7142b909a8d01e8b2e4c8108d0984e6e0098
