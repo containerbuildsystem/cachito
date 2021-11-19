@@ -384,7 +384,7 @@ def upload_asset_only_component(repo_name, repo_type, component_path, to_nexus_h
     try:
         upload_component(params, payload, to_nexus_hoster)
     except CachitoError:
-        log.exception("Failed to upload %r to the %r Nexus repository", component_path, repo_type)
+        log.warning("Failed to upload %r to the %r Nexus repository", component_path, repo_type)
         raise
 
 
@@ -457,7 +457,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
         raise CachitoError("Could not connect to the Nexus instance to upload a component")
 
     if not rv.ok:
-        log.error(
+        log.warning(
             "Failed to upload a component with the status code %d and the text: %s",
             rv.status_code,
             rv.text,
