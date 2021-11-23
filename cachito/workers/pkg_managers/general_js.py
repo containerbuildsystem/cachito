@@ -464,7 +464,11 @@ def upload_non_registry_dependency(
         )
         dep_archive = os.path.join(temp_dir, stdout.strip())
         if checksum_info:
-            verify_checksum(dep_archive, checksum_info)
+            try:
+                verify_checksum(dep_archive, checksum_info)
+            except CachitoError as e:
+                log.error("%s", e)
+                raise
 
         package_json_rel_path = find_package_json(dep_archive)
         if not package_json_rel_path:

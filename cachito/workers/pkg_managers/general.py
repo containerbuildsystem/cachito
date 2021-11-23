@@ -119,7 +119,6 @@ def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int
         hasher = hash_file(file_path, chunk_size, checksum_info.algorithm)
     except UnknownHashAlgorithm as exc:
         msg = f"Cannot perform checksum on the file {filename}, {exc}"
-        log.exception(msg)
         raise CachitoError(msg)
 
     computed_hexdigest = hasher.hexdigest()
@@ -129,7 +128,6 @@ def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int
             f"The file {filename} has an unexpected checksum value, "
             f"expected {checksum_info.hexdigest} but computed {computed_hexdigest}"
         )
-        log.error(msg)
         raise CachitoError(msg)
 
 
