@@ -1855,7 +1855,7 @@ def _verify_hash(download_path, hashes):
             log.info(f"Checksum of {download_path.name} matches: {algorithm}:{digest}")
             return
         except CachitoError as e:
-            log.error("%s", e)
+            log.warning("%s", e)
 
     msg = f"Failed to verify checksum of {download_path.name} against any of the provided hashes"
     raise CachitoError(msg)
