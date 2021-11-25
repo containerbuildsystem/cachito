@@ -668,7 +668,7 @@ Feature                 | gomod | npm | pip | yarn |
 Baseline                | ✓     | ✓   | ✓   | ✓    |
 Content Manifest        | ✓     | ✓   | ✓   | ✓    |
 Dependency Replacements | ✓     | x   | x   | x    |
-Dev Dependencies        | ✓     | ✓   | ✓   | x    |
+Dev Dependencies        | ✓     | ✓   | ✓   | ✓    |
 External Dependencies   | N/A   | ✓   | ✓   | ✓    |
 Multiple Paths          | ✓     | ✓   | ✓   | ✓    |
 Nested Dependencies     | ✓     | ✓   | x   | ✓    |
