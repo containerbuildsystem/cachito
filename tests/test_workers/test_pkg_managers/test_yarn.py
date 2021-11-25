@@ -155,10 +155,12 @@ def test_convert_to_nexus_hosted(
 
 @mock.patch("cachito.workers.pkg_managers.yarn._convert_to_nexus_hosted")
 @pytest.mark.parametrize(
-    "yarn_lock, allowlist, expected_deps, expected_replaced, expected_convert_calls",
+    "package_json, yarn_lock, allowlist, expected_deps, expected_replaced, expected_convert_calls",
     [
         # registry dependency
         (
+            # package_json
+            {"dependencies": {"chai": "^1.0.0"}},
             # yarn_lock
             {
                 "chai@^1.0.0": {
@@ -172,6 +174,7 @@ def test_convert_to_nexus_hosted(
             # expected_deps
             [
                 {
+                    "dev": False,
                     "name": "chai",
                     "version": "1.0.1",
                     "version_in_nexus": None,
@@ -186,11 +189,18 @@ def test_convert_to_nexus_hosted(
         ),
         # http dependency
         (
+            # package_json
+            {"peerDependencies": {"fecha": HTTP_DEP_URL}, "devDependencies": {"chai": "^1.0.0"}},
             # yarn_lock
             {
                 f"fecha@{HTTP_DEP_URL}": {
                     "version": "2.0.0",
                     "resolved": HTTP_DEP_URL_WITH_CHECKSUM,
+                },
+                "chai@^1.0.0": {
+                    "version": "1.0.1",
+                    "resolved": REGISTRY_DEP_URL,
+                    "integrity": MOCK_INTEGRITY,
                 },
             },
             # allowlist
@@ -198,9 +208,18 @@ def test_convert_to_nexus_hosted(
             # expected_deps
             [
                 {
+                    "dev": False,
                     "name": "fecha",
                     "version": HTTP_DEP_URL_WITH_CHECKSUM,
                     "version_in_nexus": MOCK_NEXUS_VERSION,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    "dev": True,
+                    "name": "chai",
+                    "version": "1.0.1",
+                    "version_in_nexus": None,
                     "bundled": False,
                     "type": "yarn",
                 },
@@ -218,13 +237,32 @@ def test_convert_to_nexus_hosted(
         ),
         # git dependency
         (
+            # package_json
+            {"devDependencies": {"chai": "^1.0.0"}},
             # yarn_lock
-            {f"leftpad@{GIT_DEP_URL}": {"version": "3.0.0", "resolved": GIT_DEP_URL_WITH_REF}},
+            {
+                "chai@^1.0.0": {
+                    "version": "1.0.1",
+                    "resolved": REGISTRY_DEP_URL,
+                    "integrity": MOCK_INTEGRITY,
+                    "dependencies": {"leftpad": GIT_DEP_URL},
+                },
+                f"leftpad@{GIT_DEP_URL}": {"version": "3.0.0", "resolved": GIT_DEP_URL_WITH_REF},
+            },
             # allowlist
             set(),
             # expected_deps
             [
                 {
+                    "dev": True,
+                    "name": "chai",
+                    "version": "1.0.1",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    "dev": True,
                     "name": "leftpad",
                     "version": GIT_DEP_URL_WITH_REF,
                     "version_in_nexus": MOCK_NEXUS_VERSION,
@@ -245,13 +283,32 @@ def test_convert_to_nexus_hosted(
         ),
         # allowlisted file dependency
         (
+            # package_json
+            {"devDependencies": {"chai": "^1.0.0"}},
             # yarn_lock
-            {"subpackage@file:./subpath": {"version": "4.0.0"}},
+            {
+                "chai@^1.0.0": {
+                    "version": "1.0.1",
+                    "resolved": REGISTRY_DEP_URL,
+                    "integrity": MOCK_INTEGRITY,
+                    "dependencies": {"subpackage": "file:./subpath"},
+                },
+                "subpackage@file:./subpath": {"version": "4.0.0"},
+            },
             # allowlist
             {"subpath"},
             # expected_deps
             [
                 {
+                    "dev": True,
+                    "name": "chai",
+                    "version": "1.0.1",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    "dev": True,
                     "name": "subpackage",
                     "version": "file:./subpath",
                     "version_in_nexus": None,
@@ -266,8 +323,19 @@ def test_convert_to_nexus_hosted(
         ),
         # one http and one git dependency
         (
+            # package_json
+            {
+                "optionalDependencies": {"chai": "^1.0.0"},
+                "devDependencies": {"fecha": HTTP_DEP_URL, "leftpad": GIT_DEP_URL},
+            },
             # yarn_lock
             {
+                "chai@^1.0.0": {
+                    "version": "1.0.1",
+                    "resolved": REGISTRY_DEP_URL,
+                    "integrity": MOCK_INTEGRITY,
+                    "dependencies": {"leftpad": GIT_DEP_URL},
+                },
                 f"fecha@{HTTP_DEP_URL}": {
                     "version": "2.0.0",
                     "resolved": HTTP_DEP_URL_WITH_CHECKSUM,
@@ -279,6 +347,15 @@ def test_convert_to_nexus_hosted(
             # expected_deps
             [
                 {
+                    "dev": False,
+                    "name": "chai",
+                    "version": "1.0.1",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    "dev": True,
                     "name": "fecha",
                     "version": HTTP_DEP_URL_WITH_CHECKSUM,
                     "version_in_nexus": MOCK_NEXUS_VERSION,
@@ -286,6 +363,7 @@ def test_convert_to_nexus_hosted(
                     "type": "yarn",
                 },
                 {
+                    "dev": False,
                     "name": "leftpad",
                     "version": GIT_DEP_URL_WITH_REF,
                     "version_in_nexus": MOCK_NEXUS_VERSION,
@@ -313,6 +391,7 @@ def test_convert_to_nexus_hosted(
 )
 def test_get_deps(
     mock_convert_hosted,
+    package_json,
     yarn_lock,
     allowlist,
     expected_deps,
@@ -325,7 +404,7 @@ def test_get_deps(
 
     mock_convert_hosted.return_value.__getitem__.side_effect = mock_nexus_replacement_getitem
 
-    deps, replacements = yarn._get_deps(yarn_lock, allowlist)
+    deps, replacements = yarn._get_deps(package_json, yarn_lock, allowlist)
 
     assert deps == expected_deps
 
@@ -343,6 +422,7 @@ def test_get_deps(
 
 @mock.patch("cachito.workers.pkg_managers.yarn._convert_to_nexus_hosted")
 def test_get_deps_disallowed_file_dep(mock_convert_hosted):
+    package_json = {}
     yarn_lock = {
         "subpackage@file:./subpath": {"version": "1.0.0"},
     }
@@ -352,7 +432,7 @@ def test_get_deps_disallowed_file_dep(mock_convert_hosted):
     mock_convert_hosted.side_effect = [CachitoError(err_msg)]
 
     with pytest.raises(CachitoError, match=err_msg):
-        yarn._get_deps(yarn_lock, allowlist)
+        yarn._get_deps(package_json, yarn_lock, allowlist)
 
 
 @mock.patch.object(yarn.pyarn.lockfile.Lockfile, "from_file")
@@ -385,7 +465,7 @@ def test_get_package_and_deps(
     mock_lockfile_fromfile.assert_called_once_with(str(yarnlock_path))
     mock_get_config.asssert_called_once()
     expected_lockfile = mock_lockfile_fromfile.return_value.data
-    mock_get_deps.assert_called_once_with(expected_lockfile, {"bar"})
+    mock_get_deps.assert_called_once_with(rv["package.json"], expected_lockfile, {"bar"})
 
 
 @pytest.mark.parametrize("components_exist", [True, False])

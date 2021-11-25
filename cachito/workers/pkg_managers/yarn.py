@@ -1,6 +1,7 @@
 import copy
 import json
 import logging
+from collections import deque
 from os.path import normpath
 from pathlib import Path
 from typing import Dict, Optional
@@ -69,7 +70,41 @@ def get_yarn_proxy_repo_username(request_id):
     return f"cachito-yarn-{request_id}"
 
 
-def _get_deps(yarn_lock, file_deps_allowlist):
+def _find_reachable_deps(visited_deps, dep, yarn_lock):
+    """
+    Get a set of all dependencies reachable by a top-level dependency using BFS.
+
+    :param yarn_lock: yarn.lock file as a dictionary
+    :param dep: top-level dependency in package.json
+    :param reachable_deps: set of already visited non-dev dependencies
+    """
+    yarn_lock_parsed = _expand_yarn_lock_keys(yarn_lock)
+    visited_deps.add(dep)
+    bfs_queue = deque([dep])
+    while bfs_queue:
+        current_dep = bfs_queue.popleft()
+        package = pyarn.lockfile.Package.from_dict(current_dep, yarn_lock_parsed[current_dep])
+        bfs_queue.extend(
+            f"{name}@{version}"
+            for name, version in package.dependencies.items()
+            if f"{name}@{version}" not in visited_deps
+        )
+        visited_deps.add(current_dep)
+
+
+def _split_yarn_lock_key(dep_identifer):
+    """
+    Remove unnecessary quotes in dep_identifier and split the string into a list of dependencies.
+
+    String dep_identifer contains one or more dependencies separated by commas.
+
+    :param dep_identifier: a string which lists all of the dependencies in the identifer
+    :return: a list of all the dependencies in the identifier
+    """
+    return dep_identifer.replace('"', "").split(", ")
+
+
+def _get_deps(package_json, yarn_lock, file_deps_allowlist):
     """
     Process the dependencies in a yarn.lock file and return relevant information.
 
@@ -90,9 +125,24 @@ def _get_deps(yarn_lock, file_deps_allowlist):
     """
     deps = []
     nexus_replacements = {}
+    non_dev_deps = set()
+
+    for dep_type in ["dependencies", "peerDependencies", "optionalDependencies"]:
+        if dep_type not in package_json:
+            continue
+        for name, version in package_json[dep_type].items():
+            dep = f"{name}@{version}"
+            if dep not in non_dev_deps:
+                _find_reachable_deps(non_dev_deps, dep, yarn_lock)
 
     for dep_identifier, dep_data in yarn_lock.items():
         package = pyarn.lockfile.Package.from_dict(dep_identifier, dep_data)
+
+        dev = True
+        for dep_id in _split_yarn_lock_key(dep_identifier):
+            if dep_id in non_dev_deps:
+                dev = False
+                break
 
         if package.url:
             source = package.url
@@ -116,7 +166,7 @@ def _get_deps(yarn_lock, file_deps_allowlist):
 
         dep = {
             "bundled": False,  # yarn.lock does not seem to contain bundled deps at all
-            # "dev": <yarn.lock does not state whether a dependency is dev>
+            "dev": dev,
             "name": package.name,
             "version_in_nexus": nexus_replacement["version"] if nexus_replacement else None,
             "type": "yarn",
@@ -234,7 +284,7 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
         get_worker_config().cachito_yarn_file_deps_allowlist.get(package["name"], [])
     )
 
-    deps, nexus_replacements = _get_deps(yarn_lock, file_deps_allowlist)
+    deps, nexus_replacements = _get_deps(package_json, yarn_lock, file_deps_allowlist)
     return {
         "package": package,
         "deps": deps,
@@ -284,9 +334,9 @@ def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str) -
     return modified
 
 
-def _expand_replacements(nexus_replacements: Dict[str, dict]) -> Dict[str, dict]:
+def _expand_yarn_lock_keys(nexus_replacements: Dict[str, dict]) -> Dict[str, dict]:
     """
-    Expand all N:1 keys in the Nexus replacements dict into N 1:1 keys.
+    Expand all N:1 keys in the yarn.lock dict into N 1:1 keys.
 
     In the original dict, 1 key may in fact be N comma-separated keys. These N keys all have the
     same value, making them N:1 keys. In the expanded dict, these will be turned into N 1:1 keys.
@@ -297,12 +347,12 @@ def _expand_replacements(nexus_replacements: Dict[str, dict]) -> Dict[str, dict]
     :param dict nexus_replacements: a dict of nexus replacements which may contain N:1 keys
     :return: a dict of nexus replacements where all N:1 keys have been expanded to N 1:1 keys
     """
-    expanded_replacements = {
+    expanded_yarn_lock_keys = {
         key: nexus_replacements[multi_key]
         for multi_key in nexus_replacements
-        for key in map(str.strip, multi_key.split(","))
+        for key in _split_yarn_lock_key(multi_key)
     }
-    return expanded_replacements
+    return expanded_yarn_lock_keys
 
 
 def _match_to_new_version(
@@ -313,7 +363,8 @@ def _match_to_new_version(
 
     :param str dep_name: dependency name
     :param str dep_version: dependency version
-    :param dict expanded_replacements: expanded dict of Nexus replacements, see _expand_replacements
+    :param dict expanded_replacements: expanded dict of Nexus replacements,
+        see _expand_yarn_lock_keys
     :return: new version (str) or None
     """
     dep_identifier = f"{dep_name}@{dep_version}"
@@ -329,7 +380,7 @@ def _replace_deps_in_package_json(package_json, nexus_replacements):
         {<dependency identifier>: <dependency info>}
     :return: copy of package.json data with replacements applied (or None if no replacements match)
     """
-    expanded_replacements = _expand_replacements(nexus_replacements)
+    expanded_replacements = _expand_yarn_lock_keys(nexus_replacements)
 
     package_json_new = copy.deepcopy(package_json)
     modified = False
@@ -367,7 +418,7 @@ def _replace_deps_in_yarn_lock(yarn_lock, nexus_replacements):
         {<dependency identifier>: <dependency info>}
     :return: copy of yarn.lock data with replacements applied
     """
-    expanded_replacements = _expand_replacements(nexus_replacements)
+    expanded_replacements = _expand_yarn_lock_keys(nexus_replacements)
     yarn_lock_new = {}
 
     for key, value in yarn_lock.items():

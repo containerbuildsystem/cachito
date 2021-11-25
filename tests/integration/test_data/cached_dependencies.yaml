@@ -761,85 +761,105 @@ yarn_cached_deps:
   # Parts of the Cachito response to check
   response_expectations:
     dependencies:
-      - name: assertion-error
+      - dev: false
+        name: assertion-error
         replaces: null
         type: yarn
         version: 1.1.0
-      - name: chai
+      - dev: false
+        name: chai
         replaces: null
         type: yarn
         version: 4.2.0
-      - name: check-error
+      - dev: false
+        name: check-error
         replaces: null
         type: yarn
         version: 1.0.2
-      - name: deep-eql
+      - dev: false
+        name: deep-eql
         replaces: null
         type: yarn
         version: 3.0.1
-      - name: fecha
+      - dev: false
+        name: fecha
         replaces: null
         type: yarn
         version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz#f09ea0b8115b9733dddc88227086c73ba4ddc926
-      - name: get-func-name
+      - dev: false
+        name: get-func-name
         replaces: null
         type: yarn
         version: 2.0.0
-      - name: npm-test-project
+      - dev: false
+        name: npm-test-project
         replaces: null
         type: yarn
         version: git+https://gitlab.com/eakhmano-test-group/eakhmano-test-subgroup/subsubgroup/npm-test-project.git#88114c48d7d894f7e2306adf06137b096e9cdf29
-      - name: pathval
+      - dev: false
+        name: pathval
         replaces: null
         type: yarn
         version: 1.1.1
-      - name: test-npm-dep
+      - dev: false
+        name: test-npm-dep
         replaces: null
         type: yarn
         version: git+https://elinah@bitbucket.org/elinah/test-npm-dep.git#b952715c0706f30d92a7253dcdadc510a618eca5
-      - name: type-detect
+      - dev: false
+        name: type-detect
         replaces: null
         type: yarn
         version: 4.0.8
     packages:
       - dependencies:
-        - name: assertion-error
+        - dev: false
+          name: assertion-error
           replaces: null
           type: yarn
           version: 1.1.0
-        - name: chai
+        - dev: false
+          name: chai
           replaces: null
           type: yarn
           version: 4.2.0
-        - name: check-error
+        - dev: false
+          name: check-error
           replaces: null
           type: yarn
           version: 1.0.2
-        - name: deep-eql
+        - dev: false
+          name: deep-eql
           replaces: null
           type: yarn
           version: 3.0.1
-        - name: fecha
+        - dev: false
+          name: fecha
           replaces: null
           type: yarn
           version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz#f09ea0b8115b9733dddc88227086c73ba4ddc926
-        - name: get-func-name
+        - dev: false
+          name: get-func-name
           replaces: null
           type: yarn
           version: 2.0.0
-        - name: npm-test-project
+        - dev: false
+          name: npm-test-project
           replaces: null
           type: yarn
           version: git+https://gitlab.com/eakhmano-test-group/eakhmano-test-subgroup/subsubgroup/npm-test-project.git#88114c48d7d894f7e2306adf06137b096e9cdf29
-        - name: pathval
+        - dev: false
+          name: pathval
           replaces: null
           type: yarn
           version: 1.1.1
-        - name: test-npm-dep
+        - dev: false
+          name: test-npm-dep
           replaces: null
           type: yarn
           version: git+https://elinah@bitbucket.org/elinah/test-npm-dep.git#b952715c0706f30d92a7253dcdadc510a618eca5
-        - name: type-detect
+        - dev: false
+          name: type-detect
           replaces: null
           type: yarn
           version: 4.0.8
