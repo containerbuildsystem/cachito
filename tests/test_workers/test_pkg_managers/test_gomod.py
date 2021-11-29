@@ -753,6 +753,9 @@ def test_vet_local_deps_parent_dir(path):
         ("example/module", "example/package", ["*/*"], None),
         ("example/module", "example/package", ["*"], None),
         ("example/module", "example/module/submodule", [], None),
+        ("example/module/v1", "example/module/submodule", [], None),
+        ("example/module/v1", "example/module/submodule/v2", [], None),
+        ("example/module", "example/module/submodule/v1", [], None),
         (
             "example/module",
             "example/package",
@@ -794,6 +797,12 @@ def test_vet_local_deps_parent_dir(path):
             "example/package",
             ["*/example/package"],
             "The module example/module is not allowed to replace example/package",
+        ),
+        (
+            "example/module/v",
+            "example/module/submodule",
+            [],
+            "The module example/module/v is not allowed to replace example/module/submodule",
         ),
     ],
 )

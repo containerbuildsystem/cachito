@@ -539,7 +539,8 @@ def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: 
     * package_name is a submodule of module_name
     * package_name replacement is allowed according to allowed_patterns
     """
-    is_submodule = contains_package(module_name, package_name)
+    versionless_module_name = MODULE_VERSION_RE.sub("", module_name)
+    is_submodule = contains_package(versionless_module_name, package_name)
     if not is_submodule and not any(fnmatch.fnmatch(package_name, pat) for pat in allowed_patterns):
         raise CachitoError(
             f"The module {module_name} is not allowed to replace {package_name} with a local "
