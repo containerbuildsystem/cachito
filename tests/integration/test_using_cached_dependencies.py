@@ -352,6 +352,8 @@ def replace_by_rules(orig_str, replace_rules):
     :return: string with replaced values
     :rtype: str
     """
+    if orig_str is None:
+        return None
     res_string = orig_str
     for s, r in replace_rules.items():
         if s in res_string:
