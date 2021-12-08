@@ -55,7 +55,7 @@ services:
       pip3 uninstall -y cachito &&
       python3 setup.py develop --no-deps &&
       cachito wait-for-db &&
-      cachito db upgrade &&
+      cachito db upgrade -x delete_data=True &&
       flask run --reload --host 0.0.0.0 --port 8080
     environment:
       FLASK_ENV: development
