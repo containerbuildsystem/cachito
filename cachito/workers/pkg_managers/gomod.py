@@ -705,7 +705,7 @@ def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=Fa
                 "git",
                 "for-each-ref",
                 "--format",
-                "%(refname:lstrip=-1)",
+                "%(refname:lstrip=2)",
                 "refs/tags",
                 "--merged",
                 target_commit.hexsha,

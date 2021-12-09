@@ -572,6 +572,8 @@ def test_go_list_cmd_failure(
         ("/v2", "0dd249ad59176fee9b5451c2f91cc859e5ddbf45", "v2.0.1"),
         # A commit after the incorrect lower semver tag
         ("/v2", "2883f3ddbbc811b112ff1fe51ba2ee7596ddbf24", "v2.5.1-0.20191118190931-2883f3ddbbc8"),
+        # A commit with a newer semver tag, but applied to a submodule
+        ("/v2", "f3ee3a4a394fb44b055ed5710b8145e6e98c0d55", "v2.5.1-0.20211209210936-f3ee3a4a394f"),
     ),
 )
 def test_get_golang_version(tmpdir, module_suffix, ref, expected):
