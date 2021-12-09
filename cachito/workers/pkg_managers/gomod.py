@@ -147,7 +147,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
     :param dict request: the Cachito request this is for
     :param list dep_replacements: dependency replacements with the keys "name" and "version"; this
         results in a series of `go mod edit -replace` commands
-    :param dict git_dir_path: the full path to the application's git repository
+    :param RequestBundleDir git_dir_path: the full path to the application's git repository
     :return: a dict containing the Go module itself ("module" key), the list of dictionaries
         representing the dependencies ("module_deps" key), the top package level dependency
         ("pkg" key), and a list of dictionaries representing the package level dependencies
@@ -258,10 +258,17 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
                 f'{", ".join(unused_dep_replacements)}'
             )
 
+        # In case a submodule is being processed, we need to determine its path
+        subpath = (
+            None
+            if app_source_path == str(git_dir_path)
+            else app_source_path.replace(f"{git_dir_path}/", "")
+        )
+
         # NOTE: If there are multiple go modules in a single git repo, they will
         #   all be versioned identically.
         module_version = get_golang_version(
-            module_name, git_dir_path, request["ref"], update_tags=True
+            module_name, git_dir_path, request["ref"], update_tags=True, subpath=subpath
         )
         module = {"name": module_name, "type": "gomod", "version": module_version}
 
@@ -641,7 +648,7 @@ def _merge_files(src_file, dst_file):
             target.write(str(line) + "\n")
 
 
-def _get_golang_pseudo_version(commit, tag=None, module_major_version=None):
+def _get_golang_pseudo_version(commit, tag=None, module_major_version=None, subpath=None):
     """
     Get the Go module's pseudo-version when a non-version commit is used.
 
@@ -652,6 +659,7 @@ def _get_golang_pseudo_version(commit, tag=None, module_major_version=None):
         input commit. If this isn't specified, it is assumed there was no previous valid tag.
     :param int module_major_version: the Go module's major version as stated in its go.mod file. If
         this and "tag" are not provided, 0 is assumed.
+    :param str subpath: path to the module, relative to the root repository folder
     :return: the Go module's pseudo-version as returned by `go list`
     :rtype: str
     """
@@ -667,7 +675,8 @@ def _get_golang_pseudo_version(commit, tag=None, module_major_version=None):
         # version of 1, the major version defaults to 0.
         return f'v{module_major_version or "0"}.0.0-{commit_timestamp}-{commit_hash}'
 
-    tag_semantic_version = semver.parse_version_info(tag.name[1:])
+    tag_semantic_version = _get_semantic_version_from_tag(tag.name, subpath)
+
     # An example of a semantic version with a prerelease is v2.2.0-alpha
     if tag_semantic_version.prerelease:
         # vX.Y.Z-pre.0.yyyymmddhhmmss-abcdefabcdef is used when the most recent versioned commit
@@ -683,7 +692,7 @@ def _get_golang_pseudo_version(commit, tag=None, module_major_version=None):
     return f"v{pseudo_semantic_version}{version_seperator}0.{commit_timestamp}-{commit_hash}"
 
 
-def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=False):
+def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=False, subpath=None):
     """
     Get the highest semantic version tag related to the input commit.
 
@@ -692,6 +701,7 @@ def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=Fa
         filter for major version tags
     :param bool all_reachable: if False, the search is constrained to the input commit. If True,
         then the search is constrained to the input commit and preceding commits.
+    :param str subpath: path to the module, relative to the root repository folder
     :return: the highest semantic version tag if one is found
     :rtype: git.Tag
     """
@@ -705,7 +715,7 @@ def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=Fa
                 "git",
                 "for-each-ref",
                 "--format",
-                "%(refname:lstrip=-1)",
+                "%(refname:lstrip=2)",
                 "refs/tags",
                 "--merged",
                 target_commit.hexsha,
@@ -713,47 +723,63 @@ def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=Fa
         else:
             # Get the tags that point to this commit
             cmd = ["git", "tag", "--points-at", target_commit.hexsha]
-
         tag_names = g.execute(cmd).splitlines()
     except git.GitCommandError:
         msg = f"Failed to get the tags associated with the reference {target_commit.hexsha}"
         log.exception(msg)
         raise CachitoError(msg)
 
+    # Keep only semantic version tags related to the path being processed
+    prefix = f"{subpath}/v" if subpath else "v"
+    filtered_tags = [tag_name for tag_name in tag_names if tag_name.startswith(prefix)]
+
     not_semver_tag_msg = "%s is not a semantic version tag"
     highest = None
-    for tag_name in tag_names:
-        if not tag_name.startswith("v"):
-            log.debug(not_semver_tag_msg, tag_name)
-            continue
 
+    for tag_name in filtered_tags:
         try:
-            # Exclude the 'v' prefix since this is required by Go, but it is seen as invalid by
-            # the semver Python package
-            parsed_version = semver.parse_version_info(tag_name[1:])
+            semantic_version = _get_semantic_version_from_tag(tag_name, subpath)
         except ValueError:
             log.debug(not_semver_tag_msg, tag_name)
             continue
 
         # If the major version of the semantic version tag doesn't match the Go module's major
         # version, then ignore it
-        if parsed_version.major != major_version:
+        if semantic_version.major != major_version:
             continue
 
-        if highest is None:
-            highest = tag_name
-        else:
-            highest_version = semver.parse_version_info(highest[1:])
-            if parsed_version > highest_version:
-                highest = tag_name
+        if highest is None or semantic_version > highest["semver"]:
+            highest = {"tag": tag_name, "semver": semantic_version}
 
     if highest:
-        return repo.tags[highest]
+        return repo.tags[highest["tag"]]
 
     return None
 
 
-def get_golang_version(module_name, git_path, commit_sha, update_tags=False):
+def _get_semantic_version_from_tag(tag_name, subpath=None):
+    """
+    Parse a version tag to a semantic version.
+
+    A Go version follows the format "v0.0.0", but it needs to have the "v" removed in
+    order to be properly parsed by the semver library.
+
+    In case `subpath` is defined, it will be removed from the tag_name, e.g. `subpath/v0.1.0`
+    will be parsed as `0.1.0`.
+
+    :param str tag_name: tag to be converted into a semver object
+    :param str subpath: path to the module, relative to the root repository folder
+    :rtype: semver.VersionInfo
+    """
+    if subpath:
+        semantic_version = tag_name.replace(f"{subpath}/v", "")
+    else:
+        semantic_version = tag_name[1:]
+
+    return semver.parse_version_info(semantic_version)
+
+
+def get_golang_version(module_name, git_path, commit_sha, update_tags=False, subpath=None):
     """
     Get the version of the Go module in the input Git repository in the same format as `go list`.
 
@@ -765,6 +791,7 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False):
     :param str commit_sha: the Git commit SHA1 of the Go module to get the version for
     :param bool update_tags: determines if `git fetch --tags --force` should be run before
         determining the version. If this fails, it will be logged as a warning.
+    :param str subpath: path to the module, relative to the root repository folder
     :return: a version as `go list` would provide
     :rtype: str
     """
@@ -792,14 +819,16 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False):
     commit = repo.commit(commit_sha)
     for major_version in major_versions_to_try:
         # Get the highest semantic version tag on the commit with a matching major version
-        tag_on_commit = _get_highest_semver_tag(repo, commit, major_version)
+        tag_on_commit = _get_highest_semver_tag(repo, commit, major_version, subpath=subpath)
         if not tag_on_commit:
             continue
 
         log.debug(
             "Using the semantic version tag of %s for commit %s", tag_on_commit.name, commit_sha
         )
-        return tag_on_commit.name
+
+        # We want to preserve the version in the "v0.0.0" format, so the subpath is not needed
+        return tag_on_commit.name if not subpath else tag_on_commit.name.replace(f"{subpath}/", "")
 
     log.debug("No semantic version tag was found on the commit %s", commit_sha)
 
@@ -807,7 +836,9 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False):
     # https://github.com/golang/go/blob/a23f9afd9899160b525dbc10d01045d9a3f072a0/src/cmd/go/internal/modfetch/coderepo.go#L511-L521
     for major_version in major_versions_to_try:
         # Get the highest semantic version tag before the commit with a matching major version
-        pseudo_base_tag = _get_highest_semver_tag(repo, commit, major_version, all_reachable=True)
+        pseudo_base_tag = _get_highest_semver_tag(
+            repo, commit, major_version, all_reachable=True, subpath=subpath
+        )
         if not pseudo_base_tag:
             continue
 
@@ -816,10 +847,14 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False):
             pseudo_base_tag.name,
             commit_sha,
         )
-        pseudo_version = _get_golang_pseudo_version(commit, pseudo_base_tag, major_version)
+        pseudo_version = _get_golang_pseudo_version(
+            commit, pseudo_base_tag, major_version, subpath=subpath
+        )
         log.debug("Using the pseudo-version %s for the commit %s", pseudo_version, commit_sha)
         return pseudo_version
 
     log.debug("No valid semantic version tag was found")
     # Fall-back to a vX.0.0-yyyymmddhhmmss-abcdefabcdef pseudo-version
-    return _get_golang_pseudo_version(commit, module_major_version=module_major_version)
+    return _get_golang_pseudo_version(
+        commit, module_major_version=module_major_version, subpath=subpath
+    )
