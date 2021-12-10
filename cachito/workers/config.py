@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
 import os
+import subprocess  # nosec
 import tempfile
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import celery
@@ -32,6 +34,7 @@ class Config(object):
         },
     }
     cachito_deps_patch_batch_size = 50
+    cachito_git_ssh_known_hosts = ["github.com", "gitlab.com", "bitbucket.org"]
     cachito_gomod_download_max_tries = 5
     cachito_gomod_ignore_missing_gomod_file = True
     cachito_gomod_strict_vendor = False
@@ -251,6 +254,27 @@ def validate_celery_config(conf, **kwargs):
             raise ConfigError(
                 f"cachito_request_file_logs_dir, {cachito_request_file_logs_dir}, is not writable!"
             )
+
+
+def populate_ssh_known_hosts(conf, **kwargs):
+    """
+    Populate ~/.ssh/known_hosts based on some predefined list of hosts.
+
+    The list of hosts can be provided using `cachito_git_ssh_known_hosts` configuration option.
+    """
+    known_hosts = conf.get("cachito_git_ssh_known_hosts", [])
+    ssh_dir = Path.home() / ".ssh"
+    ssh_dir.mkdir(exist_ok=True)
+    with (ssh_dir / "known_hosts").open("a+") as f:
+        for host in known_hosts:
+            logging.debug(f"Add {host} to ~/.ssh/known_hosts")
+            result = subprocess.run(  # nosec
+                ["ssh-keyscan", "-H", host],
+                capture_output=True,
+                universal_newlines=True,
+                encoding="utf-8",
+            )
+            f.write(result.stdout)
 
 
 def validate_nexus_config():
