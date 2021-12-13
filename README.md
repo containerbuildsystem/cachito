@@ -594,6 +594,8 @@ with the `mod_auth_gssapi` module.
 
 * `include-git-dir` - when used, `.git` file objects are not removed from the source bundle created
   by Cachito. This is useful when the git history is important to the build process.
+  If this flag is absent, Cachito will use a shallow clone (depth=1) of the repository in order to save
+  resources.
 
 * `cgo-disable` - use this flag to make Cachito set `CGO_ENABLED=0` while processing gomod packages.
   This environment variable will only be used internally by Cachito, it will *not* be set in the
