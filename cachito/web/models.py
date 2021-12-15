@@ -764,7 +764,7 @@ class User(db.Model, UserMixin):
     """Represents an external user that owns a Cachito request."""
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String, index=True, unique=True, nullable=False)
+    username = db.Column(db.String, unique=True, nullable=False)
     requests = db.relationship("Request", foreign_keys=[Request.user_id], back_populates="user")
 
     @classmethod
