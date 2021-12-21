@@ -756,7 +756,7 @@ yarn_cached_deps:
   ssh_main_repo: "git@github.com:cachito-testing/cachito-yarn-with-deps.git"
   ssh_dep_repo: "git@github.com:cachito-testing/cachito-yarn-without-deps.git"
   # dummy dependency to test change in package.json
-  test_dependency: '"assertion-error": "1.1.0"'
+  test_dependency: '"assertion-error": "^1.1.0"'
   pkg_managers: [ "yarn" ]
   # Parts of the Cachito response to check
   response_expectations:
