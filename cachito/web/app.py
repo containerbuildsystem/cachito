@@ -29,18 +29,6 @@ def healthcheck():
     This returns a 200 response if the application is alive and able to serve requests. It returns
     a 500 response otherwise.
     """
-    current_app.logger.info("A healthcheck request was received")
-
-    try:
-        start_time = timer()
-
-        db.session.execute("SELECT 1 FROM request LIMIT 0").fetchall()
-
-        end_time = timer() - start_time
-        current_app.logger.info("The healthcheck database query took %f seconds", end_time)
-    except SQLAlchemyError:
-        current_app.logger.exception("The healthcheck failed when querying the database")
-        raise InternalServerError()
 
     return ("OK", 200, [("Content-Type", "text/plain")])
 
