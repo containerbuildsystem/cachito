@@ -28,7 +28,7 @@ paths:
                     additionalProperties:
                       type: boolean
                       description: Requests with this package manager can be processed
-                    example: { "git-submodule": false, "gomod": false, "npm": false, "pip": false }
+                    example: { "git-submodule": false, "gomod": false, "npm": false, "pip": false, "yarn": false }
                   services:
                     type: array
                     items:
@@ -92,6 +92,7 @@ paths:
               example: { "ok": false, "reason": "no workers are available" }
   /requests:
     get:
+      summary: List Cachito requests
       description: Return all the Cachito requests
       parameters:
         - name: page
@@ -201,7 +202,8 @@ paths:
                     type: string
                     example: The requested resource was not found
     post:
-      description: Create a new request
+      summary: Create a Cachito request
+      description: Create a new Cachito request
       requestBody:
         description: The request to create
         required: true
@@ -240,6 +242,7 @@ paths:
                     example: You are not authorized to create a request on behalf of another user
   "/requests/{id}":
     get:
+      summary: Get a Cachito request
       description: Return a specific Cachito request
       parameters:
       - name: id
@@ -266,7 +269,8 @@ paths:
                     type: string
                     example: The requested resource was not found
     patch:
-      description: Update a request (requires special authorization)
+      summary: Update a Cachito request
+      description: Update a Cachito request (requires special authorization)
       parameters:
       - name: id
         in: path
@@ -318,7 +322,8 @@ paths:
       - negotiateAuth: []
   "/requests/{id}/configuration-files":
     get:
-      description: Return the configuration files of a request
+      summary: List configuration files of a request
+      description: Return the configuration files of a Cachito request
       parameters:
       - name: id
         in: path
@@ -356,7 +361,8 @@ paths:
                     type: string
                     example: The requested resource was not found
     post:
-      description: Add configuration files to the request (requires special authorization)
+      summary: Add configuration files to a request
+      description: Add configuration files to the Cachito request (requires special authorization)
       parameters:
       - name: id
         in: path
@@ -400,6 +406,7 @@ paths:
       - negotiateAuth: []
   "/requests/{id}/content-manifest":
     get:
+      summary: Get the content manifest of a request
       description: Return the content manifest of a request
       parameters:
       - name: id
@@ -437,7 +444,8 @@ paths:
                     example: "Content manifests are only available for requests in the \"complete\" or \"stale\" states"
   "/requests/{id}/environment-variables":
     get:
-      description: Return information about the environment variables of a request
+      summary: List environment variables of a request
+      description: Return information about the environment variables of a Cachito request
       parameters:
       - name: id
         in: path
@@ -477,6 +485,7 @@ paths:
                     example: The requested resource was not found
   "/requests/{id}/download":
     get:
+      summary: Download a Cachito request bundle
       description: Download a Cachito request bundle
       parameters:
       - name: id
@@ -517,6 +526,7 @@ paths:
                     example: "The request must be in the \"complete\" state before downloading the archive"
   "/requests/{id}/logs":
     get:
+      summary: Get Cachito request logs
       description: Return the logs for a specific Cachito request
       parameters:
         - name: id
@@ -558,6 +568,7 @@ paths:
                     example: The logs for the Cachito request 1 no longer exist
   "/requests/{id}/packages":
     get:
+      summary: List packages and dependencies for a request
       description: Return the packages and dependencies for a request
       parameters:
         - name: id
@@ -611,7 +622,8 @@ paths:
                     example: "Invalid state: packages file was not found."
   "/content-manifest":
     get:
-      description: Return the content manifest of the specified requests
+      summary: Get the content manifest of multiple requests
+      description: Return the content manifest of the specified Cachito requests
       parameters:
       - name: requests
         in: query
@@ -639,7 +651,8 @@ paths:
                     example: "Request 1 is in state in_progress, not complete or stale."
   "/request-metrics":
     get:
-      description: Return a list of requests with a final state information
+      summary: List requests with a final state information
+      description: Return a list of Cachito requests with a final state information
       parameters:
       - name: finished_from
         description: The earliest possible date/time of request end (date, datetime or timestamp format)
@@ -693,7 +706,8 @@ paths:
 
   "/request-metrics/summary":
     get:
-      description: Return a summary about number and duration of requests
+      summary: Get a summary of requests
+      description: Return a summary about number and duration of Cachito requests
       parameters:
       - name: finished_from
         description: The earliest possible date/time of request end (date, datetime or timestamp format)
@@ -748,6 +762,7 @@ components:
           example: gomod
         version:
           type: string
+          nullable: true
           example: "v0.1.1"
     PackageWithReplaces:
       allOf:
@@ -875,6 +890,9 @@ components:
           packages:
             type: integer
             example: 1
+          submitted_by:
+            type: string
+            example: osbs@DOMAIN.LOCAL
       - $ref: "#/components/schemas/RequestBase"
     RequestConfiguration:
       type: object
@@ -999,14 +1017,8 @@ components:
     RequestUpdate:
       type: object
       properties:
-        dependencies:
-          type: array
-          items:
-            $ref: "#/components/schemas/PackageWithReplaces"
         environment_variables:
           $ref: "#/components/schemas/EnvironmentVariable"
-        package:
-          $ref: "#/components/schemas/Package"
         state:
           type: string
           example: complete
@@ -1027,6 +1039,10 @@ components:
             type: string
             description: The URL to the API endpoint with the configuration files
             example: "https://cachito.domain.local/api/v1/requests/1/configuration-files"
+          content_manifest:
+            type: string
+            description: The URL to the API endpoint with the content manifest
+            example: "https://cachito.domain.local/api/v1/requests/1/content-manifest"
           environment_variables_info:
             type: string
             description: The URL to the API endpoint with the environment variables information
