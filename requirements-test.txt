@@ -10,9 +10,9 @@ alembic==1.5.6 \
     # via
     #   -r requirements-web.txt
     #   flask-migrate
-amqp==5.0.2 \
-    --hash=sha256:5b9062d5c0812335c75434bf17ce33d7a20ecfedaa0733faec7379868eb4068a \
-    --hash=sha256:fcd5b3baeeb7fc19b3486ff6d10543099d40ae1f5c9196eae695d1cde1b2f784
+amqp==5.0.9 \
+    --hash=sha256:1e5f707424e544078ca196e72ae6a14887ce74e02bd126be54b7c03c971bef18 \
+    --hash=sha256:9cd81f7b023fc04bbb108718fbac674f06901b77bfcdce85b10e2a5d0ee91be5
     # via
     #   -r requirements.txt
     #   kombu
