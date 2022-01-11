@@ -30,9 +30,7 @@ def test_repo_name():
     assert git_obj.repo_name == "release-engineering/retrodep"
 
 
-@pytest.mark.parametrize(
-    "gitsubmodule, shallow", [(True, False), (False, False), (True, True), (False, True)]
-)
+@pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("tarfile.open")
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("tempfile.NamedTemporaryFile")
@@ -53,7 +51,6 @@ def test_clone_and_archive(
     mock_temp_dir,
     mock_tarfile_open,
     gitsubmodule,
-    shallow,
 ):
     # Mock the archive being created
     mock_exists.return_value = True
@@ -72,16 +69,14 @@ def test_clone_and_archive(
     git_obj = scm.Git(url, ref)
 
     with mock.patch.object(git_obj.sources_dir, "archive_path", new=archive_path):
-        git_obj.clone_and_archive(gitsubmodule, shallow)
-
-    kwargs = {"depth": 1} if shallow else {}
+        git_obj.clone_and_archive(gitsubmodule)
 
     # Verify the tempfile.TemporaryDirectory context manager was used twice:
     # once for _clone_and_archive and once for _verify_archive
     assert mock_temp_dir.return_value.__enter__.call_count == 2
     # Verify the repo was cloned and checked out properly
     mock_clone.assert_called_once_with(
-        url, "/tmp/cachito-temp/repo", no_checkout=True, env={"GIT_TERMINAL_PROMPT": "0"}, **kwargs
+        url, "/tmp/cachito-temp/repo", no_checkout=True, env={"GIT_TERMINAL_PROMPT": "0"}
     )
     assert mock_clone.return_value.head.reference == mock_commit
     mock_clone.return_value.head.reset.assert_called_once_with(index=True, working_tree=True)
@@ -94,9 +89,6 @@ def test_clone_and_archive(
         mock_ugs.assert_called_once_with(mock_clone.return_value)
     else:
         mock_ugs.assert_not_called()
-    # In case a shallow clone was made, we also need to fetch the exact commit needed
-    if shallow:
-        mock_clone.return_value.remote().fetch.assert_called_once_with(refspec=ref, **kwargs)
 
     mock_clone.return_value.git.gc.assert_called_once_with("--prune=now")
 
@@ -163,7 +155,7 @@ def test_fetch_source_clone_if_no_archive_yet(mock_clone_and_archive, gitsubmodu
             with po(scm_git.sources_dir.package_dir, "glob", return_value=[]):
                 scm_git.fetch_source(gitsubmodule)
 
-    mock_clone_and_archive.assert_called_once_with(gitsubmodule=gitsubmodule, shallow=False)
+    mock_clone_and_archive.assert_called_once_with(gitsubmodule=gitsubmodule)
 
 
 @pytest.mark.parametrize("gitsubmodule", [True, False])
@@ -202,9 +194,7 @@ def test_fetch_source_by_pull(mock_update_and_archive, mock_getctime, gitsubmodu
                 return_value=["29eh2a.tar.gz", "a8c2d2.tar.gz", "a8c2d2-with-submodules.tar.gz"],
             ):
                 scm_git.fetch_source(gitsubmodule)
-    mock_update_and_archive.assert_called_once_with(
-        "a8c2d2.tar.gz", gitsubmodule=gitsubmodule, shallow=False
-    )
+    mock_update_and_archive.assert_called_once_with("a8c2d2.tar.gz", gitsubmodule=gitsubmodule)
 
 
 @pytest.mark.parametrize(
@@ -252,19 +242,17 @@ def test_fetch_source_by_pull_corrupt_archive(
 
     assert mock_update_and_archive.call_count == 2
     calls = [
-        mock.call("a8c2d2.tar.gz", gitsubmodule=gitsubmodule, shallow=False),
-        mock.call("29eh2a.tar.gz", gitsubmodule=gitsubmodule, shallow=False),
+        mock.call("a8c2d2.tar.gz", gitsubmodule=gitsubmodule),
+        mock.call("29eh2a.tar.gz", gitsubmodule=gitsubmodule),
     ]
     mock_update_and_archive.assert_has_calls(calls)
     if all_corrupt:
-        mock_clone_and_archive.assert_called_once_with(gitsubmodule=gitsubmodule, shallow=False)
+        mock_clone_and_archive.assert_called_once_with(gitsubmodule=gitsubmodule)
     else:
         mock_clone_and_archive.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "gitsubmodule, shallow", [(True, False), (False, False), (True, True), (False, True)]
-)
+@pytest.mark.parametrize("gitsubmodule", [True, False])
 @mock.patch("tarfile.open")
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("git.Repo")
@@ -272,14 +260,7 @@ def test_fetch_source_by_pull_corrupt_archive(
 @mock.patch("os.path.exists")
 @mock.patch("cachito.workers.scm.Git.update_git_submodules")
 def test_update_and_archive(
-    mock_ugs,
-    mock_exists,
-    mock_fsck,
-    mock_repo,
-    mock_temp_dir,
-    mock_tarfile_open,
-    gitsubmodule,
-    shallow,
+    mock_ugs, mock_exists, mock_fsck, mock_repo, mock_temp_dir, mock_tarfile_open, gitsubmodule
 ):
     # Mock the archive being created
     mock_exists.return_value = True
@@ -289,10 +270,8 @@ def test_update_and_archive(
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = "/tmp/cachito-temp"
 
-    kwargs = {"depth": 1} if shallow else {}
-
     # Test does not really extract this archive file. The filename could be arbitrary.
-    scm.Git(url, ref).update_and_archive("/tmp/1234567.tar.gz", gitsubmodule, shallow)
+    scm.Git(url, ref).update_and_archive("/tmp/1234567.tar.gz", gitsubmodule)
 
     # Verify the tempfile.TemporaryDirectory context manager was used twice:
     # once for _update_and_archive and once for _verify_archive
@@ -300,7 +279,7 @@ def test_update_and_archive(
 
     repo = mock_repo.return_value
     # Verify the changes are pulled.
-    repo.remote.return_value.fetch.assert_called_once_with(refspec=ref, **kwargs)
+    repo.remote.return_value.fetch.assert_called_once_with(refspec=ref)
     # Verify the repo is reset to specific ref
     repo.commit.assert_called_once_with(ref)
     assert repo.commit.return_value == repo.head.reference

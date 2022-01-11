@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 
 @app.task(priority=0)
 @runs_if_request_in_progress
-def fetch_app_source(url, ref, request_id, gitsubmodule=False, include_git_dir=False):
+def fetch_app_source(url, ref, request_id, gitsubmodule=False):
     """
     Fetch the application source code that was requested and put it in long-term storage.
 
@@ -51,9 +51,7 @@ def fetch_app_source(url, ref, request_id, gitsubmodule=False, include_git_dir=F
     try:
         # Default to Git for now
         scm = Git(url, ref)
-        # In case don't need to keep the Git history, use a shallow clone to save resources
-        shallow = not include_git_dir
-        scm.fetch_source(gitsubmodule=gitsubmodule, shallow=shallow)
+        scm.fetch_source(gitsubmodule=gitsubmodule)
     except requests.Timeout:
         raise CachitoError("The connection timed out while downloading the source")
     except CachitoError:
