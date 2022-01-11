@@ -143,33 +143,24 @@ class Git(SCM):
             os.unlink(self.sources_dir.archive_path)
             raise
 
-    def clone_and_archive(self, gitsubmodule=False, shallow=False):
+    def clone_and_archive(self, gitsubmodule=False):
         """
         Clone the git repository and create the compressed source archive.
 
         :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
-        :param bool shallow: determines if a shallow clone should be made (depth=1).
         :raises CachitoError: if cloning the repository fails or if the archive can't be created
         """
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
             log.debug("Cloning the Git repository from %s", self.url)
             clone_path = os.path.join(temp_dir, "repo")
-
-            kwargs = {
-                "no_checkout": True,
-                # Don't allow git to prompt for a username if we don't have access
-                "env": {"GIT_TERMINAL_PROMPT": "0"},
-            }
-
-            if shallow:
-                kwargs["depth"] = 1
-
             try:
-                repo = git.repo.Repo.clone_from(self.url, clone_path, **kwargs)
-
-                if shallow:
-                    # Fetch the exact commit we need
-                    repo.remote().fetch(refspec=self.ref, depth=1)
+                repo = git.repo.Repo.clone_from(
+                    self.url,
+                    clone_path,
+                    no_checkout=True,
+                    # Don't allow git to prompt for a username if we don't have access
+                    env={"GIT_TERMINAL_PROMPT": "0"},
+                )
             except:  # noqa E722
                 log.exception("Cloning the Git repository from %s failed", self.url)
                 raise CachitoError("Cloning the Git repository failed")
@@ -182,13 +173,12 @@ class Git(SCM):
             repo.git.gc("--prune=now")
             self._create_archive(repo.working_dir)
 
-    def update_and_archive(self, previous_archive, gitsubmodule=False, shallow=False):
+    def update_and_archive(self, previous_archive, gitsubmodule=False):
         """
         Update the existing Git history and create a source archive.
 
         :param str previous_archive: path to an archive file created before.
         :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
-        :param bool shallow: determines if only a single reference should be fetched.
         :raises CachitoError: if pulling the Git history from the remote repo or
             the checkout of the target Git ref fails.
         """
@@ -197,13 +187,10 @@ class Git(SCM):
                 tar.extractall(temp_dir)
 
             repo = git.Repo(os.path.join(temp_dir, "app"))
-
-            kwargs = {"depth": 1} if shallow else {}
-
             try:
                 # The reference must be specified to handle commits which are not part
                 # of a branch.
-                repo.remote().fetch(refspec=self.ref, **kwargs)
+                repo.remote().fetch(refspec=self.ref)
             except:  # noqa E722
                 log.exception("Failed to fetch from remote %s", self.url)
                 raise CachitoError("Failed to fetch from the remote Git repository")
@@ -215,11 +202,10 @@ class Git(SCM):
             repo.git.gc("--prune=now")
             self._create_archive(repo.working_dir)
 
-    def fetch_source(self, gitsubmodule=False, shallow=False):
+    def fetch_source(self, gitsubmodule=False):
         """Fetch the repo, create a compressed tar file, and put it in long-term storage.
 
         :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
-        :param bool shallow: determines if a shallow clone should be made (depth=1).
         """
         if gitsubmodule:
             self.sources_dir = SourcesDir(self.repo_name, f"{self.ref}-with-submodules")
@@ -249,9 +235,7 @@ class Git(SCM):
             if "-with-submodules" in str(previous_archive):
                 continue
             try:
-                self.update_and_archive(
-                    previous_archive, gitsubmodule=gitsubmodule, shallow=shallow,
-                )
+                self.update_and_archive(previous_archive, gitsubmodule=gitsubmodule)
                 return
             except (
                 git.exc.InvalidGitRepositoryError,
@@ -269,7 +253,7 @@ class Git(SCM):
                     previous_archive,
                 )
 
-        self.clone_and_archive(gitsubmodule=gitsubmodule, shallow=shallow)
+        self.clone_and_archive(gitsubmodule=gitsubmodule)
 
     def update_git_submodules(self, repo):
         """Update git submodules.

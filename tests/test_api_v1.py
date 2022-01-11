@@ -110,7 +110,6 @@ def test_get_status_short(mock_status, error, client):
         ([], ["npm"], None, ["npm"], None,),
         ([], ["pip"], None, ["pip"], None,),
         ([], ["yarn"], None, ["yarn"], None,),
-        ([], [], None, [], ["include-git-dir"],),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -163,7 +162,6 @@ def test_create_and_fetch_request(
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
             "git-submodule" in expected_pkg_managers,
-            "include-git-dir" in flags if flags is not None else False,
         ).on_error(error_callback)
     ]
     if "gomod" in expected_pkg_managers:
@@ -222,7 +220,6 @@ def test_create_request_with_gomod_package_configs(
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
             False,
-            False,
         ).on_error(error_callback),
         fetch_gomod_source.si(1, [], package_value["gomod"]).on_error(error_callback),
         process_fetched_sources.si(1).on_error(error_callback),
@@ -252,7 +249,6 @@ def test_create_request_with_npm_package_configs(
             "https://github.com/release-engineering/web-terminal.git",
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
-            False,
             False,
         ).on_error(error_callback),
         fetch_npm_source.si(1, package_value["npm"]).on_error(error_callback),
@@ -294,7 +290,6 @@ def test_create_request_with_pip_package_configs(mock_chain, app, auth_env, clie
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
             False,
-            False,
         ).on_error(error_callback),
         fetch_pip_source.si(1, package_value["pip"]).on_error(error_callback),
         process_fetched_sources.si(1).on_error(error_callback),
@@ -324,7 +319,6 @@ def test_create_request_with_yarn_package_configs(
             "https://github.com/release-engineering/web-terminal.git",
             "c50b93a32df1c9d700e3e80996845bc2e13be848",
             1,
-            False,
             False,
         ).on_error(error_callback),
         fetch_yarn_source.si(1, package_value["yarn"]).on_error(error_callback),
@@ -377,7 +371,6 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
                 "https://github.com/release-engineering/retrodep.git",
                 "c50b93a32df1c9d700e3e80996845bc2e13be848",
                 1,
-                False,
                 False,
             ).on_error(error_callback),
             fetch_gomod_source.si(1, [], []).on_error(error_callback),
