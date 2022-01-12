@@ -31,6 +31,8 @@ RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes \
 
 # Use the system CA bundle for the requests library
 ENV REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+# Use the system CA bundle for native SSL calls from celery (python)
+ENV SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
 
 # Set git user configuration for GitPython
 ENV GIT_COMMITTER_NAME=cachito \
