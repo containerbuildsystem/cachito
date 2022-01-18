@@ -592,6 +592,9 @@ with the `mod_auth_gssapi` module.
 * `gomod-vendor-check` - like `gomod-vendor`, but if the `vendor/` directory is already present,
   Cachito will refuse to make changes in your repository. Should be preferred over `gomod-vendor`.
 
+* `force-gomod-tidy` - when used, Cachito will unconditionally run `go mod tidy` even when dependency
+  replacments are not present.
+
 * `include-git-dir` - when used, `.git` file objects are not removed from the source bundle created
   by Cachito. This is useful when the git history is important to the build process.
 

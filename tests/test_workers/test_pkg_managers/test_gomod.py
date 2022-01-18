@@ -230,6 +230,7 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
     ),
 )
 @pytest.mark.parametrize("cgo_disable", [False, True])
+@pytest.mark.parametrize("force_gomod_tidy", [False, True])
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
@@ -251,6 +252,7 @@ def test_resolve_gomod(
     go_list_error_pkg,
     expected_replace,
     cgo_disable,
+    force_gomod_tidy,
     tmpdir,
     sample_deps,
     sample_deps_replace,
@@ -267,7 +269,7 @@ def test_resolve_gomod(
     if dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod edit -replace
     run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
-    if dep_replacement:
+    if force_gomod_tidy or dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
@@ -282,9 +284,11 @@ def test_resolve_gomod(
     mock_get_allowed_local_deps.return_value = ["*"]
 
     archive_path = "/this/is/path/to/archive.tar.gz"
-    request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
+    request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848", "flags": []}
     if cgo_disable:
-        request["flags"] = ["cgo-disable"]
+        request["flags"].append("cgo-disable")
+    if force_gomod_tidy:
+        request["flags"].append("force-gomod-tidy")
 
     if dep_replacement is None:
         gomod = resolve_gomod(archive_path, request)
@@ -304,7 +308,7 @@ def test_resolve_gomod(
             "-replace",
             expected_replace,
         )
-        if dep_replacement:
+        if force_gomod_tidy or dep_replacement:
             assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
 
     # when not vendoring, go list should be called with -mod readonly
@@ -341,6 +345,7 @@ def test_resolve_gomod(
     mock_set_full_relpaths.assert_called_once_with(gomod["packages"][0]["pkg_deps"], expected_deps)
 
 
+@pytest.mark.parametrize("force_gomod_tidy", [False, True])
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
@@ -352,6 +357,7 @@ def test_resolve_gomod_vendor_dependencies(
     mock_run,
     mock_temp_dir,
     mock_golang_version,
+    force_gomod_tidy,
     tmpdir,
     sample_package,
 ):
@@ -359,16 +365,20 @@ def test_resolve_gomod_vendor_dependencies(
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
 
     # Mock the "subprocess.run" calls
-    mock_run.side_effect = [
-        # go mod vendor
-        mock.Mock(returncode=0, stdout=None),
-        # go list -m
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
-        # go list -find ./...
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
-        # go list -deps -json
-        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps),
-    ]
+    run_side_effects = []
+    run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod vendor
+    if force_gomod_tidy:
+        run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+    )
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")
+    )  # go list -find ./...
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps)
+    )  # go list -deps -json
+    mock_run.side_effect = run_side_effects
     mock_module_lines.return_value = []
     mock_golang_version.return_value = "v2.1.1"
 
@@ -378,6 +388,8 @@ def test_resolve_gomod_vendor_dependencies(
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
         "flags": ["gomod-vendor"],
     }
+    if force_gomod_tidy:
+        request["flags"].append("force-gomod-tidy")
     gomod = resolve_gomod(archive_path, request)
 
     assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
@@ -436,6 +448,7 @@ def test_resolve_gomod_strict_mode_raise_error(
         )
 
 
+@pytest.mark.parametrize("force_gomod_tidy", [False, True])
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
@@ -449,6 +462,7 @@ def test_resolve_gomod_no_deps(
     mock_merge_tree,
     mock_temp_dir,
     mock_golang_version,
+    force_gomod_tidy,
     tmpdir,
     sample_package,
     sample_pkg_lvl_pkg,
@@ -460,22 +474,28 @@ def test_resolve_gomod_no_deps(
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
 
     # Mock the "subprocess.run" calls
-    mock_run.side_effect = [
-        # go mod download
-        mock.Mock(returncode=0, stdout=None),
-        # go list -m
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
-        # go list -m all
-        mock.Mock(returncode=0, stdout=""),
-        # go list -find ./...
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),
-        # go list -deps -json
-        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps),
-    ]
+    run_side_effects = []
+    run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
+    if force_gomod_tidy:
+        run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+    )
+    run_side_effects.append(mock.Mock(returncode=0, stdout=""))  # go list -m all
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")
+    )  # go list -find ./...
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps)
+    )  # go list -deps -json
+    mock_run.side_effect = run_side_effects
+
     mock_golang_version.return_value = "v2.1.1"
 
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
+    if force_gomod_tidy:
+        request["flags"] = ["force-gomod-tidy"]
     gomod = resolve_gomod(archive_path, request)
 
     assert gomod["module"] == sample_package
