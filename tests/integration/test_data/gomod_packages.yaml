@@ -1351,3 +1351,461 @@ missing_gomod:
     app: https://github.com/cachito-testing/cachito-missing-gomod-file/tarball/0ae32a94a2a4f17b6702f8dddb1ddb88154f4473
     deps: null
   content_manifest: []
+# gomod package without dependencies and with force-gomod-tidy flag
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# flags: A list of strings with Cachito flags
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files (empty)
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+force_tidy_without_deps:
+  repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
+  ref: a888f7261b9a9683972fbd77da2d12fe86faef5e
+  pkg_managers: ["gomod"]
+  flags: ["force-gomod-tidy"]
+  response_expectations:
+    packages:
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        type: "go-package"
+        version: "v0.0.0-20200925115855-a888f7261b9a"
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-without-deps"
+        type: "gomod"
+        version: "v0.0.0-20200925115855-a888f7261b9a"
+    dependencies: []
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-gomod-without-deps/tarball/a888f7261b9a9683972fbd77da2d12fe86faef5e
+    deps/gomod/pkg/mod/cache/download: null
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
+# The test data for gomod package with vendor directory and with force-gomod-tidy flag
+force_tidy_vendored:
+  repo: https://github.com/cachito-testing/gomod-vendored.git
+  ref:  ff1960095dd158d3d2a4f31d15b244c24930248b
+  flags: ["gomod-vendor", "force-gomod-tidy"]
+  pkg_managers: ["gomod"]
+  response_expectations:
+    dependencies:
+      - name: bytes
+        replaces: null
+        type: go-package
+        version: null
+      - name: errors
+        replaces: null
+        type: go-package
+        version: null
+      - name: fmt
+        replaces: null
+        type: go-package
+        version: null
+      - name: golang.org/x/text/internal/tag
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: golang.org/x/text/language
+        replaces: null
+        type: go-package
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: internal/abi
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/bytealg
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/cpu
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/fmtsort
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goexperiment
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/itoa
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/oserror
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/poll
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/race
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/reflectlite
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/syscall/execenv
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/syscall/unix
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/testlog
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/unsafeheader
+        replaces: null
+        type: go-package
+        version: null
+      - name: io
+        replaces: null
+        type: go-package
+        version: null
+      - name: io/fs
+        replaces: null
+        type: go-package
+        version: null
+      - name: math
+        replaces: null
+        type: go-package
+        version: null
+      - name: math/bits
+        replaces: null
+        type: go-package
+        version: null
+      - name: os
+        replaces: null
+        type: go-package
+        version: null
+      - name: path
+        replaces: null
+        type: go-package
+        version: null
+      - name: reflect
+        replaces: null
+        type: go-package
+        version: null
+      - name: rsc.io/quote
+        replaces: null
+        type: go-package
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: go-package
+        version: v1.3.0
+      - name: runtime
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/atomic
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/math
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/sys
+        replaces: null
+        type: go-package
+        version: null
+      - name: sort
+        replaces: null
+        type: go-package
+        version: null
+      - name: strconv
+        replaces: null
+        type: go-package
+        version: null
+      - name: strings
+        replaces: null
+        type: go-package
+        version: null
+      - name: sync
+        replaces: null
+        type: go-package
+        version: null
+      - name: sync/atomic
+        replaces: null
+        type: go-package
+        version: null
+      - name: syscall
+        replaces: null
+        type: go-package
+        version: null
+      - name: time
+        replaces: null
+        type: go-package
+        version: null
+      - name: unicode
+        replaces: null
+        type: go-package
+        version: null
+      - name: unicode/utf8
+        replaces: null
+        type: go-package
+        version: null
+      - name: unsafe
+        replaces: null
+        type: go-package
+        version: null
+      - name: golang.org/x/text
+        replaces: null
+        type: gomod
+        version: v0.0.0-20170915032832-14c0d48ead0c
+      - name: rsc.io/quote
+        replaces: null
+        type: gomod
+        version: v1.5.2
+      - name: rsc.io/sampler
+        replaces: null
+        type: gomod
+        version: v1.3.0
+    packages:
+      - dependencies:
+        - name: bytes
+          replaces: null
+          type: go-package
+          version: null
+        - name: errors
+          replaces: null
+          type: go-package
+          version: null
+        - name: fmt
+          replaces: null
+          type: go-package
+          version: null
+        - name: golang.org/x/text/internal/tag
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: golang.org/x/text/language
+          replaces: null
+          type: go-package
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: internal/abi
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/cpu
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/fmtsort
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/itoa
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/oserror
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/poll
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/race
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/execenv
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/unix
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/testlog
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/unsafeheader
+          replaces: null
+          type: go-package
+          version: null
+        - name: io
+          replaces: null
+          type: go-package
+          version: null
+        - name: io/fs
+          replaces: null
+          type: go-package
+          version: null
+        - name: math
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/bits
+          replaces: null
+          type: go-package
+          version: null
+        - name: os
+          replaces: null
+          type: go-package
+          version: null
+        - name: path
+          replaces: null
+          type: go-package
+          version: null
+        - name: reflect
+          replaces: null
+          type: go-package
+          version: null
+        - name: rsc.io/quote
+          replaces: null
+          type: go-package
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: go-package
+          version: v1.3.0
+        - name: runtime
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/math
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: sort
+          replaces: null
+          type: go-package
+          version: null
+        - name: strconv
+          replaces: null
+          type: go-package
+          version: null
+        - name: strings
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: time
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode/utf8
+          replaces: null
+          type: go-package
+          version: null
+        - name: unsafe
+          replaces: null
+          type: go-package
+          version: null
+        name: github.com/cachito-testing/gomod-vendored
+        type: go-package
+        version: v0.0.0-20200916135625-ff1960095dd1
+      - dependencies:
+        - name: golang.org/x/text
+          replaces: null
+          type: gomod
+          version: v0.0.0-20170915032832-14c0d48ead0c
+        - name: rsc.io/quote
+          replaces: null
+          type: gomod
+          version: v1.5.2
+        - name: rsc.io/sampler
+          replaces: null
+          type: gomod
+          version: v1.3.0
+        name: github.com/cachito-testing/gomod-vendored
+        type: gomod
+        version: v0.0.0-20200916135625-ff1960095dd1
+  expected_files:
+    app: https://github.com/cachito-testing/gomod-vendored/tarball/ff1960095dd158d3d2a4f31d15b244c24930248b
+    deps/gomod/pkg/mod/cache/download: null
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fgomod-vendored@v0.0.0-20200916135625-ff1960095dd1"
+    dep_purls:
+    - "pkg:golang/bytes"
+    - "pkg:golang/errors"
+    - "pkg:golang/fmt"
+    - "pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/internal%2Fabi"
+    - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcpu"
+    - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fitoa"
+    - "pkg:golang/internal%2Foserror"
+    - "pkg:golang/internal%2Fpoll"
+    - "pkg:golang/internal%2Frace"
+    - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsyscall%2Fexecenv"
+    - "pkg:golang/internal%2Fsyscall%2Funix"
+    - "pkg:golang/internal%2Ftestlog"
+    - "pkg:golang/internal%2Funsafeheader"
+    - "pkg:golang/io"
+    - "pkg:golang/io%2Ffs"
+    - "pkg:golang/math"
+    - "pkg:golang/math%2Fbits"
+    - "pkg:golang/os"
+    - "pkg:golang/path"
+    - "pkg:golang/reflect"
+    - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+    - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+    - "pkg:golang/runtime"
+    - "pkg:golang/runtime%2Finternal%2Fatomic"
+    - "pkg:golang/runtime%2Finternal%2Fmath"
+    - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/sort"
+    - "pkg:golang/strconv"
+    - "pkg:golang/strings"
+    - "pkg:golang/sync"
+    - "pkg:golang/sync%2Fatomic"
+    - "pkg:golang/syscall"
+    - "pkg:golang/time"
+    - "pkg:golang/unicode"
+    - "pkg:golang/unicode%2Futf8"
+    - "pkg:golang/unsafe"
+    source_purls:
+    - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
+    - "pkg:golang/rsc.io%2Fquote@v1.5.2"
+    - "pkg:golang/rsc.io%2Fsampler@v1.3.0"

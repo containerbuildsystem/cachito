@@ -28,6 +28,8 @@ from . import utils
         ("gomod_packages", "vendored_with_flag"),
         ("gomod_packages", "implicit_gomod"),
         ("gomod_packages", "missing_gomod"),
+        ("gomod_packages", "force_tidy_without_deps"),
+        ("gomod_packages", "force_tidy_vendored"),
         ("gomod_vendor_check", "correct_vendor"),
         ("gomod_vendor_check", "no_vendor"),
         ("npm_packages", "without_deps"),

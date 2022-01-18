@@ -198,7 +198,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         else:
             log.info("Downloading the gomod dependencies")
             run_download_cmd(("go", "mod", "download"), run_params)
-        if dep_replacements:
+        if "force-gomod-tidy" in flags or dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
 
         # main module
