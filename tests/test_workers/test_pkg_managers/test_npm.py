@@ -341,6 +341,86 @@ def test_get_deps_allowlisted_file_dep():
     assert replacements == []
 
 
+@pytest.mark.parametrize(
+    "package_lock_deps,workspaces,replacement,result",
+    [
+        ({}, [], set(), {}),
+        ({"a": {"version": "file:a"}}, ["a"], set(), {},),
+        (
+            {
+                "a": {"version": "file:a"},
+                "tslib": {
+                    "version": "1.11.1",
+                    "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
+                },
+            },
+            ["a"],
+            set(),
+            {
+                "tslib": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "tslib",
+                        "version": "1.11.1",
+                        "version_in_nexus": None,
+                    },
+                ]
+            },
+        ),
+        ({"a": {"version": "file:a"}, "b": {"version": "file:b"}}, ["a", "b"], set(), {}),
+        (
+            {
+                "tslib": {
+                    "version": "1.11.1",
+                    "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
+                },
+                "a": {"version": "file:a"},
+                "b": {"version": "file:b"},
+            },
+            ["b", "a"],
+            set(),
+            {
+                "tslib": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "tslib",
+                        "version": "1.11.1",
+                        "version_in_nexus": None,
+                    },
+                ]
+            },
+        ),
+        (
+            {"a": {"version": "file:a"}, "b": {"version": "file:b"}},
+            ["a"],
+            {"b"},
+            {
+                "b": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "b",
+                        "version": "file:b",
+                        "version_in_nexus": None,
+                    },
+                ]
+            },
+        ),
+    ],
+)
+def test_get_deps_worspaces(package_lock_deps, workspaces, replacement, result):
+    name_to_deps, replacements = npm._get_deps(
+        package_lock_deps, replacement, workspaces=workspaces
+    )
+    assert name_to_deps == result
+    assert replacements == []
+
+
 @mock.patch("cachito.workers.pkg_managers.npm.process_non_registry_dependency")
 def test_convert_to_nexus_hosted(mock_process_non_registry_dep):
     dep_name = "rxjs"
@@ -398,7 +478,8 @@ def test_get_npm_proxy_username():
     assert npm.get_npm_proxy_username(3) == "cachito-npm-3"
 
 
-def test_get_package_and_deps(package_lock_deps, package_and_deps):
+@pytest.mark.parametrize("lockfileversion,packages", [(1, {}), (2, {"workspaces": ["a"]})])
+def test_get_package_and_deps(package_lock_deps, package_and_deps, lockfileversion, packages):
     package_lock_deps["millennium-falcon"] = {
         "version": "file:millennium-falcon-1.0.0.tgz",
         "integrity": (
@@ -419,7 +500,13 @@ def test_get_package_and_deps(package_lock_deps, package_and_deps):
     )
     package_and_deps["deps"].sort(key=operator.itemgetter("name", "version"))
 
-    package_lock = {"name": "han_solo", "version": "5.0.0", "dependencies": package_lock_deps}
+    package_lock = {
+        "name": "han_solo",
+        "version": "5.0.0",
+        "lockfileVersion": lockfileversion,
+        "packages": {"": packages},
+        "dependencies": package_lock_deps,
+    }
     mock_open = mock.mock_open(read_data=json.dumps(package_lock))
     with mock.patch("cachito.workers.pkg_managers.npm.open", mock_open):
         deps_info = npm.get_package_and_deps(
@@ -439,6 +526,7 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
     package_lock = {
         "name": "star-wars",
         "version": "5.0.0",
+        "lockfileVersion": 1,
         "dependencies": {
             "rxjs": {
                 "version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
@@ -462,7 +550,7 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
         },
     }
 
-    def _mock_get_deps(_deps, file_deps_allowlist):
+    def _mock_get_deps(_deps, file_deps_allowlist, workspaces):
         _deps["rxjs"] = {
             "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
             "resolved": (
@@ -557,6 +645,7 @@ def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_de
                     "version": "1.11.1",
                 },
             },
+            "lockfileVersion": 1,
             "name": "star-wars",
             "version": "5.0.0",
         },

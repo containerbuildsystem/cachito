@@ -25,7 +25,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None):
+def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None, workspaces=None):
     """
     Get a mapping of dependencies to all versions of the dependency.
 
@@ -48,6 +48,7 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None):
         dependencies and should be ignored since they are implementation details
     :param dict _name_to_deps: the current mapping of dependencies; this is not meant to be set
         by the caller
+    :param list workspaces: package workspaces defined in package-lock.json
     :return: a tuple with the first item as the mapping of dependencies where each key is a
         dependecy name and the values are dictionaries describing the dependency versions; the
         second item is a list of tuples for non-registry dependency replacements, where the first
@@ -57,6 +58,8 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None):
     """
     if _name_to_deps is None:
         _name_to_deps = {}
+    elif workspaces is None:
+        workspaces = []
 
     nexus_replacements = []
     for name, info in package_lock_deps.items():
@@ -68,6 +71,10 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None):
         # output of this function to download the dependencies will ignore this dependency.
         if info["version"].startswith("file:") and name in file_deps_allowlist:
             log.info("The dependency %r is an allowed exception", info)
+        # If there is npm workspace entry in dependencies of package-lock.json, skip it.
+        elif info["version"].startswith("file:") and name in workspaces:
+            log.info(f"The dependency '{name}' is npm workspace, skipping.")
+            continue
         # Note that a bundled dependency will not have the "resolved" key, but those are supported
         # since they are properly cached in the parent dependency in Nexus
         elif not info.get("bundled", False) and "resolved" not in info:
@@ -213,8 +220,11 @@ def get_package_and_deps(package_json_path, package_lock_path):
     file_deps_allowlist = set(
         get_worker_config().cachito_npm_file_deps_allowlist.get(package["name"], [])
     )
+    workspaces = []
+    if package_lock["lockfileVersion"] >= 2:
+        workspaces = package_lock["packages"][""].get("workspaces", [])
     name_to_deps, top_level_replacements = _get_deps(
-        package_lock.get("dependencies", {}), file_deps_allowlist
+        package_lock.get("dependencies", {}), file_deps_allowlist, workspaces=workspaces
     )
     # Convert the name_to_deps mapping to a list now that it's fully populated
     deps = [dep_info for deps_info in name_to_deps.values() for dep_info in deps_info]

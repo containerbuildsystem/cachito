@@ -33,6 +33,7 @@ from . import utils
         ("npm_packages", "without_deps"),
         ("npm_packages", "with_deps"),
         ("npm_packages", "git_submodule"),
+        ("npm_packages", "workspaces"),
         ("yarn_packages", "without_deps"),
         ("yarn_packages", "with_deps"),
         ("yarn_packages", "git_submodule"),

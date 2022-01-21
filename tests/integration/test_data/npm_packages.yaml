@@ -358,3 +358,39 @@ git_submodule:
     - "pkg:npm/get-func-name@2.0.0"
     - "pkg:npm/pathval@1.1.1"
     - "pkg:npm/type-detect@4.0.8"
+# npm package for testing workspaces
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+workspaces:
+  repo: https://github.com/cachito-testing/cachito-npm-workspaces.git
+  ref: 7a83936be7177246a549acf66ab8074ea4c0d6f5 
+  pkg_managers: ["npm"]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-npm-workspaces/tarball/7a83936be7177246a549acf66ab8074ea4c0d6f5
+    deps/npm/abbrev/abbrev-1.1.1.tgz: https://registry.npmjs.com/abbrev/-/abbrev-1.1.1.tgz
+  response_expectations:
+    dependencies:
+      - dev: false
+        name: abbrev
+        replaces: null
+        type: npm
+        version: 1.1.1
+    packages:
+      - dependencies:
+        - dev: false
+          name: abbrev
+          replaces: null
+          type: npm
+          version: 1.1.1
+        name: "npm_test"
+        type: "npm"
+        version: "1.0.0"
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-npm-workspaces@7a83936be7177246a549acf66ab8074ea4c0d6f5"
+    dep_purls:
+      - "pkg:npm/abbrev@1.1.1"
+    source_purls:
+      - "pkg:npm/abbrev@1.1.1"
