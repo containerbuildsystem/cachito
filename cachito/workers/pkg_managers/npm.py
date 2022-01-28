@@ -25,7 +25,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None, workspaces=None):
+def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspaces=None):
     """
     Get a mapping of dependencies to all versions of the dependency.
 
@@ -46,7 +46,7 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None, worksp
     :param dict package_lock_deps: the value of a "dependencies" key in a package-lock.json file
     :param set file_deps_allowlist: an allow list of dependencies that are allowed to be "file"
         dependencies and should be ignored since they are implementation details
-    :param dict _name_to_deps: the current mapping of dependencies; this is not meant to be set
+    :param dict name_to_deps: the current mapping of dependencies; this is not meant to be set
         by the caller
     :param list workspaces: package workspaces defined in package-lock.json
     :return: a tuple with the first item as the mapping of dependencies where each key is a
@@ -56,8 +56,8 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None, worksp
     :rtype: (dict, list)
     :raise CachitoError: if the lock file contains a dependency from an unsupported location
     """
-    if _name_to_deps is None:
-        _name_to_deps = {}
+    if name_to_deps is None:
+        name_to_deps = {}
     elif workspaces is None:
         workspaces = []
 
@@ -99,8 +99,8 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None, worksp
             info.clear()
             info.update(nexus_replacement)
 
-        _name_to_deps.setdefault(name, [])
-        for d in _name_to_deps[name]:
+        name_to_deps.setdefault(name, [])
+        for d in name_to_deps[name]:
             if d["version"] == dep["version"]:
                 # If a duplicate version was found but this one isn't bundled, then mark the
                 # dependency as not bundled so it's included individually in the deps directory
@@ -112,18 +112,18 @@ def _get_deps(package_lock_deps, file_deps_allowlist, _name_to_deps=None, worksp
                     d["dev"] = False
                 break
         else:
-            _name_to_deps[name].append(dep)
+            name_to_deps[name].append(dep)
 
         if "dependencies" in info:
             _, returned_nexus_replacements = _get_deps(
-                info["dependencies"], file_deps_allowlist, _name_to_deps
+                info["dependencies"], file_deps_allowlist, name_to_deps
             )
             # If any of the dependencies were non-registry dependencies, replace the requires to be
             # the version in Nexus
             for name, version in returned_nexus_replacements:
                 info["requires"][name] = version
 
-    return _name_to_deps, nexus_replacements
+    return name_to_deps, nexus_replacements
 
 
 def convert_to_nexus_hosted(dep_name, dep_info):
