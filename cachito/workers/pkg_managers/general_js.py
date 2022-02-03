@@ -44,6 +44,7 @@ def download_dependencies(
     proxy_repo_url: str,
     skip_deps: Optional[Set[str]] = None,
     pkg_manager: str = "npm",
+    ignore_dev_deps: bool = False,
 ) -> Set[str]:
     """
     Download the list of npm dependencies using npm pack to the deps bundle directory.
@@ -66,6 +67,7 @@ def download_dependencies(
         already been downloaded for this request.
     :param str pkg_manager: the name of the package manager to download dependencies for, affects
         destination directory and logging output (npm is used to do the actual download regardless)
+    :param bool ignore_dev_deps: flag to indicate that Dev dependencies should not be downloaded
     :return: a set of dependency identifiers that were downloaded
     :rtype: set[str]
     :raises CachitoError: if any of the downloads fail
@@ -131,6 +133,9 @@ def download_dependencies(
                 log.debug(
                     "Not downloading %s since it was already downloaded previously", dep_identifier
                 )
+                continue
+            elif ignore_dev_deps and dep["dev"]:
+                log.debug("Not downloading %s since it is a Dev dependency, and ignore_dev_deps flag is true", dep_identifier)
                 continue
 
             if counter % batch_size == 0:

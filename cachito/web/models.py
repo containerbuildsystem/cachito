@@ -184,10 +184,10 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
 
     # Validate the values for each package manager configuration (e.g. packages.npm)
     valid_package_config_keys = {
-        "npm": {"path"},
+        "npm": {"path", "ignore_dev_deps"},
         "pip": {"path", "requirements_build_files", "requirements_files"},
         "gomod": {"path"},
-        "yarn": {"path"},
+        "yarn": {"path", "ignore_dev_deps"},
     }
     for pkg_manager, packages_config in packages_configs.items():
         invalid_format_error = (
@@ -207,6 +207,8 @@ def _validate_request_package_configs(request_kwargs, pkg_managers_names):
 
             if package_config.get("path") is not None:
                 _validate_configuration_path_value(pkg_manager, "path", package_config["path"])
+            for path in package_config.get("ignore_dev_deps", []):
+                _validate_configuration_path_value(pkg_manager, "ignore_dev_deps", path)
             for path in package_config.get("requirements_files", []):
                 _validate_configuration_path_value(pkg_manager, "requirements_files", path)
             for path in package_config.get("requirements_build_files", []):

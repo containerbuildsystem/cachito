@@ -478,6 +478,7 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
         proxy_repo_url,
         skip_deps=skip_deps,
         pkg_manager="yarn",
+        # ignore_dev_deps=SET FLAG TO INPUT VALUE,
     )
 
     replacements = package_and_deps_info.pop("nexus_replacements")
