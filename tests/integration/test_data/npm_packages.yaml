@@ -32,7 +32,7 @@ without_deps:
 # content_manifest: PURLs for image contents part
 with_deps:
   repo: https://github.com/cachito-testing/cachito-npm-with-deps.git
-  ref: 86af61f8a1f4e4afdd69a90782b917dd7088f84a
+  ref: 565aba4c7f210c6196c1b522e2279f853f77d6d2
   pkg_managers: ["npm"]
   response_expectations:
     dependencies:
@@ -41,11 +41,6 @@ with_deps:
         replaces: null
         type: npm
         version: 1.1.0
-      - dev: false
-        name: cachito-npm-without-deps
-        replaces: null
-        type: npm
-        version: github:cachito-testing/cachito-npm-without-deps#2f0ce1d7b1f8b35572d919428b965285a69583f6
       - dev: false
         name: chai
         replaces: null
@@ -72,25 +67,25 @@ with_deps:
         type: npm
         version: 2.0.0
       - dev: false
+        name: is-positive
+        replaces: null
+        type: npm
+        version: github:kevva/is-positive#97edff6f525f192a3f83cea1944765f769ae2678
+      - dev: false
         name: pathval
         replaces: null
         type: npm
         version: 1.1.1
-      - dev: false
-        name: test-npm-dep
-        replaces: null
-        type: npm
-        version: git+https://elinah@bitbucket.org/elinah/test-npm-dep.git#b952715c0706f30d92a7253dcdadc510a618eca5
       - dev: false
         name: type-detect
         replaces: null
         type: npm
         version: 4.0.8
       - dev: true
-        name: npm-test-project
+        name: cachito-npm-without-deps
         replaces: null
         type: npm
-        version: git+https://gitlab.com/eakhmano-test-group/eakhmano-test-subgroup/subsubgroup/npm-test-project.git#88114c48d7d894f7e2306adf06137b096e9cdf29
+        version: git+https://github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
     packages:
       - dependencies:
         - dev: false
@@ -152,7 +147,7 @@ with_deps:
         type: npm
         version: 1.0.0
   expected_files:
-    app: https://github.com/cachito-testing/cachito-npm-with-deps/tarball/86af61f8a1f4e4afdd69a90782b917dd7088f84a
+    app: https://github.com/cachito-testing/cachito-npm-with-deps/tarball/565aba4c7f210c6196c1b522e2279f853f77d6d2
     deps/npm/assertion-error/assertion-error-1.1.0.tgz: https://registry.npmjs.org/assertion-error/-/assertion-error-1.1.0.tgz
     deps/npm/chai/chai-4.2.0.tgz: https://registry.npmjs.org/chai/-/chai-4.2.0.tgz
     deps/npm/check-error/check-error-1.0.2.tgz: https://registry.npmjs.org/check-error/-/check-error-1.0.2.tgz
@@ -165,7 +160,7 @@ with_deps:
     deps/npm/pathval/pathval-1.1.1.tgz: https://registry.npmjs.org/pathval/-/pathval-1.1.1.tgz
     deps/npm/type-detect/type-detect-4.0.8.tgz: https://registry.npmjs.org/type-detect/-/type-detect-4.0.8.tgz
   content_manifest:
-  - purl: "pkg:github/cachito-testing/cachito-npm-with-deps@86af61f8a1f4e4afdd69a90782b917dd7088f84a"
+  - purl: "pkg:github/cachito-testing/cachito-npm-with-deps@565aba4c7f210c6196c1b522e2279f853f77d6d2"
     dep_purls:
     - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz"
     - "pkg:generic/test-npm-dep?vcs_url=git%2Bhttps%3A%2F%2Felinah%40bitbucket.org%2Felinah%2Ftest-npm-dep.git%23b952715c0706f30d92a7253dcdadc510a618eca5"
@@ -197,7 +192,7 @@ git_submodule:
   packages:
     npm: [{"path": "cachito-npm-with-deps"}]
   expected_files:
-    app: https://github.com/cachito-testing/git-submodule-npm-tarball/tarball/7c1386b804c7acaa6bd20155d14a11addb2a0346
+    app: https://github.com/cachito-testing/git-submodule-npm-tarball/tarball/cd559dbe8655faa85d55b93aa81fd6e9c9b4d6af
     deps/npm/assertion-error/assertion-error-1.1.0.tgz: https://registry.npmjs.org/assertion-error/-/assertion-error-1.1.0.tgz
     deps/npm/chai/chai-4.2.0.tgz: https://registry.npmjs.org/chai/-/chai-4.2.0.tgz
     deps/npm/check-error/check-error-1.0.2.tgz: https://registry.npmjs.org/check-error/-/check-error-1.0.2.tgz
@@ -271,7 +266,7 @@ git_submodule:
         name: cachito-npm-with-deps
         path: cachito-npm-with-deps
         type: git-submodule
-        version: https://github.com/cachito-testing/cachito-npm-with-deps.git#86af61f8a1f4e4afdd69a90782b917dd7088f84a
+        version: https://github.com/cachito-testing/cachito-npm-with-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
       - dependencies:
         - dev: false
           name: assertion-error
@@ -333,7 +328,7 @@ git_submodule:
         type: npm
         version: 1.0.0
   content_manifest:
-  - purl: "pkg:github/cachito-testing/cachito-npm-with-deps@86af61f8a1f4e4afdd69a90782b917dd7088f84a"
+  - purl: "pkg:github/cachito-testing/cachito-npm-with-deps@565aba4c7f210c6196c1b522e2279f853f77d6d2"
   - purl: "pkg:github/cachito-testing/git-submodule-npm@ab5482a3257f1d91d0e580fcdd51ba5fb325115b#cachito-npm-with-deps"
     dep_purls:
     - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz"
