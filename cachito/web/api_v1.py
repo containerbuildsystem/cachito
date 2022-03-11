@@ -346,7 +346,11 @@ def create_request():
     error_callback = tasks.failed_request_callback.s(request.id)
     chain_tasks = [
         tasks.fetch_app_source.s(
-            request.repo, request.ref, request.id, "git-submodule" in pkg_manager_names
+            request.repo,
+            request.ref,
+            request.id,
+            "git-submodule" in pkg_manager_names,
+            any(flag.name == "remove-unsafe-symlinks" for flag in request.flags),
         ).on_error(error_callback)
     ]
 
