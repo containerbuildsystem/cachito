@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 
 @app.task(priority=0)
 @runs_if_request_in_progress
-def fetch_app_source(url, ref, request_id, gitsubmodule=False):
+def fetch_app_source(url, ref, request_id, gitsubmodule=False, remove_unsafe_symlinks=False):
     """
     Fetch the application source code that was requested and put it in long-term storage.
 
@@ -64,10 +64,10 @@ def fetch_app_source(url, ref, request_id, gitsubmodule=False):
     bundle_dir = RequestBundleDir(request_id)
     log.debug("Extracting %s to %s", scm.sources_dir.archive_path, bundle_dir)
     shutil.unpack_archive(str(scm.sources_dir.archive_path), str(bundle_dir))
-    _enforce_sandbox(bundle_dir.source_root_dir)
+    _enforce_sandbox(bundle_dir.source_root_dir, remove_unsafe_symlinks)
 
 
-def _enforce_sandbox(repo_root):
+def _enforce_sandbox(repo_root, remove_unsafe_symlinks):
     """
     Check that there are no symlinks that try to leave the cloned repository.
 
@@ -85,9 +85,16 @@ def _enforce_sandbox(repo_root):
             except ValueError:
                 # Unlike the real path, the full path is always relative to the root
                 relative_path = str(full_path.relative_to(repo_root))
-                raise ValidationError(
-                    f"The destination of {relative_path!r} is outside of cloned repository"
-                )
+                if remove_unsafe_symlinks:
+                    full_path.unlink()
+                    log.warning(
+                        f"The destination of {relative_path!r} is outside of cloned repository. "
+                        "Removing..."
+                    )
+                else:
+                    raise ValidationError(
+                        f"The destination of {relative_path!r} is outside of cloned repository"
+                    )
 
 
 @app.task

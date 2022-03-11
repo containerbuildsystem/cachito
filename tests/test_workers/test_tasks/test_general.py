@@ -39,44 +39,40 @@ def test_fetch_app_source(
     assert bundle_dir.joinpath("app", "readme.rst").exists()
     assert bundle_dir.joinpath("app", "main.py").exists()
 
-    mock_enforce_sandbox.assert_called_once_with(bundle_dir.source_root_dir)
+    mock_enforce_sandbox.assert_called_once_with(bundle_dir.source_root_dir, False)
 
     # Clean up bundle dir after unpacking archive
     shutil.rmtree(bundle_dir)
 
 
 @pytest.mark.parametrize(
-    "file_tree, error",
+    "file_tree, bad_symlink",
     [
         ({}, None),
         ({"symlink_to_self": Symlink(".")}, None),
         ({"subdir": {"symlink_to_parent": Symlink("..")}}, None),
         ({"symlink_to_subdir": Symlink("subdir/some_file"), "subdir": {"some_file": "foo"}}, None),
-        (
-            {"symlink_to_parent": Symlink("..")},
-            "The destination of 'symlink_to_parent' is outside of cloned repository",
-        ),
-        (
-            {"symlink_to_root": Symlink("/")},
-            "The destination of 'symlink_to_root' is outside of cloned repository",
-        ),
+        ({"symlink_to_parent": Symlink("..")}, "symlink_to_parent"),
+        ({"symlink_to_root": Symlink("/")}, "symlink_to_root"),
         (
             {"subdir": {"symlink_to_parent_parent": Symlink("../..")}},
-            "The destination of 'subdir/symlink_to_parent_parent' is outside of cloned repository",
+            "subdir/symlink_to_parent_parent",
         ),
-        (
-            {"subdir": {"symlink_to_root": Symlink("/")}},
-            "The destination of 'subdir/symlink_to_root' is outside of cloned repository",
-        ),
+        ({"subdir": {"symlink_to_root": Symlink("/")}}, "subdir/symlink_to_root"),
     ],
 )
-def test_enforce_sandbox(file_tree, error, tmp_path):
+def test_enforce_sandbox(file_tree, bad_symlink, tmp_path):
     write_file_tree(file_tree, tmp_path)
-    if error is not None:
+    if bad_symlink:
+        error = f"The destination of {bad_symlink!r} is outside of cloned repository"
         with pytest.raises(ValidationError, match=error):
-            _enforce_sandbox(tmp_path)
+            _enforce_sandbox(tmp_path, remove_unsafe_symlinks=False)
+        assert pathlib.Path(tmp_path / bad_symlink).exists()
+        _enforce_sandbox(tmp_path, remove_unsafe_symlinks=True)
+        assert not pathlib.Path(tmp_path / bad_symlink).exists()
     else:
-        _enforce_sandbox(tmp_path)
+        _enforce_sandbox(tmp_path, remove_unsafe_symlinks=False)
+        _enforce_sandbox(tmp_path, remove_unsafe_symlinks=True)
 
 
 @pytest.mark.parametrize("gitsubmodule", [True, False])

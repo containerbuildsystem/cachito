@@ -600,6 +600,10 @@ with the `mod_auth_gssapi` module.
   environment variables for the completed request. Typically, you will only want to use this if your
   package *does* use C files, and the Cachito request is failing.
 
+* `remove-unsafe-symlinks` - the flag forces Cachito to remove all symlinks that points to some
+  location outside of a cloned repository. Otherwise, if the flag isn't set, Cachito will raise
+  a validation error right after cloning, in case when such symlinks are present in the source.
+
 ## Nexus
 
 ### Nexus For Java Script
