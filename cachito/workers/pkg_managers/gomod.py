@@ -293,12 +293,18 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             )
             _merge_bundle_dirs(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
+        if not should_vendor:
+            # Make Go ignore the vendor dir even if there is one
+            go_list = ["go", "list", "-mod", "readonly"]
+        else:
+            go_list = ["go", "list"]
+
         log.info("Retrieving the list of packages")
-        package_list = run_gomod_cmd(["go", "list", "-find", "./..."], run_params).splitlines()
+        package_list = run_gomod_cmd([*go_list, "-find", "./..."], run_params).splitlines()
 
         log.info("Retrieving the list of package level dependencies")
         package_info = _load_list_deps(
-            run_gomod_cmd(["go", "list", "-e", "-deps", "-json", "./..."], run_params)
+            run_gomod_cmd([*go_list, "-e", "-deps", "-json", "./..."], run_params)
         )
 
         packages = []

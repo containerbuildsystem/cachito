@@ -307,6 +307,9 @@ def test_resolve_gomod(
         if dep_replacement:
             assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
 
+    # when not vendoring, go list should be called with -mod readonly
+    assert mock_run.call_args_list[-2][0][0] == ["go", "list", "-mod", "readonly", "-find", "./..."]
+
     for call in mock_run.call_args_list:
         env = call.kwargs["env"]
         if cgo_disable:
@@ -378,6 +381,8 @@ def test_resolve_gomod_vendor_dependencies(
     gomod = resolve_gomod(archive_path, request)
 
     assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
+    # when vendoring, go list should be called without -mod readonly
+    assert mock_run.call_args_list[-2][0][0] == ["go", "list", "-find", "./..."]
     assert gomod["module"] == sample_package
     assert not gomod["module_deps"]
 
