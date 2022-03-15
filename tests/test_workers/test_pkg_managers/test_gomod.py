@@ -3,7 +3,6 @@ import os
 import re
 import tarfile
 import textwrap
-from contextlib import nullcontext
 from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
 from unittest import mock
@@ -395,43 +394,22 @@ def test_resolve_gomod_vendor_dependencies(
 
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
-@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 @mock.patch("pathlib.Path.is_dir")
-@pytest.mark.parametrize(
-    "strict_vendor,raise_error", [(True, True), (False, False), ("default", True)]
-)
 def test_resolve_gomod_strict_mode_raise_error(
-    mock_isdir,
-    mock_gwc,
-    mock_golang_version,
-    mock_run,
-    mock_temp_dir,
-    tmpdir,
-    strict_vendor,
-    raise_error,
+    mock_isdir, mock_gwc, mock_run, mock_temp_dir, tmpdir
 ):
     mock_isdir.return_value = True
     # Mock the get_worker_config
     mock_config = mock.Mock()
-    if strict_vendor != "default":
-        mock_config.cachito_gomod_strict_vendor = strict_vendor
+    mock_config.cachito_gomod_strict_vendor = True
     mock_config.cachito_athens_url = "http://athens:3000"
     mock_gwc.return_value = mock_config
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
-    mock_golang_version.return_value = "v2.1.1"
 
     # Mock the "subprocess.run" call
-    mock_run.side_effect = [
-        mock.Mock(returncode=0, stdout=""),  # go mod edit -replace
-        mock.Mock(returncode=0, stdout=""),  # go mod download
-        mock.Mock(returncode=0, stdout=""),  # go mod tidy
-        mock.Mock(returncode=0, stdout="pizza"),  # go list -m
-        mock.Mock(returncode=0, stdout="pizza v1.0.0 => pizza v1.0.1\n"),  # go list -mod readonly
-        mock.Mock(returncode=0, stdout=""),  # go list -find
-        mock.Mock(returncode=0, stdout=""),  # go list -deps -json
-    ]
+    mock_run.return_value = mock.Mock(returncode=0, stdout=None)  # go mod edit -replace
 
     archive_path = "/this/is/path/to/archive.tar.gz"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
@@ -439,7 +417,7 @@ def test_resolve_gomod_strict_mode_raise_error(
         'The "gomod-vendor" or "gomod-vendor-check" flag must be set when your repository has '
         "vendored dependencies."
     )
-    with raise_error and pytest.raises(CachitoError, match=expected_error) or nullcontext():
+    with pytest.raises(CachitoError, match=expected_error):
         resolve_gomod(
             archive_path, request, [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}]
         )

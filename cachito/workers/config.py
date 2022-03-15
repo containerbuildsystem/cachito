@@ -34,7 +34,7 @@ class Config(object):
     cachito_deps_patch_batch_size = 50
     cachito_gomod_download_max_tries = 5
     cachito_gomod_ignore_missing_gomod_file = True
-    cachito_gomod_strict_vendor = True
+    cachito_gomod_strict_vendor = False
     cachito_log_level = "INFO"
     cachito_js_download_batch_size = 30
     cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
