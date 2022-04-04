@@ -76,7 +76,11 @@ def test_clone_and_archive(
     assert mock_temp_dir.return_value.__enter__.call_count == 2
     # Verify the repo was cloned and checked out properly
     mock_clone.assert_called_once_with(
-        url, "/tmp/cachito-temp/repo", no_checkout=True, env={"GIT_TERMINAL_PROMPT": "0"}
+        url,
+        "/tmp/cachito-temp/repo",
+        no_checkout=True,
+        filter="blob:none",
+        env={"GIT_TERMINAL_PROMPT": "0"},
     )
     assert mock_clone.return_value.head.reference == mock_commit
     mock_clone.return_value.head.reset.assert_called_once_with(index=True, working_tree=True)
