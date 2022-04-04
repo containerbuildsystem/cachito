@@ -158,6 +158,7 @@ class Git(SCM):
                     self.url,
                     clone_path,
                     no_checkout=True,
+                    filter="blob:none",
                     # Don't allow git to prompt for a username if we don't have access
                     env={"GIT_TERMINAL_PROMPT": "0"},
                 )
