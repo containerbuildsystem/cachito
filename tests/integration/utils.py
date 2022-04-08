@@ -308,7 +308,7 @@ def assert_elements_from_response(response_data, expected_response_data):
     """
     for element_name, expected_data in expected_response_data.items():
         assert response_data[element_name] == expected_data, (
-            f"#{response_data['id']}: elements in reponse differs from test expactations. \n"
+            f"#{response_data['id']}: elements in reponse differs from test expectations. \n"
             f"Response elements: "
             f"{json.dumps(response_data[element_name], indent=4, sort_keys=True)}, \n"
             f"Test expectations: {json.dumps(expected_data, indent=4, sort_keys=True)}"
@@ -393,7 +393,7 @@ def assert_content_manifest(client, request_id, image_contents):
     response_data = content_manifest_response.data
     assert_content_manifest_schema(response_data)
     assert image_contents == content_manifest_response.data["image_contents"], (
-        f"#{content_manifest_response.id}: image content in reponse differs from test expactations."
+        f"#{content_manifest_response.id}: image content in reponse differs from test expectations."
         f"\nResponse image content: "
         f"{json.dumps(content_manifest_response.data['image_contents'], indent=4, sort_keys=True)},"
         f"\nTest expectations: {json.dumps(image_contents, indent=4, sort_keys=True)}"
