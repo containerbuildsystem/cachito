@@ -22,6 +22,7 @@ services:
       ATHENS_DISK_STORAGE_ROOT: /var/lib/athens
       ATHENS_STORAGE_TYPE: disk
       ATHENS_GO_BINARY_ENV_VARS: GOSUMDB=off
+      ATHENS_CLOUD_RUNTIME: JSON
     volumes:
       - athens-storage:/var/lib/athens:z
     ports:
