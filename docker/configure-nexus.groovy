@@ -19,7 +19,7 @@ import groovy.transform.Field
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.sonatype.nexus.repository.config.Configuration
-import org.sonatype.nexus.repository.storage.WritePolicy
+import org.sonatype.nexus.repository.config.WritePolicy
 import org.sonatype.nexus.security.authz.AuthorizationManager
 import org.sonatype.nexus.security.role.NoSuchRoleException
 import org.sonatype.nexus.security.role.Role
