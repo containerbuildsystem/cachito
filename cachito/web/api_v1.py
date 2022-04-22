@@ -499,7 +499,7 @@ def patch_request(request_id):
             for pkg_manager in ["npm", "pip", "yarn"]:
                 if any(p.name == pkg_manager for p in request.pkg_managers):
                     cleanup_nexus.append(pkg_manager)
-        delete_bundle_temp = new_state in ("complete", "failed")
+        delete_bundle_temp = new_state in ("complete", "failed", "stale")
         delete_logs = new_state == "stale"
         new_state_reason = payload["state_reason"]
         # This is to protect against a Celery task getting executed twice and setting the
