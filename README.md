@@ -954,3 +954,33 @@ Nexus instead. The modified files will be accessible at the
 again in a future request, it will use it directly from Nexus rather than downloading it and
 uploading it again. This guarantees that any dependency used for a Cachito request can be used again
 in a future Cachito request.
+
+## Using Cachito Without Package Managers
+
+Cachito can be used without specifying a package manager in a request. In that case, only the source code
+present in the specified commit in a repository will be downloaded and cached.
+
+Even if there are package manager definitions in the source code (such as a `package.json` or a
+`requirements.txt` file), they'll be ignored using this approach. Besides not being cached, the dependencies
+will also be absent from the content manifest.
+
+This approach can be useful in case there's need to cache and use only the actual source code for that commit,
+which will then be present in the tarball served by Cachito. Here's how to create a request without package
+managers:
+
+```bash
+curl "localhost:8080/api/v1/requests" \
+    -X POST \
+    -H 'content-type: application/json' \
+    -d '{
+          "repo": "https://github.com/cachito-testing/cachito-pip-with-deps/",
+          "ref": "56efa5f7eb4ff1b7ea1409dbad76f5bb378291e6",
+          "pkg_managers": []
+        }'
+```
+
+It is important to use an empty array in the `pkg_managers` key, since omitting it will make Cachito fallback
+to a default package manager.
+
+By default, the Git history is omitted from the tarball, but it can be included in case the `include-git-dir`
+[flag](#flags) is used.
