@@ -115,7 +115,7 @@ class TestCachedDependencies:
 
     def teardown_method(self, method):
         """Delete branch with commit in the main repo."""
-        if not self.use_local:
+        if (not self.use_local) and self.cloned_main_repo:
             delete_branch_and_check(
                 self.branch, self.cloned_main_repo, self.main_repo_origin, [self.main_repo_commit]
             )
