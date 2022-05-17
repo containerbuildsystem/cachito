@@ -1,3 +1,5 @@
+[![Coverage Status](https://coveralls.io/repos/github/containerbuildsystem/cachito/badge.svg?branch=master)](https://coveralls.io/github/containerbuildsystem/cachito?branch=master)
+
 # Cachito
 
 Cachito is a service to store (and serve) source code for applications. Upon a request, Cachito
