@@ -26,6 +26,11 @@ def is_request_ref_valid(ref: str) -> bool:
     return re.match(r"^[a-f0-9]{40}$", ref) is not None
 
 
+def is_request_repo_valid(repo: str) -> bool:
+    """Check if a string is a valid repo in the expected size."""
+    return len(repo) <= 200
+
+
 request_pkg_manager_table = db.Table(
     "request_pkg_manager",
     db.Column("request_id", db.Integer, db.ForeignKey("request.id"), index=True, nullable=False),
@@ -477,6 +482,9 @@ class Request(db.Model):
 
         if not is_request_ref_valid(kwargs["ref"]):
             raise ValidationError('The "ref" parameter must be a 40 character hex string')
+
+        if not is_request_repo_valid(kwargs["repo"]):
+            raise ValidationError('The "repo" parameter must be shorter than 200 characters')
 
         request_kwargs = deepcopy(kwargs)
 

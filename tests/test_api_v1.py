@@ -650,6 +650,27 @@ def assert_request_is_not_created(**criteria):
     assert 0 == Request.query.filter_by(**criteria).count()
 
 
+@pytest.mark.parametrize(
+    "invalid_repo",
+    [
+        "https://github.com/kubernetes/" + ("kubernetes" * 20),
+        "https://github.com/kubernetes/" + ("enhancements" * 20),
+    ],
+)
+def test_create_request_invalid_repo(invalid_repo, auth_env, client, db):
+
+    data = {
+        "repo": invalid_repo,
+        "ref": "a7ac8d4c0b7fe90d51fb911511cbf6939655c877",
+        "pkg_managers": ["gomod"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 400
+    assert rv.json["error"] == 'The "repo" parameter must be shorter than 200 characters'
+    assert_request_is_not_created(repo=invalid_repo)
+
+
 @pytest.mark.parametrize("invalid_ref", ["not-a-ref", "23ae3f", "1234" * 20])
 def test_create_request_invalid_ref(invalid_ref, auth_env, client, db):
     data = {
