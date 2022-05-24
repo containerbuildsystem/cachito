@@ -2,8 +2,7 @@ FROM registry.fedoraproject.org/fedora:35
 LABEL maintainer="Red Hat"
 
 WORKDIR /src
-RUN dnf -y update && \
-    dnf -y install \
+RUN dnf -y install \
     --setopt=deltarpm=0 \
     --setopt=install_weak_deps=false \
     --setopt=tsflags=nodocs \
