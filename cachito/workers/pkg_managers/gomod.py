@@ -693,7 +693,7 @@ def _get_golang_pseudo_version(commit, tag=None, module_major_version=None, subp
         # vX.Y.(Z+1)-0.yyyymmddhhmmss-abcdefabcdef is used when the most recent versioned commit
         # before the target commit is vX.Y.Z
         version_seperator = "-"
-        pseudo_semantic_version = semver.bump_patch(str(tag_semantic_version))
+        pseudo_semantic_version = tag_semantic_version.bump_patch()
 
     return f"v{pseudo_semantic_version}{version_seperator}0.{commit_timestamp}-{commit_hash}"
 
@@ -782,7 +782,7 @@ def _get_semantic_version_from_tag(tag_name, subpath=None):
     else:
         semantic_version = tag_name[1:]
 
-    return semver.parse_version_info(semantic_version)
+    return semver.VersionInfo.parse(semantic_version)
 
 
 def get_golang_version(module_name, git_path, commit_sha, update_tags=False, subpath=None):
