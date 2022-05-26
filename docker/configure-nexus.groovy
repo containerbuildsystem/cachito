@@ -5,10 +5,13 @@ As part of the script, the following occurs:
 - Anonymous access is disabled
 - The "cachito-js" blob store is created
 - The "cachito-pip" blob store is created
+- The "cachito-ruby" blob store is created
 - The "cachito-js-hosted" NPM hosted repository is created
 - The "cachito-js-proxy" NPM proxy repository is created
 - The "cachito-pip-raw" raw hosted repository is created
 - The "cachito-pip-proxy" PyPI proxy repository is created
+- The "cachito-ruby-raw" raw hosted repository is created
+- The "cachito-ruby-proxy" Rubygems proxy repository is created
 - The "cachito-js" NPM group repository is created which points to the "cachito-js-hosted" and "cachito-js-proxy" repositories
 - The "cachito" service account is created, which is used to manage the per-request proxy repositories, roles, and users
 - The "cachito_unprivileged" service account is created, which is used by the per-request proxy repositories to connect to the "cachito-js" repository
@@ -221,6 +224,8 @@ def createCachitoUser(String password) {
             'nx-repository-view-npm-*-*',
             // This is so that Cachito can use any PyPI repository
             'nx-repository-view-pypi-*-*',
+            // This is so that Cachito can use any Rubygems repository
+            'nx-repository-view-rubygems-*-*',
             // This is so that Cachito can use any raw repository
             'nx-repository-view-raw-*-*',
             // This is so that Cachito can create, read, update, and delete Nexus roles
@@ -304,6 +309,18 @@ String pipProxyRepoName = 'cachito-pip-proxy'
 String pipRegistry = 'https://pypi.org/'
 String pipProxyType = 'pypi-proxy'
 createProxyRepo(pipProxyRepoName, pipProxyType, pipRegistry, pipBlobStoreName)
+
+String rubygemsBlobStoreName = 'cachito-ruby'
+createBlobStore(rubygemsBlobStoreName)
+
+String rubygemsHostedRepoName = 'cachito-ruby-raw'
+String rubygemsHostedType = 'raw'
+createHostedRepo(rubygemsHostedRepoName, rubygemsHostedType, rubygemsBlobStoreName)
+
+String rubygemsProxyRepoName = 'cachito-ruby-proxy'
+String rubygemsRegistry = 'https://rubygems.org/'
+String rubygemsProxyType = 'rubygems-proxy'
+createProxyRepo(rubygemsProxyRepoName, rubygemsProxyType, rubygemsRegistry, rubygemsBlobStoreName)
 
 
 createCachitoUser(request.cachito_password)
