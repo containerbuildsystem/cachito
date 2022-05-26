@@ -267,11 +267,12 @@ def download_archive(request_id):
     flask.current_app.logger.info(
         "Sending the bundle at %s for request %d", bundle_dir.bundle_archive_file, request_id
     )
+
     resp = flask.send_file(
         str(bundle_dir.bundle_archive_file),
         mimetype="application/gzip",
         as_attachment=True,
-        attachment_filename=f"cachito-{request_id}.tar.gz",
+        download_name=f"cachito-{request_id}.tar.gz",
     )
     resp.headers["Digest"] = f"sha-256={b64encode(bytes.fromhex(store_checksum))}"
     return resp
