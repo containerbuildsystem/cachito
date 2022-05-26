@@ -33,6 +33,7 @@ from cachito.web.models import (
     RequestState,
     RequestStateMapping,
     is_request_ref_valid,
+    is_request_repo_valid,
 )
 from cachito.web.status import status
 from cachito.web.utils import deep_sort_icm, normalize_end_date, pagination_metadata, str_to_bool
@@ -103,11 +104,13 @@ def get_requests():
         query = query.filter(RequestState.state == state_int)
     repo = flask.request.args.get("repo")
     if repo:
+        if not is_request_repo_valid(repo):
+            raise ValidationError('The "repo" parameter must be shorter than 200 characters')
         query = query.filter(Request.repo == repo)
     ref = flask.request.args.get("ref")
     if ref:
         if not is_request_ref_valid(ref):
-            raise ValidationError(f"{ref} is not a valid ref.")
+            raise ValidationError('The "ref" parameter must be a 40 character hex string')
         query = query.filter(Request.ref == ref)
     pkg_managers = flask.request.args.getlist("pkg_manager")
     if pkg_managers:
