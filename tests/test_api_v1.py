@@ -2193,6 +2193,11 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
     [
         ["repo=https://github.com/org/bar.git", 1, ["https://github.com/org/bar.git"]],
         [
+            "repo=https://github.com/org/" + ("bar" * 100) + ".git",
+            None,
+            'The \\"repo\\" parameter must be shorter than 200 characters',
+        ],
+        [
             "repo=",
             3,
             [
@@ -2211,7 +2216,7 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
                 "https://github.com/org/foo.git",
             ],
         ],
-        ["ref=a-git-ref", None, "a-git-ref is not a valid ref"],
+        ["ref=a-git-ref", None, 'The \\"ref\\" parameter must be a 40 character hex string'],
         [
             "pkg_manager=gomod",
             2,
