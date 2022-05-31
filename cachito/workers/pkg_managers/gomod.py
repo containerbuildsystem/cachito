@@ -813,8 +813,12 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False, sub
     if update_tags:
         try:
             repo.remote().fetch(force=True, tags=True)
-        except:  # noqa E722
-            log.warning("Failed to fetch the tags on the Git repository for %s", module_name)
+        except Exception as ex:
+            raise CachitoError(
+                "Failed to fetch the tags on the Git repository (%s) for %s ",
+                type(ex).__name__,
+                module_name,
+            )
 
     if module_major_version:
         major_versions_to_try = (module_major_version,)
