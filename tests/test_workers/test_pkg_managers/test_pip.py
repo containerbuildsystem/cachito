@@ -3555,6 +3555,28 @@ def test_resolve_pip_incompatible(mock_metadata, tmp_path):
         pip.resolve_pip(tmp_path, request)
 
 
+@mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")
+def test_resolve_pip_invalid_req_file_path(mock_metadata, tmp_path):
+    mock_metadata.return_value = ("foo", "1.0")
+    request = {"id": 1}
+    invalid_path = "/foo/bar.txt"
+    expected_error = f"Following requirement file has an invalid path: {invalid_path}"
+    requirement_files = [invalid_path]
+    with pytest.raises(CachitoError, match=expected_error):
+        pip.resolve_pip(tmp_path, request, requirement_files, None)
+
+
+@mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")
+def test_resolve_pip_invalid_bld_req_file_path(mock_metadata, tmp_path):
+    mock_metadata.return_value = ("foo", "1.0")
+    request = {"id": 1}
+    invalid_path = "/foo/bar.txt"
+    expected_error = f"Following requirement file has an invalid path: {invalid_path}"
+    build_requirement_files = [invalid_path]
+    with pytest.raises(CachitoError, match=expected_error):
+        pip.resolve_pip(tmp_path, request, None, build_requirement_files)
+
+
 @pytest.mark.parametrize("custom_requirements", [True, False])
 @mock.patch("cachito.workers.pkg_managers.pip.upload_pypi_package")
 @mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")

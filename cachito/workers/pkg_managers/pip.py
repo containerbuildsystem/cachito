@@ -1992,9 +1992,12 @@ def _download_from_requirement_files(request_id, files):
     :return: Info about downloaded packages; see download_dependencies return docs for further
         reference
     :rtype: list[dict]
+    :raises CachitoError: If requirement file does not exist
     """
     requirements = []
     for req_file in files:
+        if not os.path.exists(req_file):
+            raise CachitoError(f"Following requirement file has an invalid path: {req_file}")
         requirements.extend(download_dependencies(request_id, PipRequirementsFile(req_file)))
     return requirements
 
