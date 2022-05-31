@@ -107,7 +107,7 @@ def test_clone_and_archive_clone_failed(mock_git_clone, mock_temp_dir, gitsubmod
     mock_git_clone.side_effect = git.GitCommandError("some error", 1)
 
     git_obj = scm.Git(url, ref)
-    with pytest.raises(CachitoError, match="Cloning the Git repository failed"):
+    with pytest.raises(CachitoError, match="Failed cloning the Git repository"):
         git_obj.clone_and_archive(gitsubmodule)
 
 
@@ -122,8 +122,8 @@ def test_clone_and_archive_checkout_failed(mock_git_clone, mock_temp_dir, gitsub
 
     git_obj = scm.Git(url, ref)
     expected = (
-        "Checking out the Git repository failed. Please verify the supplied reference of "
-        f'"{ref}" is valid.'
+        "Failed on checking out the Git repository. Please verify the supplied reference "
+        f'of "{ref}" is valid.'
     )
     with mock.patch.object(git_obj.sources_dir, "archive_path", new=archive_path):
         with pytest.raises(CachitoError, match=expected):

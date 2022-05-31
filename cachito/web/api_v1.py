@@ -541,7 +541,7 @@ def patch_request(request_id):
             bundle_dir.bundle_archive_file.unlink()
             bundle_dir.bundle_archive_checksum.unlink()
             bundle_dir.packages_data.unlink()
-        except:  # noqa E722
+        except OSError:
             flask.current_app.logger.exception(
                 "Failed to delete the bundle archive %s", bundle_dir.bundle_archive_file
             )
@@ -552,9 +552,13 @@ def patch_request(request_id):
         )
         try:
             bundle_dir.rmtree()
-        except:  # noqa E722
+        except OSError:
             flask.current_app.logger.exception(
-                "Failed to delete the temporary files at %s", bundle_dir
+                "Failed to delete the temporary files (OSError) at %s", bundle_dir
+            )
+        except Exception as ex:
+            flask.current_app.logger.exception(
+                "Failed to delete the temporary files (%s) at %s", type(ex).__name__, bundle_dir
             )
 
     if delete_logs:
@@ -562,7 +566,7 @@ def patch_request(request_id):
         path_to_file = os.path.join(request_log_dir, f"{request_id}.log")
         try:
             os.remove(path_to_file)
-        except:  # noqa E722
+        except OSError:
             flask.current_app.logger.exception("Failed to delete the log file %s", path_to_file)
 
     for pkg_mgr in cleanup_nexus:

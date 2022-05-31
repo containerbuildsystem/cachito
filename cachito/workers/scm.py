@@ -57,10 +57,16 @@ class Git(SCM):
         try:
             repo.head.reference = repo.commit(self.ref)
             repo.head.reset(index=True, working_tree=True)
-        except:  # noqa E722
-            log.exception('Checking out the Git ref "%s" failed', self.ref)
+
+        except Exception as ex:
+            log.exception(
+                "Failed on checking out the Git ref %s, url: %s, exception: %s",
+                self.ref,
+                self.url,
+                type(ex).__name__,
+            )
             raise CachitoError(
-                "Checking out the Git repository failed. Please verify the supplied reference "
+                "Failed on checking out the Git repository. Please verify the supplied reference "
                 f'of "{self.ref}" is valid.'
             )
 
@@ -162,9 +168,14 @@ class Git(SCM):
                     # Don't allow git to prompt for a username if we don't have access
                     env={"GIT_TERMINAL_PROMPT": "0"},
                 )
-            except:  # noqa E722
-                log.exception("Cloning the Git repository from %s failed", self.url)
-                raise CachitoError("Cloning the Git repository failed")
+            except Exception as ex:
+                log.exception(
+                    "Failed cloning the Git repository from %s, ref: %s, exception: %s",
+                    self.url,
+                    self.ref,
+                    type(ex).__name__,
+                )
+                raise CachitoError("Failed cloning the Git repository")
 
             self._reset_git_head(repo)
 
@@ -192,8 +203,14 @@ class Git(SCM):
                 # The reference must be specified to handle commits which are not part
                 # of a branch.
                 repo.remote().fetch(refspec=self.ref)
-            except:  # noqa E722
-                log.exception("Failed to fetch from remote %s", self.url)
+
+            except Exception as ex:
+                log.exception(
+                    "Failed to fetch from remote %s, ref: %s, exception: %s",
+                    self.url,
+                    self.ref,
+                    type(ex).__name__,
+                )
                 raise CachitoError("Failed to fetch from the remote Git repository")
 
             self._reset_git_head(repo)
