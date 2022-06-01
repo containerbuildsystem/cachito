@@ -10,10 +10,18 @@ amqp==5.0.9 \
     # via
     #   -r requirements.in
     #   kombu
+attrs==21.4.0 \
+    --hash=sha256:2d27e3784d7a565d36ab851fe94887c5eccd6a463168875832a1be79c82828b4 \
+    --hash=sha256:626ba8234211db98e869df76230a137c4c40a12d72445c45d5f5b716f076e2fd
+    # via commoncode
 backoff==1.11.1 \
     --hash=sha256:61928f8fa48d52e4faa81875eecf308eccfb1016b018bb6bd21e05b5d90a96c5 \
     --hash=sha256:ccb962a2378418c667b3c979b504fdeb7d9e0d29c0579e3b13b86467177728cb
     # via -r requirements.in
+beautifulsoup4==4.11.1 \
+    --hash=sha256:58d5c3d29f5a36ffeb94f02f0d786cd53014cf9b3b3951d42e0080d8a9498d30 \
+    --hash=sha256:ad9aa55b65ef2808eb405f46cf74df7fcb7044d5cbc26487f96eb2ef2e436693
+    # via commoncode
 billiard==3.6.4.0 \
     --hash=sha256:299de5a8da28a783d51b197d496bef4f1595dd023a93a4f59dde1886ae905547 \
     --hash=sha256:87103ea78fa6ab4d5c751c4909bcff74617d985de7fa8b672cf8618afd5a875b
@@ -65,6 +73,10 @@ cffi==1.14.5 \
     --hash=sha256:f2d45f97ab6bb54753eab54fffe75aaf3de4ff2341c9daee1987ee1837636f1d \
     --hash=sha256:fd78e5fee591709f32ef6edb9a015b4aa1a5022598e36227500c8f4e02328d9c
     # via cryptography
+chardet==4.0.0 \
+    --hash=sha256:0d6f53a15db4120f2b08c94f11e7d93d2c911ee118b6b30a04ec3ee8310179fa \
+    --hash=sha256:f864054d66fd9118f2e67044ac8981a54775ec5b67aed0441892edb553d21da5
+    # via gemlock-parser
 charset-normalizer==2.0.1 \
     --hash=sha256:ad0da505736fc7e716a8da15bf19a985db21ac6415c26b34d2fafd3beb3d927e \
     --hash=sha256:b68b38179052975093d71c1b5361bf64afd80484697c1f27056e50593e695ceb
@@ -77,6 +89,7 @@ click==8.0.3 \
     #   click-didyoumean
     #   click-plugins
     #   click-repl
+    #   commoncode
 click-didyoumean==0.0.3 \
     --hash=sha256:112229485c9704ff51362fe34b2d4f0b12fc71cc20f6d2b3afabed4b8bfa6aeb
     # via celery
@@ -88,6 +101,10 @@ click-repl==0.2.0 \
     --hash=sha256:94b3fbbc9406a236f176e0506524b2937e4b23b6f4c0c0b2a0a83f8a64e9194b \
     --hash=sha256:cd12f68d745bf6151210790540b4cb064c7b13e571bc64b6957d98d120dacfd8
     # via celery
+commoncode==30.2.0 \
+    --hash=sha256:ee470359fc3833b6e87b40013b8a1bd5df973b56314bddb89ad1844ef1e835fd \
+    --hash=sha256:fcce28444f66c095ea3b465592ca55b5a55ca3b041e2ba6f564c92f90e0e5798
+    # via gemlock-parser
 cryptography==3.4.6 \
     --hash=sha256:066bc53f052dfeda2f2d7c195cf16fb3e5ff13e1b6b7415b468514b40b381a5b \
     --hash=sha256:0923ba600d00718d63a3976f23cab19aef10c1765038945628cd9be047ad0336 \
@@ -111,6 +128,9 @@ decorator==5.1.0 \
 defusedxml==0.7.1 \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
+    # via -r requirements.in
+gemlock_parser @ https://github.com/tichavskym/gemlock-parser/archive/88066f2298b60432d292b567459f067403c3eeb6.zip \
+    --hash=sha256:b008c4bf99185c41f2b058d3eb722fe90e680dc9dd6ca61beb7402fa96d91bb6
     # via -r requirements.in
 gitdb==4.0.5 \
     --hash=sha256:91f36bfb1ab7949b3b40e23736db18231bf7593edada2ba5c3a174a7b23657ac \
@@ -145,6 +165,41 @@ idna==2.10 \
     --hash=sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6 \
     --hash=sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0
     # via requests
+intbitset==3.0.1 \
+    --hash=sha256:022d40488728560c396f5893e8cb6f631b093796dadb406d5e66261c0fb05347 \
+    --hash=sha256:06fd2bb4bba61504bfb679189d2b14222f20b4e12052f83e74b0022a6f46b3f4 \
+    --hash=sha256:1720caf52571fac55a5598e55aaeac472c22af32b040c4e51e129232c3d44742 \
+    --hash=sha256:1b20a783f364e1574f67bb28008069ee4242d4be53386facf791c57988eb411a \
+    --hash=sha256:2fb64bc880046ba07d1171bfb527e81ce9d82b281ce45434ce45eb415f730285 \
+    --hash=sha256:3a5f5028414e97994720471379bdbb15a349872eb672e10ccf7d6312f1208236 \
+    --hash=sha256:403cf1ee10b681fcada2b45b1a6c09c113c1170c374e1fa7e8a0244ed41b9509 \
+    --hash=sha256:420b5703e72fa812344e08b2de6e39af9c9ce2a2ff541ed2497afa48f7d20425 \
+    --hash=sha256:4d2a78a1c4d0cb786ecc78a1e92b8387e2ac43bb8fcd29f286aed688142e0425 \
+    --hash=sha256:4dfa9d03d15200236c9c45b9b41b8b4071d4c00f84e97694f2d71a209a48ea89 \
+    --hash=sha256:4e2161cb2a1ef9f2664959e1e0daeea4735f9a7d72af2704791548aa36ba04e0 \
+    --hash=sha256:5af7e0e25a640cabe4ef59bc351f8fae6d6abd3dd10c2902849d474e935170b5 \
+    --hash=sha256:5ba055f6c5b3f105ffbb9dc84acb36a9f8e074770ac3f1d016151ee9591330bc \
+    --hash=sha256:71654379175867a9270a3ed0ca1609437d0445613bdbbb042c58bd2d3bd78d68 \
+    --hash=sha256:77c939ac70ed051d880833abfae9412c0b5f1d11c1a7c1fdbc27ea55cc394cad \
+    --hash=sha256:79fd8e9dfed63dfc327be82717c6841cef44eccefc9b6e88e3cafe775ea48878 \
+    --hash=sha256:7a372f9adc9eddb57bf5fe747d16caee0878f58a4a8d1df0cdba49897b777b43 \
+    --hash=sha256:7f43a79b0b85ec8b415ee7159810fbda186285854467cdf0aa370683827b4008 \
+    --hash=sha256:83501f7d77ebcfc2cc4226bf7acc32cf042d35bb742ac544ae6dc4a33f66a9b6 \
+    --hash=sha256:84742da7538beaa2ff6684d44ac1af6b1fffbbdb434e17230459c910180d42fe \
+    --hash=sha256:8e1d112843f610f780a4c321cb1d9ef89b25b4de90c86247b4888451de2231a7 \
+    --hash=sha256:8e6c072f1fc6646ac6aad8d1bf102bc91b9f5f7b7e2d918dc2652085ae41be86 \
+    --hash=sha256:9fa0ec9a6517d72572594681b1c0bb39f9319f66b192032ac1d3b2ab8f4bb8c6 \
+    --hash=sha256:b04c99ceb81ee89f5c68b68e14ff151433c886ecba98fa772cf88d7dc018cdcd \
+    --hash=sha256:b36020a0ebd5e08983dbd2361950edbad045c2ec13f4e6fb3b22308c6578f37b \
+    --hash=sha256:b49fdd3b4655e8aa8c863de6251f1bc4cf98065f7a3450b8539838ed6596c67b \
+    --hash=sha256:bbb6789e2c53146995a41283bfe1d19a53301413d403fc6e011b641dc3bc5fd5 \
+    --hash=sha256:c151d4aa747ede3c6a6cc079c3ee74bbad2338222331a4815a0e377e90a9beb7 \
+    --hash=sha256:cfe04359dc8b794a3143f4def785a56574b3a20f6994ae3e90df24fe6203ca82 \
+    --hash=sha256:dba3544cb26c2a023345210feb26d704806b4a86a87b80a793c18f002ecf9a40 \
+    --hash=sha256:e2f15c1c948990ffd8b0401f7f2e956d2dd24e728f6cae5e10bed4976ac974b9 \
+    --hash=sha256:f1e6d03c6729922a223c51849df65b9e916e625aefb911784e7f9acd4c207d53 \
+    --hash=sha256:f4dd3a029be571fbb2f6c408142de318ec62f232800fe5321c2578edaca35d54
+    # via commoncode
 kombu==5.2.3 \
     --hash=sha256:81a90c1de97e08d3db37dbf163eaaf667445e1068c98bfd89f051a40e9f6dbbd \
     --hash=sha256:eeaeb8024f3a5cfc71c9250e45cddb8493f269d74ada2f74909a93c59c4b4179
@@ -234,17 +289,24 @@ pyyaml==5.4.1 \
     --hash=sha256:fd7f6999a8070df521b6384004ef42833b9bd62cfee11a09bda1079b4b704247 \
     --hash=sha256:fdc842473cd33f45ff6bce46aea678a54e3d21f1b61a7750ce3c498eedfe25d6 \
     --hash=sha256:fe69978f3f768926cfa37b867e3843918e012cf83f680806599ddce33c2c68b0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   saneyaml
 requests==2.26.0 \
     --hash=sha256:6c1246513ecd5ecd4528a0906f910e8f0f9c6b8ec72030dc9fd154dc1a6efd24 \
     --hash=sha256:b8aa58f8cf793ffd8782d3d8cb19e66ef36f7aba4353eec859e74678b01b07a7
     # via
     #   -r requirements.in
+    #   commoncode
     #   requests-kerberos
 requests-kerberos==0.13.0 \
     --hash=sha256:12766e209b975e081916b550b77b7a8b084c43f98beba1407182ef9a7bef88d5 \
     --hash=sha256:477e153773cc430c514d0a679e1f5ea89a0e675ac2342c413866e03d1e82a817
     # via -r requirements.in
+saneyaml==0.5.2 \
+    --hash=sha256:d6074f1959041342ab41d74a6f904720ffbcf63c94467858e0e22e17e3c43d41 \
+    --hash=sha256:e54ed827973647ee9be8e8c091536b55ad22b3f9b1296e36701a3544822e7eac
+    # via commoncode
 semver==2.13.0 \
     --hash=sha256:ced8b23dceb22134307c1b8abfa523da14198793d9787ac838e70e29e77458d4 \
     --hash=sha256:fa0fe2722ee1c3f57eac478820c3a5ae2f624af8264cbdf9000c980ff7f75e3f
@@ -257,6 +319,14 @@ smmap==3.0.5 \
     --hash=sha256:7bfcf367828031dc893530a29cb35eb8c8f2d7c8f2d0989354d75d24c8573714 \
     --hash=sha256:84c2751ef3072d4f6b2785ec7ee40244c6f45eb934d9e543e2c51f1bd3d54c50
     # via gitdb
+soupsieve==2.3.2.post1 \
+    --hash=sha256:3b2503d3c7084a42b1ebd08116e5f81aadfaea95863628c80a3b774a11b7c759 \
+    --hash=sha256:fc53893b3da2c33de295667a0e19f078c14bf86544af307354de5fcf12a3f30d
+    # via beautifulsoup4
+text-unidecode==1.3 \
+    --hash=sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8 \
+    --hash=sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93
+    # via commoncode
 typing-extensions==3.10.0.2 \
     --hash=sha256:49f75d16ff11f1cd258e1b988ccff82a3ca5570217d7ad8c5f48205dd99a677e \
     --hash=sha256:d8226d10bc02a29bcc81df19a26e56a9647f8b0a6d4a83924139f4a8b01f17b7 \
