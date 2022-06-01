@@ -12,10 +12,12 @@ setup(
         "celery>=5",
         "gitpython",
         "kombu>=5",  # A celery dependency but it's directly imported
+        "license-expression==21.6.14",  # Waiting for v32.0.0 of scancode-toolkit to be released
         "packaging",
         "pyarn",
         "requests_kerberos",
         "requests",
+        "scancode-toolkit",
         "semver",
         "setuptools",
     ],
