@@ -894,7 +894,10 @@ def test_create_request_invalid_packages(packages, pkg_managers, error_msg, auth
 def test_create_request_not_an_object(auth_env, client, db):
     rv = client.post("/api/v1/requests", json=None, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == "The input data must be a JSON object"
+    assert (
+        rv.json["error"]
+        == "Did not attempt to load JSON data because the request Content-Type was not 'application/json'."
+    )
 
 
 def test_create_request_invalid_parameter(auth_env, client, db):
