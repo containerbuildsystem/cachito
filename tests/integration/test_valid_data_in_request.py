@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import datetime
 import os
 
 import pytest
@@ -97,3 +98,27 @@ def test_various_packages(test_env):
         utils.assert_properly_completed_response(completed_response)
 
         assert len(completed_response.data["dependencies"]) == package["dependencies_count"]
+
+
+def test_utc_datetime(test_env):
+    """
+    A basic integration test to check that a request's "created" timestamp is in UTC.
+
+    Process:
+    * Send new request to the Cachito API
+    * Compare the current UTC datetime with the request's "created" datetime
+
+    Checks:
+    * Verify that the "created" datetime is within 10-second difference of the current UTC datetime
+    """
+    env_data = utils.load_test_data("pip_packages.yaml")["local_path"]
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+    current_utc_datetime = datetime.datetime.utcnow()
+    initial_response = client.create_new_request(
+        payload={"repo": env_data["repo"], "ref": env_data["ref"]}
+    )
+    completed_response = client.wait_for_complete_request(initial_response)
+    request_created_datetime = datetime.datetime.fromisoformat(completed_response.data["created"])
+    diff_in_secs = (current_utc_datetime - request_created_datetime).total_seconds()
+
+    assert abs(diff_in_secs) <= 10

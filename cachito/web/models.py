@@ -9,9 +9,11 @@ from enum import Enum
 from typing import Any, Dict, List
 
 import flask
-import sqlalchemy.sql
 from flask_login import UserMixin, current_user
 from sqlalchemy import TIMESTAMP, func
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql import expression
+from sqlalchemy.types import DateTime
 from werkzeug.exceptions import Forbidden
 
 from cachito.common.packages_data import PackagesData
@@ -288,11 +290,30 @@ def _validate_gitsubmodule_exclusivity(pkg_manager_paths, mutually_exclusive):
             raise ValidationError(msg)
 
 
+class utcnow(expression.FunctionElement):
+    """Get current DateTime object in UTC timezone."""
+
+    type = DateTime()
+    inherit_cache = True
+
+
+@compiles(utcnow, "postgresql")
+def postgres_utcnow(element, compiler, **kw):
+    """Get current UTC date and time using PostgreSQL compiler."""
+    return "TIMEZONE('utc', CURRENT_TIMESTAMP)"
+
+
+@compiles(utcnow, "sqlite")
+def sqlite_utcnow(element, compiler, **kw):
+    """Get current UTC date and time using SQLite compiler."""
+    return r"(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))"
+
+
 class Request(db.Model):
     """A Cachito user request."""
 
     id = db.Column(db.Integer, primary_key=True)
-    created = db.Column(db.DateTime(), nullable=True, index=True, default=sqlalchemy.func.now())
+    created = db.Column(db.DateTime(), nullable=True, index=True, default=utcnow())
     repo = db.Column(db.String, nullable=False, index=True)
     ref = db.Column(db.String, nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -650,7 +671,7 @@ class RequestState(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     state = db.Column(db.Integer, nullable=False)
     state_reason = db.Column(db.String, nullable=False)
-    updated = db.Column(db.DateTime(), nullable=False, default=sqlalchemy.func.now())
+    updated = db.Column(db.DateTime(), nullable=False, default=utcnow())
     request_id = db.Column(db.Integer, db.ForeignKey("request.id"), index=True, nullable=False)
     request = db.relationship("Request", foreign_keys=[request_id], back_populates="states")
 
