@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-
+import datetime
 from typing import Optional
 from unittest import mock
 
@@ -52,3 +52,13 @@ class TestRequest:
             request.content_manifest.to_json()
 
         assert load_mock.call_count == call_count
+
+    def test_utcnow(self, app, auth_env):
+        request = self._create_request_object()
+        request.add_state(RequestStateMapping.complete.name, "Complete")
+        current_utc_datetime = datetime.datetime.utcnow()
+        request_created_datetime = request.created
+        diff_in_secs = (current_utc_datetime - request_created_datetime).total_seconds()
+
+        # Difference between "created" and current UTC datetimes is within 10 seconds
+        assert abs(diff_in_secs) <= 10
