@@ -1008,9 +1008,6 @@ components:
             The user this request is created on behalf of. This is reserved for privileged users
             that can act as a representative.
           example: tbrady@DOMAIN.LOCAL
-        created:
-          type: string
-          example: "2019-09-17T18:52:57.577851"
       required:
       - ref
       - repo
