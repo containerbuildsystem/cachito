@@ -80,6 +80,18 @@ def test_get_status_short(mock_status, error, client):
         assert rv.status_code == 200
 
 
+@pytest.mark.parametrize("invalid_param", ["created", "foo"])
+def test_request_invalid_params(invalid_param):
+    data = {
+        "repo": "https://github.com/release-engineering/retrodep.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        invalid_param: "bar",
+    }
+    expected_error = f"The following parameters are invalid: {invalid_param}"
+    with pytest.raises(ValidationError, match=expected_error):
+        Request.from_json(data)
+
+
 @pytest.mark.parametrize(
     "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags",
     (
@@ -563,20 +575,20 @@ def test_requests_created_filter(app, auth_env, client, db, created_list, filter
     with app.test_request_context(environ_base=auth_env):
         # Make a request with earliest creation datetime
         data = {
-            "created": datetime.fromisoformat(created_list[0]),
             "repo": "https://github.com/release-engineering/retrodep.git",
             "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
             "pkg_managers": ["gomod"],
         }
         request = Request.from_json(data)
+        request.created = datetime.fromisoformat(created_list[0])
         db.session.add(request)
         data = {
-            "created": datetime.fromisoformat(created_list[1]),
             "repo": "https://github.com/release-engineering/retrodep.git",
             "ref": "12a0692be09fc18ce82a71904562d8408fe2296a",
             "pkg_managers": ["gomod"],
         }
         request = Request.from_json(data)
+        request.created = datetime.fromisoformat(created_list[1])
         db.session.add(request)
     db.session.commit()
     rv = client.get(f"/api/v1/requests?{urllib.parse.urlencode(filter)}")

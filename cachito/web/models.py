@@ -459,7 +459,6 @@ class Request(db.Model):
         # Validate all required parameters are present
         required_params = {"repo", "ref"}
         optional_params = {
-            "created",
             "dependency_replacements",
             "flags",
             "packages",
