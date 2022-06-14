@@ -39,6 +39,7 @@ ENV GIT_COMMITTER_NAME=cachito \
     GIT_COMMITTER_EMAIL=cachito@localhost \
     GIT_AUTHOR_NAME=cachito \
     GIT_AUTHOR_EMAIL=cachito@localhost
+    KRB5_TRACE=/tmp/krb5.log
 
 EXPOSE 8080
 CMD ["celery", "-A", "cachito.workers.tasks", "worker", "--loglevel=info"]
