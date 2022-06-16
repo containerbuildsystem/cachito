@@ -8,6 +8,7 @@ import requests
 
 from cachito.common.checksum import hash_file
 from cachito.errors import CachitoError, UnknownHashAlgorithm
+from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.requests import (
     SAFE_REQUEST_METHODS,
@@ -151,3 +152,21 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
     with open(download_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=chunk_size):
             f.write(chunk)
+
+
+def upload_raw_package(repo_name, artifact_path, dest_dir, filename, is_request_repository):
+    """
+    Upload a raw package to a Nexus repository.
+
+    :param str repo_name: the name of the hosted raw repository to upload the package to
+    :param str artifact_path: the path of the raw package to be uploaded
+    :param str dest_dir: the path of the directory to where the raw package will be uploaded
+        to in the Nexus repository
+    :param str filename: the name to save the file with after it is uploaded to the dest_dir
+    :param bool is_request_repository: whether to use the cachito nexus instance or the hoster one,
+        if available
+    """
+    components = [{"path": artifact_path, "filename": filename}]
+    to_nexus_hoster = not is_request_repository
+    log.debug("Uploading %r as a raw package to the %r Nexus repository", artifact_path, repo_name)
+    nexus.upload_raw_component(repo_name, dest_dir, components, to_nexus_hoster)

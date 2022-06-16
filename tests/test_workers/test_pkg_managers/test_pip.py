@@ -3293,22 +3293,6 @@ class TestDownload:
         assert log_msg in caplog.text
         mock_upload.assert_called_once_with(name, "pypi", path, to_nexus_hoster=False)
 
-    @mock.patch("cachito.workers.pkg_managers.pip.nexus.upload_raw_component")
-    @pytest.mark.parametrize("is_request_repo", [True, False])
-    def test_upload_raw_package(self, mock_upload, caplog, is_request_repo):
-        """Check Nexus upload calls."""
-        name = "name"
-        path = "fakepath"
-        dest_dir = "name/varsion"
-        filename = "name.tar.gz"
-
-        pip.upload_raw_package(name, path, dest_dir, filename, is_request_repo)
-
-        components = [{"path": path, "filename": filename}]
-        log_msg = f"Uploading {path!r} as a raw package to the {name!r} Nexus repository"
-        assert log_msg in caplog.text
-        mock_upload.assert_called_once_with(name, dest_dir, components, not is_request_repo)
-
     @mock.patch("cachito.workers.pkg_managers.pip.RequestBundleDir")
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_nexus_hoster_credentials")
     @mock.patch("cachito.workers.pkg_managers.pip._download_pypi_package")

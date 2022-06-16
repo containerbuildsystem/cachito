@@ -1,19 +1,28 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import logging
 from unittest import mock
 
 import pytest
 import requests
 
 from cachito.errors import CachitoError
+from cachito.workers.pkg_managers import general
 from cachito.workers.pkg_managers.general import (
     ChecksumInfo,
     download_binary_file,
     pkg_requests_session,
     update_request_env_vars,
     update_request_with_config_files,
+    upload_raw_package,
     verify_checksum,
 )
 from cachito.workers.requests import requests_auth_session
+
+
+def setup_module():
+    """Re-enable logging that was disabled at some point in previous tests."""
+    general.log.disabled = False
+    general.log.setLevel(logging.DEBUG)
 
 
 @mock.patch.object(requests_auth_session, "post")
@@ -149,3 +158,20 @@ def test_update_request_env_vars_failed(mock_patch, side_effect, expected_error)
     mock_patch.side_effect = [side_effect]
     with pytest.raises(CachitoError, match=expected_error):
         update_request_env_vars(1, {"environment_variables": {}})
+
+
+@mock.patch("cachito.workers.pkg_managers.general.nexus.upload_raw_component")
+@pytest.mark.parametrize("is_request_repo", [True, False])
+def test_upload_raw_package(mock_upload, caplog, is_request_repo):
+    """Check Nexus upload calls."""
+    name = "name"
+    path = "fakepath"
+    dest_dir = "name/varsion"
+    filename = "name.tar.gz"
+
+    upload_raw_package(name, path, dest_dir, filename, is_request_repo)
+
+    components = [{"path": path, "filename": filename}]
+    log_msg = f"Uploading {path!r} as a raw package to the {name!r} Nexus repository"
+    assert log_msg in caplog.text
+    mock_upload.assert_called_once_with(name, dest_dir, components, not is_request_repo)
