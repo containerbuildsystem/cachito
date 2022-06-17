@@ -9,7 +9,7 @@ import requests
 
 from cachito.errors import CachitoError, ValidationError
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.pkg_managers import rubygems
+from cachito.workers.pkg_managers import general, rubygems
 from cachito.workers.pkg_managers.rubygems import GemMetadata, parse_gemlock
 
 GIT_REF = "26487618a68443e94d623bb585cb464b07d36702"
@@ -19,6 +19,8 @@ def setup_module():
     """Re-enable logging that was disabled at some point in previous tests."""
     rubygems.log.disabled = False
     rubygems.log.setLevel(logging.DEBUG)
+    general.log.disabled = False
+    general.log.setLevel(logging.DEBUG)
 
 
 class TestNexus:
@@ -456,7 +458,7 @@ class TestDownload:
 
     @pytest.mark.parametrize("have_raw_component", [True, False])
     @mock.patch("cachito.workers.pkg_managers.rubygems.nexus.get_raw_component_asset_url")
-    @mock.patch("cachito.workers.pkg_managers.rubygems.download_binary_file")
+    @mock.patch("cachito.workers.pkg_managers.general.download_binary_file")
     @mock.patch("cachito.workers.pkg_managers.rubygems.Git")
     @mock.patch("shutil.copy")
     def test_download_git_package(

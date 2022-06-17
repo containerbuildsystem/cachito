@@ -25,9 +25,10 @@ from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
+from cachito.workers.pkg_managers import general
 from cachito.workers.pkg_managers.general import (
     ChecksumInfo,
-    download_binary_file,
+    download_raw_component,
     pkg_requests_session,
     upload_raw_package,
     verify_checksum,
@@ -1559,7 +1560,7 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
 
     # Nexus turns package URLs into relative URLs
     proxied_url = f"{package_url.rstrip('/')}/{sdist['url']}"
-    download_binary_file(proxied_url, download_path, auth=pypi_proxy_auth)
+    general.download_binary_file(proxied_url, download_path, auth=pypi_proxy_auth)
 
     return {
         "package": sdist["name"],
@@ -1671,7 +1672,7 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     download_path = package_dir / filename
 
     # Download raw component if we already have it
-    have_raw_component = _download_raw_component(
+    have_raw_component = download_raw_component(
         raw_component_name, pip_raw_repo_name, download_path, nexus_auth
     )
 
@@ -1771,7 +1772,7 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     download_path = package_dir / filename
 
     # Download raw component if we already have it
-    have_raw_component = _download_raw_component(
+    have_raw_component = download_raw_component(
         raw_component_name, pip_raw_repo_name, download_path, nexus_auth
     )
 
@@ -1789,7 +1790,7 @@ def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
         else:
             insecure = False
 
-        download_binary_file(requirement.url, download_path, insecure=insecure)
+        general.download_binary_file(requirement.url, download_path, insecure=insecure)
 
     if "cachito_hash" in requirement.qualifiers:
         url_with_hash = requirement.url
@@ -1819,23 +1820,6 @@ def _add_cachito_hash_to_url(parsed_url, hash_spec):
     if parsed_url.fragment:
         new_fragment = f"{parsed_url.fragment}&{new_fragment}"
     return parsed_url._replace(fragment=new_fragment).geturl()
-
-
-def _download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
-    """
-    Download raw component if present in raw repo.
-
-    :return: True if component was downloaded, False otherwise
-    """
-    log.debug("Looking for raw component %r in %r repo", raw_component_name, raw_repo_name)
-    download_url = nexus.get_raw_component_asset_url(raw_repo_name, raw_component_name)
-
-    if download_url is not None:
-        log.debug("Found raw component, will download from %r", download_url)
-        download_binary_file(download_url, download_path, auth=nexus_auth)
-        return True
-
-    return False
 
 
 def _verify_hash(download_path, hashes):
