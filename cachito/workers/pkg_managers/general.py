@@ -154,6 +154,23 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
             f.write(chunk)
 
 
+def download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
+    """
+    Download raw component if present in raw repo.
+
+    :return: True if component was downloaded, False otherwise
+    """
+    log.debug("Looking for raw component %r in %r repo", raw_component_name, raw_repo_name)
+    download_url = nexus.get_raw_component_asset_url(raw_repo_name, raw_component_name)
+
+    if download_url is not None:
+        log.debug("Found raw component, will download from %r", download_url)
+        download_binary_file(download_url, download_path, auth=nexus_auth)
+        return True
+
+    return False
+
+
 def upload_raw_package(repo_name, artifact_path, dest_dir, filename, is_request_repository):
     """
     Upload a raw package to a Nexus repository.

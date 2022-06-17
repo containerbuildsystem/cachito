@@ -24,6 +24,8 @@ def setup_module():
     """Re-enable logging that was disabled at some point in previous tests."""
     pip.log.disabled = False
     pip.log.setLevel(logging.DEBUG)
+    general.log.disabled = False
+    general.log.setLevel(logging.DEBUG)
 
 
 @pytest.mark.parametrize("py_exists", [True, False])
@@ -2366,7 +2368,7 @@ class TestDownload:
     # Package name should be normalized before querying PyPI
     @pytest.mark.parametrize("package_name", ["AioWSGI", "aiowsgi"])
     @mock.patch.object(general.pkg_requests_session, "get")
-    @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
+    @mock.patch("cachito.workers.pkg_managers.general.download_binary_file")
     def test_download_pypi_package(
         self,
         mock_download_file,
@@ -2584,7 +2586,7 @@ class TestDownload:
 
     @pytest.mark.parametrize("have_raw_component", [True, False])
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_raw_component_asset_url")
-    @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
+    @mock.patch("cachito.workers.pkg_managers.general.download_binary_file")
     @mock.patch("cachito.workers.pkg_managers.pip.Git")
     @mock.patch("shutil.copy")
     def test_download_vcs_package(
@@ -2741,7 +2743,7 @@ class TestDownload:
         ],
     )
     @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_raw_component_asset_url")
-    @mock.patch("cachito.workers.pkg_managers.pip.download_binary_file")
+    @mock.patch("cachito.workers.pkg_managers.general.download_binary_file")
     def test_download_url_package(
         self,
         mock_download_file,

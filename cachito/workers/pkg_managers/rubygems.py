@@ -15,7 +15,11 @@ from cachito.errors import CachitoError, ValidationError
 from cachito.workers import get_worker_config, nexus
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
-from cachito.workers.pkg_managers.general import download_binary_file, upload_raw_package
+from cachito.workers.pkg_managers.general import (
+    download_binary_file,
+    download_raw_component,
+    upload_raw_package,
+)
 from cachito.workers.scm import Git
 
 GIT_REF_FORMAT = re.compile(r"^[a-fA-F0-9]{40}$")
@@ -295,7 +299,7 @@ def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_
     raw_component_name = f"{repo_name}/{filename}"
 
     # Download raw component if we already have it
-    have_raw_component = _download_raw_component(
+    have_raw_component = download_raw_component(
         raw_component_name, rubygems_raw_repo_name, download_path, nexus_auth
     )
 
@@ -334,21 +338,3 @@ def _extract_git_info(repo_url):
     namespace_parts = namespace.split("/")
 
     return url.netloc, namespace_parts, repo_name
-
-
-def _download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
-    """
-    Download raw component if present in raw repo.
-
-    :return: True if component was downloaded, False otherwise
-    """
-    log.debug("Looking for raw component %r in %r repo", raw_component_name, raw_repo_name)
-    download_url = nexus.get_raw_component_asset_url(raw_repo_name, raw_component_name)
-
-    if download_url is not None:
-        log.debug("Found raw component, will download from %r", download_url)
-        download_binary_file(download_url, download_path, auth=nexus_auth)
-        return True
-
-    return False
-
