@@ -378,3 +378,34 @@ class TestGemlockParsing:
 
         expected_msg = f"{str(active_docs)} is not a subpath of {str(gemfile_lock.parent)}"
         assert expected_msg in str(exc_info.value)
+
+    @mock.patch("secrets.token_hex")
+    @mock.patch("cachito.workers.pkg_managers.rubygems.nexus.execute_script")
+    def test_finalize_nexus_for_rubygems_request(self, mock_exec_script, mock_secret):
+        """Check whether groovy script is called with proper args."""
+        mock_secret.return_value = "password"
+        password = rubygems.finalize_nexus_for_rubygems_request(
+            "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1", "user-1"
+        )
+
+        mock_exec_script.assert_called_once_with(
+            "rubygems_after_content_staged",
+            {
+                "rubygems_repository_name": "cachito-rubygems-hosted-1",
+                "raw_repository_name": "cachito-rubygems-raw-1",
+                "username": "user-1",
+                "password": "password",
+            },
+        )
+
+        assert password == "password"
+
+    @mock.patch("cachito.workers.pkg_managers.rubygems.nexus.execute_script")
+    def test_finalize_nexus_for_rubygems_request_failed(self, mock_exec_script):
+        """Check whether proper error is raised on groovy script failures."""
+        mock_exec_script.side_effect = NexusScriptError()
+        expected = "Failed to configure Nexus Rubygems repositories for final consumption"
+        with pytest.raises(CachitoError, match=expected):
+            rubygems.finalize_nexus_for_rubygems_request(
+                "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1", "user-1"
+            )
