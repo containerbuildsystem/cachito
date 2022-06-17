@@ -52,6 +52,8 @@ class RequestBundleDir(base_path):
 
         self.pip_deps_dir = self.joinpath("deps", "pip")
 
+        self.rubygems_deps_dir = self.joinpath("deps", "rubygems")
+
         self.yarn_deps_dir = self.joinpath("deps", "yarn")
 
         self.bundle_archive_file = Path(root, f"{request_id}.tar.gz")
