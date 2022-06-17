@@ -22,7 +22,7 @@ import org.sonatype.nexus.repository.config.WritePolicy
 def createHostedRepo(String name, String repoType) {
     WritePolicy writePolicy = WritePolicy.ALLOW_ONCE
     Boolean strictContentValidation = true
-    String blobStoreName = "cachito-ruby"
+    String blobStoreName = "cachito-rubygems"
     // repository is an object that is injected by Nexus when the script is executed
     if(repository.repositoryManager.exists(name)) {
         logger.info("Modifying the hosted repository ${name}")

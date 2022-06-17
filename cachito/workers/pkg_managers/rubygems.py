@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
+import random
 import re
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -136,3 +138,31 @@ def _validate_path_dependency_dir(gem, project_root, gemlock_dir):
         )
     except ValueError:
         raise ValidationError(f"{str(dependency_dir)} is not a subpath of {str(project_root)}")
+
+
+def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, username):
+    """
+    Configure Nexus so that the request's Rubygems repositories are ready for consumption.
+
+    :param str rubygems_repo_name: the name of the rubygems hosted repository for a given request
+    :param str raw_repo_name: the name of the raw repository for the Cachito Rubygems request
+    :param str username: the username of the user to be created for the Cachito Rubygems request
+    :return: the password of the Nexus user that has access to the request's Rubygems repositories
+    :rtype: str
+    :raise CachitoError: if the script execution fails
+    """
+    # Generate a 24-32 character (each byte is two hex characters) password
+    password = secrets.token_hex(random.randint(12, 16))  # nosec
+    payload = {
+        "password": password,
+        "rubygems_repository_name": rubygems_repo_name,
+        "raw_repository_name": raw_repo_name,
+        "username": username,
+    }
+    script_name = "rubygems_after_content_staged"
+    try:
+        nexus.execute_script(script_name, payload)
+    except NexusScriptError:
+        log.exception("Failed to execute the script %s", script_name)
+        raise CachitoError("Failed to configure Nexus Rubygems repositories for final consumption")
+    return password
