@@ -3,14 +3,20 @@ import logging
 import random
 import re
 import secrets
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
+import requests
 from gemlock_parser.gemfile_lock import GemfileLockParser
 
 from cachito.errors import CachitoError, ValidationError
-from cachito.workers import nexus
+from cachito.workers import get_worker_config, nexus
 from cachito.workers.errors import NexusScriptError
+from cachito.workers.paths import RequestBundleDir
+from cachito.workers.pkg_managers.general import download_binary_file, upload_raw_package
+from cachito.workers.scm import Git
 
 GIT_REF_FORMAT = re.compile(r"^[a-fA-F0-9]{40}$")
 PLATFORMS_RUBY = re.compile(r"^PLATFORMS\n {2}ruby\n\n", re.MULTILINE)
@@ -166,3 +172,183 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, usern
         log.exception("Failed to execute the script %s", script_name)
         raise CachitoError("Failed to configure Nexus Rubygems repositories for final consumption")
     return password
+
+
+def download_dependencies(request_id, dependencies):
+    """
+    Download all dependencies from Gemfile.lock with its sources.
+
+    After downloading, upload all GIT dependencies to the Nexus raw repo if they were not already
+    present. Dependencies from rubygems.org get cached automatically just by being downloaded
+    from the right URL, see _download_rubygems_package().
+
+    :param int request_id: ID of the request these dependencies are being downloaded for
+    :param list[GemMetadata] dependencies: List of dependencies
+    :return: Info about downloaded packages; all items will contain "kind" and "path" keys
+        (and more based on kind, see _download_*_package functions for more details)
+    :rtype: list[dict]
+    """
+    bundle_dir = RequestBundleDir(request_id)
+    bundle_dir.rubygems_deps_dir.mkdir(parents=True, exist_ok=True)
+
+    config = get_worker_config()
+    rubygems_proxy_url = config.cachito_nexus_rubygems_proxy_url
+    rubygems_raw_repo_name = config.cachito_nexus_rubygems_raw_repo_name
+
+    nexus_username, nexus_password = nexus.get_nexus_hoster_credentials()
+    nexus_auth = requests.auth.HTTPBasicAuth(nexus_username, nexus_password)
+
+    downloads = []
+
+    for dep in dependencies:
+        log.info("Downloading %s (%s)", dep.name, dep.version)
+
+        if dep.type == "GEM":
+            download_info = _download_rubygems_package(
+                dep, bundle_dir.rubygems_deps_dir, rubygems_proxy_url, nexus_auth
+            )
+        elif dep.type == "GIT":
+            download_info = _download_git_package(
+                dep, bundle_dir.rubygems_deps_dir, rubygems_raw_repo_name, nexus_auth
+            )
+        else:
+            # Should not happen
+            raise RuntimeError(f"Unexpected dependency type: {dep.type!r}")
+
+        log.info(
+            "Successfully downloaded gem %s (%s) to %s",
+            dep.name,
+            dep.version,
+            download_info["path"].relative_to(bundle_dir),
+        )
+
+        # If the raw component is not in the Nexus hoster instance, upload it there
+        if dep.type == "GIT" and not download_info["have_raw_component"]:
+            log.debug(
+                "Uploading %r to %r as %r",
+                download_info["path"].name,
+                rubygems_raw_repo_name,
+                download_info["raw_component_name"],
+            )
+            dest_dir, filename = download_info["raw_component_name"].rsplit("/", 1)
+            upload_raw_package(
+                rubygems_raw_repo_name,
+                download_info["path"],
+                dest_dir,
+                filename,
+                is_request_repository=False,
+            )
+
+        download_info["kind"] = dep.type
+        downloads.append(download_info)
+
+    return downloads
+
+
+def _download_rubygems_package(gem, deps_dir, proxy_url, proxy_auth):
+    """Download platform independent RubyGem.
+
+    The platform independence is ensured by downloading it from platform independent url
+    (url that doesn't have any platform suffix).
+    :param GemMetadata gem: Gem dependency from a Gemfile.lock file
+    :param Path deps_dir: The deps/rubygems directory in a Cachito request bundle
+    :param str proxy_url: URL of Nexus RubyGems proxy
+    :param requests.auth.AuthBase proxy_auth: Authorization for the RubyGems proxy
+    """
+    package_dir = deps_dir / gem.name
+    package_dir.mkdir(exist_ok=True)
+    download_path = package_dir / f"{gem.name}-{gem.version}.gem"
+
+    proxied_url = f"{proxy_url.rstrip('/')}/gems/{gem.name}-{gem.version}.gem"
+    download_binary_file(proxied_url, download_path, auth=proxy_auth)
+
+    return {
+        "package": gem.name,
+        "version": gem.version,
+        "path": download_path,
+    }
+
+
+def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_auth):
+    """
+    Fetch the source for a Ruby package from Git.
+
+    If the package is already present in Nexus as a raw component, download it
+    from there instead of fetching from the original location.
+
+    :param GemMetadata gem: Git dependency from a Gemfile.lock file
+    :param Path rubygems_deps_dir: The deps/rubygems directory in a Cachito request bundle
+    :param str rubygems_raw_repo_name: Name of the Nexus raw repository for RubyGems
+    :param requests.auth.AuthBase nexus_auth: Authorization for the Nexus raw repo
+
+    :return: Dict with package name, download path, git url and ref, name of raw component in Nexus
+        and boolean whether we already have the raw component in Nexus
+    """
+    host, namespace_parts, repo_name = _extract_git_info(gem.source)
+
+    # Download to e.g. deps/rubygems/github.com/namespace/repo
+    package_dir = rubygems_deps_dir.joinpath(host, *namespace_parts, repo_name)
+    package_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{repo_name}-external-gitcommit-{gem.version}.tar.gz"
+    download_path = package_dir / filename
+    raw_component_name = f"{repo_name}/{filename}"
+
+    # Download raw component if we already have it
+    have_raw_component = _download_raw_component(
+        raw_component_name, rubygems_raw_repo_name, download_path, nexus_auth
+    )
+
+    if not have_raw_component:
+        log.debug("Raw component not found, will fetch from git")
+        repo_name = Git(gem.source, gem.version)
+        repo_name.fetch_source(gitsubmodule=False)
+        # Copy downloaded archive to expected download path
+        shutil.copy(repo_name.sources_dir.archive_path, download_path)
+
+    return {
+        "package": gem.name,
+        "path": download_path,
+        "url": gem.source,
+        "ref": gem.version.lower(),
+        "raw_component_name": raw_component_name,
+        "have_raw_component": have_raw_component,
+    }
+
+
+def _extract_git_info(repo_url):
+    """Extract git info from the repo url.
+
+    :param repo_url: url to the git repository
+    :return: host part of url, list with namespace parts and a repository name
+    """
+    url = urlparse(repo_url)
+
+    namespace_repo = url.path.strip("/")
+    if namespace_repo.endswith(".git"):
+        namespace_repo = namespace_repo[: -len(".git")]
+
+    # Everything up to the last '/' is namespace, the rest is repo
+    namespace, _, repo_name = namespace_repo.rpartition("/")
+
+    namespace_parts = namespace.split("/")
+
+    return url.netloc, namespace_parts, repo_name
+
+
+def _download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
+    """
+    Download raw component if present in raw repo.
+
+    :return: True if component was downloaded, False otherwise
+    """
+    log.debug("Looking for raw component %r in %r repo", raw_component_name, raw_repo_name)
+    download_url = nexus.get_raw_component_asset_url(raw_repo_name, raw_component_name)
+
+    if download_url is not None:
+        log.debug("Found raw component, will download from %r", download_url)
+        download_binary_file(download_url, download_path, auth=nexus_auth)
+        return True
+
+    return False
+

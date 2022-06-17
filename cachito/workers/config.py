@@ -45,6 +45,7 @@ class Config(object):
     cachito_nexus_max_search_attempts = 5
     cachito_nexus_npm_proxy_url = "http://localhost:8081/repository/cachito-js/"
     cachito_nexus_pip_raw_repo_name = "cachito-pip-raw"
+    cachito_nexus_rubygems_raw_repo_name = "cachito-rubygems-raw"
     cachito_nexus_proxy_password: Optional[str] = None
     cachito_nexus_proxy_username: Optional[str] = None
     cachito_nexus_request_repo_prefix = "cachito-"
@@ -118,6 +119,7 @@ class DevelopmentConfig(Config):
     cachito_nexus_proxy_password = "cachito_unprivileged"  # nosec
     cachito_nexus_proxy_username = "cachito_unprivileged"
     cachito_nexus_pypi_proxy_url = "http://nexus:8081/repository/cachito-pip-proxy/"
+    cachito_nexus_rubygems_proxy_url = "http://nexus:8081/repository/cachito-rubygems-proxy/"
     cachito_nexus_url = "http://nexus:8081"
     cachito_npm_file_deps_allowlist = {"cachito-npm-test": ["subpackage"]}
     cachito_yarn_file_deps_allowlist = {"cachito-yarn-test": ["subpackage"]}
