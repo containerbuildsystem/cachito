@@ -626,11 +626,14 @@ encountered by Cachito.
 On each request, Cachito will create a proxy repository to the JS group repository
 (e.g. `cachito-js`). Cachito will populate this proxy repository to contain the subset of
 dependencies declared in the repository's lock file. Once populated, Cachito will block the
-repository from getting additional content. This prevents the consumer of the repository from
-installing something that was not declared in the lock file. This is further enforced by locking
-down the repository to a single user created for the request, which the consumer will use. Please
-keep in mind that for this to function properly, anonymous access needs to be disabled on the Nexus
-instance or at least not set to have read access on all repositories.
+repository from getting additional content. If a build process attempts to pull a package that is
+not cached in the proxy repository, the proxy will not find the package in its cached references and
+will try to pull the package from another repository. Since outbound connections would be blocked
+for that repository at this point, Nexus returns a **404 error**. This prevents the consumer of the
+repository from installing something that was not declared in the lock file. This is further enforced
+by locking down the repository to a single user created for the request, which the consumer will use. 
+Please keep in mind that for this to function properly, anonymous access needs to be disabled on the
+Nexus instance or at least not set to have read access on all repositories.
 
 These repositories and users created per request are deleted when the request is marked as stale
 or the request fails.
