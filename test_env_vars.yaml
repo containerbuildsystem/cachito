@@ -6,7 +6,7 @@ api_auth_type: null
 # Time in minutes at which the request must be completed
 timeout: 45
 # The flag cachito_gomod_strict_vendor is enabled on the environment
-strict_mode_enabled: false
+strict_mode_enabled: true
 # Package that will be used for testing
 packages:
   # repo: The URL for the upstream git repository
