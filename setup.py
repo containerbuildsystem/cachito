@@ -10,6 +10,7 @@ setup(
     install_requires=[
         "backoff",
         "celery>=5",
+        "gemlock_parser",
         "gitpython",
         "kombu>=5",  # A celery dependency but it's directly imported
         "packaging",

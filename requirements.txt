@@ -129,8 +129,8 @@ defusedxml==0.7.1 \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
     # via -r requirements.in
-gemlock_parser @ https://github.com/tichavskym/gemlock-parser/archive/88066f2298b60432d292b567459f067403c3eeb6.zip \
-    --hash=sha256:b008c4bf99185c41f2b058d3eb722fe90e680dc9dd6ca61beb7402fa96d91bb6
+gemlock_parser @ https://github.com/containerbuildsystem/gemlock-parser/archive/a2f0f4020e07b1e87813a3254eb3e40047d8e981.zip \
+    --hash=sha256:6d1a080042d2d773bc83f7275382aaf0afd18b5b0ce861e4f383ed71e8530ac3
     # via -r requirements.in
 gitdb==4.0.5 \
     --hash=sha256:91f36bfb1ab7949b3b40e23736db18231bf7593edada2ba5c3a174a7b23657ac \
