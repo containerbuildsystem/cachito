@@ -3,7 +3,7 @@ backoff
 celery>=5.2.2
 defusedxml
 gitpython
-gemlock_parser @ https://github.com/tichavskym/gemlock-parser/archive/88066f2298b60432d292b567459f067403c3eeb6.zip
+gemlock_parser @ https://github.com/containerbuildsystem/gemlock-parser/archive/a2f0f4020e07b1e87813a3254eb3e40047d8e981.zip
 kombu>=5 # A celery dependency but it's directly imported
 packaging
 pyarn
