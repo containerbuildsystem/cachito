@@ -2,8 +2,8 @@
 import logging
 
 import requests
-import requests_kerberos
 from requests.packages.urllib3.util.retry import Retry
+from requests_gssapi import OPTIONAL, HTTPSPNEGOAuth
 
 from cachito.workers.config import get_worker_config
 
@@ -38,9 +38,7 @@ def get_requests_session(auth=False, retry_options={}):
     session = requests.Session()
     if auth:
         if config.cachito_auth_type == "kerberos":
-            session.auth = requests_kerberos.HTTPKerberosAuth(
-                mutual_authentication=requests_kerberos.OPTIONAL
-            )
+            session.auth = HTTPSPNEGOAuth(mutual_authentication=OPTIONAL)
         elif config.cachito_auth_type == "cert":
             session.cert = config.cachito_auth_cert
 

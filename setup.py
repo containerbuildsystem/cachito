@@ -14,7 +14,7 @@ setup(
         "kombu>=5",  # A celery dependency but it's directly imported
         "packaging",
         "pyarn",
-        "requests_kerberos",
+        "requests_gssapi",
         "requests",
         "semver",
         "setuptools",

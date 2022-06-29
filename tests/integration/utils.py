@@ -10,7 +10,7 @@ import jsonschema
 import requests
 import yaml
 from requests.packages.urllib3.util.retry import Retry
-from requests_kerberos import HTTPKerberosAuth
+from requests_gssapi import HTTPSPNEGOAuth
 
 from tests.helper_utils import assert_directories_equal
 
@@ -158,7 +158,7 @@ class Client:
         if self._cachito_api_auth_type == "cert":
             return {"cert": (os.getenv("CACHITO_TEST_CERT"), os.getenv("CACHITO_TEST_KEY"))}
         elif self._cachito_api_auth_type == "kerberos":
-            return {"auth": HTTPKerberosAuth()}
+            return {"auth": HTTPSPNEGOAuth()}
         return {"auth": None}
 
 
