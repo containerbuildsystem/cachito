@@ -7,10 +7,22 @@ from pathlib import Path
 from typing import Any, Callable, List, Optional
 
 import requests
+from werkzeug.exceptions import Forbidden, Gone, NotFound
 
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import (
+    ERROR_MAPPING,
+    CachitoError,
+    ClientError,
+    FileAccessError,
+    InvalidRequestData,
+    NetworkError,
+    RepositoryAccessError,
+    RequestErrorOrigin,
+    ServerError,
+    ValidationError,
+)
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.scm import Git
 from cachito.workers.tasks.celery import app
@@ -53,8 +65,8 @@ def fetch_app_source(url, ref, request_id, gitsubmodule=False, remove_unsafe_sym
         scm = Git(url, ref)
         scm.fetch_source(gitsubmodule=gitsubmodule)
     except requests.Timeout:
-        raise CachitoError("The connection timed out while downloading the source")
-    except CachitoError:
+        raise NetworkError("The connection timed out while downloading the source")
+    except RepositoryAccessError:
         log.exception('Failed to fetch the source from the URL "%s" and reference "%s"', url, ref)
         raise
 
@@ -106,12 +118,29 @@ def failed_request_callback(context, exc, traceback, request_id):
     :param Exception exc: the exception that caused the task failure
     :param int request_id: the ID of the Cachito request
     """
-    if isinstance(exc, CachitoError):
+    # Map unexpected errors to documented errors
+    if exc in ERROR_MAPPING:
+        exc = ERROR_MAPPING.get(exc)
+
+    if isinstance(exc, (Forbidden, NotFound, Gone)):
+        error_origin = RequestErrorOrigin.client
+        error_type = type(exc).__name__
+        msg = str(exc)
+    elif isinstance(exc, (CachitoError, ClientError, ServerError)):
+        if isinstance(exc, ValidationError):
+            error_origin = RequestErrorOrigin.client
+        elif isinstance(exc, CachitoError):
+            error_origin = RequestErrorOrigin.server
+        else:
+            error_origin = exc.origin
+        error_type = type(exc).__name__
         msg = str(exc)
     else:
+        error_origin = RequestErrorOrigin.server
+        error_type = "UnknownError"
         msg = "An unknown error occurred"
 
-    set_request_state(request_id, "failed", msg)
+    set_request_state(request_id, "failed", msg, error_origin, error_type)
 
 
 def create_bundle_archive(request_id: int, flags: List[str]) -> None:
@@ -173,7 +202,7 @@ def save_bundle_archive_checksum(request_id: int) -> None:
     bundle_dir = RequestBundleDir(request_id)
     archive_file = bundle_dir.bundle_archive_file
     if not archive_file.exists():
-        raise CachitoError(f"Bundle archive {archive_file} does not exist.")
+        raise FileAccessError(f"Bundle archive {archive_file} does not exist.")
     checksum = hash_file(archive_file).hexdigest()
     bundle_dir.bundle_archive_checksum.write_text(checksum, encoding="utf-8")
 
@@ -211,7 +240,7 @@ def _check_packages_data_on_api(
     if actual_packages_count == packages_count and actual_dependencies_count == dependencies_count:
         return
 
-    raise CachitoError(f"Error checking packages data for request {request_id}.")
+    raise InvalidRequestData(f"Error checking packages data for request {request_id}.")
 
 
 @app.task(priority=10)

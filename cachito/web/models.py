@@ -18,7 +18,7 @@ from werkzeug.exceptions import Forbidden
 
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
-from cachito.errors import ValidationError
+from cachito.errors import RequestErrorOrigin, ValidationError
 from cachito.web import content_manifest, db
 from cachito.web.validation import validate_dependency_replacements
 
@@ -334,6 +334,12 @@ class Request(db.Model):
         back_populates="request",
         order_by="RequestState.updated",
     )
+    error = db.relationship(
+        "RequestError",
+        foreign_keys="RequestError.request_id",
+        back_populates="request",
+        uselist=False,
+    )
     environment_variables = db.relationship(
         "EnvironmentVariable",
         secondary=request_environment_variable_table,
@@ -463,6 +469,12 @@ class Request(db.Model):
             latest_state = _state_to_json(self.state)
             rv["packages"] = self.packages_count
             rv["dependencies"] = self.dependencies_count
+
+        # If an error exists, the error information is added to the response fields
+        if self.error:
+            rv["error_origin"] = self.error.origin
+            rv["error_type"] = self.error.error_type
+            rv["error_message"] = self.error.message
 
         # Show the latest state information in the first level of the JSON
         rv.update(latest_state)
@@ -722,6 +734,29 @@ class RequestState(db.Model):
             # We need only 'init' state information here to join it with the final state.
             .filter(states.c.num == 1)
         )
+
+
+class RequestError(db.Model):
+    """A Cachito request error."""
+
+    id = db.Column(db.Integer, primary_key=True, unique=True)
+    request_id = db.Column(db.Integer, db.ForeignKey("request.id"), nullable=False, unique=True)
+    origin = db.Column(db.Enum(RequestErrorOrigin), nullable=False, index=True)
+    error_type = db.Column(db.String, nullable=False, index=True)
+    message = db.Column(db.String, nullable=False)
+    occurred = db.Column(db.DateTime(), index=True, default=utcnow())
+    request = db.relationship("Request", foreign_keys=[request_id], back_populates="error")
+
+    @classmethod
+    def from_json(cls, data):
+        """
+        Create a RequestError object from JSON.
+
+        :param dict data: the description of the request error
+        :return: the RequestError object
+        :rtype: RequestError
+        """
+        return cls(**data)
 
 
 class EnvironmentVariable(db.Model):

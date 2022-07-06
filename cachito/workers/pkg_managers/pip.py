@@ -20,7 +20,14 @@ import pkg_resources
 import requests
 from packaging.utils import canonicalize_name, canonicalize_version
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import (
+    FileAccessError,
+    InvalidChecksum,
+    NetworkError,
+    NexusError,
+    RepositoryAccessError,
+    ValidationError,
+)
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
@@ -63,7 +70,7 @@ def get_pip_metadata(package_dir):
 
     :param str package_dir: Path to the root directory of a Pip package
     :return: Tuple of strings (name, version)
-    :raises CachitoError: If either name or version could not be resolved
+    :raises FileAccessError: If either name or version could not be resolved
     """
     name = None
     version = None
@@ -100,7 +107,7 @@ def get_pip_metadata(package_dir):
         missing.append("version")
 
     if missing:
-        raise CachitoError(f"Could not resolve package metadata: {', '.join(missing)}")
+        raise FileAccessError(f"Could not resolve package metadata: {', '.join(missing)}")
 
     return name, version
 
@@ -1212,7 +1219,7 @@ def prepare_nexus_for_pip_request(pip_repo_name, raw_repo_name):
 
     :param str pip_repo_name: the name of the pip repository for the request
     :param str raw_repo_name: the name of the raw repository for the request
-    :raise CachitoError: if the script execution fails
+    :raise NexusError: if the script execution fails
     """
     payload = {
         "pip_repository_name": pip_repo_name,
@@ -1223,7 +1230,7 @@ def prepare_nexus_for_pip_request(pip_repo_name, raw_repo_name):
         nexus.execute_script(script_name, payload)
     except NexusScriptError:
         log.exception("Failed to execute the script %s", script_name)
-        raise CachitoError("Failed to prepare Nexus for Cachito to stage Python content")
+        raise NexusError("Failed to prepare Nexus for Cachito to stage Python content")
 
 
 def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
@@ -1235,7 +1242,7 @@ def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
     :param str username: the username of the user to be created for the Cachito pip request
     :return: the password of the Nexus user that has access to the request's Python repositories
     :rtype: str
-    :raise CachitoError: if the script execution fails
+    :raise NexusError: if the script execution fails
     """
     # Generate a 24-32 character (each byte is two hex characters) password
     password = secrets.token_hex(random.randint(12, 16))  # nosec
@@ -1250,7 +1257,7 @@ def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
         nexus.execute_script(script_name, payload)
     except NexusScriptError:
         log.exception("Failed to execute the script %s", script_name)
-        raise CachitoError("Failed to configure Nexus Python repositories for final consumption")
+        raise NexusError("Failed to configure Nexus Python repositories for final consumption")
     return password
 
 
@@ -1537,7 +1544,7 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
         pypi_resp = pkg_requests_session.get(package_url, auth=pypi_proxy_auth)
         pypi_resp.raise_for_status()
     except requests.RequestException as e:
-        raise CachitoError(f"PyPI query failed: {e}")
+        raise NetworkError(f"PyPI query failed: {e}")
 
     html = defusedxml.ElementTree.fromstring(pypi_resp.text)
     # Find all anchors anywhere in the doc, the PEP does not specify where they should be
@@ -1545,12 +1552,12 @@ def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy
 
     sdists = _process_package_links(links, package, version)
     if not sdists:
-        raise CachitoError(f"No sdists found for package {package}=={version}")
+        raise FileAccessError(f"No sdists found for package {package}=={version}")
 
     # Choose best candidate based on sorting key
     sdist = max(sdists, key=_sdist_preference)
     if sdist.get("yanked", False):
-        raise CachitoError(f"All sdists for package {package}=={version} are yanked")
+        raise FileAccessError(f"All sdists for package {package}=={version} are yanked")
 
     package_dir = pip_deps_dir / sdist["name"]
     package_dir.mkdir(exist_ok=True)
@@ -1843,7 +1850,7 @@ def _verify_hash(download_path, hashes):
 
     :param Path download_path: Path to downloaded file
     :param list[str] hashes: All provided hashes for requirement
-    :raise CachitoError: If computed hash does not match any of the provided hashes
+    :raise InvalidChecksum: If computed hash does not match any of the provided hashes
     """
     log.info(f"Verifying checksum of {download_path.name}")
 
@@ -1854,11 +1861,11 @@ def _verify_hash(download_path, hashes):
             verify_checksum(str(download_path), checksum_info)
             log.info(f"Checksum of {download_path.name} matches: {algorithm}:{digest}")
             return
-        except CachitoError as e:
+        except InvalidChecksum as e:
             log.warning("%s", e)
 
     msg = f"Failed to verify checksum of {download_path.name} against any of the provided hashes"
-    raise CachitoError(msg)
+    raise InvalidChecksum(msg)
 
 
 def upload_pypi_package(repo_name, artifact_path):
@@ -1974,7 +1981,7 @@ def get_index_url(nexus_pypi_hosted_repo_url, username, password):
     if "://" in nexus_pypi_hosted_repo_url:
         index_url = nexus_pypi_hosted_repo_url.replace("://", f"://{username}:{password}@", 1)
     else:
-        raise CachitoError(
+        raise RepositoryAccessError(
             f"Nexus PyPI hosted repo URL: {nexus_pypi_hosted_repo_url} is not a valid URL"
         )
 
@@ -1992,12 +1999,12 @@ def _download_from_requirement_files(request_id, files):
     :return: Info about downloaded packages; see download_dependencies return docs for further
         reference
     :rtype: list[dict]
-    :raises CachitoError: If requirement file does not exist
+    :raises FileAccessError: If requirement file does not exist
     """
     requirements = []
     for req_file in files:
         if not os.path.exists(req_file):
-            raise CachitoError(f"Following requirement file has an invalid path: {req_file}")
+            raise FileAccessError(f"Following requirement file has an invalid path: {req_file}")
         requirements.extend(download_dependencies(request_id, PipRequirementsFile(req_file)))
     return requirements
 
@@ -2028,12 +2035,12 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
         (if not pypi)
     :return: dict with the cachito Dependency representation
     :rtype: dict
-    :raises CachitoError: If Nexus upload operation fails
+    :raises NetworkError, NexusError: If Nexus upload operation fails
     """
     if requirement["kind"] == "pypi":
         try:
             upload_pypi_package(pip_repo_name, requirement["path"])
-        except CachitoError:
+        except (NetworkError, NexusError):
             if nexus.get_component_info_from_nexus(
                 pip_repo_name,
                 "pypi",
@@ -2055,7 +2062,7 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
         dest_dir, filename = requirement["raw_component_name"].rsplit("/", 1)
         try:
             upload_raw_package(raw_repo_name, requirement["path"], dest_dir, filename, True)
-        except CachitoError:
+        except (NetworkError, NexusError):
             if nexus.get_component_info_from_nexus(
                 raw_repo_name,
                 "raw",
@@ -2102,12 +2109,12 @@ def resolve_pip(path, request, requirement_files=None, build_requirement_files=N
         ``requirements`` which is a list of str with the absolute paths for the requirement files
             belonging to the package
     :rtype: dict
-    :raises CachitoError: if the package is not cachito-pip compatible
+    :raises FileAccessError: if the package is not cachito-pip compatible
     """
     log.debug("Checking if the application source uses pip")
     try:
         pkg_name, pkg_version = get_pip_metadata(path)
-    except CachitoError:
+    except FileAccessError:
         log.exception("The requested package is not pip compatible")
         raise
 

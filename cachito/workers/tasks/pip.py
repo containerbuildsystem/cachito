@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from cachito.common.packages_data import PackagesData
-from cachito.errors import CachitoError
+from cachito.errors import FileAccessError
 from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config, validate_pip_config
 from cachito.workers.paths import RequestBundleDir
@@ -152,7 +152,8 @@ def _get_custom_requirement_config_file(
         repositories
     :return: Cachito configuration file representation containing the custom requirement file
     :rtype: dict
-    :raises CachitoError: If a valid component URL cannot be retrieved from the raw Nexus repository
+    :raises FileAccessError: If a valid component URL cannot be retrieved from the raw Nexus repo
+    :raises ValueError: if Nexus raw resource URL is not a valid URL
     """
     original_requirement_file = PipRequirementsFile(requirement_file_path)
     cachito_requirements = []
@@ -170,14 +171,14 @@ def _get_custom_requirement_config_file(
                 from_nexus_hoster=False,
             )
             if not new_url:
-                raise CachitoError(
+                raise FileAccessError(
                     f"Could not retrieve URL for {raw_component_name} in {raw_repo_name}. Was the "
                     "asset uploaded?"
                 )
 
             # Inject credentials
             if "://" not in new_url:
-                raise CachitoError(f"Nexus raw resource URL: {new_url} is not a valid URL")
+                raise ValueError(f"Nexus raw resource URL: {new_url} is not a valid URL")
 
             new_url = new_url.replace("://", f"://{username}:{password}@", 1)
             requirement = requirement.copy(url=new_url)

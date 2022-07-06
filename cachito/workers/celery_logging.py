@@ -5,7 +5,6 @@ import os
 
 from celery.utils.log import ColorFormatter
 
-from cachito.errors import CachitoError
 from cachito.workers.config import get_worker_config
 
 
@@ -106,6 +105,7 @@ def setup_task_logging(task_id, task, **kwargs):
 
     :param str task_id: the task ID
     :param class task: the class of the task being executed
+    :raises ValueError: if 'request_id' is None
     """
     worker_config = get_worker_config()
     log_dir = worker_config.cachito_request_file_logs_dir
@@ -119,7 +119,7 @@ def setup_task_logging(task_id, task, **kwargs):
             "request_id", task.__wrapped__, kwargs["args"], kwargs["kwargs"]
         )
         if not request_id:
-            raise CachitoError("Unable to get 'request_id'")
+            raise ValueError("Unable to get 'request_id'")
 
         log_file_path = os.path.join(log_dir, f"{request_id}.log")
         request_log_handler = logging.FileHandler(log_file_path)

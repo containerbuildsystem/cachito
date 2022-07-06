@@ -6,7 +6,7 @@ import re
 import subprocess  # nosec
 from typing import Iterator
 
-from cachito.errors import CachitoError
+from cachito.errors import SubprocessCallError
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import CachitoCalledProcessError
 
@@ -22,7 +22,7 @@ def run_cmd(cmd, params, exc_msg=None):
     :param str exc_msg: an optional exception message when the command fails
     :returns: the command output
     :rtype: str
-    :raises CachitoError: if the command fails
+    :raises SubprocessCallError: if the command fails
     """
     params.setdefault("capture_output", True)
     params.setdefault("universal_newlines", True)
@@ -34,7 +34,7 @@ def run_cmd(cmd, params, exc_msg=None):
     try:
         response = subprocess.run(cmd, **params)  # nosec
     except subprocess.TimeoutExpired as e:
-        raise CachitoError(str(e))
+        raise SubprocessCallError(str(e))
 
     if response.returncode != 0:
         log.error('The command "%s" failed with: %s', " ".join(cmd), response.stderr)
