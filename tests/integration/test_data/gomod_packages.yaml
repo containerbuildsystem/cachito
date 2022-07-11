@@ -1809,3 +1809,23 @@ force_tidy_vendored:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+symlink_loop:
+  repo: https://github.com/cachito-testing/cachito-gomod-symlink-loop.git
+  ref: 2448c37cc276b5d0db613ec58178c30810bb045c
+  pkg_managers: ["gomod"]
+  response_expectations:
+    packages:
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-symlink-loop"
+        type: "go-package"
+        version: "v0.0.0-20220712180726-2448c37cc276"
+      - dependencies: []
+        name: "github.com/cachito-testing/cachito-gomod-symlink-loop"
+        type: "gomod"
+        version: "v0.0.0-20220712180726-2448c37cc276"
+    dependencies: []
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-gomod-symlink-loop/tarball/2448c37cc276b5d0db613ec58178c30810bb045c
+    deps/gomod/pkg/mod/cache/download: null
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-symlink-loop@v0.0.0-20220712180726-2448c37cc276"

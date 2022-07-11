@@ -79,7 +79,17 @@ def _enforce_sandbox(repo_root, remove_unsafe_symlinks):
 
         for entry in subdirs + files:
             full_path = dirpath / entry
-            real_path = full_path.resolve()
+
+            try:
+                real_path = full_path.resolve()
+            except RuntimeError as e:
+                if "Symlink loop from " in str(e):
+                    log.info(f"Symlink loop from {full_path!r}")
+                    continue
+                else:
+                    log.error(str(e))
+                    raise
+
             try:
                 real_path.relative_to(repo_root)
             except ValueError:
