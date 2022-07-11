@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
+import logging
 import os
 import os.path
 import pathlib
@@ -72,6 +73,36 @@ def test_enforce_sandbox(file_tree, bad_symlink, tmp_path):
         assert not pathlib.Path(tmp_path / bad_symlink).exists()
     else:
         _enforce_sandbox(tmp_path, remove_unsafe_symlinks=False)
+        _enforce_sandbox(tmp_path, remove_unsafe_symlinks=True)
+
+
+def test_enforce_sandbox_symlink_loop(tmp_path, caplog):
+    workers_logger = logging.getLogger("cachito.workers.tasks.general")
+    workers_logger.disabled = False
+    workers_logger.setLevel(logging.INFO)
+
+    file_tree = {"foo_b": Symlink("foo_a"), "foo_a": Symlink("foo_b")}
+    write_file_tree(file_tree, tmp_path)
+    _enforce_sandbox(tmp_path, remove_unsafe_symlinks=True)
+    assert "Symlink loop from " in caplog.text
+
+
+@mock.patch("pathlib.Path.resolve")
+def test_enforce_sandbox_runtime_error(mock_resolve, tmp_path, caplog):
+    workers_logger = logging.getLogger("cachito.workers.tasks.general")
+    workers_logger.disabled = False
+    workers_logger.setLevel(logging.INFO)
+
+    error = "RuntimeError is triggered"
+
+    def side_effect():
+        raise RuntimeError(error)
+
+    mock_resolve.side_effect = side_effect
+
+    file_tree = {"foo_b": Symlink("foo_a"), "foo_a": Symlink("foo_b")}
+    write_file_tree(file_tree, tmp_path)
+    with pytest.raises(RuntimeError, match=error):
         _enforce_sandbox(tmp_path, remove_unsafe_symlinks=True)
 
 
