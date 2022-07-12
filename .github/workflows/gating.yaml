@@ -91,7 +91,6 @@ jobs:
       matrix:
         dockerfile:
           - Dockerfile-api
-          - Dockerfile-flower
           - Dockerfile-workers
     steps:
     - uses: actions/checkout@v2
