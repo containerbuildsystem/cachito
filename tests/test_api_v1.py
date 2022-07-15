@@ -17,13 +17,14 @@ import pytest
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import CachitoError, RequestErrorOrigin, ValidationError
 from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER, Package
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
     Flag,
     Request,
+    RequestError,
     RequestStateMapping,
     _validate_package_manager_exclusivity,
 )
@@ -595,6 +596,78 @@ def test_requests_created_filter(app, auth_env, client, db, created_list, filter
     assert rv.status_code == 200
     fetched_requests = rv.json["items"]
     assert len(fetched_requests) == expected_num
+
+
+@pytest.mark.parametrize(
+    "error_origins, expected_nums",
+    [
+        ([None, None], [0, 0]),
+        ([RequestErrorOrigin.client, RequestErrorOrigin.server], [1, 1]),
+        ([RequestErrorOrigin.client, RequestErrorOrigin.client], [2, 0]),
+        ([RequestErrorOrigin.server, RequestErrorOrigin.server], [0, 2]),
+    ],
+)
+def test_requests_error_origin_filter(app, auth_env, client, db, error_origins, expected_nums):
+    with app.test_request_context(environ_base=auth_env):
+        for origin in error_origins:
+            req_data = {
+                "repo": "https://github.com/release-engineering/retrodep.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["gomod"],
+            }
+            request = Request.from_json(req_data)
+            if origin:
+                err_data = {
+                    "request_id": request.id,
+                    "origin": origin,
+                    "error_type": "SomeError",
+                    "message": "Something",
+                }
+                request.error = RequestError.from_json(err_data)
+            db.session.add(request)
+    db.session.commit()
+    filters = [{"error_origin": "client"}, {"error_origin": "server"}]
+    for i in range(len(filters)):
+        rv = client.get(f"/api/v1/requests?{urllib.parse.urlencode(filters[i])}")
+        assert rv.status_code == 200
+        req_count = rv.json["meta"]["total"]
+        assert req_count == expected_nums[i]
+
+
+@pytest.mark.parametrize(
+    "error_types, expected_nums",
+    [
+        ([None, None], [0, 0]),
+        (["FooError", "BarError"], [1, 1]),
+        (["FooError", "FooError"], [2, 0]),
+        (["BarError", "BarError"], [0, 2]),
+    ],
+)
+def test_requests_error_type_filter(app, auth_env, client, db, error_types, expected_nums):
+    with app.test_request_context(environ_base=auth_env):
+        for error_type in error_types:
+            req_data = {
+                "repo": "https://github.com/release-engineering/retrodep.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["gomod"],
+            }
+            request = Request.from_json(req_data)
+            if error_type:
+                err_data = {
+                    "request_id": request.id,
+                    "origin": RequestErrorOrigin.client,
+                    "error_type": error_type,
+                    "message": "Something",
+                }
+                request.error = RequestError.from_json(err_data)
+            db.session.add(request)
+    db.session.commit()
+    filters = [{"error_type": "FooError"}, {"error_type": "BarError"}]
+    for i in range(len(filters)):
+        rv = client.get(f"/api/v1/requests?{urllib.parse.urlencode(filters[i])}")
+        assert rv.status_code == 200
+        req_count = rv.json["meta"]["total"]
+        assert req_count == expected_nums[i]
 
 
 def test_fetch_request_config(app, client, db, worker_auth_env):
@@ -2558,3 +2631,77 @@ def test_get_request_metrics(
             }.difference(request_data)
             assert request_data["final_state"] == final_state
             assert request_data["final_state_reason"] == f"State: {final_state}"
+
+
+@pytest.mark.parametrize(
+    "error_origins, expected_nums",
+    [
+        ([None, None], [0, 0]),
+        ([RequestErrorOrigin.client, RequestErrorOrigin.server], [1, 1]),
+        ([RequestErrorOrigin.client, RequestErrorOrigin.client], [2, 0]),
+        ([RequestErrorOrigin.server, RequestErrorOrigin.server], [0, 2]),
+    ],
+)
+def test_req_metrics_error_origin_filter(app, auth_env, client, db, error_origins, expected_nums):
+    with app.test_request_context(environ_base=auth_env):
+        for origin in error_origins:
+            req_data = {
+                "repo": "https://github.com/release-engineering/retrodep.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["gomod"],
+            }
+            request = Request.from_json(req_data)
+            request.add_state("failed", "Something")
+            if origin:
+                err_data = {
+                    "request_id": request.id,
+                    "origin": origin,
+                    "error_type": "SomeError",
+                    "message": "Something",
+                }
+                request.error = RequestError.from_json(err_data)
+            db.session.add(request)
+    db.session.commit()
+    filters = [{"error_origin": "client"}, {"error_origin": "server"}]
+    for i in range(len(filters)):
+        rv = client.get(f"/api/v1/request-metrics?{urllib.parse.urlencode(filters[i])}")
+        assert rv.status_code == 200
+        req_count = rv.json["meta"]["total"]
+        assert req_count == expected_nums[i]
+
+
+@pytest.mark.parametrize(
+    "error_types, expected_nums",
+    [
+        ([None, None], [0, 0]),
+        (["FooError", "BarError"], [1, 1]),
+        (["FooError", "FooError"], [2, 0]),
+        (["BarError", "BarError"], [0, 2]),
+    ],
+)
+def test_req_metrics_error_type_filter(app, auth_env, client, db, error_types, expected_nums):
+    with app.test_request_context(environ_base=auth_env):
+        for error_type in error_types:
+            req_data = {
+                "repo": "https://github.com/release-engineering/retrodep.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["gomod"],
+            }
+            request = Request.from_json(req_data)
+            request.add_state("failed", "Something")
+            if error_type:
+                err_data = {
+                    "request_id": request.id,
+                    "origin": RequestErrorOrigin.client,
+                    "error_type": error_type,
+                    "message": "Something",
+                }
+                request.error = RequestError.from_json(err_data)
+            db.session.add(request)
+    db.session.commit()
+    filters = [{"error_type": "FooError"}, {"error_type": "BarError"}]
+    for i in range(len(filters)):
+        rv = client.get(f"/api/v1/requests?{urllib.parse.urlencode(filters[i])}")
+        assert rv.status_code == 200
+        req_count = rv.json["meta"]["total"]
+        assert req_count == expected_nums[i]

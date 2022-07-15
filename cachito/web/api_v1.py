@@ -14,7 +14,7 @@ import pydantic
 from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload, load_only
 from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
 
@@ -22,7 +22,7 @@ from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.common.utils import b64encode
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import CachitoError, RequestErrorOrigin, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM
 from cachito.web.models import (
@@ -30,6 +30,7 @@ from cachito.web.models import (
     EnvironmentVariable,
     PackageManager,
     Request,
+    RequestError,
     RequestState,
     RequestStateMapping,
     is_request_ref_valid,
@@ -47,6 +48,8 @@ class RequestsArgs(pydantic.BaseModel):
 
     created_from: Union[datetime, date, None]
     created_to: Union[datetime, date, None]
+    error_origin: Union[RequestErrorOrigin, None]
+    error_type: Union[str, None]
 
 
 @api_v1.route("/status", methods=["GET"])
@@ -93,6 +96,10 @@ def get_requests():
             query = query.filter(
                 Request.created <= datetime.combine(args.created_to, datetime.max.time())
             )
+    if args.error_origin:
+        query = query.filter(and_(Request.error, RequestError.origin == args.error_origin))
+    if args.error_type:
+        query = query.filter(and_(Request.error, RequestError.error_type == args.error_type))
     if state:
         if state not in RequestStateMapping.get_state_names():
             states = ", ".join(RequestStateMapping.get_state_names())
@@ -467,6 +474,8 @@ def patch_request(request_id):
         "state_reason",
         "packages_count",
         "dependencies_count",
+        "error_origin",
+        "error_type",
     }
     invalid_keys = set(payload.keys()) - valid_keys
     if invalid_keys:
@@ -512,6 +521,29 @@ def patch_request(request_id):
             flask.current_app.logger.info("Not adding a new state since it matches the last state")
         else:
             request.add_state(new_state, new_state_reason)
+
+    # If the request fails, a RequestError object will be added to the DB
+    if (
+        "state" in payload
+        and payload["state"] == "failed"
+        and "error_origin" in payload
+        and "error_type" in payload
+    ):
+        error_data = {
+            "request_id": request_id,
+            "origin": payload["error_origin"],
+            "error_type": payload["error_type"],
+            "message": payload["state_reason"],
+        }
+
+        # Delete RequestError if it already exists for the following Request ID
+        req_error_query = db.session.query(RequestError)
+        req_error_in_db = req_error_query.filter(RequestError.request_id == request_id).first()
+        if req_error_in_db:
+            db.session.delete(req_error_in_db)
+
+        error_obj = RequestError.from_json(error_data)
+        db.session.add(error_obj)
 
     for env_var_name, env_var_info in payload.get("environment_variables", {}).items():
         env_var_obj = EnvironmentVariable.query.filter_by(name=env_var_name, **env_var_info).first()
@@ -755,6 +787,8 @@ class RequestMetricsArgs(pydantic.BaseModel):
 
     finished_from: Union[datetime, date, None]
     finished_to: Union[datetime, date, None]
+    error_origin: Union[RequestErrorOrigin, None]
+    error_type: Union[str, None]
 
     _normalize_end_date = pydantic.validator("finished_to", allow_reuse=True)(normalize_end_date)
 
@@ -769,6 +803,14 @@ def get_request_metrics():
         query = query.filter(RequestState.updated >= args.finished_from)
     if args.finished_to:
         query = query.filter(RequestState.updated <= args.finished_to)
+    if args.error_origin:
+        query = query.filter(
+            and_(RequestState.request, Request.error, RequestError.origin == args.error_origin)
+        )
+    if args.error_type:
+        query = query.filter(
+            and_(RequestState.request, Request.error, RequestError.error_type == args.error_type)
+        )
 
     pagination_query = query.paginate(max_per_page=max_per_page)
     return flask.jsonify(
@@ -802,11 +844,20 @@ class RequestMetricsSummaryArgs(pydantic.BaseModel):
 def get_request_metrics_summary():
     """Return a summary about completed requests for a given period of time."""
     args = RequestMetricsSummaryArgs(**flask.request.args)
-    requests = (
+    query = (
         RequestState.get_final_states_query()
         .filter(RequestState.updated >= args.finished_from)
         .filter(RequestState.updated <= args.finished_to)
-    ).subquery()
+    )
+
+    client_errors = query.filter(
+        and_(RequestState.request, Request.error, RequestError.origin == RequestErrorOrigin.client)
+    ).count()
+    server_errors = query.filter(
+        and_(RequestState.request, Request.error, RequestError.origin == RequestErrorOrigin.server)
+    ).count()
+
+    requests = query.subquery()
 
     states_summary = dict.fromkeys(["complete", "failed"], 0)
     states_summary.update(
@@ -841,6 +892,8 @@ def get_request_metrics_summary():
             "duration_95": duration_95,
             "time_in_queue_avg": time_in_queue_avg,
             "time_in_queue_95": time_in_queue_95,
+            "client_errors": client_errors,
+            "server_errors": server_errors,
             "total": total_requests,
             **states_summary,
         }

@@ -11,7 +11,13 @@ from flask_migrate import Migrate
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
-from cachito.errors import CachitoError, ContentManifestError, ValidationError
+from cachito.errors import (
+    CachitoError,
+    ClientError,
+    ContentManifestError,
+    ServerError,
+    ValidationError,
+)
 from cachito.web import db
 from cachito.web.api_v1 import api_v1
 from cachito.web.auth import load_user_from_request, user_loader
@@ -109,6 +115,8 @@ def create_app(config_obj=None):
     for code in default_exceptions.keys():
         app.register_error_handler(code, json_error)
     app.register_error_handler(CachitoError, json_error)
+    app.register_error_handler(ClientError, json_error)
+    app.register_error_handler(ServerError, json_error)
     app.register_error_handler(ValidationError, json_error)
     app.register_error_handler(ContentManifestError, json_error)
     app.register_error_handler(pydantic.ValidationError, validation_error)

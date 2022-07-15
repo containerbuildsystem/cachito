@@ -167,6 +167,20 @@ paths:
             type: string
             example: "2019-09-17T18:52:57.577851"
             default: null
+        - name: error_origin
+          in: query
+          description: Filter requests by the given request error origin
+          schema:
+            type: string
+            example: "client"
+            default: null
+        - name: error_type
+          in: query
+          description: Filter requests by the given request error type
+          schema:
+            type: string
+            example: "InvalidRequestData"
+            default: null
       responses:
         "200":
           description: A list of requests
@@ -680,6 +694,18 @@ paths:
             value: "2021-12-31T12:00:00"
           timestamp:
             value: "1633456789"
+      - name: error_origin
+        description: The origin of a request error ("client" or "server")
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: error_type
+        description: The type of a request error
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         "200":
           description: List of requests with corresponding metrics
@@ -960,6 +986,14 @@ components:
           type: number
           format: float
           example: 0.987
+        client_errors:
+          type: number
+          format: integer
+          example: 7
+        server_errors:
+          type: number
+          format: integer
+          example: 2
         total:
           type: integer
     RequestNew:
@@ -1028,6 +1062,10 @@ components:
         dependencies_count:
           type: integer
           example: 100
+        error_origin:
+          type: string
+        error_type:
+          type: string
     RequestVerbose:
       allOf:
       - type: object
