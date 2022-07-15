@@ -49,6 +49,8 @@ def test_get_request_metrics_summary(api_client):
         "duration_95",
         "time_in_queue_avg",
         "time_in_queue_95",
+        "client_errors",
+        "server_errors",
         "total",
     }.difference(summary)
     assert summary["total"] == total
@@ -56,6 +58,8 @@ def test_get_request_metrics_summary(api_client):
     assert summary["duration_avg"] > 0
     assert summary["time_in_queue_avg"] > 0
     assert summary["time_in_queue_95"] > 0
+    assert summary["client_errors"] == 0
+    assert summary["server_errors"] == 0
 
     # Check empty datetime range
     resp = api_client.fetch_request_metrics_summary(

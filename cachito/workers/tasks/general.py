@@ -10,7 +10,13 @@ import requests
 
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import (
+    CachitoError,
+    ClientError,
+    RequestErrorOrigin,
+    ServerError,
+    ValidationError,
+)
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.scm import Git
 from cachito.workers.tasks.celery import app
@@ -116,12 +122,21 @@ def failed_request_callback(context, exc, traceback, request_id):
     :param Exception exc: the exception that caused the task failure
     :param int request_id: the ID of the Cachito request
     """
-    if isinstance(exc, CachitoError):
+    if isinstance(exc, (CachitoError, ClientError, ServerError)):
+        if isinstance(exc, ValidationError):
+            error_origin = RequestErrorOrigin.client
+        elif isinstance(exc, CachitoError):
+            error_origin = RequestErrorOrigin.server
+        else:
+            error_origin = exc.origin
+        error_type = type(exc).__name__
         msg = str(exc)
     else:
+        error_origin = RequestErrorOrigin.server
+        error_type = "UnknownError"
         msg = "An unknown error occurred"
 
-    set_request_state(request_id, "failed", msg)
+    set_request_state(request_id, "failed", msg, error_origin, error_type)
 
 
 def create_bundle_archive(request_id: int, flags: List[str]) -> None:

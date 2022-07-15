@@ -13,7 +13,7 @@ import pytest
 from requests import Timeout
 
 from cachito.common.checksum import hash_file
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import CachitoError, RequestErrorOrigin, ValidationError
 from cachito.workers import tasks
 from cachito.workers.paths import RequestBundleDir, SourcesDir
 from cachito.workers.tasks.general import _enforce_sandbox, save_bundle_archive_checksum
@@ -123,14 +123,18 @@ def test_fetch_app_source_request_timed_out(
 def test_failed_request_callback(mock_set_request_state):
     exc = CachitoError("some error")
     tasks.failed_request_callback(None, exc, None, 1)
-    mock_set_request_state.assert_called_once_with(1, "failed", "some error")
+    mock_set_request_state.assert_called_once_with(
+        1, "failed", "some error", RequestErrorOrigin.server, "CachitoError"
+    )
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
     exc = ValueError("some error")
     tasks.failed_request_callback(None, exc, None, 1)
-    mock_set_request_state.assert_called_once_with(1, "failed", "An unknown error occurred")
+    mock_set_request_state.assert_called_once_with(
+        1, "failed", "An unknown error occurred", RequestErrorOrigin.server, "UnknownError"
+    )
 
 
 @pytest.mark.parametrize("deps_present", (True, False))

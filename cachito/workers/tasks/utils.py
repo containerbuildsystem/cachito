@@ -200,7 +200,7 @@ def get_request_packages_and_dependencies(request_id: int):
     return request
 
 
-def set_request_state(request_id, state, state_reason):
+def set_request_state(request_id, state, state_reason, error_origin=None, error_type=None):
     """
     Set the state of the request using the Cachito API.
 
@@ -215,9 +215,20 @@ def set_request_state(request_id, state, state_reason):
         state,
         state_reason,
     )
+    payload = {"state": state, "state_reason": state_reason}
+
+    if state and state == "failed":
+        if error_origin and error_type:
+            payload["error_origin"] = error_origin
+            payload["error_type"] = error_type
+        else:
+            raise ValidationError(
+                'Both "error_origin" and "error_type" parameters must be set if request failed'
+            )
+
     _patch_request_or_fail(
         request_id,
-        {"state": state, "state_reason": state_reason},
+        payload,
         connect_error_msg=(
             f'The connection failed when setting the state to "{state}" on request {request_id}'
         ),

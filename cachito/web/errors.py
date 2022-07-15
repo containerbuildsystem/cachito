@@ -5,6 +5,7 @@ from werkzeug.exceptions import HTTPException
 from cachito.errors import (
     CachitoError,
     CachitoNotImplementedError,
+    ClientError,
     ContentManifestError,
     ValidationError,
 )
@@ -26,9 +27,10 @@ def json_error(error):
         response = jsonify({"error": msg})
         response.status_code = error.code
     else:
+        # Default status code is for "server" request errors
         status_code = 500
         msg = str(error)
-        if isinstance(error, ValidationError):
+        if isinstance(error, (ClientError, ValidationError)):
             status_code = 400
         elif isinstance(error, ContentManifestError):
             # If the request was completed and a ICM cannot be generated,
