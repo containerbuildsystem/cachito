@@ -6,7 +6,6 @@ import secrets
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
 
 import requests
 from gemlock_parser.gemfile_lock import GemfileLockParser
@@ -18,6 +17,7 @@ from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
     download_binary_file,
     download_raw_component,
+    extract_git_info,
     upload_raw_package,
 )
 from cachito.workers.scm import Git
@@ -288,15 +288,17 @@ def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_
     :return: Dict with package name, download path, git url and ref, name of raw component in Nexus
         and boolean whether we already have the raw component in Nexus
     """
-    host, namespace_parts, repo_name = _extract_git_info(gem.source)
+    git_info = extract_git_info(f"{gem.source}@{gem.version}")
 
     # Download to e.g. deps/rubygems/github.com/namespace/repo
-    package_dir = rubygems_deps_dir.joinpath(host, *namespace_parts, repo_name)
+    package_dir = rubygems_deps_dir.joinpath(
+        git_info["host"], git_info["namespace"], git_info["repo"]
+    )
     package_dir.mkdir(parents=True, exist_ok=True)
 
-    filename = f"{repo_name}-external-gitcommit-{gem.version}.tar.gz"
+    filename = f"{git_info['repo']}-external-gitcommit-{gem.version}.tar.gz"
     download_path = package_dir / filename
-    raw_component_name = f"{repo_name}/{filename}"
+    raw_component_name = f"{git_info['repo']}/{filename}"
 
     # Download raw component if we already have it
     have_raw_component = download_raw_component(
@@ -318,23 +320,3 @@ def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_
         "raw_component_name": raw_component_name,
         "have_raw_component": have_raw_component,
     }
-
-
-def _extract_git_info(repo_url):
-    """Extract git info from the repo url.
-
-    :param repo_url: url to the git repository
-    :return: host part of url, list with namespace parts and a repository name
-    """
-    url = urlparse(repo_url)
-
-    namespace_repo = url.path.strip("/")
-    if namespace_repo.endswith(".git"):
-        namespace_repo = namespace_repo[: -len(".git")]
-
-    # Everything up to the last '/' is namespace, the rest is repo
-    namespace, _, repo_name = namespace_repo.rpartition("/")
-
-    namespace_parts = namespace.split("/")
-
-    return url.netloc, namespace_parts, repo_name
