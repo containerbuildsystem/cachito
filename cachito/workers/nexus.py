@@ -6,7 +6,7 @@ import time
 
 import requests.auth
 
-from cachito.errors import CachitoError
+from cachito.errors import NetworkError, NexusError
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.requests import SAFE_REQUEST_METHODS, get_requests_session
@@ -64,7 +64,7 @@ def create_or_update_script(script_name, script_path):
 
     :param str script_name: the name of the script
     :param str script_path: the path of the script
-    :raise CachitoError: if the request fails
+    :raise NetworkError: if the request fails
     """
     config = get_worker_config()
     auth = requests.auth.HTTPBasicAuth(config.cachito_nexus_username, config.cachito_nexus_password)
@@ -76,7 +76,7 @@ def create_or_update_script(script_name, script_path):
             )
         except requests.RequestException:
             log.exception(error_msg)
-            raise CachitoError(error_msg)
+            raise NetworkError(error_msg)
 
     log.info("Checking if the script %s exists", script_name)
     script_base_url = f"{config.cachito_nexus_url.rstrip('/')}/service/rest/v1/script"
@@ -109,7 +109,7 @@ def create_or_update_script(script_name, script_path):
             rv_get.status_code,
             rv_get.text,
         )
-        raise CachitoError(f"Failed to determine if the Nexus script {script_name} exists")
+        raise NetworkError(f"Failed to determine if the Nexus script {script_name} exists")
 
     if not rv_script.ok:
         log.error(
@@ -119,7 +119,7 @@ def create_or_update_script(script_name, script_path):
             rv_script.status_code,
             rv_script.text,
         )
-        raise CachitoError(f"Failed to create/update the Nexus script {script_name}")
+        raise NetworkError(f"Failed to create/update the Nexus script {script_name}")
 
 
 def create_or_update_scripts():
@@ -128,7 +128,7 @@ def create_or_update_scripts():
 
     This should be executed after Cachito is deployed or upgraded.
 
-    :raise CachitoError: if the request fails
+    :raise NetworkError: if the request fails
     """
     file_dir_path = os.path.dirname(os.path.abspath(__file__))
     script_dir_path = os.path.join(file_dir_path, "nexus_scripts")
@@ -218,7 +218,7 @@ def get_component_info_from_nexus(
         available
     :return: the JSON about the component or None
     :rtype: dict or None
-    :raise CachitoError: if the search fails or more than one component is returned
+    :raise NexusError: if the search fails or more than one component is returned
     """
     if max_attempts < 1:
         raise ValueError("The max_attempts parameter must be at least 1")
@@ -255,7 +255,7 @@ def get_component_info_from_nexus(
                 "expected:\n%r",
                 components,
             )
-            raise CachitoError(
+            raise NexusError(
                 "The component search in Nexus unexpectedly returned more than one result"
             )
         if components:
@@ -307,7 +307,8 @@ def search_components(in_nexus_hoster=True, **query_params):
     :param query_params: the query parameters to filter
     :return: the list of components returned by the search
     :rtype: list<dict>
-    :raise CachitoError: if the search fails
+    :raise NetworkError: if the request could not connect to the Nexus instance
+    :raise NexusError: if the request could not find components in Nexus
     """
     config = get_worker_config()
     if in_nexus_hoster:
@@ -335,7 +336,7 @@ def search_components(in_nexus_hoster=True, **query_params):
         except requests.RequestException:
             msg = "Could not connect to the Nexus instance to search for components"
             log.exception(msg)
-            raise CachitoError(msg)
+            raise NetworkError(msg)
 
         if not rv.ok:
             log.error(
@@ -345,7 +346,7 @@ def search_components(in_nexus_hoster=True, **query_params):
                 rv.status_code,
                 rv.text,
             )
-            raise CachitoError("Failed to search for components in Nexus")
+            raise NexusError("Failed to search for components in Nexus")
 
         rv_json = rv.json()
         items.extend(rv_json["items"])
@@ -368,7 +369,7 @@ def upload_asset_only_component(repo_name, repo_type, component_path, to_nexus_h
     :param str repo_type: the type of the Nexus hosted repository (e.g. ``npm``)
     :param str component_path: the path to the component to upload
     :param bool to_nexus_hoster: Use the nexus hoster instance, if available
-    :raise CachitoError: if the upload fails
+    :raise NetworkError: if the upload fails
     :raise ValueError: if uploading to an unsupported or non-asset-only repository type
     """
     NEXUS_ASSET_ONLY_UPLOAD_TYPES = ("pypi", "npm", "nuget", "rubygems")
@@ -383,7 +384,7 @@ def upload_asset_only_component(repo_name, repo_type, component_path, to_nexus_h
     log.info("Uploading the component %r to the %r Nexus repository", component_path, repo_type)
     try:
         upload_component(params, payload, to_nexus_hoster)
-    except CachitoError:
+    except NetworkError:
         log.warning("Failed to upload %r to the %r Nexus repository", component_path, repo_type)
         raise
 
@@ -397,7 +398,7 @@ def upload_raw_component(repo_name, directory, components, to_nexus_hoster=True)
     :param list components: a list of dicts with the "path" of the file to be uploaded and the
         "filename" to be saved in the destination directory.
     :param bool to_nexus_hoster: Use the nexus hoster instance, if available
-    :raise CachitoError: if the upload fails
+    :raise NetworkError: if the upload fails
     """
     params = {"repository": repo_name}
     additional_data = {"raw.directory": directory}
@@ -410,7 +411,7 @@ def upload_raw_component(repo_name, directory, components, to_nexus_hoster=True)
 
     try:
         upload_component(params, payload, to_nexus_hoster, additional_data)
-    except CachitoError:
+    except NetworkError:
         log.exception("Failed to upload %r to the raw Nexus repository", components)
         raise
 
@@ -429,7 +430,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
         string params that would be passed in the "file" param. Note that python requests does not
         support sending non-files in the file payload. See
         https://issues.sonatype.org/browse/NEXUS-21946 for further reference.
-    :raise CachitoError: if the upload fails
+    :raise NetworkError: if the upload fails
     """
     config = get_worker_config()
     if to_nexus_hoster:
@@ -454,7 +455,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
         )
     except requests.RequestException:
         log.exception("Could not connect to the Nexus instance to upload the component")
-        raise CachitoError("Could not connect to the Nexus instance to upload a component")
+        raise NetworkError("Could not connect to the Nexus instance to upload a component")
 
     if not rv.ok:
         log.warning(
@@ -462,4 +463,4 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
             rv.status_code,
             rv.text,
         )
-        raise CachitoError("Failed to upload a component to Nexus")
+        raise NetworkError("Failed to upload a component to Nexus")

@@ -7,7 +7,7 @@ from typing import List, Set
 import pyarn.lockfile
 
 from cachito.common.packages_data import PackagesData
-from cachito.errors import CachitoError
+from cachito.errors import InvalidRepoStructure, InvalidRequestData, NexusError, ValidationError
 from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config, validate_yarn_config
 from cachito.workers.paths import RequestBundleDir
@@ -63,16 +63,21 @@ def _verify_yarn_files(bundle_dir: RequestBundleDir, subpaths: List[str]):
 
     :param RequestBundleDir bundle_dir: the ``RequestBundleDir`` object for the request
     :param list[str] subpaths: a list of subpaths in the source repository of yarn packages
-    :raises CachitoError: if the repository is missing the required files or contains invalid
-        files/directories
+    :raises InvalidRepoStructure: if the repository is missing the required files
+        or contains invalid files/directories
     """
     for subpath in subpaths:
-        assert_files = AssertPackageFiles("yarn", bundle_dir.source_root_dir, package_path=subpath)
-        assert_files.present("package.json")
-        assert_files.present("yarn.lock")
-        assert_files.absent("package-lock.json")
-        assert_files.absent("npm-shrinkwrap.json")
-        assert_files.dir_absent("node_modules")
+        try:
+            assert_files = AssertPackageFiles(
+                "yarn", bundle_dir.source_root_dir, package_path=subpath
+            )
+            assert_files.present("package.json")
+            assert_files.present("yarn.lock")
+            assert_files.absent("package-lock.json")
+            assert_files.absent("npm-shrinkwrap.json")
+            assert_files.dir_absent("node_modules")
+        except ValidationError as e:
+            raise InvalidRepoStructure(str(e))
 
 
 def _yarn_lock_to_str(yarn_lock_data: dict) -> str:
@@ -93,7 +98,7 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
 
     :param int request_id: the Cachito request ID this is for
     :param list package_configs: the list of optional package configurations submitted by the user
-    :raise CachitoError: if the task fails
+    :raise InvalidRequestData/NexusError: if the task fails
     """
     version_output = run_cmd(["node", "--version"], {})
     log.info(f"Node.js version: {version_output.strip()}")
@@ -134,7 +139,7 @@ def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
             package_and_deps_info = resolve_yarn(
                 package_source_path, request, skip_deps=downloaded_deps
             )
-        except CachitoError:
+        except (InvalidRequestData, NexusError):
             log.exception("Failed to fetch yarn dependencies for request %d", request_id)
             raise
 

@@ -4,7 +4,7 @@ import json
 import logging
 import os
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import FileAccessError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general_js import (
@@ -39,7 +39,7 @@ def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspa
     inserted.
 
     If dependencies not from the NPM registry are encountered and their locations are not
-    supported, then a ``CachitoError`` exception will be raised. If the location is supported,
+    supported, then an exception will be raised. If the location is supported,
     the input ``package_lock_deps`` will be modifed to use a reference to Nexus instead for that
     dependency.
 
@@ -54,7 +54,9 @@ def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspa
         second item is a list of tuples for non-registry dependency replacements, where the first
         item is the dependency name and the second item is the version of the dependency in Nexus
     :rtype: (dict, list)
-    :raise CachitoError: if the lock file contains a dependency from an unsupported location
+    :raise InvalidFileFormat: if the dependency has an unexpected format
+    :raise UnsupportedFeature: if the dependency is from an unsupported location
+    :raise FileAccessError: if the dependency cannot be accessed
     """
     if name_to_deps is None:
         name_to_deps = {}
@@ -79,8 +81,8 @@ def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspa
         # since they are properly cached in the parent dependency in Nexus
         elif not info.get("bundled", False) and "resolved" not in info:
             log.info("The dependency %r is not from the npm registry", info)
-            # If the non-registry isn't supported, convert_to_nexus_hosted will raise a
-            # CachitoError exception
+            # If the non-registry isn't supported, convert_to_nexus_hosted will raise
+            # an exception
             nexus_replacement = convert_to_nexus_hosted(name, info)
             version_in_nexus = nexus_replacement["version"]
             nexus_replacements.append((name, version_in_nexus))
@@ -134,8 +136,9 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     :param dict dep_info: the dependency info from the npm lock file (e.g. package-lock.json)
     :return: the dependency information of the Nexus hosted version to use in the npm lock file
         instead of the original
-    :raise CachitoError: if the dependency is from an unsupported location or has an unexpected
-        format in the lock file
+    :raise InvalidFileFormat: if the dependency has an unexpected format
+    :raise UnsupportedFeature: if the dependency is from an unsupported location
+    :raise FileAccessError: if the dependency cannot be accessed
     """
     # The version value for a dependency outside of the npm registry is the identifier to use for
     # commands such as `npm pack` or `npm install`
@@ -282,7 +285,7 @@ def resolve_npm(app_source_path, request, skip_deps=None):
         ``package`` which is the dictionary describing the main package, and
         ``package.json`` which is the package.json file if it was modified.
     :rtype: dict
-    :raises CachitoError: if fetching the dependencies fails or required files are missing
+    :raises FileAccessError: if fetching the dependencies fails or required files are missing
     :raises ValidationError: if lock file does not have the correct format
     """
     # npm-shrinkwrap.json and package-lock.json share the same format but serve slightly
@@ -293,14 +296,14 @@ def resolve_npm(app_source_path, request, skip_deps=None):
         if os.path.exists(package_lock_path):
             break
     else:
-        raise CachitoError(
+        raise FileAccessError(
             "The npm-shrinkwrap.json or package-lock.json file must be present for the npm "
             "package manager"
         )
 
     package_json_path = os.path.join(app_source_path, "package.json")
     if not os.path.exists(package_json_path):
-        raise CachitoError("The package.json file must be present for the npm package manager")
+        raise FileAccessError("The package.json file must be present for the npm package manager")
 
     try:
         package_and_deps_info = get_package_and_deps(package_json_path, package_lock_path)

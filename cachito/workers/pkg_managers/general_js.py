@@ -15,7 +15,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
-from cachito.errors import CachitoError
+from cachito.errors import (
+    FileAccessError,
+    InvalidChecksum,
+    InvalidFileFormat,
+    NexusError,
+    UnsupportedFeature,
+)
 from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
@@ -68,7 +74,6 @@ def download_dependencies(
         destination directory and logging output (npm is used to do the actual download regardless)
     :return: a set of dependency identifiers that were downloaded
     :rtype: set[str]
-    :raises CachitoError: if any of the downloads fail
     """
     assert pkg_manager == "npm" or pkg_manager == "yarn"  # nosec
 
@@ -197,7 +202,7 @@ def finalize_nexus_for_js_request(repo_name, username):
         manager
     :return: the password of the Nexus user that has access to the request's npm repository
     :rtype: str
-    :raise CachitoError: if the script execution fails
+    :raise NexusError: if the script execution fails
     """
     # Generate a 24-32 character (each byte is two hex characters) password
     password = secrets.token_hex(random.randint(12, 16))  # nosec
@@ -207,7 +212,7 @@ def finalize_nexus_for_js_request(repo_name, username):
         nexus.execute_script(script_name, payload)
     except NexusScriptError:
         log.exception("Failed to execute the script %s", script_name)
-        raise CachitoError(
+        raise NexusError(
             "Failed to configure Nexus to allow the request's npm repository to be ready for "
             "consumption"
         )
@@ -336,7 +341,7 @@ def _get_js_component_info_from_nexus(
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
     :return: the JSON about the NPM component or None
     :rtype: dict or None
-    :raise CachitoError: if the search fails or more than one component is returned
+    :raise NexusError: if the search fails or more than one component is returned
     """
     if name.startswith("@"):
         component_group_with_prefix, component_name = name.split("/", 1)
@@ -369,7 +374,7 @@ def get_npm_component_info_from_nexus(
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
     :return: the JSON about the NPM component or None
     :rtype: dict or None
-    :raise CachitoError: if the search fails or more than one component is returned
+    :raise NexusError: if the search fails or more than one component is returned
     """
     return _get_js_component_info_from_nexus(
         name, version, get_js_hosted_repo_name(), is_hosted=True, max_attempts=max_attempts
@@ -389,7 +394,7 @@ def get_yarn_component_info_from_non_hosted_nexus(
     :param int max_attempts: the number of attempts to try to get a result; this defaults to ``1``
     :return: the JSON about the Yarn component or None
     :rtype: dict or None
-    :raise CachitoError: if the search fails or more than one component is returned
+    :raise NexusError: if the search fails or more than one component is returned
     """
     return _get_js_component_info_from_nexus(
         name, version, repository, is_hosted=False, max_attempts=max_attempts
@@ -401,7 +406,7 @@ def prepare_nexus_for_js_request(repo_name):
     Prepare Nexus so that Cachito can stage JavaScript content.
 
     :param str repo_name: the name of the repository for the request for this package manager
-    :raise CachitoError: if the script execution fails
+    :raise NexusError: if the script execution fails
     """
     config = get_worker_config()
     # Note that the http_username and http_password represent the unprivileged user that
@@ -418,7 +423,7 @@ def prepare_nexus_for_js_request(repo_name):
         nexus.execute_script(script_name, payload)
     except NexusScriptError:
         log.exception(f"Failed to execute the script {script_name}")
-        raise CachitoError("Failed to prepare Nexus for Cachito to stage JavaScript content")
+        raise NexusError("Failed to prepare Nexus for Cachito to stage JavaScript content")
 
 
 def upload_non_registry_dependency(
@@ -435,7 +440,9 @@ def upload_non_registry_dependency(
         was set to ``false``
     :param ChecksumInfo checksum_info: if not ``None``, the checksum of the downloaded artifact
         will be verified.
-    :raise CachitoError: if the dependency cannot be download, uploaded, or is invalid
+    :raise InvalidChecksum: if checksum cannot be verified
+    :raise FileAccessError: if a file is not found
+    :raise UnsupportedFeature: if Cachito does not support a dependency
     """
     # These are the scripts that should not be present if verify_scripts is True
     dangerous_scripts = {"prepare", "prepack"}
@@ -466,7 +473,7 @@ def upload_non_registry_dependency(
         if checksum_info:
             try:
                 verify_checksum(dep_archive, checksum_info)
-            except CachitoError as e:
+            except InvalidChecksum as e:
                 log.error("%s", e)
                 raise
 
@@ -474,7 +481,7 @@ def upload_non_registry_dependency(
         if not package_json_rel_path:
             msg = f"The dependency {dep_identifier} does not have a package.json file"
             log.error(msg)
-            raise CachitoError(msg)
+            raise FileAccessError(msg)
 
         modified_dep_archive = os.path.join(
             os.path.dirname(dep_archive), f"modified-{os.path.basename(dep_archive)}"
@@ -498,7 +505,7 @@ def upload_non_registry_dependency(
                             "package.json file"
                         )
                         log.exception(msg)
-                        raise CachitoError(msg)
+                        raise FileAccessError(msg)
 
                     if verify_scripts:
                         log.info(
@@ -513,7 +520,7 @@ def upload_non_registry_dependency(
                                 f"dependencies: {', '.join(sorted(dangerous_scripts))}"
                             )
                             log.error(msg)
-                            raise CachitoError(msg)
+                            raise UnsupportedFeature(msg)
 
                     new_version = f"{package_json['version']}{version_suffix}"
                     log.debug(
@@ -576,8 +583,9 @@ def process_non_registry_dependency(js_dep):
     :param JSDependency js_dep: the dependency to be converted
     :return: information about the replacement dependency in Nexus
     :rtype: JSDependency
-    :raise CachitoError: if the dependency is from an unsupported location
-        or has an unexpected format
+    :raise InvalidFileFormat: if the dependency has an unexpected format
+    :raise UnsupportedFeature: if the dependency is from an unsupported location
+    :raise FileAccessError: if the dependency cannot be accessed
     """
     git_prefixes = {
         "git://",
@@ -600,7 +608,7 @@ def process_non_registry_dependency(js_dep):
                 "(expected <git_url>#<commit_hash>)"
             )
             log.error(msg)
-            raise CachitoError(msg)
+            raise InvalidFileFormat(msg)
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
         # of `<version>-gitcommit-<commit hash>`
         version_suffix = f"-external-gitcommit-{commit_hash}"
@@ -615,14 +623,14 @@ def process_non_registry_dependency(js_dep):
                 'Is the "integrity" key missing in your lockfile?'
             )
             log.error(msg)
-            raise CachitoError(msg)
+            raise InvalidFileFormat(msg)
 
         checksum_info = convert_integrity_to_hex_checksum(js_dep.integrity)
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
         # of `<version>-external-<checksum algorithm>-<hex checksum>`
         version_suffix = f"-external-{checksum_info.algorithm}-{checksum_info.hexdigest}"
     else:
-        raise CachitoError(
+        raise UnsupportedFeature(
             f"The dependency {js_dep.qualified_name} is hosted in an unsupported location"
         )
 
@@ -633,7 +641,7 @@ def process_non_registry_dependency(js_dep):
             js_dep.name, f"*{version_suffix}", max_attempts=5
         )
         if not component_info:
-            raise CachitoError(
+            raise FileAccessError(
                 f"The dependency {js_dep.qualified_name} was uploaded to Nexus but is not "
                 "accessible"
             )

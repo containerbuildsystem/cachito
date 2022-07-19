@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from cachito.errors import CachitoError
+from cachito.errors import NetworkError
 from cachito.workers.config import get_worker_config
 from cachito.workers.requests import get_requests_session
 
@@ -34,6 +34,7 @@ def find_all_requests_in_state(state):
 
     :param str state: state of request, e.g. 'complete', 'in_progress'
     :return: list of Cachito requests (as JSON data) in specified state
+    :raises NetworkError: if connection fails
     """
     found_requests = []
 
@@ -44,7 +45,7 @@ def find_all_requests_in_state(state):
         except requests.RequestException:
             msg = f"The connection failed when querying {url}"
             log.exception(msg)
-            raise CachitoError(msg)
+            raise NetworkError(msg)
 
         if not response.ok:
             log.error(
@@ -53,7 +54,7 @@ def find_all_requests_in_state(state):
                 response.status_code,
                 response.text,
             )
-            raise CachitoError(
+            raise NetworkError(
                 "Could not reach the Cachito API to find the requests to be marked as stale"
             )
 
@@ -90,7 +91,7 @@ def mark_as_stale(request_id):
     Mark the identified stale request ID as `stale` in Cachito.
 
     :param int request_id: request ID identified as stale
-    :raise CachitoError: if the request to the Cachito API fails
+    :raise NetworkError: if the request to the Cachito API fails
     """
     try:
         log.info("Setting state of request %d to `stale`", request_id)
@@ -102,7 +103,7 @@ def mark_as_stale(request_id):
     except requests.RequestException:
         msg = f"The connection failed when setting the `stale` state on request {request_id}"
         log.exception(msg)
-        raise CachitoError(msg)
+        raise NetworkError(msg)
 
     if not request_rv.ok:
         log.error(

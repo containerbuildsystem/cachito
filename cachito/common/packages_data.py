@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
-from cachito.errors import CachitoError
+from cachito.errors import InvalidRequestData
 
 log = logging.getLogger(__name__)
 
@@ -103,12 +103,12 @@ class PackagesData:
             ``fetch_*_source`` for the defailed information about a package's path.
         :param deps: a list of depencencies the package has.
         :type deps: list[dict[str, any]]
-        :raises CachitoError: if there is a package with same name, type and version
+        :raises InvalidRequestData: if there is a package with same name, type and version
             has been added already.
         """
         key = (pkg_info["name"], pkg_info["type"], pkg_info["version"])
         if key in self._index:
-            raise CachitoError(f"Duplicate package: {pkg_info!r}")
+            raise InvalidRequestData(f"Duplicate package: {pkg_info!r}")
         self._index.add(key)
         package = {
             "name": pkg_info["name"],

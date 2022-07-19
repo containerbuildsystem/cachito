@@ -11,7 +11,12 @@ from unittest import mock
 import git
 import pytest
 
-from cachito.errors import CachitoError
+from cachito.errors import (
+    FileAccessError,
+    InvalidRequestData,
+    RepositoryAccessError,
+    SubprocessCallError,
+)
 from cachito.workers import scm
 
 url = "https://github.com/release-engineering/retrodep.git"
@@ -107,7 +112,7 @@ def test_clone_and_archive_clone_failed(mock_git_clone, mock_temp_dir, gitsubmod
     mock_git_clone.side_effect = git.GitCommandError("some error", 1)
 
     git_obj = scm.Git(url, ref)
-    with pytest.raises(CachitoError, match="Failed cloning the Git repository"):
+    with pytest.raises(RepositoryAccessError, match="Failed cloning the Git repository"):
         git_obj.clone_and_archive(gitsubmodule)
 
 
@@ -126,7 +131,7 @@ def test_clone_and_archive_checkout_failed(mock_git_clone, mock_temp_dir, gitsub
         f'of "{ref}" is valid.'
     )
     with mock.patch.object(git_obj.sources_dir, "archive_path", new=archive_path):
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(InvalidRequestData, match=expected):
             git_obj.clone_and_archive(gitsubmodule)
 
 
@@ -308,7 +313,9 @@ def test_update_and_archive_pull_error(mock_repo, mock_tarfile_open, gitsubmodul
     repo = mock_repo.return_value
     repo.remote.return_value.fetch.side_effect = OSError
 
-    with pytest.raises(CachitoError, match="Failed to fetch from the remote Git repository"):
+    with pytest.raises(
+        RepositoryAccessError, match="Failed to fetch from the remote Git repository"
+    ):
         scm.Git(url, ref).update_and_archive("/tmp/1234567.tar.gz", gitsubmodule)
 
 
@@ -352,7 +359,7 @@ def test_verify_invalid_archive(mock_istar, fake_repo):
     repo_dir, _ = fake_repo
     git_obj = scm.Git(f"file://{repo_dir}", "master")
     err_msg = f"No valid archive found at {git_obj.sources_dir.archive_path}"
-    with pytest.raises(CachitoError, match=err_msg):
+    with pytest.raises(FileAccessError, match=err_msg):
         git_obj._verify_archive()
 
 
@@ -370,7 +377,7 @@ def test_verify_corrupted_archive(mock_extract, fake_repo, exception_type, tmp_p
         tar.add(stub_file)
 
     err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
-    with pytest.raises(CachitoError, match=err_msg):
+    with pytest.raises(SubprocessCallError, match=err_msg):
         git_obj._verify_archive()
 
 
@@ -387,14 +394,14 @@ def test_verify_corrupted_git_repo(mock_fsck, fake_repo, tmp_path):
         tar.add(stub_file)
 
     err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
-    with pytest.raises(CachitoError, match=err_msg):
+    with pytest.raises(SubprocessCallError, match=err_msg):
         git_obj._verify_archive()
 
 
 def test_verify_archive_not_available():
     git_obj = scm.Git("invalid", "ref")
     err_msg = f"No valid archive found at {git_obj.sources_dir.archive_path}"
-    with pytest.raises(CachitoError, match=err_msg):
+    with pytest.raises(FileAccessError, match=err_msg):
         git_obj._verify_archive()
 
 
@@ -408,7 +415,7 @@ def test_verify_invalid_repo(fake_repo, tmp_path):
         bundle_archive.add(repo_dir, "app")
 
     err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
-    with pytest.raises(CachitoError, match=err_msg):
+    with pytest.raises(SubprocessCallError, match=err_msg):
         git_obj._verify_archive()
 
 
@@ -418,7 +425,7 @@ def test_create_archive_verify_fails(fake_repo, caplog):
     # substitute the archive with a broken git repository
     os.unlink(os.path.join(repo_dir, ".git", "HEAD"))
     err_msg = f"Invalid archive at {git_obj.sources_dir.archive_path}"
-    with pytest.raises(CachitoError, match=err_msg):
+    with pytest.raises(SubprocessCallError, match=err_msg):
         git_obj._create_archive(repo_dir)
     # verify the archive was not created
     assert f"Removing invalid archive at {git_obj.sources_dir.archive_path}" in caplog.text
@@ -429,7 +436,7 @@ def test_create_archive_verify_fails(fake_repo, caplog):
 @mock.patch("cachito.workers.scm.Git._verify_archive")
 @mock.patch("cachito.workers.scm.Git.clone_and_archive")
 def test_fetch_source_invalid_archive_exists(mock_clone, mock_verify, caplog, gitsubmodule):
-    mock_verify.side_effect = [CachitoError("stub"), None]
+    mock_verify.side_effect = [FileAccessError("stub"), None]
     scm_git = scm.Git(url, ref)
     po = mock.patch.object
     if gitsubmodule:
@@ -471,5 +478,5 @@ def test_update_git_submodules_failed(mock_repo):
 
     expected = re.escape("Updating the Git submodule(s) failed")
     git_obj = scm.Git(url, ref)
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(RepositoryAccessError, match=expected):
         git_obj.update_git_submodules(repo)

@@ -8,7 +8,7 @@ from typing import Dict
 import requests
 
 from cachito.common.checksum import hash_file
-from cachito.errors import CachitoError, UnknownHashAlgorithm
+from cachito.errors import InvalidChecksum, InvalidRequestData, NetworkError, UnknownHashAlgorithm
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.requests import (
@@ -47,7 +47,8 @@ def update_request_with_config_files(request_id, config_files):
     Update the Cachito request with the input configuration files.
 
     :param list config_files: the list of configuration files to add to the request
-    :raise CachitoError: if the request to the Cachito API fails
+    :raise NetworkError: if connection fails
+    :raise InvalidRequestData: if the request to the Cachito API fails
     """
     log.info("Adding %d configuration files to the request %d", len(config_files), request_id)
     config = get_worker_config()
@@ -60,7 +61,7 @@ def update_request_with_config_files(request_id, config_files):
     except requests.RequestException:
         msg = f"The connection failed when adding configuration files to the request {request_id}"
         log.exception(msg)
-        raise CachitoError(msg)
+        raise NetworkError(msg)
 
     if not rv.ok:
         log.error(
@@ -70,7 +71,7 @@ def update_request_with_config_files(request_id, config_files):
             rv.status_code,
             rv.text,
         )
-        raise CachitoError(f"Adding configuration files on request {request_id} failed")
+        raise InvalidRequestData(f"Adding configuration files on request {request_id} failed")
 
 
 def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]) -> None:
@@ -80,7 +81,8 @@ def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]
     :param dict env_vars: mapping of environment variables to record. The keys represent
         the environment variable name, and its value should be another map with the "value" and
         "kind" attributes, e.g. {"NAME": {"value": "VALUE", "kind": "KIND"}}.
-    :raise CachitoError: if the request to the Cachito API fails
+    :raise NetworkError: if connection fails
+    :raise InvalidRequestData: if the request to the Cachito API fails
     """
     config = get_worker_config()
     request_url = _get_request_url(request_id)
@@ -94,7 +96,7 @@ def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]
             f"The connection failed when updating environment variables on the request {request_id}"
         )
         log.exception(msg)
-        raise CachitoError(msg)
+        raise NetworkError(msg)
     if not rv.ok:
         log.error(
             "The worker failed to update environment variables on the request %d. "
@@ -103,7 +105,7 @@ def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]
             rv.status_code,
             rv.text,
         )
-        raise CachitoError(f"Updating environment variables on request {request_id} failed")
+        raise InvalidRequestData(f"Updating environment variables on request {request_id} failed")
 
 
 def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int = 10240):
@@ -113,7 +115,7 @@ def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int
     :param str file_path: the path to the file to be verified
     :param ChecksumInfo checksum_info: the expected checksum information
     :param int chunk_size: the amount of bytes to read at a time
-    :raise CachitoError: if the checksum is not as expected
+    :raise InvalidChecksum: if the checksum is not as expected
     """
     filename = os.path.basename(file_path)
 
@@ -121,7 +123,7 @@ def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int
         hasher = hash_file(file_path, chunk_size, checksum_info.algorithm)
     except UnknownHashAlgorithm as exc:
         msg = f"Cannot perform checksum on the file {filename}, {exc}"
-        raise CachitoError(msg)
+        raise InvalidChecksum(msg)
 
     computed_hexdigest = hasher.hexdigest()
 
@@ -130,7 +132,7 @@ def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int
             f"The file {filename} has an unexpected checksum value, "
             f"expected {checksum_info.hexdigest} but computed {computed_hexdigest}"
         )
-        raise CachitoError(msg)
+        raise InvalidChecksum(msg)
 
 
 def download_binary_file(url, download_path, auth=None, insecure=False, chunk_size=8192):
@@ -142,13 +144,13 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
     :param requests.auth.AuthBase auth: Authentication for the URL
     :param bool insecure: Do not verify SSL for the URL
     :param int chunk_size: Chunk size param for Response.iter_content()
-    :raise CachitoError: If download failed
+    :raise NetworkError: If download failed
     """
     try:
         resp = pkg_requests_session.get(url, stream=True, verify=not insecure, auth=auth)
         resp.raise_for_status()
     except requests.RequestException as e:
-        raise CachitoError(f"Could not download {url}: {e}")
+        raise NetworkError(f"Could not download {url}: {e}")
 
     with open(download_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=chunk_size):

@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 from celery.utils.log import ColorFormatter
 
-from cachito.errors import CachitoError
+from cachito.errors import InvalidRequestData
 from cachito.workers import celery_logging
 
 
@@ -104,7 +104,7 @@ def test_setup_logging_request_id_not_found(mock_gwc, mock_get_func_arg_val, tmp
     task.__wrapped__ = _dummy_task
 
     expected = "Unable to get 'request_id'"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(InvalidRequestData, match=expected):
         celery_logging.setup_task_logging(task_id, task, args=["hello"], kwargs={"request_id": 3})
 
 

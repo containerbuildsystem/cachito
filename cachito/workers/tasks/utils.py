@@ -7,7 +7,7 @@ from typing import Callable, Union
 
 import requests
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import NetworkError, ValidationError
 from cachito.workers.celery_logging import get_function_arg_value
 from cachito.workers.config import get_worker_config
 from cachito.workers.requests import requests_auth_session, requests_session
@@ -153,7 +153,7 @@ def get_request(request_id: int) -> dict:
 
     :param request_id: the Cachito request ID this is for
     :return: JSON representation of the request
-    :raises CachitoError: if the connection fails or the API returns an error response
+    :raises NetworkError: if the connection fails or the API returns an error response
     """
     log.debug("Getting request %d", request_id)
     request = _get_request_or_fail(
@@ -186,7 +186,7 @@ def get_request_packages_and_dependencies(request_id: int):
     Get the contents of the packages file from the Cachito API.
 
     :param request_id: the Cachito request ID this is for
-    :raises CachitoError: if the connection fails or the API returns an error response
+    :raises NetworkError: if the connection fails or the API returns an error response
     """
     log.info("Getting packages file for request %d", request_id)
     request = _get_request_or_fail(
@@ -207,7 +207,7 @@ def set_request_state(request_id, state, state_reason, error_origin=None, error_
     :param int request_id: the ID of the Cachito request
     :param str state: the state to set the Cachito request to
     :param str state_reason: the state reason to set the Cachito request to
-    :raise CachitoError: if the request to the Cachito API fails
+    :raise NetworkError: if the request to the Cachito API fails
     """
     log.info(
         'Setting the state of request %d to "%s" with the reason "%s"',
@@ -243,7 +243,7 @@ def set_packages_and_deps_counts(request_id: int, packages_count: int, dependenc
     :param request_id: the ID of the Cachito request
     :param packages_count: the number of packages in this request
     :param dependencies_count: the number of dependencies in this request
-    :raise CachitoError: if the request to the Cachito API fails
+    :raise NetworkError: if the request to the Cachito API fails
     """
     log.info(
         "Setting packages_count = %d, dependencies_count = %d for request %d",
@@ -273,7 +273,7 @@ def _get_request_or_fail(
     :param request_id: ID of the request to get
     :param connect_error_msg: error message to raise if the connection fails
     :param status_error_msg: error message to raise if the response status is 4xx or 5xx
-    :raises CachitoError: if the connection fails or the API returns an error response
+    :raises NetworkError: if the connection fails or the API returns an error response
     """
     config = get_worker_config()
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
@@ -287,11 +287,11 @@ def _get_request_or_fail(
     except requests.HTTPError as e:
         msg = status_error_msg.format(exc=e)
         log.exception(msg)
-        raise CachitoError(msg)
+        raise NetworkError(msg)
     except requests.RequestException as e:
         msg = connect_error_msg.format(exc=e)
         log.exception(msg)
-        raise CachitoError(msg)
+        raise NetworkError(msg)
 
     return rv.json()
 
@@ -309,7 +309,7 @@ def _patch_request_or_fail(
     :param payload: the JSON data to send to the PATCH endpoint
     :param connect_error_msg: error message to raise if the connection fails
     :param status_error_msg: error message to raise if the response status is 4xx or 5xx
-    :raises CachitoError: if the connection fails or the API returns an error response
+    :raises NetworkError: if the connection fails or the API returns an error response
     """
     config = get_worker_config()
     request_url = f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
@@ -322,8 +322,8 @@ def _patch_request_or_fail(
     except requests.HTTPError as e:
         msg = status_error_msg.format(exc=e)
         log.exception(msg)
-        raise CachitoError(msg)
+        raise NetworkError(msg)
     except requests.RequestException as e:
         msg = connect_error_msg.format(exc=e)
         log.exception(msg)
-        raise CachitoError(msg)
+        raise NetworkError(msg)

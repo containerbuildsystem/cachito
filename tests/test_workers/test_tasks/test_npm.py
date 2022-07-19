@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from cachito.common.paths import RequestBundleDir as BaseRequestBundleDir
-from cachito.errors import CachitoError
+from cachito.errors import FileAccessError, InvalidRepoStructure
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import npm
 
@@ -29,7 +29,7 @@ def test_verify_npm_files_no_lock_file(tmpdir):
         "The client/npm-shrinkwrap.json or client/package-lock.json file must be present for the "
         "npm package manager"
     )
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(InvalidRepoStructure, match=expected):
         npm._verify_npm_files(bundle_dir, ["client"])
 
 
@@ -39,7 +39,7 @@ def test_verify_npm_files_no_package_json(tmpdir):
     bundle_dir = BaseRequestBundleDir(1, str(tmpdir))
 
     expected = "The client/package.json file must be present for the npm package manager"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(InvalidRepoStructure, match=expected):
         npm._verify_npm_files(bundle_dir, ["client"])
 
 
@@ -51,7 +51,7 @@ def test_verify_npm_files_node_modules(tmpdir):
     bundle_dir = BaseRequestBundleDir(1, str(tmpdir))
 
     expected = "The client/node_modules directory cannot be present in the source repository"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(InvalidRepoStructure, match=expected):
         npm._verify_npm_files(bundle_dir, ["client"])
 
 
@@ -339,9 +339,9 @@ def test_fetch_npm_source_resolve_fails(
     request_id = 6
     request = {"id": request_id}
     mock_get_request.return_value = request
-    mock_rn.side_effect = CachitoError("Some error")
+    mock_rn.side_effect = FileAccessError("Some error")
 
-    with pytest.raises(CachitoError, match="Some error"):
+    with pytest.raises(FileAccessError, match="Some error"):
         npm.fetch_npm_source(request_id)
 
     assert mock_srs.call_count == 2

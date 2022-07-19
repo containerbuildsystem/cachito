@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.errors import CachitoError
+from cachito.errors import NexusError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.tasks import pip
@@ -157,13 +157,13 @@ def test_get_custom_requirement_config_file(
     password = "my_password"
     if not found_url and component_name:
         msg = f"Could not retrieve URL for {component_name} in {repo_name}. Was the asset uploaded?"
-        with pytest.raises(CachitoError, match=msg):
+        with pytest.raises(NexusError, match=msg):
             pip._get_custom_requirement_config_file(
                 req_file, tmp_path, repo_name, username, password
             )
     elif found_url and "://" not in found_url and component_name:
         msg = f"Nexus raw resource URL: {found_url} is not a valid URL"
-        with pytest.raises(CachitoError, match=msg):
+        with pytest.raises(NexusError, match=msg):
             pip._get_custom_requirement_config_file(
                 req_file, tmp_path, repo_name, username, password
             )

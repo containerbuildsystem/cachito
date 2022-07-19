@@ -15,7 +15,14 @@ import backoff
 import git
 import semver
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import (
+    FileAccessError,
+    GoModError,
+    InvalidFileFormat,
+    RepositoryAccessError,
+    UnsupportedFeature,
+    ValidationError,
+)
 from cachito.workers import load_json_stream, run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import CachitoCalledProcessError
@@ -65,7 +72,7 @@ def run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
             f"Processing gomod dependencies failed. Cachito tried the {' '.join(cmd)} command "
             f"{n_tries} times. This may indicate a problem with your repository or Cachito itself."
         )
-        raise CachitoError(err_msg)
+        raise GoModError(err_msg)
 
 
 class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
@@ -153,7 +160,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         ("pkg" key), and a list of dictionaries representing the package level dependencies
         ("pkg_deps" key)
     :rtype: dict
-    :raises CachitoError: if fetching dependencies fails
+    :raises GoModError: if fetching dependencies fails
     """
     if git_dir_path is None:
         git_dir_path = app_source_path
@@ -253,7 +260,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
         unused_dep_replacements = replaced_dep_names - used_replaced_dep_names
         if unused_dep_replacements:
-            raise CachitoError(
+            raise GoModError(
                 "The following gomod dependency replacements don't apply: "
                 f'{", ".join(unused_dep_replacements)}'
             )
@@ -455,13 +462,13 @@ def _module_lines_from_modules_txt(app_dir: str) -> List[str]:
 
         if not line.startswith("#"):  # this is a package line
             if not module_lines:
-                raise CachitoError(f"vendor/modules.txt: package has no parent module: {line}")
+                raise FileAccessError(f"vendor/modules.txt: package has no parent module: {line}")
             has_packages[module_lines[-1]] = True
         elif line.startswith("# "):  # this is a module line or a wildcard replacement (4)
             module_lines.append(line[2:])
         elif not line.startswith("##"):
             # at this point, the line must be a marker, otherwise we don't know what it is
-            raise CachitoError(f"vendor/modules.txt: unexpected format: {line!r}")
+            raise InvalidFileFormat(f"vendor/modules.txt: unexpected format: {line!r}")
 
     return list(filter(has_packages.get, module_lines))
 
@@ -534,14 +541,16 @@ def _vet_local_deps(dependencies: List[dict], module_name: str, allowed_patterns
                 version,
             )
             if ".." in Path(version).parts:
-                raise CachitoError(
+                raise UnsupportedFeature(
                     f"Path to gomod dependency contains '..': {version}. "
                     "Cachito does not support this case."
                 )
             _fail_unless_allowed(module_name, name, allowed_patterns)
         elif version.startswith("/") or PureWindowsPath(version).root:
             # This will disallow paths starting with '/', '\' or '<drive letter>:\'
-            raise CachitoError(f"Absolute paths to gomod dependencies are not supported: {version}")
+            raise UnsupportedFeature(
+                f"Absolute paths to gomod dependencies are not supported: {version}"
+            )
 
 
 def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: List[str]):
@@ -555,7 +564,7 @@ def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: 
     versionless_module_name = MODULE_VERSION_RE.sub("", module_name)
     is_submodule = contains_package(versionless_module_name, package_name)
     if not is_submodule and not any(fnmatch.fnmatch(package_name, pat) for pat in allowed_patterns):
-        raise CachitoError(
+        raise UnsupportedFeature(
             f"The module {module_name} is not allowed to replace {package_name} with a local "
             f"dependency. Please contact the maintainers of this Cachito instance about adding "
             "an exception."
@@ -733,7 +742,7 @@ def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=Fa
     except git.GitCommandError:
         msg = f"Failed to get the tags associated with the reference {target_commit.hexsha}"
         log.exception(msg)
-        raise CachitoError(msg)
+        raise RepositoryAccessError(msg)
 
     # Keep only semantic version tags related to the path being processed
     prefix = f"{subpath}/v" if subpath else "v"
@@ -800,6 +809,7 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False, sub
     :param str subpath: path to the module, relative to the root repository folder
     :return: a version as `go list` would provide
     :rtype: str
+    :raises RepositoryAccessError: if failed to fetch the tags on the Git repository
     """
     # If the module is version v2 or higher, the major version of the module is included as /vN at
     # the end of the module path. If the module is version v0 or v1, the major version is omitted
@@ -814,7 +824,7 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False, sub
         try:
             repo.remote().fetch(force=True, tags=True)
         except Exception as ex:
-            raise CachitoError(
+            raise RepositoryAccessError(
                 "Failed to fetch the tags on the Git repository (%s) for %s ",
                 type(ex).__name__,
                 module_name,

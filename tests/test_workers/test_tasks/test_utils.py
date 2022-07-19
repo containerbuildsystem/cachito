@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 import requests
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import NetworkError, ValidationError
 from cachito.workers.requests import requests_auth_session, requests_session
 from cachito.workers.tasks import utils
 from tests.helper_utils import write_file_tree
@@ -154,7 +154,7 @@ def test_set_request_state(mock_patch):
 def test_set_request_state_connection_failed(mock_requests_patch):
     mock_requests_patch.side_effect = requests.Timeout("The request timed out")
     expected = 'The connection failed when setting the state to "complete" on request 1'
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         utils.set_request_state(1, "complete", "Completed successfully")
 
 
@@ -162,7 +162,7 @@ def test_set_request_state_connection_failed(mock_requests_patch):
 def test_set_request_state_bad_status_code(mock_patch):
     mock_patch.return_value.raise_for_status.side_effect = [requests.HTTPError("Unauthorized")]
     expected = 'Setting the state to "complete" on request 1 failed'
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         utils.set_request_state(1, "complete", "Completed successfully")
 
 
@@ -218,7 +218,7 @@ def test_get_request_or_fail(
     response.json.return_value = {"id": 42, "state": "complete"}
 
     if expect_error:
-        with pytest.raises(CachitoError, match=expect_error):
+        with pytest.raises(NetworkError, match=expect_error):
             utils._get_request_or_fail(42, "connection error: {exc}", "status error: {exc}")
     else:
         request = utils._get_request_or_fail(42, "connection error: {exc}", "status error: {exc}")
@@ -265,7 +265,7 @@ def test_patch_request_or_fail(
     payload = {"foo": "bar"}
 
     if expect_error:
-        with pytest.raises(CachitoError, match=expect_error):
+        with pytest.raises(NetworkError, match=expect_error):
             utils._patch_request_or_fail(
                 42, payload, "connection error: {exc}", "status error: {exc}"
             )

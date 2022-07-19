@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 import requests
 
-from cachito.errors import CachitoError
+from cachito.errors import NetworkError, NexusError
 from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
 
@@ -202,7 +202,7 @@ def test_create_or_update_get_fails(mock_request):
     mock_request.side_effect = [mock_get]
 
     expected = "Failed to determine if the Nexus script oh_so exists"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
     assert mock_request.call_count == 1
@@ -215,7 +215,7 @@ def test_create_or_update_get_connection_error(mock_request):
     mock_request.side_effect = requests.ConnectionError()
 
     expected = "The connection failed when determining if the Nexus script oh_so exists"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
     assert mock_request.call_count == 1
@@ -232,7 +232,7 @@ def test_create_or_update_create_fails(mock_request):
     mock_request.side_effect = [mock_get, mock_post]
 
     expected = "Failed to create/update the Nexus script oh_so"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
     assert mock_request.call_count == 2
@@ -252,7 +252,7 @@ def test_create_or_update_update_fails(mock_request):
     mock_request.side_effect = [mock_get, mock_put]
 
     expected = "Failed to create/update the Nexus script oh_so"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         nexus.create_or_update_script("oh_so", "/it/is/oh_so.groovy")
 
     assert mock_request.call_count == 2
@@ -395,7 +395,7 @@ def test_get_component_info_from_nexus_multiple_results(
     mock_search_components.return_value = components_search_results["items"]
 
     expected = "The component search in Nexus unexpectedly returned more than one result"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NexusError, match=expected):
         nexus.get_component_info_from_nexus("cachito-js-proxy", "npm", "rxjs", "*")
 
 
@@ -531,7 +531,7 @@ def test_search_components_connection_error(mock_get):
     mock_get.side_effect = requests.ConnectionError()
 
     expected = "Could not connect to the Nexus instance to search for components"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         nexus.search_components(repository="cachito-js-hosted", type="npm")
 
 
@@ -540,7 +540,7 @@ def test_search_components_failed(mock_get):
     mock_get.return_value.ok = False
 
     expected = "Failed to search for components in Nexus"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NexusError, match=expected):
         nexus.search_components(repository="cachito-js-hosted", type="npm")
 
 
@@ -569,7 +569,7 @@ def test_upload_asset_only_component_connection_error(mock_post):
 
     expected = "Could not connect to the Nexus instance to upload a component"
     with mock.patch("cachito.workers.nexus.open", mock_open):
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(NetworkError, match=expected):
             nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
 
 
@@ -580,7 +580,7 @@ def test_upload_asset_only_component_failed(mock_post):
 
     expected = "Failed to upload a component to Nexus"
     with mock.patch("cachito.workers.nexus.open", mock_open):
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(NetworkError, match=expected):
             nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
 
 
@@ -619,5 +619,5 @@ def test_upload_raw_component_failed(mock_post):
     components = [{"path": "path/to/foo-1.0.0.tgz", "filename": "foo-1.0.0.tar.gz"}]
     expected = "Failed to upload a component to Nexus"
     with mock.patch("cachito.workers.nexus.open", mock_open):
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(NetworkError, match=expected):
             nexus.upload_raw_component("cachito-pip-raw", "foo/1.0.0", components)

@@ -10,7 +10,12 @@ from abc import ABC, abstractmethod
 
 import git
 
-from cachito.errors import CachitoError
+from cachito.errors import (
+    FileAccessError,
+    InvalidRequestData,
+    RepositoryAccessError,
+    SubprocessCallError,
+)
 from cachito.workers import run_cmd
 from cachito.workers.paths import SourcesDir
 
@@ -52,7 +57,7 @@ class Git(SCM):
         Reset HEAD to a specific Git reference.
 
         :param git.Repo repo: the repository object.
-        :raises CachitoError: if changing the HEAD of the repository fails.
+        :raises InvalidRequestData: if changing the HEAD of the repository fails.
         """
         try:
             repo.head.reference = repo.commit(self.ref)
@@ -65,7 +70,7 @@ class Git(SCM):
                 self.url,
                 type(ex).__name__,
             )
-            raise CachitoError(
+            raise InvalidRequestData(
                 "Failed on checking out the Git repository. Please verify the supplied reference "
                 f'of "{self.ref}" is valid.'
             )
@@ -74,7 +79,8 @@ class Git(SCM):
         """
         Verify the archive containing the git repository.
 
-        :raises CachitoError: if 'git fsck' fails for the extracted sources
+        :raises FileAccessError: if the archive is not found
+        :raises SubprocessCallError: if 'git fsck' fails for the extracted sources
         """
         log.debug("Verifying the archive at %s", self.sources_dir.archive_path)
         if not os.path.exists(self.sources_dir.archive_path) or not tarfile.is_tarfile(
@@ -82,7 +88,7 @@ class Git(SCM):
         ):
             err_msg = f"No valid archive found at {self.sources_dir.archive_path}"
             log.exception(err_msg)
-            raise CachitoError(err_msg)
+            raise FileAccessError(err_msg)
 
         err_msg = {
             "log": "Cachito found an error when verifying the generated archive at %s. %s",
@@ -96,14 +102,14 @@ class Git(SCM):
                     tar.extractall(temp_dir)
             except (tarfile.ExtractError, zlib.error, OSError) as exc:
                 log.error(err_msg["log"], self.sources_dir.archive_path, exc)
-                raise CachitoError(err_msg["exception"])
+                raise SubprocessCallError(err_msg["exception"])
 
             try:
                 run_cmd(cmd, {"cwd": repo_path, "check": True})
             except subprocess.CalledProcessError as exc:
                 msg = f"{err_msg['log']}. STDERR: %s"
                 log.error(msg, self.sources_dir.archive_path, exc, exc.stderr)
-                raise CachitoError(err_msg["exception"])
+                raise SubprocessCallError(err_msg["exception"])
 
     def _create_archive(self, from_dir):
         """
@@ -116,7 +122,7 @@ class Git(SCM):
         final path
 
         :param str from_dir: path to a directory from where to create the archive.
-        :raises CachitoError: if the archive verification fails
+        :raises FileAccessError/SubprocessCallError: if the archive verification fails
         """
         temp_archive_prefix = "tmp-archive-"
         # files ending in .tar.gz will be used by update_and_archive
@@ -144,7 +150,7 @@ class Git(SCM):
                 )
         try:
             self._verify_archive()
-        except CachitoError:
+        except (FileAccessError, SubprocessCallError):
             log.debug("Removing invalid archive at %s", self.sources_dir.archive_path)
             os.unlink(self.sources_dir.archive_path)
             raise
@@ -154,7 +160,7 @@ class Git(SCM):
         Clone the git repository and create the compressed source archive.
 
         :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
-        :raises CachitoError: if cloning the repository fails or if the archive can't be created
+        :raises RepositoryAccessError: if cloning the repository fails or archive can't be created
         """
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
             log.debug("Cloning the Git repository from %s", self.url)
@@ -175,7 +181,7 @@ class Git(SCM):
                     self.ref,
                     type(ex).__name__,
                 )
-                raise CachitoError("Failed cloning the Git repository")
+                raise RepositoryAccessError("Failed cloning the Git repository")
 
             self._reset_git_head(repo)
 
@@ -191,7 +197,7 @@ class Git(SCM):
 
         :param str previous_archive: path to an archive file created before.
         :param bool gitsubmodule: a bool to determine whether git submodules need to be processed.
-        :raises CachitoError: if pulling the Git history from the remote repo or
+        :raises RepositoryAccessError: if pulling the Git history from the remote repo or
             the checkout of the target Git ref fails.
         """
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
@@ -211,7 +217,7 @@ class Git(SCM):
                     self.ref,
                     type(ex).__name__,
                 )
-                raise CachitoError("Failed to fetch from the remote Git repository")
+                raise RepositoryAccessError("Failed to fetch from the remote Git repository")
 
             self._reset_git_head(repo)
             if gitsubmodule:
@@ -235,7 +241,7 @@ class Git(SCM):
             try:
                 self._verify_archive()
                 return
-            except CachitoError:
+            except (FileAccessError, SubprocessCallError):
                 log.warning('The archive at "%s" is invalid and will be re-created', archive_path)
 
         # Find a previous archive created by a previous request
@@ -281,14 +287,14 @@ class Git(SCM):
         retrodep/go-github/<content_of_go-github_repo>
 
         :param git.Repo repo: the repository object.
-        :raises CachitoError: if updating the git submodules fail.
+        :raises RepositoryAccessError: if updating the git submodules fail.
         """
         try:
             log.debug(f"Git submodules for the requested repo are: {repo.submodules}")
             repo.submodule_update(recursive=False)
         except Exception as e:
             log.exception("Updating the Git submodule(s) from '%s' failed %s", self.url, e)
-            raise CachitoError("Updating the Git submodule(s) failed")
+            raise RepositoryAccessError("Updating the Git submodule(s) failed")
 
     @property
     def repo_name(self):

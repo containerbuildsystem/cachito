@@ -10,7 +10,14 @@ from xml.etree import ElementTree
 import pytest
 import requests
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import (
+    FileAccessError,
+    InvalidChecksum,
+    InvalidRequestData,
+    NetworkError,
+    NexusError,
+    ValidationError,
+)
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general, pip
 from tests.helper_utils import write_file_tree
@@ -78,7 +85,7 @@ def test_get_pip_metadata(
         assert name == expect_name
         assert version == expect_version
     else:
-        with pytest.raises(CachitoError) as exc_info:
+        with pytest.raises(InvalidRequestData) as exc_info:
             pip.get_pip_metadata(PKG_DIR)
 
         if expect_name:
@@ -2252,7 +2259,7 @@ class TestNexus:
         mock_exec_script.side_effect = NexusScriptError()
 
         expected = "Failed to prepare Nexus for Cachito to stage Python content"
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(NexusError, match=expected):
             pip.prepare_nexus_for_pip_request(1, 1)
 
     @mock.patch("secrets.token_hex")
@@ -2281,7 +2288,7 @@ class TestNexus:
         """Check whether proper error is raised on groovy srcript failures."""
         mock_exec_script.side_effect = NexusScriptError()
         expected = "Failed to configure Nexus Python repositories for final consumption"
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(NexusError, match=expected):
             pip.finalize_nexus_for_pip_request(1, 1, 1)
 
 
@@ -2419,7 +2426,7 @@ class TestDownload:
                 proxied_file_url, download_info["path"], auth=("user", "password")
             )
         else:
-            with pytest.raises(CachitoError) as exc_info:
+            with pytest.raises((InvalidRequestData, NetworkError)) as exc_info:
                 pip._download_pypi_package(
                     mock_requirement, tmp_path, "https://pypi-proxy.org", ("user", "password")
                 )
@@ -3177,7 +3184,7 @@ class TestDownload:
         path = Path("/foo/bar.tar.gz")
 
         mock_verify_checksum.side_effect = [
-            None if hash_spec == "sha256:good" else CachitoError("Something went wrong")
+            None if hash_spec == "sha256:good" else InvalidChecksum("Something went wrong")
             for hash_spec in hashes
         ]
 
@@ -3189,7 +3196,7 @@ class TestDownload:
             num_calls = hashes.index("sha256:good") + 1
             num_fails = num_calls - 1
         else:
-            with pytest.raises(CachitoError) as exc_info:
+            with pytest.raises(InvalidChecksum) as exc_info:
                 pip._verify_hash(path, hashes)
 
             msg = "Failed to verify checksum of bar.tar.gz against any of the provided hashes"
@@ -3286,7 +3293,7 @@ def test_get_index_url():
 
 def test_get_index_url_invalid_url():
     expected = "Nexus PyPI hosted repo URL: repository/cachito-pip-hosted-5/ is not a valid URL"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(ValidationError, match=expected):
         pip.get_index_url(
             "repository/cachito-pip-hosted-5/", "admin", "admin123",
         )
@@ -3327,7 +3334,7 @@ def test_push_downloaded_requirement_from_pypi(mock_upload, dev):
 @mock.patch("cachito.workers.pkg_managers.pip.upload_pypi_package")
 @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_component_info_from_nexus")
 def test_push_downloaded_requirement_from_pypi_duplicated(mock_get_info, mock_upload, uploaded):
-    mock_upload.side_effect = CachitoError("stub")
+    mock_upload.side_effect = NetworkError("stub")
     mock_get_info.return_value = uploaded
     pip_repo_name = "test-pip-hosted"
     raw_repo_name = "test-pip-raw"
@@ -3341,7 +3348,7 @@ def test_push_downloaded_requirement_from_pypi_duplicated(mock_get_info, mock_up
         mock_upload.assert_called_once_with(pip_repo_name, path)
         assert dependency == expected_dependency
     else:
-        with pytest.raises(CachitoError, match="stub"):
+        with pytest.raises(NetworkError, match="stub"):
             pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
 
 
@@ -3396,7 +3403,7 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
 def test_push_downloaded_requirement_non_pypi_duplicated(
     mock_get_info, mock_upload, kind, uploaded
 ):
-    mock_upload.side_effect = CachitoError("stub")
+    mock_upload.side_effect = NetworkError("stub")
     mock_get_info.return_value = uploaded
     pip_repo_name = "test-pip-hosted"
     raw_repo_name = "test-pip-raw"
@@ -3438,7 +3445,7 @@ def test_push_downloaded_requirement_non_pypi_duplicated(
         mock_upload.assert_called_once_with(raw_repo_name, path, dest_dir, filename, True)
         assert dependency == expected_dependency
     else:
-        with pytest.raises(CachitoError, match="stub"):
+        with pytest.raises(NetworkError, match="stub"):
             pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
 
 
@@ -3458,9 +3465,9 @@ def test_resolve_pip_no_deps(mock_metadata, tmp_path):
 @mock.patch("cachito.workers.pkg_managers.pip.get_pip_metadata")
 def test_resolve_pip_incompatible(mock_metadata, tmp_path):
     expected_error = "Could not resolve package metadata: name"
-    mock_metadata.side_effect = CachitoError(expected_error)
+    mock_metadata.side_effect = InvalidRequestData(expected_error)
     request = {"id": 1}
-    with pytest.raises(CachitoError, match=expected_error):
+    with pytest.raises(InvalidRequestData, match=expected_error):
         pip.resolve_pip(tmp_path, request)
 
 
@@ -3471,7 +3478,7 @@ def test_resolve_pip_invalid_req_file_path(mock_metadata, tmp_path):
     invalid_path = "/foo/bar.txt"
     expected_error = f"Following requirement file has an invalid path: {invalid_path}"
     requirement_files = [invalid_path]
-    with pytest.raises(CachitoError, match=expected_error):
+    with pytest.raises(FileAccessError, match=expected_error):
         pip.resolve_pip(tmp_path, request, requirement_files, None)
 
 
@@ -3482,7 +3489,7 @@ def test_resolve_pip_invalid_bld_req_file_path(mock_metadata, tmp_path):
     invalid_path = "/foo/bar.txt"
     expected_error = f"Following requirement file has an invalid path: {invalid_path}"
     build_requirement_files = [invalid_path]
-    with pytest.raises(CachitoError, match=expected_error):
+    with pytest.raises(FileAccessError, match=expected_error):
         pip.resolve_pip(tmp_path, request, None, build_requirement_files)
 
 
