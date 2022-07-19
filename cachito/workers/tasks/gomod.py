@@ -3,7 +3,7 @@ import logging
 import os
 
 from cachito.common.packages_data import PackagesData
-from cachito.errors import CachitoError
+from cachito.errors import FileAccessError, GoModError, UnsupportedFeature
 from cachito.workers import run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
@@ -49,7 +49,10 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     :param list dep_replacements: dependency replacements with the keys "name" and "version"; only
         supported with a single path
     :param list package_configs: the list of optional package configurations submitted by the user
-    :raises CachitoError: if the dependencies could not be retrieved
+    :raises FileAccessError: if a file is not present for the gomod package manager
+    :raises UnsupportedFeature: if dependency replacements are provided for
+        a non-single go module path
+    :raises GoModError: if failed to fetch gomod dependencies
     """
     version_output = run_cmd(["go", "version"], {})
     log.info(f"Go version: {version_output.strip()}")
@@ -75,14 +78,14 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             log.warning("go.mod file missing for request at %s", invalid_files_print)
             return
 
-        raise CachitoError(
+        raise FileAccessError(
             "The {} file{} must be present for the gomod package manager".format(
                 invalid_files_print.strip(), file_suffix
             )
         )
 
     if len(subpaths) > 1 and dep_replacements:
-        raise CachitoError(
+        raise UnsupportedFeature(
             "Dependency replacements are only supported for a single go module path."
         )
 
@@ -111,7 +114,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             gomod = resolve_gomod(
                 gomod_source_path, request, dep_replacements, bundle_dir.source_dir
             )
-        except CachitoError:
+        except GoModError:
             log.exception("Failed to fetch gomod dependencies for request %d", request_id)
             raise
 

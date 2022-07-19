@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import pyarn.lockfile
 
-from cachito.errors import CachitoError
+from cachito.errors import InvalidRequestData, NexusError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general_js import (
@@ -121,7 +121,7 @@ def _get_deps(package_json, yarn_lock, file_deps_allowlist):
         dependencies and should be ignored since they are implementation details
     :return: information about preprocessed dependencies and Nexus replacements
     :rtype: (list[dict], dict)
-    :raise CachitoError: if the lock file contains a dependency from an unsupported location
+    :raise InvalidRequestData: if the lock file contains a dependency from an unsupported location
     """
     deps = []
     nexus_replacements = {}
@@ -149,7 +149,9 @@ def _get_deps(package_json, yarn_lock, file_deps_allowlist):
         elif package.relpath:
             source = f"file:{package.relpath}"
         else:
-            raise CachitoError(f"The dependency {package.name}@{package.version} has no source")
+            raise InvalidRequestData(
+                f"The dependency {package.name}@{package.version} has no source"
+            )
 
         nexus_replacement = None
 
@@ -226,8 +228,9 @@ def _convert_to_nexus_hosted(dep_name, dep_source, dep_info):
     :param str dep_source: the source (url or relative path) of the dependency
     :param dict dep_info: the dependency info from the yarn lock file
     :return: a dict with the "version" and "integrity" keys to replace in the lock file
-    :raise CachitoError: if the dependency is from an unsupported location or has an unexpected
-        format in the lock file
+    :raise InvalidFileFormat: if the dependency has an unexpected format
+    :raise UnsupportedFeature: if the dependency is from an unsupported location
+    :raise FileAccessError: if the dependency cannot be accessed
     """
     integrity = dep_info.get("integrity")
     if integrity:
@@ -265,6 +268,7 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
         "lock_file": the parsed yarn.lock file (as a dict)
         "nexus_replacements": dict of replaced external dependencies
     :rtype: dict
+    :raises InvalidRequestData: if file is missing from required data
     """
     with open(package_json_path) as f:
         package_json = json.load(f)
@@ -278,7 +282,7 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
             "type": "yarn",
         }
     except KeyError:
-        raise CachitoError("The package.json file is missing required data (name, version)")
+        raise InvalidRequestData("The package.json file is missing required data (name, version)")
 
     file_deps_allowlist = set(
         get_worker_config().cachito_yarn_file_deps_allowlist.get(package["name"], [])
@@ -307,6 +311,7 @@ def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str) -
     :param dict yarn_lock: parsed yarn.lock data with nexus replacements already applied
     :param str proxy_repo_name: the proxy repo name, cachito-yarn-{request_id}
     :return: bool, was anything in the yarn.lock data modified?
+    :raises NexusError: if dependency is not available in Nexus proxy repository
     """
     modified = False
 
@@ -323,7 +328,7 @@ def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str) -
             pkg_name, pkg_version, proxy_repo_name, max_attempts=5
         )
         if not component_info:
-            raise CachitoError(
+            raise NexusError(
                 f"The dependency {pkg_name}@{pkg_version} was uploaded to the Nexus hosted "
                 f"repository but is not available in {proxy_repo_name}"
             )
@@ -459,7 +464,8 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
         ``package`` which is the dictionary describing the main package, and
         ``package.json`` which is the package.json file if it was modified.
     :rtype: dict
-    :raises CachitoError: if fetching the dependencies fails or required files are missing
+    :raises InvalidRequestData: if file is missing from required data
+    :raises NexusError: if fetching the dependencies fails or required files are missing
     """
     app_source_path = Path(app_source_path)
 

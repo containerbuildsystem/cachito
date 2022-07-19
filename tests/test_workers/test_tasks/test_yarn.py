@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from cachito.common.paths import RequestBundleDir
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import InvalidRepoStructure, InvalidRequestData
 from cachito.workers.tasks import yarn
 
 
@@ -65,7 +65,7 @@ def test_verify_yarn_files_missing_file(missing_file, missing_in, expect_error, 
     (root / present_file).touch()
     (sub / present_file).touch()
 
-    with pytest.raises(ValidationError, match=expect_error.format(missing_file=missing_file)):
+    with pytest.raises(InvalidRepoStructure, match=expect_error.format(missing_file=missing_file)):
         yarn._verify_yarn_files(bundle_dir, [".", "sub"])
 
 
@@ -91,7 +91,7 @@ def test_verify_yarn_files_unwanted_npm_file(present_file, is_in, expect_error, 
     else:
         (sub / present_file).touch()
 
-    with pytest.raises(ValidationError, match=expect_error.format(present_file=present_file)):
+    with pytest.raises(InvalidRepoStructure, match=expect_error.format(present_file=present_file)):
         yarn._verify_yarn_files(bundle_dir, [".", "sub"])
 
 
@@ -116,7 +116,7 @@ def test_verify_yarn_files_node_modules(is_in, expect_error, tmp_path):
     else:
         (sub / "node_modules").mkdir()
 
-    with pytest.raises(ValidationError, match=expect_error):
+    with pytest.raises(InvalidRepoStructure, match=expect_error):
         yarn._verify_yarn_files(bundle_dir, [".", "sub"])
 
 
@@ -380,7 +380,7 @@ def test_fetch_yarn_resolve_fails(
     bundle_dir, root, sub = mock_bundle_dir(tmp_path)
     mock_request_bundle_dir.return_value = bundle_dir
 
-    mock_resolve_yarn.side_effect = [CachitoError("oops")]
+    mock_resolve_yarn.side_effect = [InvalidRequestData("oops")]
 
-    with pytest.raises(CachitoError, match="oops"):
+    with pytest.raises(InvalidRequestData, match="oops"):
         yarn.fetch_yarn_source(1)

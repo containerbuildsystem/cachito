@@ -13,8 +13,12 @@ from cachito.common.packages_data import PackagesData
 from cachito.errors import (
     CachitoError,
     ClientError,
+    FileAccessError,
+    InvalidRequestData,
+    NetworkError,
     RequestErrorOrigin,
     ServerError,
+    SubprocessCallError,
     ValidationError,
 )
 from cachito.workers.paths import RequestBundleDir
@@ -59,8 +63,8 @@ def fetch_app_source(url, ref, request_id, gitsubmodule=False, remove_unsafe_sym
         scm = Git(url, ref)
         scm.fetch_source(gitsubmodule=gitsubmodule)
     except requests.Timeout:
-        raise CachitoError("The connection timed out while downloading the source")
-    except CachitoError:
+        raise NetworkError("The connection timed out while downloading the source")
+    except (FileAccessError, SubprocessCallError):
         log.exception('Failed to fetch the source from the URL "%s" and reference "%s"', url, ref)
         raise
 
@@ -194,11 +198,12 @@ def save_bundle_archive_checksum(request_id: int) -> None:
     """Compute and store bundle archive's checksum.
 
     :param int request_id: the request id.
+    :raises FileAccessError: if bundle archive file does not exist
     """
     bundle_dir = RequestBundleDir(request_id)
     archive_file = bundle_dir.bundle_archive_file
     if not archive_file.exists():
-        raise CachitoError(f"Bundle archive {archive_file} does not exist.")
+        raise FileAccessError(f"Bundle archive {archive_file} does not exist.")
     checksum = hash_file(archive_file).hexdigest()
     bundle_dir.bundle_archive_checksum.write_text(checksum, encoding="utf-8")
 
@@ -236,7 +241,7 @@ def _check_packages_data_on_api(
     if actual_packages_count == packages_count and actual_dependencies_count == dependencies_count:
         return
 
-    raise CachitoError(f"Error checking packages data for request {request_id}.")
+    raise InvalidRequestData(f"Error checking packages data for request {request_id}.")
 
 
 @app.task(priority=10)

@@ -10,7 +10,7 @@ from pathlib import Path
 import requests
 from gemlock_parser.gemfile_lock import GemfileLockParser
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import NexusError, ValidationError
 from cachito.workers import get_worker_config, nexus
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.paths import RequestBundleDir
@@ -44,7 +44,7 @@ def prepare_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name):
 
     :param str rubygems_repo_name: the name of the Rubygems repository for the request
     :param str raw_repo_name: the name of the raw repository for the request
-    :raise CachitoError: if the script execution fails
+    :raise NexusError: if the script execution fails
     """
     payload = {
         "rubygems_repository_name": rubygems_repo_name,
@@ -55,7 +55,7 @@ def prepare_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name):
         nexus.execute_script(script_name, payload)
     except NexusScriptError:
         log.exception("Failed to execute the script %s", script_name)
-        raise CachitoError("Failed to prepare Nexus for Cachito to stage Rubygems content")
+        raise NexusError("Failed to prepare Nexus for Cachito to stage Rubygems content")
 
 
 def parse_gemlock(source_dir, gemlock_path):
@@ -159,7 +159,7 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, usern
     :param str username: the username of the user to be created for the Cachito Rubygems request
     :return: the password of the Nexus user that has access to the request's Rubygems repositories
     :rtype: str
-    :raise CachitoError: if the script execution fails
+    :raise NexusError: if the script execution fails
     """
     # Generate a 24-32 character (each byte is two hex characters) password
     password = secrets.token_hex(random.randint(12, 16))  # nosec
@@ -174,7 +174,7 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, usern
         nexus.execute_script(script_name, payload)
     except NexusScriptError:
         log.exception("Failed to execute the script %s", script_name)
-        raise CachitoError("Failed to configure Nexus Rubygems repositories for final consumption")
+        raise NexusError("Failed to configure Nexus Rubygems repositories for final consumption")
     return password
 
 

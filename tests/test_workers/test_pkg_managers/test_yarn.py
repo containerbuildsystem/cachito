@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.errors import CachitoError
+from cachito.errors import NexusError, UnsupportedFeature
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import yarn
 from cachito.workers.pkg_managers.general_js import JSDependency
@@ -429,9 +429,9 @@ def test_get_deps_disallowed_file_dep(mock_convert_hosted):
     allowlist = set()
 
     err_msg = "The dependency ./subpath is hosted in an unsupported location"
-    mock_convert_hosted.side_effect = [CachitoError(err_msg)]
+    mock_convert_hosted.side_effect = [UnsupportedFeature(err_msg)]
 
-    with pytest.raises(CachitoError, match=err_msg):
+    with pytest.raises(UnsupportedFeature, match=err_msg):
         yarn._get_deps(package_json, yarn_lock, allowlist)
 
 
@@ -518,7 +518,7 @@ def test_set_proxy_resolved_urls(mock_get_component, components_exist):
             f"The dependency fecha@{HTTP_DEP_NEXUS_VERSION} was uploaded to the Nexus hosted "
             "repository but is not available in cachito-yarn-42"
         )
-        with pytest.raises(CachitoError, match=err_msg):
+        with pytest.raises(NexusError, match=err_msg):
             yarn._set_proxy_resolved_urls(yarn_lock, "cachito-yarn-42")
 
     mock_get_component.assert_has_calls(expected_calls)

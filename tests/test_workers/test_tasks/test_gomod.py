@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from cachito.common.packages_data import PackagesData
-from cachito.errors import CachitoError
+from cachito.errors import FileAccessError, UnsupportedFeature
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
 
@@ -142,7 +142,7 @@ def test_fetch_gomod_source(
     if dep_replacements is not None and len(paths) > 1:
         # This is unsupported and no other tests are necessary
         with pytest.raises(
-            CachitoError,
+            UnsupportedFeature,
             match="Dependency replacements are only supported for a single go module path.",
         ):
             tasks.fetch_gomod_source(1, dep_replacements, pkg_config)
@@ -290,7 +290,7 @@ def test_fetch_gomod_source_no_go_mod_file(
     mock_bundle_dir.return_value.app_subpath.side_effect = directory_present
     if exception_expected:
         with pytest.raises(
-            CachitoError,
+            FileAccessError,
             match="The {} file{} must be present for the gomod package manager".format(
                 pkg_results["missing_files"], pkg_results["file_plurality"]
             ),

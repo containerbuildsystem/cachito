@@ -5,7 +5,7 @@ import os
 from typing import List, Optional
 
 from cachito.common.packages_data import PackagesData
-from cachito.errors import CachitoError
+from cachito.errors import FileAccessError, InvalidRepoStructure, ValidationError
 from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config, validate_npm_config
 from cachito.workers.paths import RequestBundleDir
@@ -42,8 +42,8 @@ def _verify_npm_files(bundle_dir, subpaths):
 
     :param RequestBundleDir bundle_dir: the ``RequestBundleDir`` object for the request
     :param list subpaths: a list of subpaths in the source repository of npm packages
-    :raises CachitoError: if the repository is missing the required files or contains invalid
-        files/directories
+    :raises InvalidRepoStructure: if the repository is missing the required files
+        or contains invalid files/directories
     """
     for subpath in subpaths:
         bundle_dir_subpath = bundle_dir.app_subpath(subpath)
@@ -58,21 +58,21 @@ def _verify_npm_files(bundle_dir, subpaths):
             lock_files_relpath = tuple(
                 bundle_dir_subpath.relpath(lock_file) for lock_file in lock_files
             )
-            raise CachitoError(
+            raise InvalidRepoStructure(
                 f"The {' or '.join(lock_files_relpath)} file must be present for the npm package "
                 "manager"
             )
 
         if not bundle_dir_subpath.npm_package_file.exists():
             package_json_rel_path = bundle_dir_subpath.relpath(bundle_dir_subpath.npm_package_file)
-            raise CachitoError(
+            raise InvalidRepoStructure(
                 f"The {package_json_rel_path} file must be present for the npm package manager"
             )
 
         log.debug("Ensuring there is no node_modules directory present")
         if bundle_dir_subpath.node_modules.exists():
             node_modules_rel_path = bundle_dir_subpath.relpath(bundle_dir_subpath.node_modules)
-            raise CachitoError(
+            raise InvalidRepoStructure(
                 f"The {node_modules_rel_path} directory cannot be present in the source repository"
             )
 
@@ -99,7 +99,7 @@ def fetch_npm_source(request_id, package_configs=None):
 
     :param int request_id: the Cachito request ID this is for
     :param list package_configs: the list of optional package configurations submitted by the user
-    :raise CachitoError: if the task fails
+    :raise FileAccessError/ValidationError: if the task fails
     """
     version_output = run_cmd(["npm", "--version"], {})
     log.info(f"npm version: {version_output.strip()}")
@@ -143,7 +143,7 @@ def fetch_npm_source(request_id, package_configs=None):
             package_and_deps_info = resolve_npm(
                 package_source_path, request, skip_deps=downloaded_deps
             )
-        except CachitoError:
+        except (FileAccessError, ValidationError):
             log.exception("Failed to fetch npm dependencies for request %d", request_id)
             raise
 

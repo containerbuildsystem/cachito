@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.errors import CachitoError
+from cachito.errors import FileAccessError, UnsupportedFeature, ValidationError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import general_js, npm
 
@@ -462,7 +462,7 @@ def test_get_deps_unsupported_non_registry_dep():
         },
     }
     expected = "The dependency tslib@file:tslib.tar.gz is hosted in an unsupported location"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(UnsupportedFeature, match=expected):
         npm._get_deps(package_lock_deps, set(), name_to_deps={})
 
 
@@ -731,7 +731,7 @@ def test_resolve_npm_no_lock(mock_dd, mock_exists):
         "The npm-shrinkwrap.json or package-lock.json file must be present for the npm "
         "package manager"
     )
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(FileAccessError, match=expected):
         npm.resolve_npm("/tmp/cachito-bundles/temp/1/app", {"id": 1})
 
 
@@ -743,5 +743,5 @@ def test_resolve_npm_invalid_lock(mock_dd, mock_gpad, mock_exists):
     mock_gpad.side_effect = KeyError("name")
 
     expected = "The lock file npm-shrinkwrap.json has an unexpected format (missing key: 'name')"
-    with pytest.raises(CachitoError, match=re.escape(expected)):
+    with pytest.raises(ValidationError, match=re.escape(expected)):
         npm.resolve_npm("/tmp/cachito-bundles/temp/1/app", {"id": 1})

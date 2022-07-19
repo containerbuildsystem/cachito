@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 import requests
 
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import NexusError, ValidationError
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general, rubygems
 from cachito.workers.pkg_managers.rubygems import GemMetadata, parse_gemlock
@@ -47,7 +47,7 @@ class TestNexus:
         mock_exec_script.side_effect = NexusScriptError()
 
         expected = "Failed to prepare Nexus for Cachito to stage Rubygems content"
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(NexusError, match=expected):
             rubygems.prepare_nexus_for_rubygems_request(
                 "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1"
             )
@@ -417,7 +417,7 @@ class TestGemlockParsing:
         """Check whether proper error is raised on groovy script failures."""
         mock_exec_script.side_effect = NexusScriptError()
         expected = "Failed to configure Nexus Rubygems repositories for final consumption"
-        with pytest.raises(CachitoError, match=expected):
+        with pytest.raises(NexusError, match=expected):
             rubygems.finalize_nexus_for_rubygems_request(
                 "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1", "user-1"
             )

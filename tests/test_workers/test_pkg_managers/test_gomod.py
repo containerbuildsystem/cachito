@@ -12,7 +12,14 @@ import git
 import pytest
 
 from cachito.common.packages_data import _package_sort_key
-from cachito.errors import CachitoError, ValidationError
+from cachito.errors import (
+    FileAccessError,
+    GoModError,
+    InvalidFileFormat,
+    UnsupportedFeature,
+    ValidationError,
+)
+from cachito.workers.errors import CachitoCalledProcessError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
 from cachito.workers.pkg_managers.gomod import (
@@ -442,7 +449,7 @@ def test_resolve_gomod_strict_mode_raise_error(
         'The "gomod-vendor" or "gomod-vendor-check" flag must be set when your repository has '
         "vendored dependencies."
     )
-    with strict_vendor and pytest.raises(CachitoError, match=expected_error) or nullcontext():
+    with strict_vendor and pytest.raises(ValidationError, match=expected_error) or nullcontext():
         resolve_gomod(
             archive_path, request, [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}]
         )
@@ -533,7 +540,7 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
     ]
 
     expected_error = "The following gomod dependency replacements don't apply: pizza"
-    with pytest.raises(CachitoError, match=expected_error):
+    with pytest.raises(GoModError, match=expected_error):
         resolve_gomod(
             "/path/archive.tar.gz",
             request,
@@ -561,7 +568,9 @@ def test_go_list_cmd_failure(
         mock.Mock(returncode=go_list_rc, stdout=_generate_mock_cmd_output()),  # go list -m all
     ]
 
-    with pytest.raises(CachitoError, match="Processing gomod dependencies failed"):
+    with pytest.raises(
+        (CachitoCalledProcessError, GoModError), match="Processing gomod dependencies failed"
+    ):
         resolve_gomod(archive_path, request)
 
 
@@ -830,7 +839,7 @@ def test_vet_local_deps_abspath(platform_specific_path):
     expect_error = re.escape(
         f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
     )
-    with pytest.raises(CachitoError, match=expect_error):
+    with pytest.raises(UnsupportedFeature, match=expect_error):
         _vet_local_deps(dependencies, "some-module", [])
 
 
@@ -841,7 +850,7 @@ def test_vet_local_deps_parent_dir(path):
     expect_error = re.escape(
         f"Path to gomod dependency contains '..': {path}. Cachito does not support this case."
     )
-    with pytest.raises(CachitoError, match=expect_error):
+    with pytest.raises(UnsupportedFeature, match=expect_error):
         _vet_local_deps(dependencies, "some-module", [])
 
 
@@ -909,7 +918,7 @@ def test_vet_local_deps_parent_dir(path):
 )
 def test_fail_unless_allowed(module_name, package_name, allowed_patterns, expect_error):
     if expect_error:
-        with pytest.raises(CachitoError, match=re.escape(expect_error)):
+        with pytest.raises(UnsupportedFeature, match=re.escape(expect_error)):
             _fail_unless_allowed(module_name, package_name, allowed_patterns)
     else:
         _fail_unless_allowed(module_name, package_name, allowed_patterns)
@@ -1303,7 +1312,7 @@ def test_module_lines_from_modules_txt_invalid_format(file_content, expect_error
     vendor.mkdir()
     vendor.joinpath("modules.txt").write_text(file_content)
 
-    with pytest.raises(CachitoError, match=expect_error_msg):
+    with pytest.raises((InvalidFileFormat, FileAccessError), match=expect_error_msg):
         gomod._module_lines_from_modules_txt(str(tmp_path))
 
 
@@ -1428,7 +1437,7 @@ def test_run_download_cmd_failure(mock_sleep, mock_run, mock_worker_config, capl
         "This may indicate a problem with your repository or Cachito itself."
     )
 
-    with pytest.raises(CachitoError, match=expect_msg):
+    with pytest.raises(GoModError, match=expect_msg):
         gomod.run_download_cmd(["go", "mod", "download"], {})
 
     assert mock_run.call_count == 5

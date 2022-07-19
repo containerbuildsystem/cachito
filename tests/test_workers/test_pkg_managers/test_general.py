@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 import requests
 
-from cachito.errors import CachitoError
+from cachito.errors import InvalidChecksum, InvalidRequestData, NetworkError
 from cachito.workers.pkg_managers import general
 from cachito.workers.pkg_managers.general import (
     ChecksumInfo,
@@ -49,7 +49,7 @@ def test_update_request_with_config_files_failed_connection(mock_post):
     mock_post.side_effect = requests.ConnectionError()
 
     expected = "The connection failed when adding configuration files to the request 1"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         update_request_with_config_files(1, [])
 
 
@@ -58,7 +58,7 @@ def test_update_request_with_config_files_failed(mock_post):
     mock_post.return_value.ok = False
 
     expected = "Adding configuration files on request 1 failed"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(InvalidRequestData, match=expected):
         update_request_with_config_files(1, [])
 
 
@@ -83,7 +83,7 @@ def test_verify_checksum_invalid_hexdigest(tmpdir):
     file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
 
     expected_error = "The file spells.txt has an unexpected checksum value"
-    with pytest.raises(CachitoError, match=expected_error):
+    with pytest.raises(InvalidChecksum, match=expected_error):
         verify_checksum(str(file), ChecksumInfo("sha512", "spam"))
 
 
@@ -92,7 +92,7 @@ def test_verify_checksum_unsupported_algorithm(tmpdir):
     file.write("Beetlejuice! Beetlejuice! Beetlejuice!")
 
     expected_error = "Cannot perform checksum on the file spells.txt,.*bacon.*"
-    with pytest.raises(CachitoError, match=expected_error):
+    with pytest.raises(InvalidChecksum, match=expected_error):
         verify_checksum(str(file), ChecksumInfo("bacon", "spam"))
 
 
@@ -122,7 +122,7 @@ def test_download_binary_file_failed(mock_get):
     mock_get.side_effect = [requests.RequestException("Something went wrong")]
 
     expected = "Could not download http://example.org/example.tar.gz: Something went wrong"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         download_binary_file("http://example.org/example.tar.gz", "/example.tar.gz")
 
 
@@ -158,7 +158,7 @@ def test_update_request_env_vars(mock_patch):
 @mock.patch.object(requests_auth_session, "patch")
 def test_update_request_env_vars_failed(mock_patch, side_effect, expected_error):
     mock_patch.side_effect = [side_effect]
-    with pytest.raises(CachitoError, match=expected_error):
+    with pytest.raises((InvalidRequestData, NetworkError), match=expected_error):
         update_request_env_vars(1, {"environment_variables": {}})
 
 

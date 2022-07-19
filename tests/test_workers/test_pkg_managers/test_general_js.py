@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.errors import CachitoError
+from cachito.errors import FileAccessError, InvalidFileFormat, NexusError, UnsupportedFeature
 from cachito.workers import nexus
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general, general_js, npm
@@ -243,7 +243,7 @@ def test_finalize_nexus_for_js_request_failed(mock_exec_script):
         "Failed to configure Nexus to allow the request's npm repository to be ready for "
         "consumption"
     )
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NexusError, match=expected):
         general_js.finalize_nexus_for_js_request("cachito-npm-1", "cachito-npm-1")
 
 
@@ -412,7 +412,7 @@ def test_prepare_nexus_for_js_request_failed(mock_exec_script):
     mock_exec_script.side_effect = NexusScriptError()
 
     expected = "Failed to prepare Nexus for Cachito to stage JavaScript content"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NexusError, match=expected):
         _, password = general_js.prepare_nexus_for_js_request(1)
 
 
@@ -489,7 +489,7 @@ def test_upload_non_registry_dependency_invalid_prepare_script(
         "The dependency star-wars@5.0.0 is not supported because Cachito cannot execute the "
         "following required scripts of Git dependencies: prepack, prepare"
     )
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(UnsupportedFeature, match=expected):
         general_js.upload_non_registry_dependency(
             "star-wars@5.0.0", "-the-empire-strikes-back", verify_scripts=True
         )
@@ -504,7 +504,7 @@ def test_upload_non_registry_dependency_no_package_json(mock_fpj, mock_run_cmd, 
     mock_fpj.return_value = None
 
     expected = "The dependency star-wars@5.0.0 does not have a package.json file"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(FileAccessError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
 
 
@@ -527,7 +527,7 @@ def test_upload_non_registry_dependency_invalid_package_json(
     mock_fpj.return_value = "package/package.json"
 
     expected = "The dependency star-wars@5.0.0 does not have a valid package.json file"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(FileAccessError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
 
 
@@ -708,7 +708,7 @@ def test_process_non_registry_dependency_http_integrity_missing():
         f"The dependency {dep_name}@{dep_identifier} is missing the integrity value. "
         'Is the "integrity" key missing in your lockfile?'
     )
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(InvalidFileFormat, match=expected):
         general_js.process_non_registry_dependency(dep)
 
 
@@ -722,7 +722,7 @@ def test_process_non_registry_dependency_invalid_location():
     dep = general_js.JSDependency(dep_name, source=dep_info["version"])
 
     expected = f"The dependency {dep_name}@{dep_identifier} is hosted in an unsupported location"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(UnsupportedFeature, match=expected):
         general_js.process_non_registry_dependency(dep)
 
 
@@ -743,7 +743,7 @@ def test_process_non_registry_dependency_github_not_in_nexus(mock_unrd, mock_gnc
     expected = (
         f"The dependency {dep_name}@{dep_identifier} was uploaded to Nexus but is not accessible"
     )
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(FileAccessError, match=expected):
         general_js.process_non_registry_dependency(dep)
 
 

@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 import requests
 
-from cachito.errors import CachitoError
+from cachito.errors import NetworkError
 from cachito.workers.cleanup_job import main
 
 mock_complete = {
@@ -253,7 +253,7 @@ def test_cleanup_job_request_not_stale(mock_requests, mock_mark_as_stale, mock_d
 def test_cleanup_job_request_get_timeout(mock_requests):
     mock_requests.side_effect = requests.ConnectionError()
     expected = "The connection failed when querying .+"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         main()
     assert mock_requests.call_count == 1
 
@@ -263,6 +263,6 @@ def test_cleanup_job_request_get_timeout(mock_requests):
 def test_cleanup_job_request_failed_get(mock_requests):
     mock_requests.return_value.ok = False
     expected = "Could not reach the Cachito API to find the requests to be marked as stale"
-    with pytest.raises(CachitoError, match=expected):
+    with pytest.raises(NetworkError, match=expected):
         main()
     assert mock_requests.call_count == 1

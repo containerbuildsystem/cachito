@@ -5,7 +5,7 @@ import os
 import pytest
 
 from cachito.common.packages_data import PackagesData, unique_packages
-from cachito.errors import CachitoError
+from cachito.errors import InvalidRequestData
 
 
 @pytest.mark.parametrize(
@@ -159,7 +159,7 @@ def test_sort_packages_and_deps_in_place():
                     [{"name": "golang.org/x/text/internal/tag"}],
                 ],
             ],
-            pytest.raises(CachitoError, match="Duplicate package"),
+            pytest.raises(InvalidRequestData, match="Duplicate package"),
         ],
     ],
 )

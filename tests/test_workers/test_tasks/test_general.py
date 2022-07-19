@@ -13,7 +13,13 @@ import pytest
 from requests import Timeout
 
 from cachito.common.checksum import hash_file
-from cachito.errors import CachitoError, RequestErrorOrigin, ValidationError
+from cachito.errors import (
+    FileAccessError,
+    InvalidRequestData,
+    NetworkError,
+    RequestErrorOrigin,
+    ValidationError,
+)
 from cachito.workers import tasks
 from cachito.workers.paths import RequestBundleDir, SourcesDir
 from cachito.workers.tasks.general import _enforce_sandbox, save_bundle_archive_checksum
@@ -115,21 +121,21 @@ def test_fetch_app_source_request_timed_out(
     url = "https://github.com/release-engineering/retrodep.git"
     ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
     mock_git.return_value.fetch_source.side_effect = Timeout("The request timed out")
-    with pytest.raises(CachitoError, match="The connection timed out while downloading the source"):
+    with pytest.raises(NetworkError, match="The connection timed out while downloading the source"):
         tasks.fetch_app_source(url, ref, 1, gitsubmodule)
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 def test_failed_request_callback(mock_set_request_state):
-    exc = CachitoError("some error")
+    exc = InvalidRequestData("some error")
     tasks.failed_request_callback(None, exc, None, 1)
     mock_set_request_state.assert_called_once_with(
-        1, "failed", "some error", RequestErrorOrigin.server, "CachitoError"
+        1, "failed", "some error", RequestErrorOrigin.client, "InvalidRequestData"
     )
 
 
 @mock.patch("cachito.workers.tasks.general.set_request_state")
-def test_failed_request_callback_not_cachitoerror(mock_set_request_state):
+def test_failed_request_callback_unknown_error(mock_set_request_state):
     exc = ValueError("some error")
     tasks.failed_request_callback(None, exc, None, 1)
     mock_set_request_state.assert_called_once_with(
@@ -328,7 +334,7 @@ def test_finalize_request(
 
     error_message = f"Error checking packages data for request {request_id}."
 
-    with raise_error and pytest.raises(CachitoError, match=error_message) or nullcontext():
+    with raise_error and pytest.raises(InvalidRequestData, match=error_message) or nullcontext():
         mock_get_request_packages_and_dependencies.return_value = packages_data
         tasks.finalize_request(expected_counts, request_id)
 
@@ -347,11 +353,11 @@ def test_finalize_request_with_error_when_fetching_api(
     error_message = f"Packages file could not be loaded for request {request_id}"
 
     def side_effect(*args):
-        raise CachitoError(error_message)
+        raise NetworkError(error_message)
 
     mock_get_request_packages_and_dependencies.side_effect = side_effect
 
-    with pytest.raises(CachitoError, match=error_message):
+    with pytest.raises(NetworkError, match=error_message):
         tasks.finalize_request((1, 2), request_id)
 
     mock_get_request_packages_and_dependencies.assert_called_once_with(42)
@@ -374,5 +380,5 @@ def test_save_bundle_archive_checksum(get_worker_config, bundle_archive_exists, 
         expected_checksum = hash_file(bundle_dir.bundle_archive_file).hexdigest()
         assert expected_checksum == bundle_dir.bundle_archive_checksum.read_text(encoding="utf-8")
     else:
-        with pytest.raises(CachitoError, match=r"Bundle archive .+ does not exist"):
+        with pytest.raises(FileAccessError, match=r"Bundle archive .+ does not exist"):
             save_bundle_archive_checksum(request_id)

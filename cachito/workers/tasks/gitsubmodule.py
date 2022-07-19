@@ -19,7 +19,7 @@ def add_git_submodules_as_package(request_id):
     Add git submodules as package to the Cachtio request.
 
     :param int request_id: the Cachito request ID this is for
-    :raises CachitoError: if adding submodules as a package fail.
+    :raises InvalidRequestData: if adding submodules as a package fail.
     """
     bundle_dir = RequestBundleDir(request_id)
     repo = git.Repo(str(bundle_dir.source_root_dir))
