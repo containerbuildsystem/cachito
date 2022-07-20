@@ -6,7 +6,7 @@ import kombu
 import requests
 import sqlalchemy.exc
 
-from cachito.errors import CachitoError
+from cachito.errors import NoWorkers, WorkerConfigError
 from cachito.web import db
 from cachito.workers.config import get_worker_config
 from cachito.workers.tasks.celery import app
@@ -194,13 +194,14 @@ def status(*, short=False, worker_ping_retries=2):
         "can_process": dict with availability info for individual package managers
         "services": list of status info for individual services
         "workers": list of status info for individual workers
-    :raises CachitoError: if short is True and a problem is found
+    :raises WorkerConfigError: if a worker service is unavailable
+    :raises NoWorkers: if short is True and a problem is found
     """
     services = []
 
     def add_status(service_name, ok, reason):
         if short and not ok:
-            raise CachitoError(f"{service_name} unavailable: {reason}")
+            raise WorkerConfigError(f"{service_name} unavailable: {reason}")
         service = {"name": service_name, "ok": ok}
         if not ok:
             service["reason"] = reason
@@ -223,7 +224,7 @@ def status(*, short=False, worker_ping_retries=2):
 
     any_worker_ok = any(worker["ok"] for worker in workers)
     if short and not any_worker_ok:
-        raise CachitoError("no workers are available")
+        raise NoWorkers("no workers are available")
 
     pkg_managers = flask.current_app.config["CACHITO_PACKAGE_MANAGERS"]
 
