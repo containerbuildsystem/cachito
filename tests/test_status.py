@@ -6,7 +6,7 @@ import pytest
 import sqlalchemy.exc
 from requests import RequestException
 
-from cachito.errors import CachitoError
+from cachito.errors import NoWorkers, WorkerConfigError
 from cachito.web import status
 
 TEST_PACKAGE_MANAGERS = ["gomod", "npm", "pip", "git-submodule", "yarn"]
@@ -334,7 +334,7 @@ def test_status_service_not_ok(
 
     if short:
         err_msg = "athens unavailable: Athens is currently at war with Sparta"
-        with pytest.raises(CachitoError, match=err_msg):
+        with pytest.raises(WorkerConfigError, match=err_msg):
             status.status(short=True)
         return
 
@@ -407,7 +407,7 @@ def test_status_worker_not_ok(
     mock_workers_status.return_value = workers_status_result
 
     if short and not expect_any_worker_ok:
-        with pytest.raises(CachitoError, match="no workers are available"):
+        with pytest.raises(NoWorkers, match="no workers are available"):
             status.status(short=True)
         return
 
@@ -464,7 +464,7 @@ def test_status_rabbitmq_not_ok(
 
     if short:
         err_msg = "rabbitmq unavailable: failed to resolve broker hostname"
-        with pytest.raises(CachitoError, match=err_msg):
+        with pytest.raises(WorkerConfigError, match=err_msg):
             status.status(short=True)
     else:
         result = status.status(short=False)

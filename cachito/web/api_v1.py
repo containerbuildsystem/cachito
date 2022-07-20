@@ -22,7 +22,7 @@ from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.common.utils import b64encode
-from cachito.errors import CachitoError, RequestErrorOrigin, ValidationError
+from cachito.errors import MessageBrokerError, NoWorkers, RequestErrorOrigin, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM
 from cachito.web.models import (
@@ -64,7 +64,7 @@ def get_status_short():
     try:
         status(short=True)
         retval = {"ok": True}
-    except CachitoError as e:
+    except NoWorkers as e:
         flask.current_app.logger.error(e)
         retval = {"ok": False, "reason": str(e)}
 
@@ -326,6 +326,7 @@ def create_request():
 
     :rtype: flask.Response
     :raise ValidationError: if required parameters are not supplied
+    :raise MessageBrokerError: if message broker fails to schedule the task to the workers
     """
     payload = flask.request.get_json()
     if not isinstance(payload, dict):
@@ -424,7 +425,7 @@ def create_request():
         error = "Failed to schedule the task to the workers. Please try again."
         request.add_state("failed", error)
         db.session.commit()
-        raise CachitoError(error)
+        raise MessageBrokerError(error)
 
     flask.current_app.logger.info("Successfully scheduled request %d", request.id)
     return flask.jsonify(request.to_json()), 201

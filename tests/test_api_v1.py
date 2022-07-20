@@ -17,7 +17,7 @@ import pytest
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
-from cachito.errors import CachitoError, RequestErrorOrigin, ValidationError
+from cachito.errors import NoWorkers, RequestErrorOrigin, ValidationError
 from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER, Package
 from cachito.web.models import (
     ConfigFileBase64,
@@ -70,7 +70,7 @@ def test_get_status(mock_status, client):
 @mock.patch("cachito.web.api_v1.status")
 def test_get_status_short(mock_status, error, client):
     if error:
-        mock_status.side_effect = [CachitoError(error)]
+        mock_status.side_effect = [NoWorkers(error)]
     rv = client.get("api/v1/status/short")
 
     if error:
@@ -1120,7 +1120,7 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     error = "Failed to schedule the task to the workers. Please try again."
     assert any(elem == error for elem in state_reasons)
 
-    assert rv.status_code == 503
+    assert rv.status_code == 500
     assert rv.json == {"error": error}
     # Verify that the request is in the failed state
     assert Request.query.get(1).state.state_name == "failed"
