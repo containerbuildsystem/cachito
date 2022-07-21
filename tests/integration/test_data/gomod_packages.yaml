@@ -1829,3 +1829,22 @@ symlink_loop:
     deps/gomod/pkg/mod/cache/download: null
   content_manifest:
   - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-symlink-loop@v0.0.0-20220712180726-2448c37cc276"
+# gomod package without package manager and dependencies
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# flags: A list of strings with Cachito flags
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files (empty)
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+without_pkg_manager:
+  repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
+  ref: a888f7261b9a9683972fbd77da2d12fe86faef5e
+  pkg_managers: []
+  response_expectations:
+    packages: []
+    dependencies: []
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-gomod-without-deps/tarball/a888f7261b9a9683972fbd77da2d12fe86faef5e
+    deps: null
+  content_manifest: []

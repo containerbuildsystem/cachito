@@ -31,6 +31,7 @@ from . import utils
         ("gomod_packages", "force_tidy_without_deps"),
         ("gomod_packages", "force_tidy_vendored"),
         ("gomod_packages", "symlink_loop"),
+        ("gomod_packages", "without_pkg_manager"),
         ("gomod_vendor_check", "correct_vendor"),
         ("gomod_vendor_check", "no_vendor"),
         ("npm_packages", "without_deps"),
