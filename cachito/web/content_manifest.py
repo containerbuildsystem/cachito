@@ -1,18 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import os
-import re
-import urllib.parse
 from copy import deepcopy
 from typing import List, Optional
 
 import flask
-import pkg_resources
 
-from cachito.errors import ContentManifestError
+from cachito.web.purl import (
+    replace_parent_purl_gomod,
+    replace_parent_purl_gopkg,
+    to_purl,
+    to_top_level_purl,
+)
 from cachito.web.utils import deep_sort_icm
 from cachito.workers.pkg_managers import gomod
-
-PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
 
 VERSION = 1
 JSON_SCHEMA_URL = (
@@ -69,7 +68,8 @@ class ContentManifest:
         """
         if dependency.type == "gomod":
             parent_purl = self._gomod_data[package.name]["purl"]
-            dep_purl = dependency.to_purl().replace(PARENT_PURL_PLACEHOLDER, parent_purl)
+            dep_purl = to_purl(dependency)
+            dep_purl = replace_parent_purl_gomod(dep_purl, parent_purl)
             icm_source = {"purl": dep_purl}
             self._gomod_data[package.name]["dependencies"].append(icm_source)
 
@@ -81,7 +81,7 @@ class ContentManifest:
         :param Dependency dependency: the go-package package dependency to process
         """
         if dependency.type == "go-package":
-            icm_dependency = {"purl": dependency.to_purl()}
+            icm_dependency = {"purl": to_purl(dependency)}
             self._gopkg_data[package]["dependencies"].append(icm_dependency)
 
     def set_go_package_sources(self):
@@ -104,22 +104,11 @@ class ContentManifest:
             if module_name is not None:
                 module = self._gomod_data[module_name]
                 self._gopkg_data[package_id]["sources"] = module["dependencies"]
-                self._replace_parent_purl_gopkg(self._gopkg_data[package_id], module["purl"])
+                replace_parent_purl_gopkg(self._gopkg_data[package_id], module["purl"])
             else:
                 flask.current_app.logger.warning(
                     "Could not find a Go module for %s", pkg_data["purl"]
                 )
-
-    def _replace_parent_purl_gopkg(self, go_pkg: dict, module_purl: str):
-        """
-        Replace PARENT_PURL_PLACEHOLDER in go-package dependencies with the parent module purl.
-
-        The purl of the package itself cannot contain a placeholder. The purls of all of its
-        sources will have been replaced at this point already (they come from the parent module).
-        Only dependencies need to be replaced here.
-        """
-        for dep in go_pkg["dependencies"]:
-            dep["purl"] = dep["purl"].replace(PARENT_PURL_PLACEHOLDER, module_purl)
 
     def process_npm_package(self, package, dependency):
         """
@@ -159,7 +148,7 @@ class ContentManifest:
         """
         pkg_type_data = getattr(self, f"_{pkg_type}_data")
 
-        icm_dependency = {"purl": dependency.to_purl()}
+        icm_dependency = {"purl": to_purl(dependency)}
         pkg_type_data[package]["sources"].append(icm_dependency)
         if not dependency.dev:
             pkg_type_data[package]["dependencies"].append(icm_dependency)
@@ -181,20 +170,20 @@ class ContentManifest:
         for package in self.packages:
 
             if package.type == "go-package":
-                purl = package.to_top_level_purl(self.request, subpath=package.path)
+                purl = to_top_level_purl(package, self.request, subpath=package.path)
                 self._gopkg_data.setdefault(
                     package,
                     {"name": package.name, "purl": purl, "dependencies": [], "sources": []},
                 )
             elif package.type == "gomod":
-                purl = package.to_top_level_purl(self.request, subpath=package.path)
+                purl = to_top_level_purl(package, self.request, subpath=package.path)
                 self._gomod_data.setdefault(package.name, {"purl": purl, "dependencies": []})
             elif package.type in ("npm", "pip", "yarn"):
-                purl = package.to_top_level_purl(self.request, subpath=package.path)
+                purl = to_top_level_purl(package, self.request, subpath=package.path)
                 data = getattr(self, f"_{package.type}_data")
                 data.setdefault(package, {"purl": purl, "dependencies": [], "sources": []})
             elif package.type == "git-submodule":
-                purl = package.to_top_level_purl(self.request, subpath=package.path)
+                purl = to_top_level_purl(package, self.request, subpath=package.path)
                 self._gitsubmodule_data.setdefault(
                     package, {"purl": purl, "dependencies": [], "sources": []}
                 )
@@ -309,155 +298,3 @@ class Package:
             dependencies=dependencies,
             path=package.get("path"),
         )
-
-    def to_purl(self):
-        """
-        Generate the PURL representation of the package.
-
-        :return: the PURL string of the Package object
-        :rtype: str
-        :raise ContentManifestError: if the there is no implementation for the package type
-        """
-        if self.type in ("go-package", "gomod"):
-            if self.version and self.version.startswith("."):
-                # Package is relative to the parent module
-                normpath = os.path.normpath(self.version)
-                return f"{PARENT_PURL_PLACEHOLDER}#{normpath}"
-
-            # Use only the PURL "name" field to avoid ambiguity for Go modules/packages
-            # see https://github.com/package-url/purl-spec/issues/63 for further reference
-            purl_name = urllib.parse.quote(self.name, safe="")
-            if self.version:
-                return f"pkg:golang/{purl_name}@{self.version}"
-            else:
-                return f"pkg:golang/{purl_name}"
-        elif self.type == "npm" or self.type == "yarn":
-            purl_name = urllib.parse.quote(self.name)
-            match = re.match(
-                r"(?P<protocol>[^:]+):(?P<has_authority>//)?(?P<suffix>.+)", self.version
-            )
-            if not match:
-                return f"pkg:npm/{purl_name}@{self.version}"
-            protocol = match.group("protocol")
-            suffix = match.group("suffix")
-            has_authority = match.group("has_authority")
-            if protocol == "file":
-                qualifier = urllib.parse.quote(self.version, safe="")
-                return f"generic/{purl_name}?{qualifier}"
-            elif not has_authority:
-                # github:namespace/name#ref or gitlab:ns1/ns2/name#ref
-                match_forge = re.match(
-                    r"(?P<namespace>.+)/(?P<name>[^#/]+)#(?P<version>.+)$", suffix
-                )
-                if not match_forge:
-                    raise ContentManifestError(f"Could not convert version {self.version} to purl")
-                forge = match_forge.groupdict()
-                return f"pkg:{protocol}/{forge['namespace']}/{forge['name']}@{forge['version']}"
-            elif protocol in ("git", "git+http", "git+https", "git+ssh"):
-                qualifier = urllib.parse.quote(self.version, safe="")
-                return f"pkg:generic/{purl_name}?vcs_url={qualifier}"
-            elif protocol in ("http", "https"):
-                qualifier = urllib.parse.quote(self.version, safe="")
-                return f"pkg:generic/{purl_name}?download_url={qualifier}"
-            else:
-                raise ContentManifestError(
-                    f"Unknown protocol in {self.type} package version: {self.version}"
-                )
-
-        elif self.type == "pip":
-            # As per the purl spec, PyPI names should be normalized by lowercasing and
-            # converting '_' to '-'. The safe_name() function does the latter but not the
-            # former. It is not necessary to escape characters in the name, safe_name()
-            # also replaces everything except alphanumeric chars and '.' with '-'.
-            name = pkg_resources.safe_name(self.name.lower())
-            parsed_url = urllib.parse.urlparse(self.version)
-
-            if not parsed_url.scheme:
-                # Version is a PyPI version string
-                return f"pkg:pypi/{name}@{self.version}"
-            elif parsed_url.scheme.startswith("git+"):
-                # Version is git+<git_url>
-                scheme = parsed_url.scheme[len("git+") :]
-                vcs_url = f"{scheme}://{parsed_url.netloc}{parsed_url.path}"
-                repo_url, ref = vcs_url.rsplit("@", 1)
-                return self.to_vcs_purl(repo_url, ref)
-            else:
-                # Version is a plain URL
-                fragments = urllib.parse.parse_qs(parsed_url.fragment)
-                checksum = fragments["cachito_hash"][0]
-                quoted_url = urllib.parse.quote(self.version, safe="")
-                return f"pkg:generic/{name}?download_url={quoted_url}&checksum={checksum}"
-
-        elif self.type == "git-submodule":
-            # Version is a submodule repository url followed by `#` separator and
-            # `submodule-commit-ref`, e.g.
-            # https://github.com/org-name/submodule-name.git#522fb816eec295ad58bc488c74b2b46748d471b2
-            repo_url, ref = self.version.rsplit("#", 1)
-            return self.to_vcs_purl(repo_url, ref)
-
-        else:
-            raise ContentManifestError(f"The PURL spec is not defined for {self.type} packages")
-
-    def to_vcs_purl(self, repo_url, ref):
-        """
-        Generate the vcs purl representation of the package.
-
-        Use the most specific purl type possible, e.g. pkg:github if repo comes from
-        github.com. Fall back to using pkg:generic with a ?vcs_url qualifier.
-
-        :param str repo_url: url of git repository for package
-        :param str ref: git ref of package
-        :return: the PURL string of the Package object
-        :rtype: str
-        """
-        repo_url = repo_url.rstrip("/")
-        parsed_url = urllib.parse.urlparse(repo_url)
-
-        pkg_type_for_hostname = {
-            "github.com": "github",
-            "bitbucket.org": "bitbucket",
-        }
-        pkg_type = pkg_type_for_hostname.get(parsed_url.hostname, "generic")
-
-        if pkg_type == "generic":
-            vcs_url = urllib.parse.quote(f"{repo_url}@{ref}", safe="")
-            purl = f"pkg:generic/{self.name}?vcs_url={vcs_url}"
-        else:
-            # pkg:github and pkg:bitbucket use the same format
-            namespace, repo = parsed_url.path.lstrip("/").rsplit("/", 1)
-            if repo.endswith(".git"):
-                repo = repo[: -len(".git")]
-            purl = f"pkg:{pkg_type}/{namespace.lower()}/{repo.lower()}@{ref}"
-
-        return purl
-
-    def to_top_level_purl(self, request, subpath=None):
-        """
-        Generate the purl representation of a top-level package (not a dependency).
-
-        In Cachito, all top-level packages come from the git repository that the user
-        requested. Generate a purl that properly conveys this information.
-
-        The relation between Package and Request is many-to-many, therefore the caller
-        must specify the request to use when generating the purl.
-
-        :param Request request: the request that contains this package
-        :param str subpath: relative path to package from root of repository
-        :return: the PURL string of the Package object
-        :rtype: str
-        """
-        if self.type in ("gomod", "go-package", "git-submodule"):
-            purl = self.to_purl()
-            # purls for git submodules point to a different repo, path is neither needed nor valid
-            # golang package and module names should reflect the path already
-            include_path = False
-        elif self.type in ("npm", "pip", "yarn"):
-            purl = self.to_vcs_purl(request.repo, request.ref)
-            include_path = True
-        else:
-            raise ContentManifestError(f"{self.type!r} is not a valid top level package")
-
-        if subpath and include_path:
-            purl = f"{purl}#{subpath}"
-
-        return purl
