@@ -18,7 +18,7 @@ from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.errors import NoWorkers, RequestErrorOrigin, ValidationError
-from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER, Package
+from cachito.web.content_manifest import BASE_ICM, Package
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -28,6 +28,7 @@ from cachito.web.models import (
     RequestStateMapping,
     _validate_package_manager_exclusivity,
 )
+from cachito.web.purl import PARENT_PURL_PLACEHOLDER, to_purl, to_top_level_purl
 from cachito.web.utils import deep_sort_icm
 from cachito.workers.tasks import (
     add_git_submodules_as_package,
@@ -1790,16 +1791,16 @@ def test_fetch_request_content_manifest_go(
     db.session.commit()
 
     # set expectations
-    main_pkg = Package.from_json(sample_pkg_lvl_pkg).to_purl()
+    main_pkg = to_purl(Package.from_json(sample_pkg_lvl_pkg))
     image_content = {"purl": main_pkg, "dependencies": [], "sources": []}
 
     for d in sample_deps:
         d.pop("replaces")
-        p = Package.from_json(d).to_purl().replace(PARENT_PURL_PLACEHOLDER, main_pkg)
+        p = to_purl(Package.from_json(d)).replace(PARENT_PURL_PLACEHOLDER, main_pkg)
         image_content["sources"].append({"purl": p})
     for d in sample_pkg_deps:
         d.pop("replaces")
-        p = Package.from_json(d).to_purl().replace(PARENT_PURL_PLACEHOLDER, main_pkg)
+        p = to_purl(Package.from_json(d)).replace(PARENT_PURL_PLACEHOLDER, main_pkg)
         image_content["dependencies"].append({"purl": p})
 
     expected = {
@@ -2291,13 +2292,13 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
         ["requests=", []],
         [
             f"requests={requests[0].id}",
-            [{"purl": pkg1.to_top_level_purl(requests[0]), "dependencies": [], "sources": []}],
+            [{"purl": to_top_level_purl(pkg1, requests[0]), "dependencies": [], "sources": []}],
         ],
         [
             f"requests={requests[0].id},,{requests[1].id}",
             [
-                {"purl": pkg1.to_top_level_purl(requests[0]), "dependencies": [], "sources": []},
-                {"purl": pkg2.to_top_level_purl(requests[1]), "dependencies": [], "sources": []},
+                {"purl": to_top_level_purl(pkg1, requests[0]), "dependencies": [], "sources": []},
+                {"purl": to_top_level_purl(pkg2, requests[1]), "dependencies": [], "sources": []},
             ],
         ],
         [

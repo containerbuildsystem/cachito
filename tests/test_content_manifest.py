@@ -5,13 +5,9 @@ from unittest import mock
 import pytest
 
 from cachito.errors import ContentManifestError
-from cachito.web.content_manifest import (
-    JSON_SCHEMA_URL,
-    PARENT_PURL_PLACEHOLDER,
-    ContentManifest,
-    Package,
-)
+from cachito.web.content_manifest import JSON_SCHEMA_URL, ContentManifest, Package
 from cachito.web.models import Request
+from cachito.web.purl import PARENT_PURL_PLACEHOLDER, to_purl, to_top_level_purl, to_vcs_purl
 
 GIT_REPO = "https://github.com/namespace/repo"
 GIT_REF = "1798a59f297f5f3886e41bc054e538540581f8ce"
@@ -344,7 +340,7 @@ def test_package_equality(json1, json2, equality):
     ],
 )
 @pytest.mark.parametrize("subpath", [None, "some/path"])
-@mock.patch("cachito.web.content_manifest.Package.to_top_level_purl")
+@mock.patch("cachito.web.content_manifest.to_top_level_purl")
 def test_to_json(mock_top_level_purl, app, package, subpath):
     request = Request()
 
@@ -367,7 +363,8 @@ def test_to_json(mock_top_level_purl, app, package, subpath):
     assert cm.to_json() == expected
 
     if package:
-        mock_top_level_purl.assert_called_once_with(request, subpath=subpath)
+        package = Package.from_json(package)
+        mock_top_level_purl.assert_called_once_with(package, request, subpath=subpath)
 
 
 @pytest.mark.parametrize(
@@ -394,7 +391,7 @@ def test_to_json_with_multiple_packages(mock_generate_icm, app, packages_json):
 
     for package_json in packages_json:
         package = Package.from_json(package_json)
-        content = {"purl": package.to_purl(), "dependencies": [], "sources": []}
+        content = {"purl": to_purl(package), "dependencies": [], "sources": []}
         image_contents.append(content)
 
     res = cm.to_json()
@@ -780,14 +777,14 @@ def test_set_go_package_sources_replace_parent_purl(
 def test_purl_conversion(package, expected_purl, defined, known_protocol):
     pkg = Package.from_json(package)
     if defined and known_protocol:
-        purl = pkg.to_purl()
+        purl = to_purl(pkg)
         assert purl == expected_purl
     else:
         msg = f"The PURL spec is not defined for {pkg.type} packages"
         if defined:
             msg = f"Unknown protocol in {pkg.type} package version: {pkg.version}"
         with pytest.raises(ContentManifestError, match=msg):
-            pkg.to_purl()
+            to_purl(pkg)
 
 
 def test_purl_conversion_bogus_forge():
@@ -796,7 +793,7 @@ def test_purl_conversion_bogus_forge():
 
     msg = f"Could not convert version {pkg.version} to purl"
     with pytest.raises(ContentManifestError, match=msg):
-        pkg.to_purl()
+        to_purl(pkg)
 
 
 @pytest.mark.parametrize(
@@ -825,7 +822,7 @@ def test_purl_conversion_bogus_forge():
 )
 def test_vcs_purl_conversion(repo_url, expected_purl):
     pkg = Package(name="foo", type="", version="")
-    assert pkg.to_vcs_purl(repo_url, GIT_REF) == expected_purl
+    assert to_vcs_purl(pkg.name, repo_url, GIT_REF) == expected_purl
 
 
 @pytest.mark.parametrize(
@@ -857,7 +854,7 @@ def test_vcs_purl_conversion(repo_url, expected_purl):
 def test_top_level_purl_conversion_specialized(package, path, expected_purl, default_request):
     """Test top-level purl conversion for package types that can use specialized purls."""
     pkg = Package(**package)
-    purl = pkg.to_top_level_purl(default_request, subpath=path)
+    purl = to_top_level_purl(pkg, default_request, subpath=path)
     assert purl == expected_purl
 
 
@@ -868,7 +865,7 @@ def test_top_level_purl_conversion_specialized(package, path, expected_purl, def
 def test_top_level_purl_conversion_generic(pkg_manager, path, expected_purl, default_request):
     """Test top-level purl conversion for package types that must use generic purls."""
     pkg = Package(name="foo", version="1.0.0", type=pkg_manager)
-    purl = pkg.to_top_level_purl(default_request, subpath=path)
+    purl = to_top_level_purl(pkg, default_request, subpath=path)
     assert purl == expected_purl
 
 
@@ -877,4 +874,4 @@ def test_top_level_purl_conversion_bogus(default_request):
 
     msg = "'bogus' is not a valid top level package"
     with pytest.raises(ContentManifestError, match=msg):
-        pkg.to_top_level_purl(default_request)
+        to_top_level_purl(pkg, default_request)
