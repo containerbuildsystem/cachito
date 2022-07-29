@@ -111,6 +111,24 @@ class TestGemlockParsing:
                     GemMetadata("builder", "3.2.4", "GEM", "https://rubygems.org/"),
                 ],
             ),
+            # GEM dependencies without specified version should be skipped
+            (
+                dedent(
+                    """
+                    GEM
+                      remote: https://rubygems.org/
+                      specs:
+                        zeitwerk
+
+                    PLATFORMS
+                      ruby
+
+                    DEPENDENCIES
+                      zeitwerk
+                    """
+                ),
+                [],
+            ),
         ),
     )
     def test_parsing_of_valid_cases(self, file_contents, expected_dependencies, tmpdir):
@@ -255,23 +273,6 @@ class TestGemlockParsing:
                     """
                 ),
                 "Gemfile.lock contains unsupported dependency type.",
-            ),
-            (
-                dedent(
-                    """
-                    GEM
-                      remote: https://rubygems.org/
-                      specs:
-                        zeitwerk
-
-                    PLATFORMS
-                      ruby
-
-                    DEPENDENCIES
-                      zeitwerk
-                    """
-                ),
-                "Unspecified name or version of a RubyGem.",
             ),
             (
                 dedent(

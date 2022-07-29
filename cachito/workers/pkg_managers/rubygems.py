@@ -63,7 +63,7 @@ def parse_gemlock(source_dir, gemlock_path):
 
     :param Path source_dir: the full path to the project directory
     :param Path gemlock_path: the full path to Gemfile.lock
-    :return: list of Gems
+    :return: list[GemMetadata]
     """
     if not gemlock_path.is_file():
         raise ValidationError(
@@ -75,6 +75,12 @@ def parse_gemlock(source_dir, gemlock_path):
     dependencies = []
     all_gems = GemfileLockParser(str(gemlock_path)).all_gems
     for gem in all_gems.values():
+        if gem.version is None:
+            log.debug(
+                f"Skipping RubyGem {gem.name}, because of a missing version. "
+                f"This means gem is not used in a platform for which Gemfile.lock was generated."
+            )
+            continue
         _validate_gem_metadata(gem, source_dir, gemlock_path.parent)
         source = gem.remote if gem.type != "PATH" else gem.path
         dependencies.append(GemMetadata(gem.name, gem.version, gem.type, source))
@@ -102,9 +108,6 @@ def _validate_gem_metadata(gem, source_dir, gemlock_dir):
     :param Path gemlock_dir: the root directory containing Gemfile.lock
     :raise: ValidationError
     """
-    if gem.name is None or gem.version is None:
-        raise ValidationError("Unspecified name or version of a RubyGem.")
-
     if gem.type == "GEM":
         if gem.remote != "https://rubygems.org/":
             raise ValidationError(
