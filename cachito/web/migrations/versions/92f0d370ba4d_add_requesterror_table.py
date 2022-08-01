@@ -24,7 +24,10 @@ def upgrade():
         sa.Column("error_type", sa.String(), nullable=False),
         sa.Column("message", sa.String(), nullable=False),
         sa.Column("occurred", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(["request_id"], ["request.id"],),
+        sa.ForeignKeyConstraint(
+            ["request_id"],
+            ["request.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("id"),
         sa.UniqueConstraint("request_id"),

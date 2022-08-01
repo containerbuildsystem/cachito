@@ -96,8 +96,20 @@ def test_request_invalid_params(invalid_param):
 @pytest.mark.parametrize(
     "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags",
     (
-        ([], [], None, [], None,),
-        ([], ["gomod", "git-submodule"], None, ["gomod", "git-submodule"], None,),
+        (
+            [],
+            [],
+            None,
+            [],
+            None,
+        ),
+        (
+            [],
+            ["gomod", "git-submodule"],
+            None,
+            ["gomod", "git-submodule"],
+            None,
+        ),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             ["gomod"],
@@ -119,10 +131,34 @@ def test_request_invalid_params(invalid_param):
             ["gomod", "git-submodule"],
             None,
         ),
-        ([], [], "tom_hanks@DOMAIN.LOCAL", [], None,),
-        ([], ["npm"], None, ["npm"], None,),
-        ([], ["pip"], None, ["pip"], None,),
-        ([], ["yarn"], None, ["yarn"], None,),
+        (
+            [],
+            [],
+            "tom_hanks@DOMAIN.LOCAL",
+            [],
+            None,
+        ),
+        (
+            [],
+            ["npm"],
+            None,
+            ["npm"],
+            None,
+        ),
+        (
+            [],
+            ["pip"],
+            None,
+            ["pip"],
+            None,
+        ),
+        (
+            [],
+            ["yarn"],
+            None,
+            ["yarn"],
+            None,
+        ),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -214,7 +250,11 @@ def test_create_and_fetch_request(
 
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_request_with_gomod_package_configs(
-    mock_chain, app, auth_env, client, db,
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
 ):
     package_value = {"gomod": [{"path": "."}, {"path": "proxy"}]}
     data = {
@@ -245,7 +285,11 @@ def test_create_request_with_gomod_package_configs(
 
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_request_with_npm_package_configs(
-    mock_chain, app, auth_env, client, db,
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
 ):
     package_value = {"npm": [{"path": "client"}, {"path": "proxy"}]}
     data = {
@@ -317,7 +361,11 @@ def test_create_request_with_pip_package_configs(mock_chain, app, auth_env, clie
 
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_request_with_yarn_package_configs(
-    mock_chain, app, auth_env, client, db,
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
 ):
     package_value = {"yarn": [{"path": "client"}, {"path": "proxy"}]}
     data = {
@@ -1251,7 +1299,14 @@ def test_set_state(state, app, client, db, worker_auth_env, tmpdir):
 @pytest.mark.parametrize("pkg_managers", (["gomod"], ["npm"], ["gomod", "npm"]))
 @mock.patch("cachito.web.api_v1.tasks.cleanup_npm_request")
 def test_set_state_stale(
-    mock_cleanup_npm, pkg_managers, bundle_exists, app, client, db, worker_auth_env, tmpdir,
+    mock_cleanup_npm,
+    pkg_managers,
+    bundle_exists,
+    app,
+    client,
+    db,
+    worker_auth_env,
+    tmpdir,
 ):
     data = {
         "repo": "https://github.com/release-engineering/project.git",
@@ -2451,7 +2506,8 @@ def test_fetch_request_packages_and_dependencies(
 
     if packages is not None:
         _write_test_packages_data(
-            packages, RequestBundleDir(request.id, root=cachito_bundles_dir).packages_data,
+            packages,
+            RequestBundleDir(request.id, root=cachito_bundles_dir).packages_data,
         )
 
     rv = client.get(f"/api/v1/requests/{request.id}")

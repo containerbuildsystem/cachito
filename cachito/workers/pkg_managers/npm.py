@@ -319,7 +319,10 @@ def resolve_npm(app_source_path, request, skip_deps=None):
     bundle_dir = RequestBundleDir(request["id"])
     bundle_dir.npm_deps_dir.mkdir(exist_ok=True)
     package_and_deps_info["downloaded_deps"] = download_dependencies(
-        bundle_dir.npm_deps_dir, package_and_deps_info["deps"], proxy_repo_url, skip_deps,
+        bundle_dir.npm_deps_dir,
+        package_and_deps_info["deps"],
+        proxy_repo_url,
+        skip_deps,
     )
 
     # Remove all the "bundled" keys since that is an implementation detail that should not be

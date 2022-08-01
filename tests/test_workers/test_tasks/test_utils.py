@@ -191,7 +191,11 @@ def test_set_packages_and_deps_counts(
             None,
             "connection error: connection failed",
         ),
-        (requests.Timeout("timed out"), None, "connection error: timed out",),
+        (
+            requests.Timeout("timed out"),
+            None,
+            "connection error: timed out",
+        ),
         (
             None,
             requests.HTTPError("404 Client Error: NOT FOUND"),
@@ -225,7 +229,8 @@ def test_get_request_or_fail(
         assert request == {"id": 42, "state": "complete"}
 
     mock_requests_get.assert_called_once_with(
-        "http://cachito.domain.local/api/v1/requests/42", timeout=60,
+        "http://cachito.domain.local/api/v1/requests/42",
+        timeout=60,
     )
 
 
@@ -238,7 +243,11 @@ def test_get_request_or_fail(
             None,
             "connection error: connection failed",
         ),
-        (requests.Timeout("timed out"), None, "connection error: timed out",),
+        (
+            requests.Timeout("timed out"),
+            None,
+            "connection error: timed out",
+        ),
         (
             None,
             requests.HTTPError("404 Client Error: NOT FOUND"),
@@ -273,7 +282,9 @@ def test_patch_request_or_fail(
         utils._patch_request_or_fail(42, payload, "connection error: {exc}", "status error: {exc}")
 
     mock_requests_patch.assert_called_once_with(
-        "http://cachito.domain.local/api/v1/requests/42", json=payload, timeout=60,
+        "http://cachito.domain.local/api/v1/requests/42",
+        json=payload,
+        timeout=60,
     )
 
 

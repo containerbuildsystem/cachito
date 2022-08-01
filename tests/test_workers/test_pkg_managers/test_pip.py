@@ -1736,7 +1736,11 @@ class TestPipRequirementsFile:
                 [],
             ),
             # Global options
-            ("--only-binary :all:", [], ["--only-binary", ":all:"],),
+            (
+                "--only-binary :all:",
+                [],
+                ["--only-binary", ":all:"],
+            ),
             # Global options with a requirement
             (
                 "aiowsgi==0.7 --only-binary :all:",
@@ -2118,7 +2122,12 @@ class TestPipRequirementsFile:
                 },
             ),
             # Editable option, "--e", is not dropped when url is not set
-            ("git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam", ["-e"], {}, {},),
+            (
+                "git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam",
+                ["-e"],
+                {},
+                {},
+            ),
             # Editable option, "--editable", is dropped when setting url
             (
                 "git+https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam",
@@ -2170,7 +2179,12 @@ class TestPipRequirementsFile:
                 },
             ),
             # Extras are NOT cleared when a new URL is not set
-            ("spam[SALTY]", [], {}, {},),
+            (
+                "spam[SALTY]",
+                [],
+                {},
+                {},
+            ),
             # Version specs are cleared when setting a new URL
             (
                 "spam==1.2.3",
@@ -2184,7 +2198,12 @@ class TestPipRequirementsFile:
                 },
             ),
             # Version specs are NOT cleared when a new URL is not set
-            ("spam==1.2.3", [], {}, {},),
+            (
+                "spam==1.2.3",
+                [],
+                {},
+                {},
+            ),
             # Qualifiers persists
             (
                 "https://github.com/monty/spam/archive/58c88.tar.gz#egg=spam&spam=maps",
@@ -2201,7 +2220,11 @@ class TestPipRequirementsFile:
         ),
     )
     def test_pip_requirement_copy(
-        self, requirement_line, requirement_options, new_values, expected_changes,
+        self,
+        requirement_line,
+        requirement_options,
+        new_values,
+        expected_changes,
     ):
         """Test PipRequirement.copy method."""
         original_requirement = pip.PipRequirement.from_line(requirement_line, requirement_options)
@@ -3017,7 +3040,8 @@ class TestDownload:
             options.append(host)
 
         req_file = self.mock_requirements_file(
-            requirements=[pypi_req, vcs_req, url_req], options=options,
+            requirements=[pypi_req, vcs_req, url_req],
+            options=options,
         )
 
         proxy_url = "https://pypi-proxy.example.org"
@@ -3031,7 +3055,10 @@ class TestDownload:
 
         pypi_download = pip_deps / "foo" / "foo-1.0.tar.gz"
         vcs_download = pip_deps.joinpath(
-            "github.com", "spam", "eggs", f"eggs-external-gitcommit-{GIT_REF}.tar.gz",
+            "github.com",
+            "spam",
+            "eggs",
+            f"eggs-external-gitcommit-{GIT_REF}.tar.gz",
         )
         url_download = pip_deps / "external-bar" / "bar-external-sha256-654321.tar.gz"
 
@@ -3295,7 +3322,9 @@ def test_get_index_url_invalid_url():
     expected = "Nexus PyPI hosted repo URL: repository/cachito-pip-hosted-5/ is not a valid URL"
     with pytest.raises(ValidationError, match=expected):
         pip.get_index_url(
-            "repository/cachito-pip-hosted-5/", "admin", "admin123",
+            "repository/cachito-pip-hosted-5/",
+            "admin",
+            "admin123",
         )
 
 
