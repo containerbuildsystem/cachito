@@ -76,7 +76,9 @@ def fetch_pip_source(request_id, package_configs=None):
         pkg_path = pkg_cfg.get("path", ".")
         source_dir = bundle_dir.app_subpath(pkg_path).source_dir
         set_request_state(
-            request_id, "in_progress", f"Fetching dependencies at the {pkg_path!r} directory",
+            request_id,
+            "in_progress",
+            f"Fetching dependencies at the {pkg_path!r} directory",
         )
         request = get_request(request_id)
         pkg_and_deps_info = resolve_pip(

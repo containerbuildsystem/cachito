@@ -120,7 +120,11 @@ def test_validate_celery_config_failure_default_env_vars(mock_isdir, default_env
 
 
 @pytest.mark.parametrize(
-    "hoster_username, hoster_password", ((None, "password"), ("username", None),)
+    "hoster_username, hoster_password",
+    (
+        (None, "password"),
+        ("username", None),
+    ),
 )
 @patch("os.path.isdir", return_value=True)
 def test_validate_celery_config_invalid_nexus_hoster_config(
@@ -163,7 +167,8 @@ def test_validate_celery_config_missing_cert(mock_isdir, auth_type, has_cert, au
 
 
 @pytest.mark.parametrize(
-    "missing_config", ("cachito_nexus_password", "cachito_nexus_url", "cachito_nexus_username"),
+    "missing_config",
+    ("cachito_nexus_password", "cachito_nexus_url", "cachito_nexus_username"),
 )
 @patch("cachito.workers.config.get_worker_config")
 def test_validate_nexus_config(mock_gwc, missing_config):

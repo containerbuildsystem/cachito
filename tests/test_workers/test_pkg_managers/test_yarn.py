@@ -112,7 +112,9 @@ def test_pick_strongest_crypto_hash(integrity_value, expected):
             "https://example.org/fecha.tar.gz#123456",
             {"version": "2.0.0"},
             JSDependency(
-                "fecha", source="https://example.org/fecha.tar.gz#123456", integrity=MOCK_INTEGRITY,
+                "fecha",
+                source="https://example.org/fecha.tar.gz#123456",
+                integrity=MOCK_INTEGRITY,
             ),
             ("123456", "sha1"),
         ),
@@ -439,7 +441,10 @@ def test_get_deps_disallowed_file_dep(mock_convert_hosted):
 @mock.patch("cachito.workers.pkg_managers.yarn.get_worker_config")
 @mock.patch("cachito.workers.pkg_managers.yarn._get_deps")
 def test_get_package_and_deps(
-    mock_get_deps, mock_get_config, mock_lockfile_fromfile, tmp_path,
+    mock_get_deps,
+    mock_get_config,
+    mock_lockfile_fromfile,
+    tmp_path,
 ):
     packjson_path = tmp_path / "package-lock.json"
     packjson_path.write_text('{"name": "foo", "version": "1.0.0"}')

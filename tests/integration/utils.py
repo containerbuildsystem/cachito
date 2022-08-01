@@ -143,7 +143,8 @@ class Client:
 
     def fetch_request_metrics_summary(self, **params) -> requests.Response:
         resp = self.requests_session.get(
-            f"{self._cachito_api_url}/request-metrics/summary", params=params,
+            f"{self._cachito_api_url}/request-metrics/summary",
+            params=params,
         )
         resp.raise_for_status()
         return resp

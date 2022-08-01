@@ -723,7 +723,8 @@ class RequestState(db.Model):
                 cls.state_reason,
                 cls.updated,
                 func.extract(
-                    "epoch", cls.updated.cast(TIMESTAMP) - states.c.updated.cast(TIMESTAMP),
+                    "epoch",
+                    cls.updated.cast(TIMESTAMP) - states.c.updated.cast(TIMESTAMP),
                 ).label("duration"),
                 func.extract(
                     "epoch",

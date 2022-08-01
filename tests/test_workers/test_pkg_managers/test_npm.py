@@ -345,7 +345,12 @@ def test_get_deps_allowlisted_file_dep():
     "package_lock_deps,workspaces,replacement,result",
     [
         ({}, [], set(), {}),
-        ({"a": {"version": "file:a"}}, ["a"], set(), {},),
+        (
+            {"a": {"version": "file:a"}},
+            ["a"],
+            set(),
+            {},
+        ),
         (
             {
                 "a": {"version": "file:a"},
