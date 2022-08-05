@@ -117,6 +117,24 @@ def generate_file_content(builddeps, is_partial):
     return file_content
 
 
+def _parse_requirements_file(builddeps_file):
+    """Find deps requirements-build.in file."""
+    try:
+        with open(builddeps_file) as f:
+            # ignore line comments or comments added after dependency is declared
+            requirement_re = re.compile(r"^([^\s#;]+)")
+            matches = (requirement_re.match(line) for line in f)
+            return set(match.group(1) for match in matches if match)
+    except FileNotFoundError:
+        # it's ok if the file doens't exist.
+        return set()
+
+
+def _sanity_check_args(ap, args):
+    if args.only_write_on_update and not args.output_file:
+        ap.error("--only-write-on-update requires an output-file (-o/--output-file).")
+
+
 def main():
     """Run script."""
     ap = argparse.ArgumentParser(description=DESCRIPTION)
@@ -140,8 +158,17 @@ def main():
         action="store_true",
         help="generate partial output even if pip download fails",
     )
+    ap.add_argument(
+        "--only-write-on-update",
+        action="store_true",
+        help=(
+            "only write output file if dependencies will be modified - or new "
+            "dependencies will be added if used in conjunction with -a/--append."
+        ),
+    )
 
     args = ap.parse_args()
+    _sanity_check_args(ap, args)
 
     log.info(
         "Please make sure the input files meet the requirements of this script "
@@ -153,6 +180,16 @@ def main():
         no_cache=args.no_cache,
         ignore_errors=args.ignore_errors,
     )
+
+    if args.only_write_on_update:
+        original_builddeps = _parse_requirements_file(args.output_file)
+        if args.append:
+            # append only new dependencies
+            builddeps = sorted(set(builddeps) - original_builddeps)
+        if not builddeps or set(builddeps) == original_builddeps:
+            log.info("No new build dependencies found.")
+            return
+
     file_content = generate_file_content(builddeps, is_partial)
 
     log.info("Make sure to pip-compile the output before submitting a Cachito request")
