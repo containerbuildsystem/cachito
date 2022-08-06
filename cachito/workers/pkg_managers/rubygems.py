@@ -10,6 +10,7 @@ from pathlib import Path
 import requests
 from gemlock_parser.gemfile_lock import GemfileLockParser
 
+from cachito.common.utils import get_repo_name
 from cachito.errors import NexusError, ValidationError
 from cachito.workers import get_worker_config, nexus
 from cachito.workers.errors import NexusScriptError, UploadError
@@ -368,10 +369,11 @@ def resolve_rubygems(package_root, request):
         if dependency["kind"] == "GEM":
             _push_downloaded_gem(dependency, rubygems_repo_name)
 
+    name, version = _get_metadata(package_root, request)
     dependencies = cleanup_metadata(dependencies)
 
     return {
-        "package": {"type": "rubygems"},
+        "package": {"name": name, "version": version, "type": "rubygems"},
         "dependencies": dependencies,
     }
 
@@ -467,3 +469,12 @@ def get_rubygems_hosted_repo_name(request_id):
     """
     config = get_worker_config()
     return f"{config.cachito_nexus_request_repo_prefix}rubygems-hosted-{request_id}"
+
+
+def _get_metadata(package_root, request):
+    """Get name and version of the main package (the package for which dependencies are fetched)."""
+    bundle_dir: RequestBundleDir = RequestBundleDir(request["id"])
+    relative_path = str(package_root.resolve().relative_to(bundle_dir)).removeprefix("app")
+    repo_name = get_repo_name(request["repo"]).split("/")[-1]
+
+    return repo_name + relative_path, request["ref"]
