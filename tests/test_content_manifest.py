@@ -13,6 +13,7 @@ GIT_REPO = "https://github.com/namespace/repo"
 GIT_REF = "1798a59f297f5f3886e41bc054e538540581f8ce"
 
 DEFAULT_PURL = f"pkg:github/namespace/repo@{GIT_REF}"
+DEP_COMMIT_ID = "58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
 
 
 @pytest.fixture
@@ -157,8 +158,6 @@ def test_process_npm(default_request, default_toplevel_purl):
 
 
 def test_process_yarn(default_request, default_toplevel_purl):
-    dep_commit_id = "7762177aacfb1ddf5ca45cebfe8de1da3b24f0ff"
-
     packages_json = [
         {
             "name": "grc-ui",
@@ -169,7 +168,7 @@ def test_process_yarn(default_request, default_toplevel_purl):
                     "name": "security-middleware",
                     "type": "yarn",
                     "version": f"github:open-cluster-management/security-middleware"
-                    f"#{dep_commit_id}",
+                    f"#{DEP_COMMIT_ID}",
                 },
                 {"name": "@types/events", "type": "yarn", "version": "3.0.0", "dev": True},
             ],
@@ -180,7 +179,7 @@ def test_process_yarn(default_request, default_toplevel_purl):
     package = packages[0]
 
     expected_purl = default_toplevel_purl
-    expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{dep_commit_id}"
+    expected_dep_purl = f"pkg:github/open-cluster-management/security-middleware@{DEP_COMMIT_ID}"
     expected_src_purl = "pkg:npm/%40types/events@3.0.0"
 
     cm = ContentManifest(default_request, packages)
@@ -200,8 +199,6 @@ def test_process_yarn(default_request, default_toplevel_purl):
 
 
 def test_process_pip(default_request, default_toplevel_purl):
-    dep_commit_id = "58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
-
     packages_json = [
         {
             "name": "requests",
@@ -211,7 +208,7 @@ def test_process_pip(default_request, default_toplevel_purl):
                 {
                     "name": "cnr-server",
                     "type": "pip",
-                    "version": f"git+https://github.com/quay/appr@{dep_commit_id}",
+                    "version": f"git+https://github.com/quay/appr@{DEP_COMMIT_ID}",
                 },
                 {"name": "setuptools", "type": "pip", "version": "49.1.1", "dev": True},
             ],
@@ -222,7 +219,7 @@ def test_process_pip(default_request, default_toplevel_purl):
     package = packages[0]
 
     expected_purl = default_toplevel_purl
-    expected_dep_purl = f"pkg:github/quay/appr@{dep_commit_id}"
+    expected_dep_purl = f"pkg:github/quay/appr@{DEP_COMMIT_ID}"
     expected_src_purl = "pkg:pypi/setuptools@49.1.1"
 
     cm = ContentManifest(default_request, packages)
@@ -239,6 +236,104 @@ def test_process_pip(default_request, default_toplevel_purl):
     assert cm._pip_data
     assert package in cm._pip_data
     assert cm._pip_data == expected_contents
+
+
+def test_process_rubygems(default_request, default_toplevel_purl):
+    packages_json = [
+        {
+            "name": "zync",
+            "type": "rubygems",
+            "version": "2.24.0",
+            "dependencies": [
+                {
+                    "name": "httpclient",
+                    "type": "rubygems",
+                    "version": f"git+https://github.com/3scale/httpclient.git@{DEP_COMMIT_ID}",
+                    "path": "some/path",
+                },
+                {"name": "zeitwerk", "type": "rubygems", "version": "2.4.2"},
+                {
+                    "name": "active-docs",
+                    "type": "rubygems",
+                    "version": "./vendor/active-docs",
+                },
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+
+    expected_purl = default_toplevel_purl
+    expected_git_purl = f"pkg:github/3scale/httpclient@{DEP_COMMIT_ID}"
+    expected_gem_purl = "pkg:gem/zeitwerk@2.4.2"
+    expected_path_purl = f"{expected_purl}#vendor/active-docs"
+
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
+
+    expected_contents = {
+        package: {
+            "purl": expected_purl,
+            "dependencies": [
+                {"purl": expected_gem_purl},
+                {"purl": expected_git_purl},
+                {"purl": expected_path_purl},
+            ],
+            "sources": [
+                {"purl": expected_gem_purl},
+                {"purl": expected_git_purl},
+                {"purl": expected_path_purl},
+            ],
+        },
+    }
+
+    assert cm._rubygems_data
+    assert package in cm._rubygems_data
+    assert cm._rubygems_data == expected_contents
+
+
+def test_process_manifest_subpath(default_request, default_toplevel_purl):
+    packages_json = [
+        {
+            "name": "cachito-rubygems-multiple/first_pkg",
+            "type": "rubygems",
+            "version": "d5f91c54a8b35c3f2bdcf9a602184022b003ed75",
+            "dependencies": [
+                {
+                    "name": "pathgem",
+                    "version": "./vendor/pathgem",
+                    "type": "rubygems",
+                }
+            ],
+            "path": "first_pkg",
+        }
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+
+    expected_purl = f"{default_toplevel_purl}#first_pkg"
+    expected_dependency = f"{default_toplevel_purl}#first_pkg/vendor/pathgem"
+
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
+
+    expected_contents = {
+        package: {
+            "purl": expected_purl,
+            "dependencies": [
+                {"purl": expected_dependency},
+            ],
+            "sources": [
+                {"purl": expected_dependency},
+            ],
+        },
+    }
+
+    assert cm._rubygems_data
+    assert package in cm._rubygems_data
+    assert cm._rubygems_data == expected_contents
 
 
 @pytest.mark.parametrize(
@@ -771,6 +866,22 @@ def test_set_go_package_sources_replace_parent_purl(
             None,
             True,
             False,
+        ],
+        [
+            {"name": "zeitwerk", "type": "rubygems", "version": "2.4.2"},
+            "pkg:gem/zeitwerk@2.4.2",
+            True,
+            True,
+        ],
+        [
+            {
+                "name": "httpclient",
+                "version": f"git+https://github.com/3scale/httpclient.git@{DEP_COMMIT_ID}",
+                "type": "rubygems",
+            },
+            f"pkg:github/3scale/httpclient@{DEP_COMMIT_ID}",
+            True,
+            True,
         ],
     ],
 )

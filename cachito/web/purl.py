@@ -10,11 +10,12 @@ from cachito.errors import ContentManifestError
 PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
 
 
-def to_purl(package):
+def to_purl(package, parent_package_rel_path=None):
     """
     Generate the PURL representation of the package.
 
     :param Package package: the Package object
+    :param parent_package_rel_path: Relative path from repo root to package root
     :return: the PURL string of the Package object
     :rtype: str
     :raise ContentManifestError: if the there is no implementation for the package type
@@ -25,6 +26,8 @@ def to_purl(package):
         return _to_purl_npm(package)
     elif package.type == "pip":
         return _to_purl_pip(package)
+    elif package.type == "rubygems":
+        return _to_purl_rubygems(package, parent_package_rel_path)
     elif package.type == "git-submodule":
         return _to_purl_git(package)
     else:
@@ -89,16 +92,42 @@ def _to_purl_pip(package):
         return f"pkg:pypi/{name}@{package.version}"
     elif parsed_url.scheme.startswith("git+"):
         # Version is git+<git_url>
-        scheme = parsed_url.scheme[len("git+") :]
-        vcs_url = f"{scheme}://{parsed_url.netloc}{parsed_url.path}"
-        repo_url, ref = vcs_url.rsplit("@", 1)
-        return to_vcs_purl(package.name, repo_url, ref)
+        return to_git_purl(package.name, parsed_url)
     else:
         # Version is a plain URL
         fragments = urllib.parse.parse_qs(parsed_url.fragment)
         checksum = fragments["cachito_hash"][0]
         quoted_url = urllib.parse.quote(package.version, safe="")
         return f"pkg:generic/{name}?download_url={quoted_url}&checksum={checksum}"
+
+
+def _to_purl_rubygems(package, parent_package_rel_path):
+    if package.version and package.version.startswith("./"):
+        # Package is relative to the parent module
+        path_dep_rel_path = os.path.normpath(package.version)
+        if parent_package_rel_path is None:
+            return f"{PARENT_PURL_PLACEHOLDER}#{path_dep_rel_path}"
+        else:
+            return f"{PARENT_PURL_PLACEHOLDER}#{parent_package_rel_path}/{path_dep_rel_path}"
+    parsed_url = urllib.parse.urlparse(package.version)
+    if parsed_url.scheme.startswith("git+"):
+        return to_git_purl(package.name, parsed_url)
+    else:
+        return f"pkg:gem/{package.name}@{package.version}"
+
+
+def to_git_purl(pkg_name, parsed_url):
+    """
+    Parse parsed_url into a PURL.
+
+    :param pkg_name: Name of the git package
+    :param parsed_url: Expected format is "git+<url>@<hash>
+    :return Git PURL
+    """
+    scheme = parsed_url.scheme[len("git+") :]
+    vcs_url = f"{scheme}://{parsed_url.netloc}{parsed_url.path}"
+    repo_url, ref = vcs_url.rsplit("@", 1)
+    return to_vcs_purl(pkg_name, repo_url, ref)
 
 
 def _to_purl_git(package):
@@ -165,7 +194,7 @@ def to_top_level_purl(package, request, subpath=None):
         # purls for git submodules point to a different repo, path is neither needed nor valid
         # golang package and module names should reflect the path already
         include_path = False
-    elif package.type in ("npm", "pip", "yarn"):
+    elif package.type in ("npm", "pip", "yarn", "rubygems"):
         purl = to_vcs_purl(package.name, request.repo, request.ref)
         include_path = True
     else:
@@ -177,8 +206,8 @@ def to_top_level_purl(package, request, subpath=None):
     return purl
 
 
-def replace_parent_purl_gomod(dep_purl, parent_purl):
-    """Replace PARENT_PURL_PLACEHOLDER in gomod dependency with the parent purl."""
+def replace_parent_purl_placeholder(dep_purl, parent_purl):
+    """Replace PARENT_PURL_PLACEHOLDER in dependency with the parent purl."""
     return dep_purl.replace(PARENT_PURL_PLACEHOLDER, parent_purl)
 
 

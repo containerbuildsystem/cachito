@@ -219,7 +219,7 @@ def download_dependencies(request_id, dependencies, package_root):
                 dep, bundle_dir.rubygems_deps_dir, rubygems_raw_repo_name, nexus_auth
             )
         elif dep.type == "PATH":
-            download_info = _get_path_package_info(dep, bundle_dir, package_root)
+            download_info = _get_path_package_info(dep, package_root)
         else:
             # Should not happen
             raise RuntimeError(f"Unexpected dependency type: {dep.type!r}")
@@ -332,16 +332,15 @@ def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_
     }
 
 
-def _get_path_package_info(dep, bundle_dir, package_root):
+def _get_path_package_info(dep, package_root):
     """
     Get info about PATH dependency including path relative to the bundle source root.
 
     :param GemMetadata dep: path dependency
-    :param bundle_dir: the root of the bundle with app source code
     :param package_root: path to the root of the processed package
-    :return: dict with name, version and path keys
+    :return: dict with name and version containing relative path to the package root directory
     """
-    path = Path(package_root / dep.source).resolve().relative_to(bundle_dir.source_root_dir)
+    path = Path(package_root / dep.source).resolve().relative_to(package_root)
 
     return {
         "name": dep.name,
@@ -360,6 +359,9 @@ def resolve_rubygems(package_root, request):
         ``gemfile_lock`` an absolute path to the Gemfile.lock
     :raise UploadError: when uploading gem to temporary Nexus repo fails
     """
+    bundle_dir = RequestBundleDir(request["id"])
+    bundle_dir.rubygems_deps_dir.mkdir(parents=True, exist_ok=True)
+
     gemlock_path = package_root / GEMFILE_LOCK
     dependencies = parse_gemlock(package_root, gemlock_path)
     dependencies = download_dependencies(request["id"], dependencies, package_root)
@@ -369,11 +371,15 @@ def resolve_rubygems(package_root, request):
         if dependency["kind"] == "GEM":
             _push_downloaded_gem(dependency, rubygems_repo_name)
 
-    name, version = _get_metadata(package_root, request)
     dependencies = cleanup_metadata(dependencies)
+    name, version = _get_metadata(package_root, request)
+    if package_root == bundle_dir:
+        package_rel_path = None
+    else:
+        package_rel_path = package_root.resolve().relative_to(bundle_dir)
 
     return {
-        "package": {"name": name, "version": version, "type": "rubygems"},
+        "package": {"name": name, "version": version, "type": "rubygems", "path": package_rel_path},
         "dependencies": dependencies,
     }
 
