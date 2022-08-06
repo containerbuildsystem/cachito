@@ -97,11 +97,11 @@ class PackagesData:
     def add_package(self, pkg_info: Dict[str, str], path: str, deps: List[Dict[str, Any]]) -> None:
         """Add a package with deps.
 
-        :param dict[str, str] pkg_info: a mapping containing a package information.
+        :param dict[str, str] pkg_info: a mapping containing package information.
             It must have ``name``, ``type`` and ``version`` key/value pairs.
-        :param str path: the path where the package is retreived. Consult with the
-            ``fetch_*_source`` for the defailed information about a package's path.
-        :param deps: a list of depencencies the package has.
+        :param str path: the path where the package is retrieved. Consult with the
+            ``fetch_*_source`` for the detailed information about a package's path.
+        :param deps: a list of dependencies the package has.
         :type deps: list[dict[str, any]]
         :raises InvalidRequestData: if there is a package with same name, type and version
             has been added already.

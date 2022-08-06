@@ -4,11 +4,13 @@ from typing import List, Optional
 
 import flask
 
+from cachito.common.utils import get_repo_name
 from cachito.web.purl import (
-    replace_parent_purl_gomod,
     replace_parent_purl_gopkg,
+    replace_parent_purl_placeholder,
     to_purl,
     to_top_level_purl,
+    to_vcs_purl,
 )
 from cachito.web.utils import deep_sort_icm
 from cachito.workers.pkg_managers import gomod
@@ -55,6 +57,8 @@ class ContentManifest:
         self._pip_data = {}
         # dict to store yarn package data; uses the package id as key to identify a package
         self._yarn_data = {}
+        # dict to store rubygems package data; uses the package id as key to identify a package
+        self._rubygems_data = {}
         # dict to store gitsubmodule package level data; uses the package id as key to identify a
         # package
         self._gitsubmodule_data = {}
@@ -69,7 +73,7 @@ class ContentManifest:
         if dependency.type == "gomod":
             parent_purl = self._gomod_data[package.name]["purl"]
             dep_purl = to_purl(dependency)
-            dep_purl = replace_parent_purl_gomod(dep_purl, parent_purl)
+            dep_purl = replace_parent_purl_placeholder(dep_purl, parent_purl)
             icm_source = {"purl": dep_purl}
             self._gomod_data[package.name]["dependencies"].append(icm_source)
 
@@ -153,6 +157,24 @@ class ContentManifest:
         if not dependency.dev:
             pkg_type_data[package]["dependencies"].append(icm_dependency)
 
+    def process_rubygems_package(self, package, dependency):
+        """
+        Process RubyGems package.
+
+        :param Package package: the RubyGems package to process
+        :param Dependency dependency: the RubyGems package dependency to process
+        """
+        if dependency.type == "rubygems":
+            parent_package_name = get_repo_name(self.request.repo).split("/")[-1]
+            parent_purl = to_vcs_purl(parent_package_name, self.request.repo, self.request.ref)
+
+            dep_purl = to_purl(dependency, package.path)
+            dep_purl = replace_parent_purl_placeholder(dep_purl, parent_purl)
+
+            icm_dependency = {"purl": dep_purl}
+            self._rubygems_data[package]["sources"].append(icm_dependency)
+            self._rubygems_data[package]["dependencies"].append(icm_dependency)
+
     def to_json(self):
         """
         Generate the JSON representation of the content manifest.
@@ -165,6 +187,7 @@ class ContentManifest:
         self._npm_data = {}
         self._pip_data = {}
         self._yarn_data = {}
+        self._rubygems_data = {}
         self._gitsubmodule_data = {}
 
         for package in self.packages:
@@ -178,7 +201,7 @@ class ContentManifest:
             elif package.type == "gomod":
                 purl = to_top_level_purl(package, self.request, subpath=package.path)
                 self._gomod_data.setdefault(package.name, {"purl": purl, "dependencies": []})
-            elif package.type in ("npm", "pip", "yarn"):
+            elif package.type in ("npm", "pip", "yarn", "rubygems"):
                 purl = to_top_level_purl(package, self.request, subpath=package.path)
                 data = getattr(self, f"_{package.type}_data")
                 data.setdefault(package, {"purl": purl, "dependencies": [], "sources": []})
@@ -204,6 +227,8 @@ class ContentManifest:
                     self.process_pip_package(package, dependency)
                 elif package.type == "yarn":
                     self.process_yarn_package(package, dependency)
+                elif package.type == "rubygems":
+                    self.process_rubygems_package(package, dependency)
 
         # Adjust source level dependencies for go packages
         self.set_go_package_sources()
@@ -213,6 +238,7 @@ class ContentManifest:
             *self._npm_data.values(),
             *self._pip_data.values(),
             *self._yarn_data.values(),
+            *self._rubygems_data.values(),
             *self._gitsubmodule_data.values(),
         ]
         return self.generate_icm(top_level_packages)
