@@ -669,15 +669,19 @@ def test_get_path_package_info(tmp_path):
     assert {"name": "foo", "version": "./vendor/foo"} == download_info
 
 
+@mock.patch("cachito.workers.pkg_managers.rubygems._get_metadata")
 @mock.patch("cachito.workers.pkg_managers.rubygems.download_dependencies")
 @mock.patch("cachito.workers.pkg_managers.rubygems.parse_gemlock")
-def test_resolve_rubygems_no_deps(mock_parse_gemlock, mock_download_dependencies, tmp_path):
+def test_resolve_rubygems_no_deps(
+    mock_parse_gemlock, mock_download_dependencies, mock_get_metadata, tmp_path
+):
     mock_parse_gemlock.return_value = []
     mock_download_dependencies.return_value = []
+    mock_get_metadata.return_value = ("pkg_name", "1.0.0")
     request = {"id": 1}
     pkg_info = rubygems.resolve_rubygems(tmp_path, request)
     expected = {
-        "package": {"type": "rubygems"},
+        "package": {"name": "pkg_name", "version": "1.0.0", "type": "rubygems"},
         "dependencies": [],
     }
     assert pkg_info == expected
@@ -691,9 +695,11 @@ def test_resolve_rubygems_invalid_gemfile_lock_path(tmp_path):
         rubygems.resolve_rubygems(tmp_path, request)
 
 
+@mock.patch("cachito.workers.pkg_managers.rubygems._get_metadata")
 @mock.patch("cachito.workers.pkg_managers.rubygems._upload_rubygems_package")
 @mock.patch("cachito.workers.pkg_managers.rubygems.download_dependencies")
-def test_resolve_rubygems(mock_download, mock_upload, tmp_path):
+def test_resolve_rubygems(mock_download, mock_upload, mock_get_metadata, tmp_path):
+    mock_get_metadata.return_value = ("pkg_name", "1.0.0")
     gemfile_lock = tmp_path / rubygems.GEMFILE_LOCK
     text = dedent(
         f"""
@@ -742,7 +748,7 @@ def test_resolve_rubygems(mock_download, mock_upload, tmp_path):
     mock_upload.assert_called_once_with("cachito-rubygems-hosted-1", "some/path")
     assert mock_upload.call_count == 1
     expected = {
-        "package": {"type": "rubygems"},
+        "package": {"name": "pkg_name", "version": "1.0.0", "type": "rubygems"},
         "dependencies": [
             {"name": "ci_reporter", "version": "2.0.0", "type": "rubygems"},
             {
@@ -803,3 +809,18 @@ def test_get_hosted_repositories_username():
 
 def test_get_rubygems_hosted_repo_name():
     assert rubygems.get_rubygems_hosted_repo_name(42) == "cachito-rubygems-hosted-42"
+
+
+@pytest.mark.parametrize(
+    "package_subpath, expected_name",
+    [("app", "repo_name"), ("app/pkg1", "repo_name/pkg1")],
+)
+@mock.patch("cachito.workers.pkg_managers.rubygems.RequestBundleDir")
+def test_get_metadata(mock_request_bundle_dir, tmp_path, package_subpath, expected_name):
+    mock_bundle_dir = MockBundleDir(tmp_path)
+    mock_request_bundle_dir.return_value = mock_bundle_dir
+
+    request = {"repo": "https://github.com/username/repo_name.git", "ref": GIT_REF, "id": 1}
+    name, version = rubygems._get_metadata(tmp_path / package_subpath, request)
+    assert name == expected_name
+    assert version == GIT_REF
