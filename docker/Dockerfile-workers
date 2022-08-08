@@ -8,7 +8,7 @@ RUN dnf -y install \
     --setopt=tsflags=nodocs \
     golang \
     gcc \
-    git-core \
+    git-core-2.32.0 \
     krb5-devel \
     libffi-devel \
     mercurial \
