@@ -8,7 +8,7 @@ import requests.auth
 
 from cachito.errors import NetworkError, NexusError
 from cachito.workers.config import get_worker_config
-from cachito.workers.errors import NexusScriptError
+from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.requests import SAFE_REQUEST_METHODS, get_requests_session
 
 log = logging.getLogger(__name__)
@@ -369,7 +369,7 @@ def upload_asset_only_component(repo_name, repo_type, component_path, to_nexus_h
     :param str repo_type: the type of the Nexus hosted repository (e.g. ``npm``)
     :param str component_path: the path to the component to upload
     :param bool to_nexus_hoster: Use the nexus hoster instance, if available
-    :raise NetworkError: if the upload fails
+    :raise UploadError: if the upload fails
     :raise ValueError: if uploading to an unsupported or non-asset-only repository type
     """
     NEXUS_ASSET_ONLY_UPLOAD_TYPES = ("pypi", "npm", "nuget", "rubygems")
@@ -384,7 +384,7 @@ def upload_asset_only_component(repo_name, repo_type, component_path, to_nexus_h
     log.info("Uploading the component %r to the %r Nexus repository", component_path, repo_type)
     try:
         upload_component(params, payload, to_nexus_hoster)
-    except NetworkError:
+    except UploadError:
         log.warning("Failed to upload %r to the %r Nexus repository", component_path, repo_type)
         raise
 
@@ -430,7 +430,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
         string params that would be passed in the "file" param. Note that python requests does not
         support sending non-files in the file payload. See
         https://issues.sonatype.org/browse/NEXUS-21946 for further reference.
-    :raise NetworkError: if the upload fails
+    :raise UploadError: if the upload fails
     """
     config = get_worker_config()
     if to_nexus_hoster:
@@ -455,7 +455,7 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
         )
     except requests.RequestException:
         log.exception("Could not connect to the Nexus instance to upload the component")
-        raise NetworkError("Could not connect to the Nexus instance to upload a component")
+        raise UploadError("Could not connect to the Nexus instance to upload a component")
 
     if not rv.ok:
         log.warning(
@@ -463,4 +463,4 @@ def upload_component(params, payload, to_nexus_hoster, additional_data=None):
             rv.status_code,
             rv.text,
         )
-        raise NetworkError("Failed to upload a component to Nexus")
+        raise UploadError("Failed to upload a component to Nexus")

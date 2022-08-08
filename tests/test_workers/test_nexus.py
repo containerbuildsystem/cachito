@@ -7,7 +7,7 @@ import requests
 
 from cachito.errors import NetworkError, NexusError
 from cachito.workers import nexus
-from cachito.workers.errors import NexusScriptError
+from cachito.workers.errors import NexusScriptError, UploadError
 
 
 def setup_module():
@@ -569,7 +569,7 @@ def test_upload_asset_only_component_connection_error(mock_post):
 
     expected = "Could not connect to the Nexus instance to upload a component"
     with mock.patch("cachito.workers.nexus.open", mock_open):
-        with pytest.raises(NetworkError, match=expected):
+        with pytest.raises(UploadError, match=expected):
             nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
 
 
@@ -580,7 +580,7 @@ def test_upload_asset_only_component_failed(mock_post):
 
     expected = "Failed to upload a component to Nexus"
     with mock.patch("cachito.workers.nexus.open", mock_open):
-        with pytest.raises(NetworkError, match=expected):
+        with pytest.raises(UploadError, match=expected):
             nexus.upload_asset_only_component("cachito-js-hosted", "npm", "/path/to/rxjs-6.5.5.tgz")
 
 
@@ -619,5 +619,5 @@ def test_upload_raw_component_failed(mock_post):
     components = [{"path": "path/to/foo-1.0.0.tgz", "filename": "foo-1.0.0.tar.gz"}]
     expected = "Failed to upload a component to Nexus"
     with mock.patch("cachito.workers.nexus.open", mock_open):
-        with pytest.raises(NetworkError, match=expected):
+        with pytest.raises(UploadError, match=expected):
             nexus.upload_raw_component("cachito-pip-raw", "foo/1.0.0", components)
