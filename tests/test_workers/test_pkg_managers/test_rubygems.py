@@ -8,11 +8,12 @@ import pytest
 import requests
 
 from cachito.errors import NexusError, ValidationError
-from cachito.workers.errors import NexusScriptError
+from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.pkg_managers import general, rubygems
 from cachito.workers.pkg_managers.rubygems import GemMetadata, parse_gemlock
 
-GIT_REF = "26487618a68443e94d623bb585cb464b07d36702"
+GIT_REF = "26487618a68443e94d623bb585cb464b07d36702".lower()
+CI_REPORTER_URL = "https://github.com/3scale/ci_reporter_shell.git"
 
 
 def setup_module():
@@ -57,6 +58,25 @@ class TestGemlockParsing:
     @pytest.mark.parametrize(
         "file_contents, expected_dependencies",
         (
+            # no dependency
+            (
+                dedent(
+                    """
+                    GEM
+                      remote: https://rubygems.org/
+                      specs:
+
+                    PLATFORMS
+                      ruby
+
+                    DEPENDENCIES
+
+                    BUNDLED WITH
+                       2.2.33
+                    """
+                ),
+                [],
+            ),
             # GEM dependency
             (
                 dedent(
@@ -431,6 +451,7 @@ class MockBundleDir(type(Path())):
         """Make a new MockBundleDir."""
         self = super().__new__(cls, *args, **kwargs)
         self.rubygems_deps_dir = self / "deps" / "rubygems"
+        self.source_root_dir = self.joinpath("app")
         return self
 
 
@@ -447,7 +468,7 @@ class TestDownload:
         )
 
         assert download_info == {
-            "package": "zeitwerk",
+            "name": "zeitwerk",
             "version": "2.5.4",
             "path": tmp_path / "zeitwerk" / "zeitwerk-2.5.4.gem",
         }
@@ -488,13 +509,13 @@ class TestDownload:
 
         raw_component = f"json/json-external-gitcommit-{GIT_REF}.tar.gz"
 
+        url = "https://github.com/org/json.git"
         assert download_info == {
-            "package": "json",
+            "name": "json",
+            "version": f"git+{url}@{GIT_REF}",
             "path": tmp_path.joinpath(
                 "github.com", "org", "json", f"json-external-gitcommit-{GIT_REF}.tar.gz"
             ),
-            "url": "https://github.com/org/json.git",
-            "ref": GIT_REF.lower(),
             "raw_component_name": raw_component,
             "have_raw_component": have_raw_component,
         }
@@ -523,10 +544,12 @@ class TestDownload:
     @mock.patch("cachito.workers.pkg_managers.rubygems.nexus.get_nexus_hoster_credentials")
     @mock.patch("cachito.workers.pkg_managers.rubygems._download_rubygems_package")
     @mock.patch("cachito.workers.pkg_managers.rubygems._download_git_package")
+    @mock.patch("cachito.workers.pkg_managers.rubygems._get_path_package_info")
     @mock.patch("cachito.workers.pkg_managers.rubygems.upload_raw_package")
     def test_download_dependencies(
         self,
         mock_upload_raw,
+        mock_get_path_info,
         mock_git_download,
         mock_rubygems_download,
         mock_get_nexus_creds,
@@ -546,7 +569,8 @@ class TestDownload:
 
         rubygems_dep = GemMetadata("foo", "2.0.0", "GEM", "https://rubygems.org/")
         git_dep = GemMetadata("bar", GIT_REF, "GIT", git_url)
-        dependencies = [rubygems_dep, git_dep]
+        path_dep = GemMetadata("baz", "3.1.1", "PATH", "vendor/active-docs")
+        dependencies = [rubygems_dep, git_dep, path_dep]
 
         mock_bundle_dir = MockBundleDir(tmp_path)
         rubygems_deps_path = mock_bundle_dir.rubygems_deps_dir
@@ -555,18 +579,18 @@ class TestDownload:
         git_archive_name = f"bar-external-gitcommit-{GIT_REF}.tar.gz"
         git_download = rubygems_deps_path.joinpath("github.com", "baz", "bar", git_archive_name)
         rubygems_info = {
-            "package": "foo",
+            "name": "foo",
             "version": "2.0.0",
             "path": rubygems_download,
         }
         git_info = {
-            "package": "bar",
+            "name": "bar",
             "path": git_download,
-            "url": git_url,
-            "ref": GIT_REF.lower(),
+            "version": f"git+{git_url}@{GIT_REF}",
             "raw_component_name": f"bar/bar-external-gitcommit-{GIT_REF}.tar.gz",
             "have_raw_component": have_raw_component,
         }
+        path_info = {"name": "baz", "version": "./vendor/active-docs"}
 
         mock_request_bundle_dir.return_value = mock_bundle_dir
 
@@ -582,18 +606,22 @@ class TestDownload:
 
         mock_rubygems_download.return_value = rubygems_info
         mock_git_download.return_value = git_info
+        mock_get_path_info.return_value = path_info
 
         request_id = 1
         # </setup>
 
         # <exercise>
-        downloads = rubygems.download_dependencies(request_id, dependencies)
+        downloads = rubygems.download_dependencies(
+            request_id, dependencies, mock_bundle_dir.source_root_dir
+        )
         # </exercise>
 
         # <verify>
         assert downloads == [
             {**rubygems_info, "kind": "GEM"},
             {**git_info, "kind": "GIT"},
+            {**path_info, "kind": "PATH"},
         ]
         assert rubygems_deps_path.is_dir()
 
@@ -634,3 +662,144 @@ class TestDownload:
         ) in caplog.text
         # </check basic logging output>
         # </verify>
+
+
+def test_get_path_package_info(tmp_path):
+    bundle_dir = MockBundleDir(tmp_path)
+    package_dir = Path(bundle_dir.source_root_dir / "first_pkg")
+    package_dir.mkdir(parents=True)
+    # Path dependency directory
+    (bundle_dir.source_root_dir / "vendor" / "foo").mkdir(parents=True)
+    dep = GemMetadata("foo", "1.0.0", "PATH", "../vendor/foo")
+
+    download_info = rubygems._get_path_package_info(dep, bundle_dir, package_dir)
+
+    assert {"name": "foo", "version": "./vendor/foo"} == download_info
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems.download_dependencies")
+@mock.patch("cachito.workers.pkg_managers.rubygems.parse_gemlock")
+def test_resolve_rubygems_no_deps(mock_parse_gemlock, mock_download_dependencies, tmp_path):
+    mock_parse_gemlock.return_value = []
+    mock_download_dependencies.return_value = []
+    request = {"id": 1}
+    pkg_info = rubygems.resolve_rubygems(tmp_path, request)
+    expected = {
+        "package": {"type": "rubygems"},
+        "dependencies": [],
+    }
+    assert pkg_info == expected
+
+
+def test_resolve_rubygems_invalid_gemfile_lock_path(tmp_path):
+    request = {"id": 1}
+    invalid_path = tmp_path / rubygems.GEMFILE_LOCK
+    expected_error = f"Gemfile.lock at path {invalid_path} does not exist or is not a regular file."
+    with pytest.raises(ValidationError, match=expected_error):
+        rubygems.resolve_rubygems(tmp_path, request)
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems._upload_rubygems_package")
+@mock.patch("cachito.workers.pkg_managers.rubygems.download_dependencies")
+def test_resolve_rubygems(mock_download, mock_upload, tmp_path):
+    gemfile_lock = tmp_path / rubygems.GEMFILE_LOCK
+    text = dedent(
+        f"""
+        GIT
+          remote: {CI_REPORTER_URL}
+          revision: {GIT_REF}
+          specs:
+            ci_reporter_shell (0.1.0)
+              ci_reporter (~> 2.0)
+
+        GEM
+          remote: https://rubygems.org/
+          specs:
+            ci_reporter (2.0.0)
+
+        PLATFORMS
+          ruby
+
+        DEPENDENCIES
+          ci_reporter_shell!
+        """
+    )
+    gemfile_lock.write_text(text)
+
+    mock_download.return_value = [
+        {
+            "kind": "GEM",
+            "path": "some/path",
+            "name": "ci_reporter",
+            "version": "2.0.0",
+            "type": "rubygems",
+        },
+        {
+            "kind": "GIT",
+            "name": "ci_reporter_shell",
+            "version": f"git+{CI_REPORTER_URL}@{GIT_REF}",
+            "path": "path/to/downloaded",
+            "type": "rubygems",
+        },
+    ]
+
+    request = {"id": 1}
+
+    pkg_info = rubygems.resolve_rubygems(tmp_path, request)
+
+    mock_upload.assert_called_once_with("cachito-rubygems-hosted-1", "some/path")
+    assert mock_upload.call_count == 1
+    expected = {
+        "package": {"type": "rubygems"},
+        "dependencies": [
+            {"name": "ci_reporter", "version": "2.0.0", "type": "rubygems"},
+            {
+                "name": "ci_reporter_shell",
+                "version": f"git+{CI_REPORTER_URL}@{GIT_REF}",
+                "type": "rubygems",
+            },
+        ],
+    }
+    assert pkg_info == expected
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems._upload_rubygems_package")
+def test_push_downloaded_gem(mock_upload):
+    rubygems_repo_name = "test-rubygems-hosted-1"
+    name = "foo"
+    version = "1"
+    path = "some/path"
+    dep = {"name": name, "version": version, "path": "some/path", "kind": "GEM"}
+    rubygems._push_downloaded_gem(dep, rubygems_repo_name)
+    mock_upload.assert_called_once_with(rubygems_repo_name, path)
+
+
+@pytest.mark.parametrize("uploaded", [True, False])
+@mock.patch("cachito.workers.pkg_managers.rubygems._upload_rubygems_package")
+@mock.patch("cachito.workers.pkg_managers.rubygems.nexus.get_component_info_from_nexus")
+def test_push_downloaded_gem_duplicated(mock_get_info, mock_upload, uploaded):
+    mock_upload.side_effect = UploadError("stub")
+    mock_get_info.return_value = uploaded
+    rubygems_repo_name = "test-rubygems-hosted"
+    name = "foo"
+    version = "1"
+    path = "some/path"
+    dep = {"name": name, "version": version, "path": path, "kind": "GEM"}
+    if uploaded:
+        rubygems._push_downloaded_gem(dep, rubygems_repo_name)
+        mock_upload.assert_called_once_with(rubygems_repo_name, path)
+    else:
+        with pytest.raises(UploadError, match="stub"):
+            rubygems._push_downloaded_gem(dep, rubygems_repo_name)
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems.nexus.upload_asset_only_component")
+def test_upload_package(mock_upload, caplog):
+    """Check Nexus upload calls."""
+    name = "name"
+    path = "fakepath"
+
+    rubygems._upload_rubygems_package(name, path)
+    log_msg = f"Uploading {path!r} as a RubyGems package to the {name!r} Nexus repository"
+    assert log_msg in caplog.text
+    mock_upload.assert_called_once_with(name, "rubygems", path, to_nexus_hoster=False)
