@@ -40,17 +40,15 @@ class GemMetadata:
     source: str
 
 
-def prepare_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name):
+def prepare_nexus_for_rubygems_request(rubygems_repo_name):
     """
     Prepare Nexus so that Cachito can stage Rubygems content.
 
     :param str rubygems_repo_name: the name of the Rubygems repository for the request
-    :param str raw_repo_name: the name of the raw repository for the request
     :raise NexusError: if the script execution fails
     """
     payload = {
         "rubygems_repository_name": rubygems_repo_name,
-        "raw_repository_name": raw_repo_name,
     }
     script_name = "rubygems_before_content_staged"
     try:
@@ -155,12 +153,11 @@ def _validate_path_dependency_dir(gem, project_root, gemlock_dir):
         raise ValidationError(f"{str(dependency_dir)} is not a subpath of {str(project_root)}")
 
 
-def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, username):
+def finalize_nexus_for_rubygems_request(rubygems_repo_name, username):
     """
     Configure Nexus so that the request's Rubygems repositories are ready for consumption.
 
     :param str rubygems_repo_name: the name of the rubygems hosted repository for a given request
-    :param str raw_repo_name: the name of the raw repository for the Cachito Rubygems request
     :param str username: the username of the user to be created for the Cachito Rubygems request
     :return: the password of the Nexus user that has access to the request's Rubygems repositories
     :rtype: str
@@ -171,7 +168,6 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, usern
     payload = {
         "password": password,
         "rubygems_repository_name": rubygems_repo_name,
-        "raw_repository_name": raw_repo_name,
         "username": username,
     }
     script_name = "rubygems_after_content_staged"
@@ -448,3 +444,26 @@ def cleanup_metadata(dependencies):
         {"name": dep["name"], "version": dep["version"], "type": dep["type"]}
         for dep in dependencies
     ]
+
+
+def get_rubygems_nexus_username(request_id):
+    """
+    Get the username that has read access on the RubyGems hosted repo for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the username
+    :rtype: str
+    """
+    return f"cachito-rubygems-{request_id}"
+
+
+def get_rubygems_hosted_repo_name(request_id):
+    """
+    Get the name of the Nexus RubyGems hosted repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the name of the RubyGems hosted repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    return f"{config.cachito_nexus_request_repo_prefix}rubygems-hosted-{request_id}"

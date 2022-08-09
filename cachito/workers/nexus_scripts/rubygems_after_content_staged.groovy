@@ -72,7 +72,7 @@ void createRole(String name, String description, List<String> privileges) {
 
 // Main execution starts here
 request = new JsonSlurper().parseText(args)
-['rubygems_repository_name', 'raw_repository_name', 'password', 'username'].each { param ->
+['rubygems_repository_name', 'password', 'username'].each { param ->
     assert request.get(param): "The ${param} parameter is required"
 }
 
@@ -80,8 +80,7 @@ request = new JsonSlurper().parseText(args)
 String roleName = request.username
 // toString is needed to convert the GString to the Java String
 String rubygemsHostedPrivilege = "nx-repository-view-rubygems-${request.rubygems_repository_name}-read".toString()
-String rawHostedPrivilege = "nx-repository-view-raw-${request.raw_repository_name}-read".toString()
-List<String> privileges = [rubygemsHostedPrivilege, rawHostedPrivilege]
+List<String> privileges = [rubygemsHostedPrivilege]
 // Create a role that has read access on the new repositories.
 // This will allow a user with this role to utilize the the Rubygems repos for this Cachito request.
 String desc = "Read access for ${request.rubygems_repository_name} and ${request.raw_repository_name}".toString()
