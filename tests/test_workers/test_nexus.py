@@ -273,6 +273,7 @@ def test_create_or_update_scripts(mock_cous):
         "pip_cleanup",
         "rubygems_before_content_staged",
         "rubygems_after_content_staged",
+        "rubygems_cleanup",
     }
     for call_args in mock_cous.call_args_list:
         script_name = call_args[0][0]

@@ -30,15 +30,12 @@ class TestNexus:
     @mock.patch("cachito.workers.pkg_managers.rubygems.nexus.execute_script")
     def test_prepare_nexus_for_rubygems_request(self, mock_exec_script):
         """Check whether groovy script is called with proper args."""
-        rubygems.prepare_nexus_for_rubygems_request(
-            "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1"
-        )
+        rubygems.prepare_nexus_for_rubygems_request("cachito-rubygems-hosted-1")
 
         mock_exec_script.assert_called_once_with(
             "rubygems_before_content_staged",
             {
                 "rubygems_repository_name": "cachito-rubygems-hosted-1",
-                "raw_repository_name": "cachito-rubygems-raw-1",
             },
         )
 
@@ -49,9 +46,7 @@ class TestNexus:
 
         expected = "Failed to prepare Nexus for Cachito to stage Rubygems content"
         with pytest.raises(NexusError, match=expected):
-            rubygems.prepare_nexus_for_rubygems_request(
-                "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1"
-            )
+            rubygems.prepare_nexus_for_rubygems_request("cachito-rubygems-hosted-1")
 
 
 class TestGemlockParsing:
@@ -418,14 +413,13 @@ class TestGemlockParsing:
         """Check whether groovy script is called with proper args."""
         mock_secret.return_value = "password"
         password = rubygems.finalize_nexus_for_rubygems_request(
-            "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1", "user-1"
+            "cachito-rubygems-hosted-1", "user-1"
         )
 
         mock_exec_script.assert_called_once_with(
             "rubygems_after_content_staged",
             {
                 "rubygems_repository_name": "cachito-rubygems-hosted-1",
-                "raw_repository_name": "cachito-rubygems-raw-1",
                 "username": "user-1",
                 "password": "password",
             },
@@ -439,9 +433,7 @@ class TestGemlockParsing:
         mock_exec_script.side_effect = NexusScriptError()
         expected = "Failed to configure Nexus Rubygems repositories for final consumption"
         with pytest.raises(NexusError, match=expected):
-            rubygems.finalize_nexus_for_rubygems_request(
-                "cachito-rubygems-hosted-1", "cachito-rubygems-raw-1", "user-1"
-            )
+            rubygems.finalize_nexus_for_rubygems_request("cachito-rubygems-hosted-1", "user-1")
 
 
 class MockBundleDir(type(Path())):
@@ -803,3 +795,11 @@ def test_upload_package(mock_upload, caplog):
     log_msg = f"Uploading {path!r} as a RubyGems package to the {name!r} Nexus repository"
     assert log_msg in caplog.text
     mock_upload.assert_called_once_with(name, "rubygems", path, to_nexus_hoster=False)
+
+
+def test_get_hosted_repositories_username():
+    assert rubygems.get_rubygems_nexus_username(42) == "cachito-rubygems-42"
+
+
+def test_get_rubygems_hosted_repo_name():
+    assert rubygems.get_rubygems_hosted_repo_name(42) == "cachito-rubygems-hosted-42"
