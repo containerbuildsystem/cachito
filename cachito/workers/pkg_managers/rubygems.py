@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
+import os
 import random
 import re
 import secrets
@@ -371,6 +372,10 @@ def resolve_rubygems(package_root, request):
         if dependency["kind"] == "GEM":
             _push_downloaded_gem(dependency, rubygems_repo_name)
 
+    for dep in dependencies:
+        if dep["kind"] == "GIT":
+            unpack_git_dependency(dep)
+
     dependencies = cleanup_metadata(dependencies)
     name, version = _get_metadata(package_root, request)
     if package_root == bundle_dir:
@@ -382,6 +387,22 @@ def resolve_rubygems(package_root, request):
         "package": {"name": name, "version": version, "type": "rubygems", "path": package_rel_path},
         "dependencies": dependencies,
     }
+
+
+def unpack_git_dependency(dep):
+    """
+    Unpack the archive with the downloaded dependency.
+
+    Only the unpacked directory is kept, the archive is deleted.
+    To get more info on local Git repos, see:
+    https://bundler.io/man/bundle-config.1.html#LOCAL-GIT-REPOS
+    :param dep: RubyGems GIT dependency
+    """
+    #
+    extracted_path = str(dep["path"]).removesuffix(".tar.gz")
+    shutil.unpack_archive(dep["path"], extracted_path)
+    os.remove(dep["path"])
+    dep["path"] = extracted_path
 
 
 def _upload_rubygems_package(repo_name, artifact_path):

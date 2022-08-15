@@ -706,13 +706,23 @@ def test_resolve_rubygems_invalid_gemfile_lock_path(mock_request_bundle_dir, tmp
 
 
 @pytest.mark.parametrize("subpath_pkg", [True, False])
+@mock.patch("cachito.workers.pkg_managers.rubygems.unpack_git_dependency")
 @mock.patch("cachito.workers.pkg_managers.rubygems._get_metadata")
 @mock.patch("cachito.workers.pkg_managers.rubygems._upload_rubygems_package")
 @mock.patch("cachito.workers.pkg_managers.rubygems.download_dependencies")
 @mock.patch("cachito.workers.pkg_managers.rubygems.RequestBundleDir")
 def test_resolve_rubygems(
-    mock_request_bundle_dir, mock_download, mock_upload, mock_get_metadata, subpath_pkg, tmp_path
+    mock_request_bundle_dir,
+    mock_download,
+    mock_upload,
+    mock_get_metadata,
+    mock_unpack,
+    subpath_pkg,
+    tmp_path,
 ):
+    mock_bundle_dir = MockBundleDir(tmp_path)
+    mock_request_bundle_dir.return_value = mock_bundle_dir
+
     if subpath_pkg:
         package_root = tmp_path
         expected_path = None
@@ -721,8 +731,6 @@ def test_resolve_rubygems(
         package_root.mkdir()
         expected_path = Path("first_pkg")
 
-    mock_bundle_dir = MockBundleDir(tmp_path)
-    mock_request_bundle_dir.return_value = mock_bundle_dir
     mock_get_metadata.return_value = ("pkg_name", "1.0.0")
     gemfile_lock = package_root / rubygems.GEMFILE_LOCK
     text = dedent(
@@ -748,22 +756,30 @@ def test_resolve_rubygems(
     )
     gemfile_lock.write_text(text)
 
+    gem_dependency = {
+        "kind": "GEM",
+        "path": "some/path",
+        "name": "ci_reporter",
+        "version": "2.0.0",
+        "type": "rubygems",
+    }
+    git_dependency = {
+        "kind": "GIT",
+        "name": "ci_reporter_shell",
+        "version": f"git+{CI_REPORTER_URL}@{GIT_REF}",
+        "path": "path/to/downloaded.tar.gz",
+        "type": "rubygems",
+    }
     mock_download.return_value = [
-        {
-            "kind": "GEM",
-            "path": "some/path",
-            "name": "ci_reporter",
-            "version": "2.0.0",
-            "type": "rubygems",
-        },
-        {
-            "kind": "GIT",
-            "name": "ci_reporter_shell",
-            "version": f"git+{CI_REPORTER_URL}@{GIT_REF}",
-            "path": "path/to/downloaded",
-            "type": "rubygems",
-        },
+        gem_dependency,
+        git_dependency,
     ]
+
+    def side_effect(dep):
+        dep["path"] = "path/to/downloaded"
+        return dep
+
+    mock_unpack.side_effect = side_effect
 
     request = {"id": 1}
 
@@ -771,6 +787,8 @@ def test_resolve_rubygems(
 
     mock_upload.assert_called_once_with("cachito-rubygems-hosted-1", "some/path")
     assert mock_upload.call_count == 1
+    mock_unpack.assert_called_once_with(git_dependency)
+
     expected = {
         "package": {
             "name": "pkg_name",
@@ -853,3 +871,15 @@ def test_get_metadata(mock_request_bundle_dir, tmp_path, package_subpath, expect
     name, version = rubygems._get_metadata(tmp_path / package_subpath, request)
     assert name == expected_name
     assert version == GIT_REF
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems.os.remove")
+@mock.patch("cachito.workers.pkg_managers.rubygems.shutil.unpack_archive")
+def test_unpack_git_dependency(mock_unpack, mock_remove):
+    original_path = "some/path.tar.gz"
+    new_path = "some/path"
+    dep = {"path": original_path}
+    rubygems.unpack_git_dependency(dep)
+    mock_unpack.assert_called_once_with(original_path, new_path)
+    mock_remove.assert_called_once_with(original_path)
+    assert dep["path"] == new_path
