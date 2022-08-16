@@ -47,7 +47,8 @@ setup(
     license="GPLv3+",
     python_requires=">=3.9",
     setup_requires=['setuptools-git-versioning'],
-    version_config={
-        "dev_template": "{tag}.post{ccount}-git.{sha}",
+    setuptools_git_versioning={
+        "enabled": True,
+        "dev_template": "{tag}.post{ccount}+git.{sha}",
     },
 )
