@@ -411,7 +411,7 @@ def upload_raw_component(repo_name, directory, components, to_nexus_hoster=True)
 
     try:
         upload_component(params, payload, to_nexus_hoster, additional_data)
-    except NetworkError:
+    except UploadError:
         log.exception("Failed to upload %r to the raw Nexus repository", components)
         raise
 
