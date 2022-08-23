@@ -18,7 +18,7 @@ from cachito.errors import (
     NexusError,
     ValidationError,
 )
-from cachito.workers.errors import NexusScriptError
+from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.pkg_managers import general, pip
 from tests.helper_utils import write_file_tree
 
@@ -3363,7 +3363,7 @@ def test_push_downloaded_requirement_from_pypi(mock_upload, dev):
 @mock.patch("cachito.workers.pkg_managers.pip.upload_pypi_package")
 @mock.patch("cachito.workers.pkg_managers.pip.nexus.get_component_info_from_nexus")
 def test_push_downloaded_requirement_from_pypi_duplicated(mock_get_info, mock_upload, uploaded):
-    mock_upload.side_effect = NetworkError("stub")
+    mock_upload.side_effect = UploadError("stub")
     mock_get_info.return_value = uploaded
     pip_repo_name = "test-pip-hosted"
     raw_repo_name = "test-pip-raw"
@@ -3377,7 +3377,7 @@ def test_push_downloaded_requirement_from_pypi_duplicated(mock_get_info, mock_up
         mock_upload.assert_called_once_with(pip_repo_name, path)
         assert dependency == expected_dependency
     else:
-        with pytest.raises(NetworkError, match="stub"):
+        with pytest.raises(UploadError, match="stub"):
             pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
 
 
@@ -3432,7 +3432,7 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
 def test_push_downloaded_requirement_non_pypi_duplicated(
     mock_get_info, mock_upload, kind, uploaded
 ):
-    mock_upload.side_effect = NetworkError("stub")
+    mock_upload.side_effect = UploadError("stub")
     mock_get_info.return_value = uploaded
     pip_repo_name = "test-pip-hosted"
     raw_repo_name = "test-pip-raw"
@@ -3474,7 +3474,7 @@ def test_push_downloaded_requirement_non_pypi_duplicated(
         mock_upload.assert_called_once_with(raw_repo_name, path, dest_dir, filename, True)
         assert dependency == expected_dependency
     else:
-        with pytest.raises(NetworkError, match="stub"):
+        with pytest.raises(UploadError, match="stub"):
             pip._push_downloaded_requirement(req, pip_repo_name, raw_repo_name)
 
 
