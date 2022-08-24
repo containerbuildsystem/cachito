@@ -37,6 +37,7 @@ from cachito.workers.tasks import (
     fetch_gomod_source,
     fetch_npm_source,
     fetch_pip_source,
+    fetch_rubygems_source,
     fetch_yarn_source,
     finalize_request,
     process_fetched_sources,
@@ -160,6 +161,13 @@ def test_request_invalid_params(invalid_param):
             ["yarn"],
             None,
         ),
+        (
+            [],
+            ["rubygems"],
+            None,
+            ["rubygems"],
+            None,
+        ),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -231,6 +239,10 @@ def test_create_and_fetch_request(
         )
     if "yarn" in expected_pkg_managers:
         expected.append(fetch_yarn_source.si(created_request["id"], []).on_error(error_callback))
+    if "rubygems" in expected_pkg_managers:
+        expected.append(
+            fetch_rubygems_source.si(created_request["id"], []).on_error(error_callback)
+        )
     expected.append(process_fetched_sources.si(created_request["id"]).on_error(error_callback))
     expected.append(finalize_request.s(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
@@ -389,6 +401,41 @@ def test_create_request_with_yarn_package_configs(
             False,
         ).on_error(error_callback),
         fetch_yarn_source.si(1, package_value["yarn"]).on_error(error_callback),
+        process_fetched_sources.si(1).on_error(error_callback),
+        finalize_request.s(1).on_error(error_callback),
+    ]
+    mock_chain.assert_called_once_with(expected)
+
+
+@mock.patch("cachito.web.api_v1.chain")
+def test_create_request_with_rubygems_package_configs(
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
+):
+    package_value = {"rubygems": [{"path": "client"}, {"path": "proxy"}]}
+    data = {
+        "repo": "https://github.com/release-engineering/web-terminal.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "packages": package_value,
+        "pkg_managers": ["rubygems"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 201
+
+    error_callback = failed_request_callback.s(1)
+    expected = [
+        fetch_app_source.s(
+            "https://github.com/release-engineering/web-terminal.git",
+            "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            1,
+            False,
+            False,
+        ).on_error(error_callback),
+        fetch_rubygems_source.si(1, package_value["rubygems"]).on_error(error_callback),
         process_fetched_sources.si(1).on_error(error_callback),
         finalize_request.s(1).on_error(error_callback),
     ]
@@ -864,6 +911,11 @@ def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, cl
             [{"name": "rxjs", "type": "yarn", "version": "6.5.5"}],
             "Dependency replacements are not yet supported for the yarn package manager",
         ),
+        (
+            "rubygems",
+            [{"name": "rxjs", "type": "rubygems", "version": "6.5.5"}],
+            "Dependency replacements are not yet supported for the RubyGems package manager",
+        ),
     ),
 )
 def test_create_request_invalid_dependency_replacement(
@@ -1008,6 +1060,15 @@ def test_create_request_invalid_dependency_replacement(
             (
                 'The "path" values in the "packages.yarn" value must be to a relative path in the '
                 "source repository"
+            ),
+        ),
+        ({"rubygems": {"path": "client"}}, ["rubygems"], RE_INVALID_PACKAGES_VALUE),
+        (
+            {"rubygems": [{"path": "../../../../etc/httpd"}]},
+            ["rubygems"],
+            (
+                'The "path" values in the "packages.rubygems" value must be to a relative path '
+                "in the source repository"
             ),
         ),
     ),
@@ -2187,6 +2248,13 @@ def test_get_request_logs_not_configured(app, client, db, worker_auth_env):
             [("npm", "yarn")],
             ["npm", "pip"],
             {"npm": [{"path": "same/path"}], "pip": [{"path": "same/path"}]},
+            None,
+        ),
+        (
+            # mutual exclusivity does not apply, no conflict
+            [("npm", "yarn")],
+            ["npm", "rubygems"],
+            {"npm": [{"path": "same/path"}], "rubygems": [{"path": "same/path"}]},
             None,
         ),
         (

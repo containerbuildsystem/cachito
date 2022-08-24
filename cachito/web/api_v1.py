@@ -403,6 +403,17 @@ def create_request():
         chain_tasks.append(
             tasks.fetch_pip_source.si(request.id, pip_package_configs).on_error(error_callback)
         )
+    if "rubygems" in pkg_manager_names:
+        if pkg_manager_to_dep_replacements.get("rubygems"):
+            raise ValidationError(
+                "Dependency replacements are not yet supported for the RubyGems package manager"
+            )
+        rubygems_package_configs = package_configs.get("rubygems", [])
+        chain_tasks.append(
+            tasks.fetch_rubygems_source.si(request.id, rubygems_package_configs).on_error(
+                error_callback
+            )
+        )
     if "git-submodule" in pkg_manager_names:
         chain_tasks.append(
             tasks.add_git_submodules_as_package.si(request.id).on_error(error_callback)
