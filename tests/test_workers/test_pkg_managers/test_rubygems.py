@@ -797,10 +797,18 @@ def test_resolve_rubygems(
             "path": expected_path,
         },
         "dependencies": [
-            {"name": "ci_reporter", "version": "2.0.0", "type": "rubygems"},
             {
+                "kind": "GEM",
+                "name": "ci_reporter",
+                "version": "2.0.0",
+                "path": "some/path",
+                "type": "rubygems",
+            },
+            {
+                "kind": "GIT",
                 "name": "ci_reporter_shell",
                 "version": f"git+{CI_REPORTER_URL}@{GIT_REF}",
+                "path": "path/to/downloaded",
                 "type": "rubygems",
             },
         ],
@@ -856,6 +864,17 @@ def test_get_hosted_repositories_username():
 
 def test_get_rubygems_hosted_repo_name():
     assert rubygems.get_rubygems_hosted_repo_name(42) == "cachito-rubygems-hosted-42"
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems.get_worker_config")
+def test_get_rubygems_hosted_url_with_credentials(mock_get_config):
+    mock_get_config.return_value = mock.Mock(
+        cachito_nexus_url="http://nexus:8081", cachito_nexus_request_repo_prefix="cachito-"
+    )
+    assert (
+        rubygems.get_rubygems_hosted_url_with_credentials("name", "password", 42)
+        == "http://name:password@nexus:8081/repository/cachito-rubygems-hosted-42/"
+    )
 
 
 @pytest.mark.parametrize(

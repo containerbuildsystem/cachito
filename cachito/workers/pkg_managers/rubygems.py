@@ -5,6 +5,7 @@ import random
 import re
 import secrets
 import shutil
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -367,7 +368,7 @@ def resolve_rubygems(package_root, request):
     dependencies = parse_gemlock(package_root, gemlock_path)
     dependencies = download_dependencies(request["id"], dependencies, package_root)
 
-    rubygems_repo_name = get_rubygems_hosted_name(request["id"])
+    rubygems_repo_name = get_rubygems_hosted_repo_name(request["id"])
     for dependency in dependencies:
         if dependency["kind"] == "GEM":
             _push_downloaded_gem(dependency, rubygems_repo_name)
@@ -376,7 +377,6 @@ def resolve_rubygems(package_root, request):
         if dep["kind"] == "GIT":
             unpack_git_dependency(dep)
 
-    dependencies = cleanup_metadata(dependencies)
     name, version = _get_metadata(package_root, request)
     if package_root == bundle_dir:
         package_rel_path = None
@@ -450,31 +450,6 @@ def _push_downloaded_gem(dependency, rubygems_repo_name):
             raise
 
 
-def get_rubygems_hosted_name(request_id):
-    """
-    Get the name of the Nexus RubyGems hosted repository for the request.
-
-    :param int request_id: the ID of the request this repository is for
-    :return: the name of the RubyGems hosted repository for the request
-    :rtype: str
-    """
-    config = get_worker_config()
-    return f"{config.cachito_nexus_request_repo_prefix}rubygems-hosted-{request_id}"
-
-
-def cleanup_metadata(dependencies):
-    """
-    Cleanup dependencies' metadata, so it can be included in request JSON.
-
-    :param dependencies: which should be cleaned up
-    :return: list[dict]
-    """
-    return [
-        {"name": dep["name"], "version": dep["version"], "type": dep["type"]}
-        for dep in dependencies
-    ]
-
-
 def get_rubygems_nexus_username(request_id):
     """
     Get the username that has read access on the RubyGems hosted repo for the request.
@@ -505,3 +480,18 @@ def _get_metadata(package_root, request):
     repo_name = get_repo_name(request["repo"]).split("/")[-1]
 
     return repo_name + relative_path, request["ref"]
+
+
+def get_rubygems_hosted_url_with_credentials(username: str, password: str, request_id: int):
+    """
+    Get URL of a RubyGems hosted repo for the request with hardcoded username and a password.
+
+    :param username: the username that has read access on the RubyGems hosted repo
+    :param password: password for the user`
+    :param int request_id: the ID of the request this repository is for
+    :return str: URL of a RubyGems hosted repo for the request with hardcoded username and password
+    """
+    config = get_worker_config()
+    url = urllib.parse.urlparse(config.cachito_nexus_url)
+    repo_name = get_rubygems_hosted_repo_name(request_id)
+    return f"{url.scheme}://{username}:{password}@{url.netloc}/repository/{repo_name}/"
