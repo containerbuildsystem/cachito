@@ -73,7 +73,7 @@ def fetch_pip_source(request_id, package_configs=None):
     packages_data = []
     requirement_file_paths = []
     for pkg_cfg in package_configs:
-        pkg_path = pkg_cfg.get("path", ".")
+        pkg_path = os.path.normpath(pkg_cfg.get("path", "."))
         source_dir = bundle_dir.app_subpath(pkg_path).source_dir
         set_request_state(
             request_id,
