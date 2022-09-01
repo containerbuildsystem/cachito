@@ -183,6 +183,7 @@ def test_fetch_rubygems_source(
     expected = pkg_data["package"].copy()
     expected_dependencies = pkg_data["dependencies"]
     del expected_dependencies[0]["path"]
+    del expected_dependencies[0]["kind"]
     expected["dependencies"] = expected_dependencies
     if not package_subpath or package_subpath == os.curdir:
         del expected["path"]
