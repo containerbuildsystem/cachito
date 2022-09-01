@@ -181,10 +181,10 @@ def cleanup_metadata(dependencies: list[dict]):
 
     :param list dependencies: which should be processed
     :return: list of dependencies where each dependency is represented by a dictionary
-        with the following keys: name, version, type, kind
+        with the following keys: name, version, type
     :rtype list[dict]:
     """
     return [
-        {"name": dep["name"], "version": dep["version"], "type": dep["type"], "kind": dep["kind"]}
+        {"name": dep["name"], "version": dep["version"], "type": dep["type"]}
         for dep in dependencies
     ]
