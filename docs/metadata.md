@@ -132,13 +132,13 @@ of these packages using logic specific to the corresponding package managers.
 #### package.name
 
 The name of the package. Comes from the file that defines the package, such as
-`package.json`, `go.mod`, `setup.cfg` etc.
+`package.json`, `go.mod`, `setup.cfg` etc. For RubyGems, it comes from the Git repo URL.
 
 #### package.version
 
 The version of the package. Usually comes from the file that defines the package, such
 as `package.json`, `setup.cfg` etc. Golang packages define their versions through git
-data, see https://golang.org/doc/modules/version-numbers.
+data, see https://golang.org/doc/modules/version-numbers. For RubyGems, Git commit hash is used.
 
 #### package.type
 
