@@ -489,6 +489,11 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_nexus_pypi_proxy_url` - the URL of the Nexus PyPI proxy repository for the `pip` package
   manager. Configured using a full URL rather than just a repo name because we need the additional
   flexibility.
+* `cachito_nexus_rubygems_proxy_url`- the URL of the Nexus RubyGems proxy repository for the 
+  `rubygems` package manager. Configured using a full URL rather than just a repo name because 
+  we need the additional flexibility.
+* `cachito_nexus_rubygems_raw_repo_name` - the name of the Nexus raw repository for the `rubygems` 
+  package manager. This defaults to `cachito-rubygems-raw`.
 * `cachito_nexus_proxy_password` - the password of the unprivileged user that has read access
   to the main Cachito repositories (e.g. `cachito-js`). This is needed if the Nexus instance that
   hosts the main Cachito repositories has anonymous access disabled. This is the case if Cachito
@@ -519,6 +524,10 @@ Custom configuration for the Celery workers are listed below:
   to be replaced by a local module by default (e.g. `<this-module>/submodule => ./local-module`),where a
   submodule is an internal module (placed in non-root directory) in a multi-module hierarchy (read more about
   [multi-module repositories](https://github.com/golang/go/wiki/Modules#faqs--multi-module-repositories)).
+* `cachito_workers_rubygems_file_deps_allowlist` - for each package, it contains a list of 
+  RubyGems PATH dependencies that are allowed to be present in `Gemfile.lock`. This configuration 
+  is a dictionary with the keys as package names and the values  as lists of dependency names.
+  This defaults to `{}`.
 * `cachito_request_file_logs_dir` - the directory to write the request specific log files. If `None`, per
   request log files are not created. This defaults to `None`.
 * `cachito_request_file_logs_format` - the format for the log messages of the request specific log files.
@@ -648,6 +657,28 @@ repositories will only contain content that Cachito has made available.
 These repositories are created per request and deleted when the request is marked as stale or the
 request fails.
 
+### Nexus for RubyGems
+
+The RubyGems package manager functionality relies on [Nexus Repository Manager 3][nexus-docs] to
+store RubyGems dependencies. The Nexus instance consists of two repositories that act as a long
+terms storage - RubyGems proxy repository (e.g. `cachito-rubygems-proxy`) that points to
+`rubygems.org` and raw repository (e.g. `cachito-rubygems-raw`) used for storing Git dependencies.
+The RubyGems proxy repository caches all RubyGems packages that Cachito downloads through it and the
+raw repository holds tarballs of Git dependencies that Cachito uploads there after fetching them
+from the original locations.
+
+On each request, Cachito creates a RubyGems hosted repository (e.g. `cachito-rubygems-hosted-1`)
+and uploads there all GEM dependencies for the request. This repository is created per request and
+deleted when the request is marked as stale or the request fails. Redirecting Bundler to use this
+repository instead of a default RubyGems server is done by providing a configuration file. Note that
+there's no request specific repository for external dependencies as other package managers do, instead,
+dependencies are installed from the downloaded bundle (see [Package Managers section](#rubygems-bundler) 
+for more details).
+
+When installing dependencies from the Cachito-provided repositories, the user is inherently blocked
+from installing anything that they did not declare as a dependency, because the repositories will
+only contain content that Cachito has made available.
+
 ### Nexus Common Configuration
 
 Refer to the "Configuring Workers" section to see how to configure Cachito to use Nexus. Please
@@ -664,16 +695,16 @@ Nexus instance that hosts the permanent content: `cachito_nexus_hoster_username`
 
 The table below shows the supported package managers and their support level in Cachito.
 
-Feature                 | gomod | npm | pip | yarn |
----                     | ---   | --- | --- | ---  |
-Baseline                | ✓     | ✓   | ✓   | ✓    |
-Content Manifest        | ✓     | ✓   | ✓   | ✓    |
-Dependency Replacements | ✓     | x   | x   | x    |
-Dev Dependencies        | ✓     | ✓   | ✓   | ✓    |
-External Dependencies   | N/A   | ✓   | ✓   | ✓    |
-Multiple Paths          | ✓     | ✓   | ✓   | ✓    |
-Nested Dependencies     | ✓     | ✓   | x   | ✓    |
-Offline Installations   | ✓     | x   | x   | x    |
+| Feature                 | gomod | npm | pip | yarn | rubygems |
+|-------------------------|-------|-----|-----|------|----------|
+| Baseline                | ✓     | ✓   | ✓   | ✓    | ✓        |
+| Content Manifest        | ✓     | ✓   | ✓   | ✓    | ✓        |
+| Dependency Replacements | ✓     | x   | x   | x    | x        |
+| Dev Dependencies        | ✓     | ✓   | ✓   | ✓    | x        |
+| External Dependencies   | N/A   | ✓   | ✓   | ✓    | ✓        |
+| Multiple Paths          | ✓     | ✓   | ✓   | ✓    | ✓        |
+| Nested Dependencies     | ✓     | ✓   | x   | ✓    | ✓        |
+| Offline Installations   | ✓     | x   | x   | x    | x        |
 
 #### Feature Definitions
 
@@ -710,18 +741,22 @@ Offline Installations   | ✓     | x   | x   | x    |
 
 ### Current Tool Versions
 
-Tool   | Version |
----    |---------|
-Go     | 1.18.6  |
-Npm    | 8.3.1   |
-Node   | 16.14.0 |
-Pip    | 21.3.1  |
-Python | 3.10.6  |
-Git    | 2.37.3  |
-Yarn*  | 1.x     |
+Tool     | Version |
+---      |---------|
+Go       | 1.18.6  |
+Npm      | 8.3.1   |
+Node     | 16.14.0 |
+Pip      | 21.3.1  |
+Python   | 3.10.6  |
+Git      | 2.37.3  |
+Yarn*    | 1.x     |
+Bundler* | 2.x     |
 
 * Cachito does not use the Yarn runtime. The processing of yarn.lock files is handled by
   [PYarn](https://github.com/containerbuildsystem/pyarn), which is compatible with any 1.x file.
+* Cachito does not use the Ruby runtime (no ruby is interpreted from `Gemfile`s). 
+  The processing of Gemfile.lock files is handled by
+  [gemlock-parser](https://github.com/containerbuildsystem/gemlock-parser).
 
 ### gomod
 
@@ -948,6 +983,64 @@ Nexus instead. The modified files will be accessible at the
 again in a future request, it will use it directly from Nexus rather than downloading it and
 uploading it again. This guarantees that any dependency used for a Cachito request can be used again
 in a future Cachito request.
+
+### RubyGems (Bundler)
+
+The Bundler package manager works by parsing the `Gemfile.lock` file present in the source
+repository to determine what dependencies are required to build the application.
+
+Cachito then creates a RubyGems repository in an instance of Nexus it manages that contains just the
+GEM dependencies discovered in the lock file. Also, Cachito produces a bundle downloadable at
+`/api/v1/requests/<id>/download` containing `app/` directory with the application source code 
+(including PATH dependencies) and `/deps/rubygems` directory with all GEM and GIT dependencies.
+
+Since multiple packages in a single repo are supported, for each of these packages a configuration 
+file is provided at `/api/v1/requests/<id>/configuration-files` endpoint. This file redirects 
+Bundler to use Nexus proxy for downloading GEM dependencies and contains an entry for every Git 
+dependency to be overridden by the corresponding dependency from `deps/rubygems` (instead of 
+downloading it from the internet, see [local Git 
+repos](https://bundler.io/man/bundle-config.1.html#LOCAL-GIT-REPOS) for more details). 
+If a GIT dependency is specified with `branch:` in the Gemfile, this branch is checked out so that 
+local GIT repo redirection works.
+
+Note that configuration files expose the username and password of the temporary user created for 
+your request. This should not be a security concern, the user only has read access for 
+the repositories and the only reason why we do not allow anonymous read access is due to a technical
+limitation in Nexus.
+
+#### Requirements for RubyGems repos
+
+There are several constraints on RubyGems packages that are enforced by Cachito and not meeting them
+raises an exception sooner or later:
+
+- To prevent Cachito from downloading native content (binaries), `Gemfile.lock` has to contain only
+  one platform in its `PLATFORMS` section, and it has to be `ruby`.
+- All PATH dependencies listed in `Gemfile.lock` have to be explicitly allowed in Cachito's
+  config file. For example, a package which is located at the subpath `first_pkg/` from the root of a repository at URL
+  `github.com/cachito-testing/cachito-rubygems-multiple` which has PATH dependency `pathgem` will be processed properly 
+  only if Cachito's config contains the following entry
+
+``` 
+cachito_rubygems_file_deps_allowlist = {
+    "cachito-rubygems-multiple/first_pkg": ["pathgem"] 
+}
+```
+
+Note that the name of the package (the key in the dictionary) is the last component of its repo URL.
+If the package isn't located in the root of the repo, then its `/subpath` is appended to the name
+(`/first_pkg` in the example above). The value in the dictionary is an array of all PATH dependencies 
+of the given package, where the names are parsed from their `.gemspec` files (= names which are 
+listed in `Gemfile.lock`).
+
+- Git dependencies must use `https://` and specify the exact commit hash in the `Gemfile.lock` (it's
+  done automatically by Bundler).
+- As mentioned above, Cachito provides config files so that user can simply unpack the bundle and
+  run `bundle install` from the `app` directory. This config uses local Git repos redirection, but
+  not all dependencies have `.gemspec` file supporting this. To prevent failure during `bundle
+  install` execution, check `.gemspec` files of all GIT dependencies listed in `Gemfile.lock` and
+  make sure that if there are any `require` statements, these statements are working relative to the
+  .gemspec file of that dependency, ideally by using `require_relative` keyword as suggested in
+  [this RubyGems guide](https://guides.rubygems.org/patterns/#loading-code).
 
 ## Using Cachito Without Package Managers
 
