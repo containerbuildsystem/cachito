@@ -8,12 +8,15 @@ import shutil
 import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import requests
 from gemlock_parser.gemfile_lock import GemfileLockParser
+from git import Repo
+from git.exc import CheckoutError
 
 from cachito.common.utils import get_repo_name
-from cachito.errors import NexusError, ValidationError
+from cachito.errors import GitError, NexusError, ValidationError
 from cachito.workers import get_worker_config, nexus
 from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.paths import RequestBundleDir
@@ -41,6 +44,7 @@ class GemMetadata:
     version: str
     type: str
     source: str
+    branch: Optional[str] = None
 
 
 def prepare_nexus_for_rubygems_request(rubygems_repo_name):
@@ -86,7 +90,7 @@ def parse_gemlock(source_dir, gemlock_path):
             continue
         _validate_gem_metadata(gem, source_dir, gemlock_path.parent)
         source = gem.remote if gem.type != "PATH" else gem.path
-        dependencies.append(GemMetadata(gem.name, gem.version, gem.type, source))
+        dependencies.append(GemMetadata(gem.name, gem.version, gem.type, source, gem.branch))
 
     return dependencies
 
@@ -331,6 +335,7 @@ def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_
         "path": download_path,
         "raw_component_name": raw_component_name,
         "have_raw_component": have_raw_component,
+        "branch": gem.branch,
     }
 
 
@@ -375,7 +380,7 @@ def resolve_rubygems(package_root, request):
 
     for dep in dependencies:
         if dep["kind"] == "GIT":
-            unpack_git_dependency(dep)
+            prepare_git_dependency(dep)
 
     name, version = _get_metadata(package_root, request)
     if package_root == bundle_dir:
@@ -389,9 +394,9 @@ def resolve_rubygems(package_root, request):
     }
 
 
-def unpack_git_dependency(dep):
+def prepare_git_dependency(dep):
     """
-    Unpack the archive with the downloaded dependency.
+    Unpack the archive with the downloaded dependency and checkout a specified Git branch.
 
     Only the unpacked directory is kept, the archive is deleted.
     To get more info on local Git repos, see:
@@ -399,10 +404,34 @@ def unpack_git_dependency(dep):
     :param dep: RubyGems GIT dependency
     """
     #
-    extracted_path = str(dep["path"]).removesuffix(".tar.gz")
+    extracted_path = Path(str(dep["path"]).removesuffix(".tar.gz"))
+    log.debug(f"Extracting archive at {dep['path']} to {extracted_path}")
     shutil.unpack_archive(dep["path"], extracted_path)
     os.remove(dep["path"])
     dep["path"] = extracted_path
+
+    if dep["branch"] is not None:
+        log.debug(f"Checking out branch {dep['branch']} at {dep['path'] / 'app'}")
+        checkout_branch(dep)
+
+
+def checkout_branch(dep: dict):
+    """Create and checkout branch dep['branch'] in repository at dep['path']/app.
+
+    :param dict dep: GIT dependency with keys `branch` and `path` (Path to the unpacked Git repo)
+    :raises GitError: If creating Git objects or checking out a given branch failed
+    """
+    try:
+        repo = Repo(dep["path"] / "app")
+        git = repo.git
+        git.checkout("HEAD", b=dep["branch"])
+    except CheckoutError:
+        raise GitError(f"Couldn't checkout branch {dep['branch']} at {dep['path'] / 'app'}")
+    except Exception:
+        raise GitError(
+            f"An error occurred during creating a Git repository object or branch checkout at path:"
+            f" {dep['path'] / 'app'}"
+        )
 
 
 def _upload_rubygems_package(repo_name, artifact_path):
