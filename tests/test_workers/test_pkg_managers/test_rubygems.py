@@ -4,10 +4,11 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
+import git
 import pytest
 import requests
 
-from cachito.errors import NexusError, ValidationError
+from cachito.errors import GitError, NexusError, ValidationError
 from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.pkg_managers import general, rubygems
 from cachito.workers.pkg_managers.rubygems import GemMetadata, parse_gemlock
@@ -487,7 +488,9 @@ class TestDownload:
     ):
         raw_url = "https://nexus:8081/repository/cachito-rubygems-raw/json.tar.gz"
 
-        dependency = GemMetadata("json", GIT_REF, "GIT", "https://github.com/org/json.git")
+        dependency = GemMetadata(
+            "json", GIT_REF, "GIT", "https://github.com/org/json.git", "master"
+        )
 
         git_archive_path = tmp_path / "json.tar.gz"
 
@@ -510,6 +513,7 @@ class TestDownload:
             ),
             "raw_component_name": raw_component,
             "have_raw_component": have_raw_component,
+            "branch": "master",
         }
 
         assert (
@@ -706,7 +710,7 @@ def test_resolve_rubygems_invalid_gemfile_lock_path(mock_request_bundle_dir, tmp
 
 
 @pytest.mark.parametrize("subpath_pkg", [True, False])
-@mock.patch("cachito.workers.pkg_managers.rubygems.unpack_git_dependency")
+@mock.patch("cachito.workers.pkg_managers.rubygems.prepare_git_dependency")
 @mock.patch("cachito.workers.pkg_managers.rubygems._get_metadata")
 @mock.patch("cachito.workers.pkg_managers.rubygems._upload_rubygems_package")
 @mock.patch("cachito.workers.pkg_managers.rubygems.download_dependencies")
@@ -892,13 +896,42 @@ def test_get_metadata(mock_request_bundle_dir, tmp_path, package_subpath, expect
     assert version == GIT_REF
 
 
+@pytest.mark.parametrize("branch", [None, "some-branch"])
 @mock.patch("cachito.workers.pkg_managers.rubygems.os.remove")
 @mock.patch("cachito.workers.pkg_managers.rubygems.shutil.unpack_archive")
-def test_unpack_git_dependency(mock_unpack, mock_remove):
-    original_path = "some/path.tar.gz"
-    new_path = "some/path"
-    dep = {"path": original_path}
-    rubygems.unpack_git_dependency(dep)
+@mock.patch("cachito.workers.pkg_managers.rubygems.checkout_branch")
+def test_prepare_git_dependency(mock_checkout_branch, mock_unpack, mock_remove, branch):
+    original_path = Path("some/path.tar.gz")
+    new_path = Path("some/path")
+    dep = {"path": original_path, "branch": branch}
+
+    rubygems.prepare_git_dependency(dep)
+
     mock_unpack.assert_called_once_with(original_path, new_path)
     mock_remove.assert_called_once_with(original_path)
+    if branch is None:
+        mock_checkout_branch.assert_not_called()
+    else:
+        mock_checkout_branch.assert_called_once()
     assert dep["path"] == new_path
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems.Repo")
+def test_checkout_branch(mock_repo):
+    rubygems.checkout_branch({"path": Path("/yo"), "branch": "b"})
+
+    mock_repo.assert_called_with(Path("/yo/app"))
+    mock_repo.return_value.git.checkout.assert_called_once_with("HEAD", b="b")
+
+
+@mock.patch("cachito.workers.pkg_managers.rubygems.Repo")
+def test_checkout_branch_raises(mock_repo):
+    dep = {"path": Path("/yo"), "branch": "b"}
+    mock_repo.return_value.git.checkout.side_effect = git.exc.CheckoutError
+
+    with pytest.raises(GitError):
+        rubygems.checkout_branch(dep)
+
+    mock_repo.side_effect = git.exc.InvalidGitRepositoryError
+    with pytest.raises(GitError):
+        rubygems.checkout_branch(dep)
