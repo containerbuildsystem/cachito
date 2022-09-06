@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import base64
+import concurrent.futures
 import io
 import json
 import logging
@@ -15,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
+import requests
+
 from cachito.errors import (
     FileAccessError,
     InvalidChecksum,
@@ -25,7 +28,7 @@ from cachito.errors import (
 from cachito.workers import nexus, run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
-from cachito.workers.pkg_managers.general import ChecksumInfo, verify_checksum
+from cachito.workers.pkg_managers.general import ChecksumInfo, download_binary_file, verify_checksum
 
 __all__ = [
     "download_dependencies",
@@ -42,6 +45,24 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+
+
+def _download_dependency(download_dir, proxy_repo_url, dep_identifier):
+
+    nexus_username, nexus_password = nexus.get_nexus_hoster_credentials()
+    nexus_auth = requests.auth.HTTPBasicAuth(nexus_username, nexus_password)
+
+    full_pkg_name, version = dep_identifier.rsplit("@", 1)
+    if "/" in full_pkg_name:
+        short_pkg_name = full_pkg_name.rsplit("/", 1)[1]
+    else:
+        short_pkg_name = full_pkg_name
+
+    proxied_url = f"{proxy_repo_url}{full_pkg_name}/-/{short_pkg_name}-{version}.tgz"
+    tarball_name = f"{full_pkg_name}-{version}.tgz".replace("@", "").replace("/", "-")
+    download_binary_file(proxied_url, os.path.join(download_dir, tarball_name), auth=nexus_auth)
+
+    return tarball_name
 
 
 def download_dependencies(
@@ -95,21 +116,21 @@ def download_dependencies(
             conf.cachito_nexus_password,
             custom_ca_path=nexus_ca,
         )
-        env = {
-            # This is set since the home directory must be determined by the HOME environment
-            # variable or by looking at the /etc/passwd file. The latter does not always work
-            # since some deployments (e.g. OpenShift) don't have an entry for the running user
-            # in /etc/passwd.
-            "HOME": os.environ.get("HOME", ""),
-            "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
-            # This should not be necessary since all the dependencies come from Nexus, but it's an
-            # extra precaution
-            "NPM_CONFIG_IGNORE_SCRIPTS": "true",
-            "NPM_CONFIG_USERCONFIG": npm_rc_file,
-            "PATH": os.environ.get("PATH", ""),
-        }
+        # env = {
+        #     # This is set since the home directory must be determined by the HOME environment
+        #     # variable or by looking at the /etc/passwd file. The latter does not always work
+        #     # since some deployments (e.g. OpenShift) don't have an entry for the running user
+        #     # in /etc/passwd.
+        #     "HOME": os.environ.get("HOME", ""),
+        #     "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
+        #     # This should not be necessary since all the dependencies come from Nexus, but it's an
+        #     # extra precaution
+        #     "NPM_CONFIG_IGNORE_SCRIPTS": "true",
+        #     "NPM_CONFIG_USERCONFIG": npm_rc_file,
+        #     "PATH": os.environ.get("PATH", ""),
+        # }
         # Download the dependencies directly in the bundle directory
-        run_params = {"env": env, "cwd": str(download_dir)}
+        # run_params = {"env": env, "cwd": str(download_dir)}
         log.info("Processing %d %s dependencies to stage in Nexus", len(deps), pkg_manager)
         downloaded_deps = set()
         # This must be done in batches to prevent Nexus from erroring with "Header is too large"
@@ -153,18 +174,18 @@ def download_dependencies(
                 pkg_manager,
                 ", ".join(dep_identifiers),
             )
-            npm_pack_args = ["npm", "pack"] + dep_identifiers
-            output = run_cmd(
-                npm_pack_args, run_params, f"Failed to download the {pkg_manager} dependencies"
-            )
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [
+                    executor.submit(_download_dependency, download_dir, proxy_repo_url, dep)
+                    for dep in dep_identifiers
+                ]
+                results = [future.result() for future in futures]
 
             # Move dependencies to their respective folders
             # Iterate through the tuples made of dependency tarball and dep_identifier
             # e.g. ('ab-2.10.2-external-sha512-ab.tar.gz', ('ab@2.10.2-external-sha512-ab',
             # 'https://github.com/ab/2.10.2.tar.gz'))
-            for tarball, (dep_identifier, external_dep_version) in zip(
-                output.split("\n"), dep_batch
-            ):
+            for tarball, (dep_identifier, external_dep_version) in zip(results, dep_batch):
                 # tarball: e.g. ab-2.10.2-external-sha512-ab.tar.gz
                 # dep_identifier: ab@2.10.2-external-sha512-ab
                 # external_dep_version:  https://github.com/ab/2.10.2.tar.gz
