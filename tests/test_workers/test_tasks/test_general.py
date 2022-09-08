@@ -347,7 +347,9 @@ def test_finalize_request(
 @mock.patch("cachito.workers.tasks.general.get_request_packages_and_dependencies")
 @mock.patch("cachito.workers.tasks.general.set_request_state")
 def test_finalize_request_with_error_when_fetching_api(
-    mock_set_state, mock_get_request_packages_and_dependencies, task_passes_state_check,
+    mock_set_state,
+    mock_get_request_packages_and_dependencies,
+    task_passes_state_check,
 ):
     request_id = 42
     error_message = f"Packages file could not be loaded for request {request_id}"

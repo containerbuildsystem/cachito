@@ -53,15 +53,13 @@ log = logging.getLogger(__name__)
 
 def parse_dependency(proxy_repo_url, dep_identifier):
     """
-    Parse the dependency to return the URL used to download the file(proxied_url),
-    and the file name (tarball_name).
+    Parse the dependecy to return the proxied download URL and the file name.
 
     :param str proxy_repo_url: The Nexus proxy repository URL to use as the registry
     :param str dep_identifier:
     :return: proxied_url for the download and the tarball_name.
     :rtype: str, str
     """
-
     full_pkg_name, version = dep_identifier.rsplit("@", 1)
     if "/" in full_pkg_name:
         short_pkg_name = full_pkg_name.rsplit("/", 1)[1]
@@ -76,8 +74,9 @@ def parse_dependency(proxy_repo_url, dep_identifier):
 
 async def get_dependencies(proxy_repo_url, download_dir, deps_to_download):
     """
-    Asynchronous function that receives the url (proxy_repo_url),
-    the destination directory (download_dir)
+    Asynchronous function that execute the dependencies download.
+
+    Receives the url (proxy_repo_url), the destination directory (download_dir)
     and the dependencies to be downloaded (deps_to_download).
 
     :param str proxy_repo_url: The Nexus proxy repository URL to use as the registry.
@@ -86,9 +85,10 @@ async def get_dependencies(proxy_repo_url, download_dir, deps_to_download):
     :return: a list of the downloaded tarballs.
     :rtype: list[str]
     """
-
     nexus_username, nexus_password = nexus.get_nexus_hoster_credentials()
     nexus_auth = aiohttp.BasicAuth(nexus_username, nexus_password)
+
+    concurrency_limit = asyncio.Semaphore(int(os.getenv('ASYNCIO_TRHEADS')))
 
     async with aiohttp.ClientSession() as session:
 
@@ -98,7 +98,7 @@ async def get_dependencies(proxy_repo_url, download_dir, deps_to_download):
             tasks.append(
                 asyncio.ensure_future(
                     async_download_binary_file(
-                        session, proxied_url, download_dir, tarball_name, auth=nexus_auth
+                        session, proxied_url, download_dir, tarball_name, concurrency_limit, auth=nexus_auth,
                     )
                 )
             )

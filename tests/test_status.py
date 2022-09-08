@@ -128,7 +128,8 @@ def test_rabbitmq_ok(mock_kombu_connection, error, expect_reason):
 
 
 @pytest.mark.parametrize(
-    "num_retries, sleep_intervals", [(0, []), (1, [0.25]), (5, [0.25, 0.5, 1.0, 2.0, 4.0])],
+    "num_retries, sleep_intervals",
+    [(0, []), (1, [0.25]), (5, [0.25, 0.5, 1.0, 2.0, 4.0])],
 )
 @mock.patch.object(status.app.control, "inspect")
 @mock.patch("time.sleep")

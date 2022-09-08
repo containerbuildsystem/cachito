@@ -9,7 +9,8 @@ from cachito.web.models import PackageManager, Request, RequestStateMapping
 
 
 @pytest.mark.parametrize(
-    "name,expected", [["gomod", "gomod"], ["", None], [None, None], ["unknown", None]],
+    "name,expected",
+    [["gomod", "gomod"], ["", None], [None, None], ["unknown", None]],
 )
 def test_package_manager_get_by_name(name, expected, app, db, auth_env):
     pkg_manager: Optional[PackageManager] = PackageManager.get_by_name(name)

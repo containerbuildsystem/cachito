@@ -39,7 +39,8 @@ def test_get_request_metrics_summary(api_client):
         api_client.wait_for_complete_request(request)
 
     resp = api_client.fetch_request_metrics_summary(
-        finished_from=finished_from, finished_to=datetime.utcnow().isoformat(),
+        finished_from=finished_from,
+        finished_to=datetime.utcnow().isoformat(),
     )
     assert resp.status_code == 200
     summary = resp.json()
@@ -63,7 +64,8 @@ def test_get_request_metrics_summary(api_client):
 
     # Check empty datetime range
     resp = api_client.fetch_request_metrics_summary(
-        finished_from=finished_from, finished_to=finished_from,
+        finished_from=finished_from,
+        finished_to=finished_from,
     )
     assert resp.status_code == 200
     summary = resp.json()

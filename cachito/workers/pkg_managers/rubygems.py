@@ -1,18 +1,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
+import os
 import random
 import re
 import secrets
 import shutil
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import requests
 from gemlock_parser.gemfile_lock import GemfileLockParser
+from git import Repo
+from git.exc import CheckoutError
 
-from cachito.errors import NexusError, ValidationError
+from cachito.common.utils import get_repo_name
+from cachito.errors import GitError, NexusError, ValidationError
 from cachito.workers import get_worker_config, nexus
-from cachito.workers.errors import NexusScriptError
+from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import (
     download_binary_file,
@@ -21,6 +27,8 @@ from cachito.workers.pkg_managers.general import (
     upload_raw_package,
 )
 from cachito.workers.scm import Git
+
+GEMFILE_LOCK = "Gemfile.lock"
 
 GIT_REF_FORMAT = re.compile(r"^[a-fA-F0-9]{40}$")
 PLATFORMS_RUBY = re.compile(r"^PLATFORMS\n {2}ruby\n\n", re.MULTILINE)
@@ -36,19 +44,18 @@ class GemMetadata:
     version: str
     type: str
     source: str
+    branch: Optional[str] = None
 
 
-def prepare_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name):
+def prepare_nexus_for_rubygems_request(rubygems_repo_name):
     """
     Prepare Nexus so that Cachito can stage Rubygems content.
 
     :param str rubygems_repo_name: the name of the Rubygems repository for the request
-    :param str raw_repo_name: the name of the raw repository for the request
     :raise NexusError: if the script execution fails
     """
     payload = {
         "rubygems_repository_name": rubygems_repo_name,
-        "raw_repository_name": raw_repo_name,
     }
     script_name = "rubygems_before_content_staged"
     try:
@@ -63,7 +70,7 @@ def parse_gemlock(source_dir, gemlock_path):
 
     :param Path source_dir: the full path to the project directory
     :param Path gemlock_path: the full path to Gemfile.lock
-    :return: list of Gems
+    :return: list[GemMetadata]
     """
     if not gemlock_path.is_file():
         raise ValidationError(
@@ -75,9 +82,15 @@ def parse_gemlock(source_dir, gemlock_path):
     dependencies = []
     all_gems = GemfileLockParser(str(gemlock_path)).all_gems
     for gem in all_gems.values():
+        if gem.version is None:
+            log.debug(
+                f"Skipping RubyGem {gem.name}, because of a missing version. "
+                f"This means gem is not used in a platform for which Gemfile.lock was generated."
+            )
+            continue
         _validate_gem_metadata(gem, source_dir, gemlock_path.parent)
         source = gem.remote if gem.type != "PATH" else gem.path
-        dependencies.append(GemMetadata(gem.name, gem.version, gem.type, source))
+        dependencies.append(GemMetadata(gem.name, gem.version, gem.type, source, gem.branch))
 
     return dependencies
 
@@ -102,9 +115,6 @@ def _validate_gem_metadata(gem, source_dir, gemlock_dir):
     :param Path gemlock_dir: the root directory containing Gemfile.lock
     :raise: ValidationError
     """
-    if gem.name is None or gem.version is None:
-        raise ValidationError("Unspecified name or version of a RubyGem.")
-
     if gem.type == "GEM":
         if gem.remote != "https://rubygems.org/":
             raise ValidationError(
@@ -150,12 +160,11 @@ def _validate_path_dependency_dir(gem, project_root, gemlock_dir):
         raise ValidationError(f"{str(dependency_dir)} is not a subpath of {str(project_root)}")
 
 
-def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, username):
+def finalize_nexus_for_rubygems_request(rubygems_repo_name, username):
     """
     Configure Nexus so that the request's Rubygems repositories are ready for consumption.
 
     :param str rubygems_repo_name: the name of the rubygems hosted repository for a given request
-    :param str raw_repo_name: the name of the raw repository for the Cachito Rubygems request
     :param str username: the username of the user to be created for the Cachito Rubygems request
     :return: the password of the Nexus user that has access to the request's Rubygems repositories
     :rtype: str
@@ -166,7 +175,6 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, usern
     payload = {
         "password": password,
         "rubygems_repository_name": rubygems_repo_name,
-        "raw_repository_name": raw_repo_name,
         "username": username,
     }
     script_name = "rubygems_after_content_staged"
@@ -178,7 +186,7 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, raw_repo_name, usern
     return password
 
 
-def download_dependencies(request_id, dependencies):
+def download_dependencies(request_id, dependencies, package_root):
     """
     Download all dependencies from Gemfile.lock with its sources.
 
@@ -188,6 +196,7 @@ def download_dependencies(request_id, dependencies):
 
     :param int request_id: ID of the request these dependencies are being downloaded for
     :param list[GemMetadata] dependencies: List of dependencies
+    :param package_root: path to the root of the processed package
     :return: Info about downloaded packages; all items will contain "kind" and "path" keys
         (and more based on kind, see _download_*_package functions for more details)
     :rtype: list[dict]
@@ -215,16 +224,19 @@ def download_dependencies(request_id, dependencies):
             download_info = _download_git_package(
                 dep, bundle_dir.rubygems_deps_dir, rubygems_raw_repo_name, nexus_auth
             )
+        elif dep.type == "PATH":
+            download_info = _get_path_package_info(dep, package_root)
         else:
             # Should not happen
             raise RuntimeError(f"Unexpected dependency type: {dep.type!r}")
 
-        log.info(
-            "Successfully downloaded gem %s (%s) to %s",
-            dep.name,
-            dep.version,
-            download_info["path"].relative_to(bundle_dir),
-        )
+        if dep.type != "PATH":
+            log.info(
+                "Successfully downloaded gem %s (%s) to %s",
+                dep.name,
+                dep.version,
+                download_info["path"].relative_to(bundle_dir),
+            )
 
         # If the raw component is not in the Nexus hoster instance, upload it there
         if dep.type == "GIT" and not download_info["have_raw_component"]:
@@ -244,6 +256,7 @@ def download_dependencies(request_id, dependencies):
             )
 
         download_info["kind"] = dep.type
+        download_info["type"] = "rubygems"
         downloads.append(download_info)
 
     return downloads
@@ -254,6 +267,7 @@ def _download_rubygems_package(gem, deps_dir, proxy_url, proxy_auth):
 
     The platform independence is ensured by downloading it from platform independent url
     (url that doesn't have any platform suffix).
+
     :param GemMetadata gem: Gem dependency from a Gemfile.lock file
     :param Path deps_dir: The deps/rubygems directory in a Cachito request bundle
     :param str proxy_url: URL of Nexus RubyGems proxy
@@ -267,7 +281,7 @@ def _download_rubygems_package(gem, deps_dir, proxy_url, proxy_auth):
     download_binary_file(proxied_url, download_path, auth=proxy_auth)
 
     return {
-        "package": gem.name,
+        "name": gem.name,
         "version": gem.version,
         "path": download_path,
     }
@@ -312,11 +326,201 @@ def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_
         # Copy downloaded archive to expected download path
         shutil.copy(repo_name.sources_dir.archive_path, download_path)
 
+    url = gem.source
+    ref = gem.version.lower()
+
     return {
-        "package": gem.name,
+        "name": gem.name,
+        "version": f"git+{url}@{ref}",
         "path": download_path,
-        "url": gem.source,
-        "ref": gem.version.lower(),
         "raw_component_name": raw_component_name,
         "have_raw_component": have_raw_component,
+        "branch": gem.branch,
     }
+
+
+def _get_path_package_info(dep, package_root):
+    """
+    Get info about PATH dependency including path relative to the bundle source root.
+
+    :param GemMetadata dep: path dependency
+    :param package_root: path to the root of the processed package
+    :return: dict with name and version containing relative path to the package root directory
+    """
+    path = Path(package_root / dep.source).resolve().relative_to(package_root)
+
+    return {
+        "name": dep.name,
+        "version": "./" + str(path),
+    }
+
+
+def resolve_rubygems(package_root, request):
+    """
+    Resolve and fetch RubyGems dependencies for the given app source archive.
+
+    :param Path package_root: the full path to the package root
+    :param dict request: the Cachito request to resolve RubyGems dependencies for
+    :return: a dictionary that has the following keys:
+        ``dependencies`` which is a list of dicts representing the package Dependencies
+        ``gemfile_lock`` an absolute path to the Gemfile.lock
+    :raise UploadError: when uploading gem to temporary Nexus repo fails
+    """
+    bundle_dir = RequestBundleDir(request["id"])
+    bundle_dir.rubygems_deps_dir.mkdir(parents=True, exist_ok=True)
+
+    gemlock_path = package_root / GEMFILE_LOCK
+    dependencies = parse_gemlock(package_root, gemlock_path)
+    dependencies = download_dependencies(request["id"], dependencies, package_root)
+
+    rubygems_repo_name = get_rubygems_hosted_repo_name(request["id"])
+    for dependency in dependencies:
+        if dependency["kind"] == "GEM":
+            _push_downloaded_gem(dependency, rubygems_repo_name)
+
+    for dep in dependencies:
+        if dep["kind"] == "GIT":
+            prepare_git_dependency(dep)
+
+    name, version = _get_metadata(package_root, request)
+    if package_root == bundle_dir:
+        package_rel_path = None
+    else:
+        package_rel_path = package_root.resolve().relative_to(bundle_dir)
+
+    return {
+        "package": {"name": name, "version": version, "type": "rubygems", "path": package_rel_path},
+        "dependencies": dependencies,
+    }
+
+
+def prepare_git_dependency(dep):
+    """
+    Unpack the archive with the downloaded dependency and checkout a specified Git branch.
+
+    Only the unpacked directory is kept, the archive is deleted.
+    To get more info on local Git repos, see:
+    https://bundler.io/man/bundle-config.1.html#LOCAL-GIT-REPOS
+    :param dep: RubyGems GIT dependency
+    """
+    #
+    extracted_path = Path(str(dep["path"]).removesuffix(".tar.gz"))
+    log.debug(f"Extracting archive at {dep['path']} to {extracted_path}")
+    shutil.unpack_archive(dep["path"], extracted_path)
+    os.remove(dep["path"])
+    dep["path"] = extracted_path
+
+    if dep["branch"] is not None:
+        log.debug(f"Checking out branch {dep['branch']} at {dep['path'] / 'app'}")
+        checkout_branch(dep)
+
+
+def checkout_branch(dep: dict):
+    """Create and checkout branch dep['branch'] in repository at dep['path']/app.
+
+    :param dict dep: GIT dependency with keys `branch` and `path` (Path to the unpacked Git repo)
+    :raises GitError: If creating Git objects or checking out a given branch failed
+    """
+    try:
+        repo = Repo(dep["path"] / "app")
+        git = repo.git
+        git.checkout("HEAD", b=dep["branch"])
+    except CheckoutError:
+        raise GitError(f"Couldn't checkout branch {dep['branch']} at {dep['path'] / 'app'}")
+    except Exception:
+        raise GitError(
+            f"An error occurred during creating a Git repository object or branch checkout at path:"
+            f" {dep['path'] / 'app'}"
+        )
+
+
+def _upload_rubygems_package(repo_name, artifact_path):
+    """
+    Upload a RubyGems package to a Nexus repository.
+
+    :param str repo_name: the name of the hosted RubyGems repository to upload the package to
+    :param str artifact_path: the path for the RubyGems package to be uploaded
+    """
+    log.debug(
+        "Uploading %r as a RubyGems package to the %r Nexus repository", artifact_path, repo_name
+    )
+    nexus.upload_asset_only_component(repo_name, "rubygems", artifact_path, to_nexus_hoster=False)
+
+
+def _push_downloaded_gem(dependency, rubygems_repo_name):
+    """
+    Upload a GEM dependency to the request temporary Nexus repository.
+
+    :param dict dependency: Single entry with the info about downloaded package retrieved from the
+        list returned by the download_dependencies function
+    :param str rubygems_repo_name: Name of the Nexus RubyGems hosted repository to push
+        the requirement to
+    :return: dict with the cachito Dependency representation
+    :rtype: dict
+    :raises UploadError: If Nexus upload operation fails
+    """
+    try:
+        _upload_rubygems_package(rubygems_repo_name, dependency["path"])
+    except UploadError:
+        if nexus.get_component_info_from_nexus(
+            rubygems_repo_name,
+            "rubygems",
+            dependency["name"],
+            version=dependency["version"],
+            max_attempts=3,  # make sure the repo has been created
+            from_nexus_hoster=False,
+        ):
+            log.info(
+                "Dependency at '%s' has been already uploaded to '%s' already. Skipping",
+                dependency["path"],
+                rubygems_repo_name,
+            )
+        else:
+            raise
+
+
+def get_rubygems_nexus_username(request_id):
+    """
+    Get the username that has read access on the RubyGems hosted repo for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the username
+    :rtype: str
+    """
+    return f"cachito-rubygems-{request_id}"
+
+
+def get_rubygems_hosted_repo_name(request_id):
+    """
+    Get the name of the Nexus RubyGems hosted repository for the request.
+
+    :param int request_id: the ID of the request this repository is for
+    :return: the name of the RubyGems hosted repository for the request
+    :rtype: str
+    """
+    config = get_worker_config()
+    return f"{config.cachito_nexus_request_repo_prefix}rubygems-hosted-{request_id}"
+
+
+def _get_metadata(package_root, request):
+    """Get name and version of the main package (the package for which dependencies are fetched)."""
+    bundle_dir: RequestBundleDir = RequestBundleDir(request["id"])
+    relative_path = str(package_root.resolve().relative_to(bundle_dir)).removeprefix("app")
+    repo_name = get_repo_name(request["repo"]).split("/")[-1]
+
+    return repo_name + relative_path, request["ref"]
+
+
+def get_rubygems_hosted_url_with_credentials(username: str, password: str, request_id: int):
+    """
+    Get URL of a RubyGems hosted repo for the request with hardcoded username and a password.
+
+    :param username: the username that has read access on the RubyGems hosted repo
+    :param password: password for the user`
+    :param int request_id: the ID of the request this repository is for
+    :return str: URL of a RubyGems hosted repo for the request with hardcoded username and password
+    """
+    config = get_worker_config()
+    url = urllib.parse.urlparse(config.cachito_nexus_url)
+    repo_name = get_rubygems_hosted_repo_name(request_id)
+    return f"{url.scheme}://{username}:{password}@{url.netloc}/repository/{repo_name}/"

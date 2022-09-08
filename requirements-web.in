@@ -1,3 +1,4 @@
+aiohttp
 Flask
 flask-login
 Flask-Migrate

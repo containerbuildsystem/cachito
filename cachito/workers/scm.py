@@ -4,12 +4,12 @@ import os
 import subprocess  # nosec
 import tarfile
 import tempfile
-import urllib.parse
 import zlib
 from abc import ABC, abstractmethod
 
 import git
 
+from cachito.common.utils import get_repo_name
 from cachito.errors import (
     FileAccessError,
     InvalidRequestData,
@@ -300,11 +300,7 @@ class Git(SCM):
     def repo_name(self):
         """Determine the repo name based on the URL."""
         if not self._repo_name:
-            parsed_url = urllib.parse.urlparse(self.url)
-            repo = parsed_url.path.strip("/")
-            if repo.endswith(".git"):
-                repo = repo[: -len(".git")]
-            self._repo_name = repo
+            self._repo_name = get_repo_name(self.url)
             log.debug('Parsed the repository name "%s" from %s', self._repo_name, self.url)
 
         return self._repo_name

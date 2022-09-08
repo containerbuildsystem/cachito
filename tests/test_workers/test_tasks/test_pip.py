@@ -114,7 +114,8 @@ def test_fetch_pip_source(
 
     if cfg_contents:
         mock_update_cfg.assert_called_once_with(
-            request["id"], cfg_contents,
+            request["id"],
+            cfg_contents,
         )
 
     expected = pkg_data["package"].copy()

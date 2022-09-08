@@ -33,6 +33,10 @@ class UnknownHashAlgorithm(CachitoError):
     """The hash algorithm is unknown by Cachito."""
 
 
+class GitError(CachitoError):
+    """An error was encountered during manipulation with a Git repository."""
+
+
 # Request error classifiers
 class ClientError(Exception):
     """Client Error."""

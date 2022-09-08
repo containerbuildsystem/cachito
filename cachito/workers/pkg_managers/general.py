@@ -5,6 +5,7 @@ import os
 import urllib
 from typing import Dict
 
+import asyncio
 import requests
 
 from cachito.common.checksum import hash_file
@@ -158,7 +159,7 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
 
 
 async def async_download_binary_file(
-    session, url, download_dir, tarball_name, auth=None, chunk_size=8192
+    session, url, download_dir, tarball_name, concurrency_limit, auth=None, chunk_size=8192
 ):
     """
     Download a binary file (such as a TAR archive) from a URL using asyncio.
@@ -167,24 +168,26 @@ async def async_download_binary_file(
     :param str url: URL for file download
     :param str download_dir: Path to download file to
     :param str tarball_name: Name of the file
+    :param asyncio.Semaphore concurrency_limit: Limit of concurrent requests
     :param aiohttp.BasicAuth auth: Authentication for the URL
     :param int chunk_size: Chunk size param for Response.content.read()
     :raise NetworkError: If download failed
     """
+    async with concurrency_limit:
+        try:
+            async with session.get(url, auth=auth, raise_for_status=True) as resp:
+                if concurrency_limit.locked():
+                    await asyncio.sleep(1)
+                with open(os.path.join(download_dir, tarball_name), "wb") as f:
+                    while True:
+                        chunk = await resp.content.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+        except Exception as e:
+            raise NetworkError(f"Could not download {url}: {e}")
 
-    try:
-        async with session.get(url, auth=auth, raise_for_status=True) as resp:
-
-            with open(os.path.join(download_dir, tarball_name), "wb") as f:
-                while True:
-                    chunk = await resp.content.read(chunk_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-    except Exception as e:
-        raise NetworkError(f"Could not download {url}: {e}")
-
-    return tarball_name
+        return tarball_name
 
 
 def download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):

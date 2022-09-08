@@ -305,6 +305,24 @@ def validate_pip_config():
             )
 
 
+def validate_rubygems_config():
+    """
+    Perform validation on the Celery configuration for the RubyGems package manager.
+
+    :raise ConfigError: if the Celery configuration isn't configured for RubyGems
+    """
+    validate_nexus_config()
+    conf = get_worker_config()
+    for rubygems_config in (
+        "cachito_nexus_rubygems_proxy_url",
+        "cachito_nexus_rubygems_raw_repo_name",
+    ):
+        if not conf.get(rubygems_config):
+            raise ConfigError(
+                f'The configuration "{rubygems_config}" must be set for this package manager'
+            )
+
+
 def get_worker_config():
     """Get the Celery worker configuration."""
     return app.conf

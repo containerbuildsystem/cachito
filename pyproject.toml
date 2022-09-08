@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 100
-target-version = ['py38']  # as soon as black > 20.8b1 is released and we start using it, we can include py39 here
+target-version = ['py39']
 
 # Leave this empty to avoid a bug introduced in setuptools-git-versioning 1.8.0
 # See https://github.com/dolfinus/setuptools-git-versioning/blob/df461e6b33493642ef39b96f8c5d68689f304bf7/setuptools_git_versioning.py#L180

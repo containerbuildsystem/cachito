@@ -191,7 +191,10 @@ def fetch_npm_source(request_id, package_configs=None):
 
 
 def generate_npmrc_config_files(
-    proxy_repo_url: str, username: str, password: str, subpaths: List[str],
+    proxy_repo_url: str,
+    username: str,
+    password: str,
+    subpaths: List[str],
 ) -> List[dict]:
     """
     Generate one .npmrc config file for each subpath in request.

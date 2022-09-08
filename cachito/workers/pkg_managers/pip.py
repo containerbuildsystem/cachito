@@ -30,7 +30,7 @@ from cachito.errors import (
 )
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
-from cachito.workers.errors import NexusScriptError
+from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import general
 from cachito.workers.pkg_managers.general import (
@@ -1965,7 +1965,7 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
     if requirement["kind"] == "pypi":
         try:
             upload_pypi_package(pip_repo_name, requirement["path"])
-        except (NetworkError, ValueError):
+        except UploadError:
             if nexus.get_component_info_from_nexus(
                 pip_repo_name,
                 "pypi",
@@ -1987,7 +1987,7 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
         dest_dir, filename = requirement["raw_component_name"].rsplit("/", 1)
         try:
             upload_raw_package(raw_repo_name, requirement["path"], dest_dir, filename, True)
-        except (NetworkError, ValueError):
+        except UploadError:
             if nexus.get_component_info_from_nexus(
                 raw_repo_name,
                 "raw",

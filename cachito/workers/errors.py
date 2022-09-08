@@ -13,3 +13,7 @@ class CachitoCalledProcessError(CachitoError):
         """Initialize the error with a message and the return code of the failing command."""
         super().__init__(err_msg)
         self.retcode = retcode
+
+
+class UploadError(CachitoError):
+    """Uploading of dependency to a temporary Nexus repo failure."""
