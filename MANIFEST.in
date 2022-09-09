@@ -1,5 +1,0 @@
-recursive-include cachito/web/templates *
-recursive-include cachito/web/static *
-recursive-include cachito/web/migrations *
-recursive-include cachito/workers/nexus_scripts *
-include requirements.txt requirements-web.txt LICENSE
