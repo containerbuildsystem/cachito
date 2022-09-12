@@ -41,13 +41,14 @@ setup(
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     license="GPLv3+",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     setup_requires=['setuptools-git-versioning'],
-    version_config={
-        "dev_template": "{tag}.post{ccount}-git.{sha}",
+    setuptools_git_versioning={
+        "enabled": True,
+        "dev_template": "{tag}.post{ccount}+git.{sha}",
     },
 )

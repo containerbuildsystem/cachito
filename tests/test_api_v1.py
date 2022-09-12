@@ -18,7 +18,7 @@ from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.errors import NoWorkers, RequestErrorOrigin, ValidationError
-from cachito.web.content_manifest import BASE_ICM, PARENT_PURL_PLACEHOLDER, Package
+from cachito.web.content_manifest import BASE_ICM, Package
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -28,6 +28,7 @@ from cachito.web.models import (
     RequestStateMapping,
     _validate_package_manager_exclusivity,
 )
+from cachito.web.purl import PARENT_PURL_PLACEHOLDER, to_purl, to_top_level_purl
 from cachito.web.utils import deep_sort_icm
 from cachito.workers.tasks import (
     add_git_submodules_as_package,
@@ -36,6 +37,7 @@ from cachito.workers.tasks import (
     fetch_gomod_source,
     fetch_npm_source,
     fetch_pip_source,
+    fetch_rubygems_source,
     fetch_yarn_source,
     finalize_request,
     process_fetched_sources,
@@ -96,8 +98,20 @@ def test_request_invalid_params(invalid_param):
 @pytest.mark.parametrize(
     "dependency_replacements, pkg_managers, user, expected_pkg_managers, flags",
     (
-        ([], [], None, [], None,),
-        ([], ["gomod", "git-submodule"], None, ["gomod", "git-submodule"], None,),
+        (
+            [],
+            [],
+            None,
+            [],
+            None,
+        ),
+        (
+            [],
+            ["gomod", "git-submodule"],
+            None,
+            ["gomod", "git-submodule"],
+            None,
+        ),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             ["gomod"],
@@ -119,10 +133,41 @@ def test_request_invalid_params(invalid_param):
             ["gomod", "git-submodule"],
             None,
         ),
-        ([], [], "tom_hanks@DOMAIN.LOCAL", [], None,),
-        ([], ["npm"], None, ["npm"], None,),
-        ([], ["pip"], None, ["pip"], None,),
-        ([], ["yarn"], None, ["yarn"], None,),
+        (
+            [],
+            [],
+            "tom_hanks@DOMAIN.LOCAL",
+            [],
+            None,
+        ),
+        (
+            [],
+            ["npm"],
+            None,
+            ["npm"],
+            None,
+        ),
+        (
+            [],
+            ["pip"],
+            None,
+            ["pip"],
+            None,
+        ),
+        (
+            [],
+            ["yarn"],
+            None,
+            ["yarn"],
+            None,
+        ),
+        (
+            [],
+            ["rubygems"],
+            None,
+            ["rubygems"],
+            None,
+        ),
     ),
 )
 @mock.patch("cachito.web.api_v1.chain")
@@ -194,6 +239,10 @@ def test_create_and_fetch_request(
         )
     if "yarn" in expected_pkg_managers:
         expected.append(fetch_yarn_source.si(created_request["id"], []).on_error(error_callback))
+    if "rubygems" in expected_pkg_managers:
+        expected.append(
+            fetch_rubygems_source.si(created_request["id"], []).on_error(error_callback)
+        )
     expected.append(process_fetched_sources.si(created_request["id"]).on_error(error_callback))
     expected.append(finalize_request.s(created_request["id"]).on_error(error_callback))
     mock_chain.assert_called_once_with(expected)
@@ -214,7 +263,11 @@ def test_create_and_fetch_request(
 
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_request_with_gomod_package_configs(
-    mock_chain, app, auth_env, client, db,
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
 ):
     package_value = {"gomod": [{"path": "."}, {"path": "proxy"}]}
     data = {
@@ -245,7 +298,11 @@ def test_create_request_with_gomod_package_configs(
 
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_request_with_npm_package_configs(
-    mock_chain, app, auth_env, client, db,
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
 ):
     package_value = {"npm": [{"path": "client"}, {"path": "proxy"}]}
     data = {
@@ -317,7 +374,11 @@ def test_create_request_with_pip_package_configs(mock_chain, app, auth_env, clie
 
 @mock.patch("cachito.web.api_v1.chain")
 def test_create_request_with_yarn_package_configs(
-    mock_chain, app, auth_env, client, db,
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
 ):
     package_value = {"yarn": [{"path": "client"}, {"path": "proxy"}]}
     data = {
@@ -340,6 +401,41 @@ def test_create_request_with_yarn_package_configs(
             False,
         ).on_error(error_callback),
         fetch_yarn_source.si(1, package_value["yarn"]).on_error(error_callback),
+        process_fetched_sources.si(1).on_error(error_callback),
+        finalize_request.s(1).on_error(error_callback),
+    ]
+    mock_chain.assert_called_once_with(expected)
+
+
+@mock.patch("cachito.web.api_v1.chain")
+def test_create_request_with_rubygems_package_configs(
+    mock_chain,
+    app,
+    auth_env,
+    client,
+    db,
+):
+    package_value = {"rubygems": [{"path": "client"}, {"path": "proxy"}]}
+    data = {
+        "repo": "https://github.com/release-engineering/web-terminal.git",
+        "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        "packages": package_value,
+        "pkg_managers": ["rubygems"],
+    }
+
+    rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
+    assert rv.status_code == 201
+
+    error_callback = failed_request_callback.s(1)
+    expected = [
+        fetch_app_source.s(
+            "https://github.com/release-engineering/web-terminal.git",
+            "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            1,
+            False,
+            False,
+        ).on_error(error_callback),
+        fetch_rubygems_source.si(1, package_value["rubygems"]).on_error(error_callback),
         process_fetched_sources.si(1).on_error(error_callback),
         finalize_request.s(1).on_error(error_callback),
     ]
@@ -815,6 +911,11 @@ def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, cl
             [{"name": "rxjs", "type": "yarn", "version": "6.5.5"}],
             "Dependency replacements are not yet supported for the yarn package manager",
         ),
+        (
+            "rubygems",
+            [{"name": "rxjs", "type": "rubygems", "version": "6.5.5"}],
+            "Dependency replacements are not yet supported for the RubyGems package manager",
+        ),
     ),
 )
 def test_create_request_invalid_dependency_replacement(
@@ -959,6 +1060,15 @@ def test_create_request_invalid_dependency_replacement(
             (
                 'The "path" values in the "packages.yarn" value must be to a relative path in the '
                 "source repository"
+            ),
+        ),
+        ({"rubygems": {"path": "client"}}, ["rubygems"], RE_INVALID_PACKAGES_VALUE),
+        (
+            {"rubygems": [{"path": "../../../../etc/httpd"}]},
+            ["rubygems"],
+            (
+                'The "path" values in the "packages.rubygems" value must be to a relative path '
+                "in the source repository"
             ),
         ),
     ),
@@ -1251,7 +1361,14 @@ def test_set_state(state, app, client, db, worker_auth_env, tmpdir):
 @pytest.mark.parametrize("pkg_managers", (["gomod"], ["npm"], ["gomod", "npm"]))
 @mock.patch("cachito.web.api_v1.tasks.cleanup_npm_request")
 def test_set_state_stale(
-    mock_cleanup_npm, pkg_managers, bundle_exists, app, client, db, worker_auth_env, tmpdir,
+    mock_cleanup_npm,
+    pkg_managers,
+    bundle_exists,
+    app,
+    client,
+    db,
+    worker_auth_env,
+    tmpdir,
 ):
     data = {
         "repo": "https://github.com/release-engineering/project.git",
@@ -1735,16 +1852,16 @@ def test_fetch_request_content_manifest_go(
     db.session.commit()
 
     # set expectations
-    main_pkg = Package.from_json(sample_pkg_lvl_pkg).to_purl()
+    main_pkg = to_purl(Package.from_json(sample_pkg_lvl_pkg))
     image_content = {"purl": main_pkg, "dependencies": [], "sources": []}
 
     for d in sample_deps:
         d.pop("replaces")
-        p = Package.from_json(d).to_purl().replace(PARENT_PURL_PLACEHOLDER, main_pkg)
+        p = to_purl(Package.from_json(d)).replace(PARENT_PURL_PLACEHOLDER, main_pkg)
         image_content["sources"].append({"purl": p})
     for d in sample_pkg_deps:
         d.pop("replaces")
-        p = Package.from_json(d).to_purl().replace(PARENT_PURL_PLACEHOLDER, main_pkg)
+        p = to_purl(Package.from_json(d)).replace(PARENT_PURL_PLACEHOLDER, main_pkg)
         image_content["dependencies"].append({"purl": p})
 
     expected = {
@@ -2135,6 +2252,13 @@ def test_get_request_logs_not_configured(app, client, db, worker_auth_env):
         ),
         (
             # mutual exclusivity does not apply, no conflict
+            [("npm", "yarn")],
+            ["npm", "rubygems"],
+            {"npm": [{"path": "same/path"}], "rubygems": [{"path": "same/path"}]},
+            None,
+        ),
+        (
+            # mutual exclusivity does not apply, no conflict
             [("gomod", "git-submodule")],
             ["pip", "git-submodule"],
             {"pip": [{"path": "not/root"}]},
@@ -2236,13 +2360,13 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
         ["requests=", []],
         [
             f"requests={requests[0].id}",
-            [{"purl": pkg1.to_top_level_purl(requests[0]), "dependencies": [], "sources": []}],
+            [{"purl": to_top_level_purl(pkg1, requests[0]), "dependencies": [], "sources": []}],
         ],
         [
             f"requests={requests[0].id},,{requests[1].id}",
             [
-                {"purl": pkg1.to_top_level_purl(requests[0]), "dependencies": [], "sources": []},
-                {"purl": pkg2.to_top_level_purl(requests[1]), "dependencies": [], "sources": []},
+                {"purl": to_top_level_purl(pkg1, requests[0]), "dependencies": [], "sources": []},
+                {"purl": to_top_level_purl(pkg2, requests[1]), "dependencies": [], "sources": []},
             ],
         ],
         [
@@ -2451,7 +2575,8 @@ def test_fetch_request_packages_and_dependencies(
 
     if packages is not None:
         _write_test_packages_data(
-            packages, RequestBundleDir(request.id, root=cachito_bundles_dir).packages_data,
+            packages,
+            RequestBundleDir(request.id, root=cachito_bundles_dir).packages_data,
         )
 
     rv = client.get(f"/api/v1/requests/{request.id}")

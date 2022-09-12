@@ -167,7 +167,13 @@ def test_download_dependencies(
 @mock.patch("shutil.move")
 @mock.patch("cachito.workers.paths.get_worker_config")
 def test_download_dependencies_skip_deps(
-    mock_gwc, mock_move, mock_run_cmd, mock_gawnf, mock_exists, mock_td, tmpdir,
+    mock_gwc,
+    mock_move,
+    mock_run_cmd,
+    mock_gawnf,
+    mock_exists,
+    mock_td,
+    tmpdir,
 ):
     bundles_dir = tmpdir.mkdir("bundles")
     mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)

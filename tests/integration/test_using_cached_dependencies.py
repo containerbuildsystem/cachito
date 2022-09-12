@@ -72,7 +72,9 @@ class TestCachedPackage:
             commit = repo.head.commit.hexsha
 
             client = utils.Client(
-                test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"),
+                test_env["api_url"],
+                test_env["api_auth_type"],
+                test_env.get("timeout"),
             )
             response = client.create_new_request(
                 payload={

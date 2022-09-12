@@ -419,7 +419,13 @@ def test_resolve_gomod_vendor_dependencies(
 @mock.patch("pathlib.Path.is_dir")
 @pytest.mark.parametrize("strict_vendor", [True, False])
 def test_resolve_gomod_strict_mode_raise_error(
-    mock_isdir, mock_gwc, mock_golang_version, mock_run, mock_temp_dir, tmpdir, strict_vendor,
+    mock_isdir,
+    mock_gwc,
+    mock_golang_version,
+    mock_run,
+    mock_temp_dir,
+    tmpdir,
+    strict_vendor,
 ):
     mock_isdir.return_value = True
     # Mock the get_worker_config
@@ -1419,7 +1425,7 @@ def test_run_download_cmd_success(mock_sleep, mock_run, mock_worker_config, trie
     assert mock_sleep.call_count == tries_needed - 1
 
     for n in range(tries_needed - 1):
-        wait = 2 ** n
+        wait = 2**n
         assert f"Backing off run_go(...) for {wait:.1f}s" in caplog.text
 
 

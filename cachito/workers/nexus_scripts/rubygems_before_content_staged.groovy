@@ -19,7 +19,7 @@ import org.sonatype.nexus.repository.config.WritePolicy
 @Field final Logger logger = LoggerFactory.getLogger('cachito');
 
 
-def createHostedRepo(String name, String repoType) {
+def createHostedRubyGemsRepo(String name) {
     WritePolicy writePolicy = WritePolicy.ALLOW_ONCE
     Boolean strictContentValidation = true
     String blobStoreName = "cachito-rubygems"
@@ -33,28 +33,17 @@ def createHostedRepo(String name, String repoType) {
         repository.repositoryManager.update(hostedRepoConfig)
     }
     else {
-        logger.info("Creating the hosted ${repoType} repository ${name}")
-        switch(repoType) {
-            case "raw":
-                repository.createRawHosted(name, blobStoreName, strictContentValidation, writePolicy)
-                break;
-            case "rubygems":
-                repository.createRubygemsHosted(name, blobStoreName, strictContentValidation, writePolicy)
-                break;
-            default:
-                logger.warn("Type ${repoType} not supported. repository ${name} not created.")
-                break;
-        }
+        logger.info("Creating the hosted Rubygems repository ${name}")
+        repository.createRubygemsHosted(name, blobStoreName, strictContentValidation, writePolicy)
     }
 }
 
 
 request = new JsonSlurper().parseText(args)
-['rubygems_repository_name', 'raw_repository_name'].each { param ->
+['rubygems_repository_name'].each { param ->
     assert request.get(param): "The ${param} parameter is required"
 }
 
-createHostedRepo(request.rubygems_repository_name, "rubygems")
-createHostedRepo(request.raw_repository_name, "raw")
+createHostedRubyGemsRepo(request.rubygems_repository_name)
 
 return 'The repositories were created successfully'

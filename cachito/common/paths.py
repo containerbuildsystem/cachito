@@ -64,6 +64,7 @@ class RequestBundleDir(base_path):
         self.npm_packages_data = self.joinpath("npm_packages.json")
         self.pip_packages_data = self.joinpath("pip_packages.json")
         self.yarn_packages_data = self.joinpath("yarn_packages.json")
+        self.rubygems_packages_data = self.joinpath("rubygems_packages.json")
         self.git_submodule_packages_data = self.joinpath("git_submodule_packages.json")
 
         return self
