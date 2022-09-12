@@ -921,7 +921,7 @@ def test_checkout_branch(mock_repo):
     rubygems.checkout_branch({"path": Path("/yo"), "branch": "b"})
 
     mock_repo.assert_called_with(Path("/yo/app"))
-    mock_repo.return_value.git.checkout.assert_called_once_with("HEAD", b="b")
+    mock_repo.return_value.git.checkout.assert_called_once_with("HEAD", B="b")
 
 
 @mock.patch("cachito.workers.pkg_managers.rubygems.Repo")

@@ -424,7 +424,7 @@ def checkout_branch(dep: dict):
     try:
         repo = Repo(dep["path"] / "app")
         git = repo.git
-        git.checkout("HEAD", b=dep["branch"])
+        git.checkout("HEAD", B=dep["branch"])
     except CheckoutError:
         raise GitError(f"Couldn't checkout branch {dep['branch']} at {dep['path'] / 'app'}")
     except Exception:
