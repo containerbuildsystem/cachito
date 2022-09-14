@@ -34,45 +34,20 @@ clean: run-down
 venv:
 	virtualenv --python=${PYTHON_VERSION_VENV} venv
 	venv/bin/pip install --upgrade pip
-	venv/bin/pip install -r requirements.txt -r requirements-web.txt
+	venv/bin/pip install -r requirements.txt
 	venv/bin/pip install tox
 	venv/bin/python setup.py develop
-
-# Keep run target for backwards compatibility
-run run-start:
-	# Create the nexus volume before running (podman compatibility)
-	mkdir -p ./tmp/nexus-data
-	# Let everyone write to the temp directory
-	# - nexus needs to write to ./tmp/nexus-data
-	# - integration tests need to write to (and create) ./tmp/cachito-archives
-	chmod -R 0777 ./tmp
-	$(CACHITO_COMPOSE_ENGINE) up $(UP_OPTS)
-
-run-down run-stop:
-	$(CACHITO_COMPOSE_ENGINE) down $(DOWN_OPTS)
-
-run-build run-rebuild: run-down
-	$(CACHITO_COMPOSE_ENGINE) build
-
-# stop any containers, rebuild containers, and start it again
-run-build-start: run-rebuild run-start
 
 # Keep test target for backwards compatibility
 test test-unit:
 	PATH="${PWD}/venv/bin:${PATH}" tox
 
-test-integration:
-	PATH="${PWD}/venv/bin:${PATH}" tox -e integration
-
 test-suite test-tox:
 	PATH="${PWD}/venv/bin:${PATH}" tox -e $(TOX_ENVLIST) -- $(TOX_ARGS)
-
-test-all: test-unit test-integration
 
 pip-compile: venv/bin/pip-compile
 	# --allow-unsafe: we use pkg_resources (provided by setuptools) as a runtime dependency
 	venv/bin/pip-compile --allow-unsafe --generate-hashes --output-file=requirements.txt requirements.in
-	venv/bin/pip-compile --generate-hashes --output-file=requirements-web.txt requirements-web.in
 	# --allow-unsafe: requirements-test.in includes requirements.txt
 	venv/bin/pip-compile --allow-unsafe --generate-hashes --output-file=requirements-test.txt requirements-test.in
 
