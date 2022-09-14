@@ -6,6 +6,7 @@ from prometheus_client.core import CollectorRegistry
 from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
 
 cachito_metrics = {}
+hostname = socket.gethostname()
 
 
 def init_metrics(app):
@@ -17,7 +18,6 @@ def init_metrics(app):
     """
     registry = CollectorRegistry()
     multiproc_temp_dir = app.config["PROMETHEUS_METRICS_TEMP_DIR"]
-    hostname = socket.gethostname()
 
     if not os.path.isdir(multiproc_temp_dir):
         os.makedirs(multiproc_temp_dir)
@@ -27,10 +27,23 @@ def init_metrics(app):
     )
     metrics.init_app(app)
     gauge_state = Gauge(
-        "cachito_requests_count", "Requests in each state", ["state"], multiprocess_mode="livesum"
+        "cachito_requests_count",
+        "Requests in each state",
+        ["state", "host"],
+        multiprocess_mode="livesum",
     )
     request_duration = Summary(
         "cachito_request_duration_seconds", "Time spent in in_progress state"
     )
     cachito_metrics["gauge_state"] = gauge_state
     cachito_metrics["request_duration"] = request_duration
+
+
+def requests_inc(state):
+    """Increase the number of requests in given state."""
+    cachito_metrics["gauge_state"].labels(state=state, host=hostname).inc()
+
+
+def requests_dec(state):
+    """Decrease the number of requests in the given state."""
+    cachito_metrics["gauge_state"].labels(state=state, host=hostname).dec()
