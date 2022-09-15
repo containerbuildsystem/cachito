@@ -474,9 +474,8 @@ paths:
             application/json:
               schema:
                 type: object
-                properties:
-                  NAME:
-                    $ref: "#/components/schemas/EnvironmentVariableInfo"
+                additionalProperties:
+                  $ref: "#/components/schemas/EnvironmentVariableInfo"
               example:
                 GOCACHE:
                   value: deps/gomod
@@ -1049,7 +1048,19 @@ components:
       type: object
       properties:
         environment_variables:
-          $ref: "#/components/schemas/EnvironmentVariable"
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/EnvironmentVariableInfo"
+          example:
+            GOCACHE:
+              value: deps/gomod
+              kind: path
+            GOPATH:
+              value: deps/gomod
+              kind: path
+            GOSUMDB:
+              value: off
+              kind: literal
         state:
           type: string
           example: complete
