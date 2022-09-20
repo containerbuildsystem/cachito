@@ -190,9 +190,13 @@ paths:
                 type: object
                 properties:
                   items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Request"
+                    anyOf:
+                      - type: array
+                        items:
+                          $ref: "#/components/schemas/Request"
+                      - type: array
+                        items:
+                          $ref: "#/components/schemas/RequestVerbose"
                   meta:
                     $ref: "#/components/schemas/Pagination"
         "400":
