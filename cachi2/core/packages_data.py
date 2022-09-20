@@ -8,7 +8,6 @@ from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 from cachi2.core.errors import InvalidRequestData
 
-
 log = logging.getLogger(__name__)
 
 
@@ -22,7 +21,12 @@ def _package_sort_key(package: Dict[str, Any]) -> Tuple[str, bool, str, Optional
         name and version.
     :rtype: tuple[str, bool, str, str]
     """
-    return package["type"], package.get("dev", False), package["name"], package["version"]
+    return (
+        package["type"],
+        package.get("dev", False),
+        package["name"],
+        package["version"],
+    )
 
 
 def _package_equal(left: Union[Dict[str, Any], None], right: Dict[str, Any]) -> bool:
@@ -95,7 +99,9 @@ class PackagesData:
             )
         )
 
-    def add_package(self, pkg_info: Dict[str, str], path: str, deps: List[Dict[str, Any]]) -> None:
+    def add_package(
+        self, pkg_info: Dict[str, str], path: str, deps: List[Dict[str, Any]]
+    ) -> None:
         """Add a package with deps.
 
         :param dict[str, str] pkg_info: a mapping containing package information.
@@ -171,7 +177,9 @@ class PackagesData:
             data = json.load(f)
             packages = data.get("packages")
             if packages is None:
-                log.warning("Packages data file %s does not include key 'packages'.", file_name)
+                log.warning(
+                    "Packages data file %s does not include key 'packages'.", file_name
+                )
                 return
 
             log.info("Loaded file %s, found %i packages.", file_name, len(packages))

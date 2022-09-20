@@ -1,5 +1,5 @@
-import functools
 import fnmatch
+import functools
 import logging
 import os
 import re
@@ -13,26 +13,27 @@ import backoff
 import git
 import semver
 
-from cachi2.core.models import Request
 from cachi2.core.config import get_worker_config
 from cachi2.core.errors import (
     CachitoCalledProcessError,
     FileAccessError,
-    InvalidFileFormat,
     GoModError,
+    InvalidFileFormat,
     RepositoryAccessError,
     UnsupportedFeature,
     ValidationError,
 )
+from cachi2.core.models import Request
 from cachi2.core.packages_data import PackagesData
-from cachi2.core.utils import run_cmd, load_json_stream
+from cachi2.core.utils import load_json_stream, run_cmd
 
-
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
+logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
-_run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
+_run_gomod_cmd = functools.partial(
+    run_cmd, exc_msg="Processing gomod dependencies failed"
+)
 _MODULE_VERSION_RE = re.compile(r"/v\d+$")
 
 
@@ -81,26 +82,22 @@ def fetch_gomod_source(request):
         )
 
     env_vars = {
-    "GOCACHE": {"value": "deps/gomod", "kind": "path"},
-    "GOPATH": {"value": "deps/gomod", "kind": "path"},
-    "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
+        "GOCACHE": {"value": "deps/gomod", "kind": "path"},
+        "GOPATH": {"value": "deps/gomod", "kind": "path"},
+        "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
     }
     env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
 
     packages_json_data = PackagesData()
 
     for i, subpath in enumerate(subpaths):
-        log.info(
-            "Fetching the gomod dependencies for request in subpath %s", subpath
-        )
+        log.info("Fetching the gomod dependencies for request in subpath %s", subpath)
 
         log.info(f'Fetching the gomod dependencies at the "{subpath}" directory')
 
         gomod_source_path = request.source_dir / subpath
         try:
-            gomod = _resolve_gomod(
-                gomod_source_path, request
-            )
+            gomod = _resolve_gomod(gomod_source_path, request)
         except GoModError:
             log.exception("Failed to fetch gomod dependencies for request %d")
             raise
@@ -112,11 +109,14 @@ def fetch_gomod_source(request):
         # add package deps
         for package in gomod["packages"]:
             pkg_info = package["pkg"]
-            package_subpath = _package_subpath(module_info["name"], pkg_info["name"], subpath)
-            packages_json_data.add_package(pkg_info, package_subpath, package.get("pkg_deps", []))
+            package_subpath = _package_subpath(
+                module_info["name"], pkg_info["name"], subpath
+            )
+            packages_json_data.add_package(
+                pkg_info, package_subpath, package.get("pkg_deps", [])
+            )
 
     packages_json_data.write_to_file(request.output_dir / "gomod_packages.json")
-
 
 
 def _find_missing_gomod_files(source_path: Path, subpaths: list[str]):
@@ -188,9 +188,12 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
             replaced_dep_names.add(name)
             new_name = dep_replacement.get("new_name", name)
             version = dep_replacement["version"]
-            log.info("Applying the gomod replacement %s => %s@%s", name, new_name, version)
+            log.info(
+                "Applying the gomod replacement %s => %s@%s", name, new_name, version
+            )
             _run_gomod_cmd(
-                ("go", "mod", "edit", "-replace", f"{name}={new_name}@{version}"), run_params
+                ("go", "mod", "edit", "-replace", f"{name}={new_name}@{version}"),
+                run_params,
             )
         # Vendor dependencies if the gomod-vendor flag is set
         flags = request.flags
@@ -216,7 +219,8 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
             #   where <replace> is <name> <version> or <path>
             output_format = "{{ if not .Main }}{{ .String }}{{ end }}"
             go_list_output = _run_gomod_cmd(
-                ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"), run_params
+                ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"),
+                run_params,
             )
             module_lines = go_list_output.splitlines()
 
@@ -245,12 +249,21 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
                 # Go and they don't need to be recorded in Cachito.
                 if old_name in replaced_dep_names:
                     used_replaced_dep_names.add(old_name)
-                    replaces = {"type": "gomod", "name": old_name, "version": old_version}
+                    replaces = {
+                        "type": "gomod",
+                        "name": old_name,
+                        "version": old_version,
+                    }
                 parts = parts[3:]
 
             if len(parts) == 2:
                 module_level_deps.append(
-                    {"name": parts[0], "replaces": replaces, "type": "gomod", "version": parts[1]}
+                    {
+                        "name": parts[0],
+                        "replaces": replaces,
+                        "type": "gomod",
+                        "version": parts[1],
+                    }
                 )
             else:
                 log.warning("Unexpected go module output: %s", line)
@@ -264,9 +277,7 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
 
         # In case a submodule is being processed, we need to determine its path
         subpath = (
-            None
-            if path == git_dir_path
-            else path.relative_to(f"{git_dir_path}/", "")
+            None if path == git_dir_path else path.relative_to(f"{git_dir_path}/", "")
         )
 
         # NOTE: If there are multiple go modules in a single git repo, they will
@@ -302,7 +313,9 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
             go_list = ["go", "list"]
 
         log.info("Retrieving the list of packages")
-        package_list = _run_gomod_cmd([*go_list, "-find", "./..."], run_params).splitlines()
+        package_list = _run_gomod_cmd(
+            [*go_list, "-find", "./..."], run_params
+        ).splitlines()
 
         log.info("Retrieving the list of package level dependencies")
         package_info = _load_list_deps(
@@ -317,7 +330,8 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
                 # package is already listed as a dependency, we do not list it here, since its
                 # dependencies would also be listed in the parent package
                 log.debug(
-                    "Package %s is already listed as a package dependency. Skipping...", pkg_name
+                    "Package %s is already listed as a package dependency. Skipping...",
+                    pkg_name,
                 )
                 continue
 
@@ -332,7 +346,9 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
                     # If the dependency does not have a version, we'll use the module version
                     version = _get_dep_version(dep_info) or module_version
 
-                pkg_level_deps.append({"name": dep_name, "type": "go-package", "version": version})
+                pkg_level_deps.append(
+                    {"name": dep_name, "type": "go-package", "version": version}
+                )
 
             # Top-level packages always use the module version
             pkg = {"name": pkg_name, "type": "go-package", "version": module_version}
@@ -349,7 +365,11 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
         # import time
         # time.sleep(1000)
 
-        return {"module": module, "module_deps": module_level_deps, "packages": packages}
+        return {
+            "module": module,
+            "module_deps": module_level_deps,
+            "packages": packages,
+        }
 
 
 class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
@@ -403,7 +423,9 @@ def _run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
         raise GoModError(err_msg)
 
 
-def _should_vendor_deps(flags: List[str], app_dir: Path, strict: bool) -> Tuple[bool, bool]:
+def _should_vendor_deps(
+    flags: List[str], app_dir: Path, strict: bool
+) -> Tuple[bool, bool]:
     """
     Determine if Cachito should vendor dependencies and if it is allowed to make changes.
 
@@ -433,7 +455,9 @@ def _should_vendor_deps(flags: List[str], app_dir: Path, strict: bool) -> Tuple[
     return False, False
 
 
-def _get_golang_version(module_name, git_path, commit_sha=None, update_tags=False, subpath=None):
+def _get_golang_version(
+    module_name, git_path, commit_sha=None, update_tags=False, subpath=None
+):
     """
     Get the version of the Go module in the input Git repository in the same format as `go list`.
 
@@ -481,16 +505,24 @@ def _get_golang_version(module_name, git_path, commit_sha=None, update_tags=Fals
     commit = repo.commit(commit_sha)
     for major_version in major_versions_to_try:
         # Get the highest semantic version tag on the commit with a matching major version
-        tag_on_commit = _get_highest_semver_tag(repo, commit, major_version, subpath=subpath)
+        tag_on_commit = _get_highest_semver_tag(
+            repo, commit, major_version, subpath=subpath
+        )
         if not tag_on_commit:
             continue
 
         log.debug(
-            "Using the semantic version tag of %s for commit %s", tag_on_commit.name, commit_sha
+            "Using the semantic version tag of %s for commit %s",
+            tag_on_commit.name,
+            commit_sha,
         )
 
         # We want to preserve the version in the "v0.0.0" format, so the subpath is not needed
-        return tag_on_commit.name if not subpath else tag_on_commit.name.replace(f"{subpath}/", "")
+        return (
+            tag_on_commit.name
+            if not subpath
+            else tag_on_commit.name.replace(f"{subpath}/", "")
+        )
 
     log.debug("No semantic version tag was found on the commit %s", commit_sha)
 
@@ -512,7 +544,9 @@ def _get_golang_version(module_name, git_path, commit_sha=None, update_tags=Fals
         pseudo_version = _get_golang_pseudo_version(
             commit, pseudo_base_tag, major_version, subpath=subpath
         )
-        log.debug("Using the pseudo-version %s for the commit %s", pseudo_version, commit_sha)
+        log.debug(
+            "Using the pseudo-version %s for the commit %s", pseudo_version, commit_sha
+        )
         return pseudo_version
 
     log.debug("No valid semantic version tag was found")
@@ -522,7 +556,9 @@ def _get_golang_version(module_name, git_path, commit_sha=None, update_tags=Fals
     )
 
 
-def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=False, subpath=None):
+def _get_highest_semver_tag(
+    repo, target_commit, major_version, all_reachable=False, subpath=None
+):
     """
     Get the highest semantic version tag related to the input commit.
 
@@ -587,7 +623,9 @@ def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=Fa
     return None
 
 
-def _get_golang_pseudo_version(commit, tag=None, module_major_version=None, subpath=None):
+def _get_golang_pseudo_version(
+    commit, tag=None, module_major_version=None, subpath=None
+):
     """
     Get the Go module's pseudo-version when a non-version commit is used.
 
@@ -724,7 +762,9 @@ def _get_allowed_local_deps(module_name: str) -> List[str]:
     return allowed_deps or []
 
 
-def _vet_local_deps(dependencies: List[dict], module_name: str, allowed_patterns: List[str]):
+def _vet_local_deps(
+    dependencies: List[dict], module_name: str, allowed_patterns: List[str]
+):
     """
     Fail if any dependency is replaced by a local path unless the module is allowlisted.
 
@@ -767,7 +807,9 @@ def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[di
     module path.
     """
     locally_replaced_mod_names = [
-        module["name"] for module in main_module_deps if module["version"].startswith(".")
+        module["name"]
+        for module in main_module_deps
+        if module["version"].startswith(".")
     ]
 
     for dep in pkg_deps:
@@ -781,7 +823,9 @@ def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[di
         dep_module_name = _match_parent_module(dep_name, locally_replaced_mod_names)
         if dep_module_name is None:
             # This should be impossible
-            raise RuntimeError(f"Could not find parent Go module for local dependency: {dep_name}")
+            raise RuntimeError(
+                f"Could not find parent Go module for local dependency: {dep_name}"
+            )
 
         path_from_module_to_pkg = _path_to_subpackage(dep_module_name, dep_name)
         if path_from_module_to_pkg:
@@ -864,6 +908,7 @@ def _get_semantic_version_from_tag(tag_name, subpath=None):
 
     return semver.VersionInfo.parse(semantic_version)
 
+
 def _module_lines_from_modules_txt(app_dir: Path) -> List[str]:
     """
     Read module lines from vendor/modules.txt.
@@ -893,9 +938,13 @@ def _module_lines_from_modules_txt(app_dir: Path) -> List[str]:
 
         if not line.startswith("#"):  # this is a package line
             if not module_lines:
-                raise FileAccessError(f"vendor/modules.txt: package has no parent module: {line}")
+                raise FileAccessError(
+                    f"vendor/modules.txt: package has no parent module: {line}"
+                )
             has_packages[module_lines[-1]] = True
-        elif line.startswith("# "):  # this is a module line or a wildcard replacement (4)
+        elif line.startswith(
+            "# "
+        ):  # this is a module line or a wildcard replacement (4)
             module_lines.append(line[2:])
         elif not line.startswith("##"):
             # at this point, the line must be a marker, otherwise we don't know what it is
@@ -925,40 +974,10 @@ def _vendor_deps(run_params: dict, can_make_changes: bool, git_dir: str):
             "`go mod vendor` locally to fix this problem. See the logs for more details."
         )
 
-def _run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
-    """Run gomod command that downloads dependencies.
 
-    Such commands may fail due to network errors (go is bad at retrying), so the entire operation
-    will be retried a configurable number of times.
-
-    Cachito will reuse the same cache directory between retries, so Go will not have to download
-    the same dependency twice. The backoff is exponential, Cachito will wait 1s -> 2s -> 4s -> ...
-    before retrying.
-    """
-    n_tries = get_worker_config().cachito_gomod_download_max_tries
-
-    @backoff.on_exception(
-        backoff.expo,
-        CachitoCalledProcessError,
-        jitter=None,  # use deterministic backoff, do not apply jitter
-        max_tries=n_tries,
-        logger=log,
-    )
-    def run_go(_cmd, _params) -> str:
-        log.debug(f"Running {_cmd}")
-        return _run_gomod_cmd(_cmd, _params)
-
-    try:
-        return run_go(cmd, params)
-    except CachitoCalledProcessError:
-        err_msg = (
-            f"Processing gomod dependencies failed. Cachito tried the {' '.join(cmd)} command "
-            f"{n_tries} times. This may indicate a problem with your repository or Cachito itself."
-        )
-        raise GoModError(err_msg)
-
-
-def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: List[str]):
+def _fail_unless_allowed(
+    module_name: str, package_name: str, allowed_patterns: List[str]
+):
     """
     Fail unless the module is allowed to replace the package with a local dependency.
 
@@ -968,7 +987,9 @@ def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: 
     """
     versionless_module_name = _MODULE_VERSION_RE.sub("", module_name)
     is_submodule = _contains_package(versionless_module_name, package_name)
-    if not is_submodule and not any(fnmatch.fnmatch(package_name, pat) for pat in allowed_patterns):
+    if not is_submodule and not any(
+        fnmatch.fnmatch(package_name, pat) for pat in allowed_patterns
+    ):
         raise UnsupportedFeature(
             f"The module {module_name} is not allowed to replace {package_name} with a local "
             f"dependency. Please contact the maintainers of this Cachito instance about adding "
@@ -976,7 +997,9 @@ def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: 
         )
 
 
-def _match_parent_module(package_name: str, module_names: Iterable[str]) -> Optional[str]:
+def _match_parent_module(
+    package_name: str, module_names: Iterable[str]
+) -> Optional[str]:
     """
     Find parent module for package in iterable of module names.
 
@@ -987,7 +1010,9 @@ def _match_parent_module(package_name: str, module_names: Iterable[str]) -> Opti
     :param module_names: iterable of module names
     :return: longest matching module name or None (no module matches)
     """
-    contains_this_package = functools.partial(_contains_package, package_name=package_name)
+    contains_this_package = functools.partial(
+        _contains_package, package_name=package_name
+    )
     return max(
         filter(contains_this_package, module_names),
         key=len,  # type: ignore

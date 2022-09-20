@@ -1,8 +1,10 @@
 import copy
-import git
 import os
-import pytest
 import tempfile
+
+import git
+import pytest
+
 
 @pytest.fixture()
 def sample_deps():
@@ -13,16 +15,36 @@ def sample_deps():
             "replaces": None,
             "version": "v1.4.2",
         },
-        {"name": "github.com/kr/pretty", "type": "gomod", "replaces": None, "version": "v0.1.0"},
-        {"name": "github.com/kr/pty", "type": "gomod", "replaces": None, "version": "v1.1.1"},
-        {"name": "github.com/kr/text", "type": "gomod", "replaces": None, "version": "v0.1.0"},
+        {
+            "name": "github.com/kr/pretty",
+            "type": "gomod",
+            "replaces": None,
+            "version": "v0.1.0",
+        },
+        {
+            "name": "github.com/kr/pty",
+            "type": "gomod",
+            "replaces": None,
+            "version": "v1.1.1",
+        },
+        {
+            "name": "github.com/kr/text",
+            "type": "gomod",
+            "replaces": None,
+            "version": "v0.1.0",
+        },
         {
             "name": "github.com/op/go-logging",
             "type": "gomod",
             "replaces": None,
             "version": "v0.0.0-20160315200505-970db520ece7",
         },
-        {"name": "github.com/pkg/errors", "type": "gomod", "version": "v1.0.0", "replaces": None},
+        {
+            "name": "github.com/pkg/errors",
+            "type": "gomod",
+            "version": "v1.0.0",
+            "replaces": None,
+        },
         {
             "name": "golang.org/x/crypto",
             "type": "gomod",
@@ -41,7 +63,12 @@ def sample_deps():
             "replaces": None,
             "version": "v0.0.0-20190215142949-d0b11bdaac8a",
         },
-        {"name": "golang.org/x/text", "type": "gomod", "replaces": None, "version": "v0.3.0"},
+        {
+            "name": "golang.org/x/text",
+            "type": "gomod",
+            "replaces": None,
+            "version": "v0.3.0",
+        },
         {
             "name": "golang.org/x/tools",
             "type": "gomod",
@@ -54,7 +81,12 @@ def sample_deps():
             "replaces": None,
             "version": "v1.0.0-20180628173108-788fd7840127",
         },
-        {"name": "gopkg.in/yaml.v2", "type": "gomod", "replaces": None, "version": "v2.2.2"},
+        {
+            "name": "gopkg.in/yaml.v2",
+            "type": "gomod",
+            "replaces": None,
+            "version": "v2.2.2",
+        },
         {
             "name": "k8s.io/metrics",
             "type": "gomod",
@@ -83,7 +115,11 @@ def sample_deps_replace_new_name(sample_deps):
     sample_deps_with_replace[5] = {
         "name": "github.com/pkg/new_errors",
         "type": "gomod",
-        "replaces": {"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.9.0"},
+        "replaces": {
+            "name": "github.com/pkg/errors",
+            "type": "gomod",
+            "version": "v0.9.0",
+        },
         "version": "v1.0.0",
     }
     return sample_deps_with_replace
@@ -102,7 +138,11 @@ def sample_package():
 def sample_pkg_deps_without_replace():
     return [
         {"name": "fmt", "type": "go-package", "version": None},
-        {"name": "github.com/Masterminds/semver", "type": "go-package", "version": "v1.4.2"},
+        {
+            "name": "github.com/Masterminds/semver",
+            "type": "go-package",
+            "version": "v1.4.2",
+        },
         {
             "name": "github.com/op/go-logging",
             "type": "go-package",
@@ -135,6 +175,7 @@ def sample_pkg_lvl_pkg():
         "type": "go-package",
         "version": "v2.1.1",
     }
+
 
 @pytest.fixture()
 def fake_repo():

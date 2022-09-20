@@ -21,7 +21,9 @@ def assert_directories_equal(dir_a, dir_b):
     assert (
         len(dirs_cmp.funny_files) == 0
     ), f"Found files: {dirs_cmp.funny_files} in {dir_a}, {dir_b} which could not be compared."
-    (_, mismatch, errors) = filecmp.cmpfiles(dir_a, dir_b, dirs_cmp.common_files, shallow=False)
+    (_, mismatch, errors) = filecmp.cmpfiles(
+        dir_a, dir_b, dirs_cmp.common_files, shallow=False
+    )
     assert len(mismatch) == 0, f"Found mismatches: {mismatch} between {dir_a} {dir_b}."
     assert len(errors) == 0, f"Found errors: {errors} between {dir_a} {dir_b}."
 
@@ -39,7 +41,9 @@ class Symlink(str):
     """
 
 
-def write_file_tree(tree_def: dict, rooted_at: Union[str, Path], exist_ok: bool = False):
+def write_file_tree(
+    tree_def: dict, rooted_at: Union[str, Path], exist_ok: bool = False
+):
     """
     Write a file tree to disk.
 
@@ -57,4 +61,3 @@ def write_file_tree(tree_def: dict, rooted_at: Union[str, Path], exist_ok: bool 
         else:
             entry_path.mkdir(exist_ok=exist_ok)
             write_file_tree(value, entry_path)
-
