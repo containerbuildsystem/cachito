@@ -4,15 +4,14 @@ import re
 import tarfile
 import textwrap
 from contextlib import nullcontext
+from pathlib import Path
 from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
 from unittest import mock
-from pathlib import Path
 
 import git
 import pytest
 
-from cachi2.core.packages_data import _package_sort_key
 from cachi2.core.errors import (
     CachitoCalledProcessError,
     FileAccessError,
@@ -23,28 +22,31 @@ from cachi2.core.errors import (
 )
 from cachi2.core.models import Request
 from cachi2.core.package_managers import gomod
-
 from cachi2.core.package_managers.gomod import (
+    _contains_package,
     _fail_unless_allowed,
     _get_allowed_local_deps,
+    _get_dep_version,
+    _get_golang_version,
+    _load_list_deps,
+    _match_parent_module,
     _merge_bundle_dirs,
     _merge_files,
-    _set_full_local_dep_relpaths,
-    _vet_local_deps,
-    _contains_package,
-    _get_golang_version,
-    _match_parent_module,
+    _module_lines_from_modules_txt,
     _path_to_subpackage,
     _resolve_gomod,
-    _should_vendor_deps,
-    _vendor_deps,
-    _vendor_changed,
-    _module_lines_from_modules_txt,
-    _load_list_deps,
-    _get_dep_version,
     _run_download_cmd,
+    _set_full_local_dep_relpaths,
+    _should_vendor_deps,
+    _vendor_changed,
+    _vendor_deps,
+    _vet_local_deps,
 )
-from tests.unit.package_managers.helper_utils import assert_directories_equal, write_file_tree
+from cachi2.core.packages_data import _package_sort_key
+from tests.unit.package_managers.helper_utils import (
+    assert_directories_equal,
+    write_file_tree,
+)
 
 
 def setup_module():
@@ -276,16 +278,26 @@ def test_resolve_gomod(
     # Mock the "subprocess.run" calls
     run_side_effects = []
     if dep_replacement:
-        run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod edit -replace
+        run_side_effects.append(
+            mock.Mock(returncode=0, stdout=None)
+        )  # go mod edit -replace
     run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
     if force_gomod_tidy or dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+        mock.Mock(
+            returncode=0, stdout="github.com/release-engineering/retrodep/v2"
+        )  # go list -m
     )
-    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_cmd_output))  # go list -m all
-    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_list))  # go list -find ./...
-    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_deps))  # go list -deps -json
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout=mock_cmd_output)
+    )  # go list -m all
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout=mock_pkg_list)
+    )  # go list -find ./...
+    run_side_effects.append(
+        mock.Mock(returncode=0, stdout=mock_pkg_deps)
+    )  # go list -deps -json
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v2.1.1"
@@ -297,9 +309,13 @@ def test_resolve_gomod(
     flags = []
 
     if cgo_disable:
-        flags.append("cgo-disable", )
+        flags.append(
+            "cgo-disable",
+        )
     if force_gomod_tidy:
-        flags.append("force-gomod-tidy", )
+        flags.append(
+            "force-gomod-tidy",
+        )
 
     request = Request(flags=tuple(flags), output_dir=tmpdir / "output")
 
@@ -307,7 +323,7 @@ def test_resolve_gomod(
         gomod = _resolve_gomod(archive_path, request)
         expected_deps = sample_deps
     else:
-        request.dep_replacements = (dep_replacement, )
+        request.dep_replacements = (dep_replacement,)
         gomod = _resolve_gomod(archive_path, request)
         if dep_replacement.get("new_name"):
             expected_deps = sample_deps_replace_new_name
@@ -326,7 +342,14 @@ def test_resolve_gomod(
             assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
 
     # when not vendoring, go list should be called with -mod readonly
-    assert mock_run.call_args_list[-2][0][0] == ["go", "list", "-mod", "readonly", "-find", "./..."]
+    assert mock_run.call_args_list[-2][0][0] == [
+        "go",
+        "list",
+        "-mod",
+        "readonly",
+        "-find",
+        "./...",
+    ]
 
     for call in mock_run.call_args_list:
         env = call.kwargs["env"]
@@ -356,7 +379,9 @@ def test_resolve_gomod(
             mock.call(gomod["packages"][0]["pkg_deps"], expect_module_name, ["*"]),
         ],
     )
-    mock_set_full_relpaths.assert_called_once_with(gomod["packages"][0]["pkg_deps"], expected_deps)
+    mock_set_full_relpaths.assert_called_once_with(
+        gomod["packages"][0]["pkg_deps"], expected_deps
+    )
 
 
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
@@ -384,7 +409,9 @@ def test_resolve_gomod_vendor_dependencies(
     if force_gomod_tidy:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+        mock.Mock(
+            returncode=0, stdout="github.com/release-engineering/retrodep/v2"
+        )  # go list -m
     )
     run_side_effects.append(
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")
@@ -401,10 +428,7 @@ def test_resolve_gomod_vendor_dependencies(
     if force_gomod_tidy:
         flags.append("force-gomod-tidy")
 
-    request = Request(
-        flags=tuple(flags),
-        output_dir=tmpdir / "output"
-    )
+    request = Request(flags=tuple(flags), output_dir=tmpdir / "output")
 
     archive_path = Path("./source/retrodep.tar.gz")
     gomod = _resolve_gomod(archive_path, request)
@@ -416,9 +440,7 @@ def test_resolve_gomod_vendor_dependencies(
     assert not gomod["module_deps"]
 
     # Ensure an empty directory is created at bundle_dir.gomod_download_dir
-    mock_bundle_dir.mkdir.assert_called_once_with(
-        exist_ok=True, parents=True
-    )
+    mock_bundle_dir.mkdir.assert_called_once_with(exist_ok=True, parents=True)
     mock_module_lines.assert_called_once_with(archive_path)
 
 
@@ -454,7 +476,9 @@ def test_resolve_gomod_strict_mode_raise_error(
         mock.Mock(returncode=0, stdout=""),  # go mod download
         mock.Mock(returncode=0, stdout=""),  # go mod tidy
         mock.Mock(returncode=0, stdout="pizza"),  # go list -m
-        mock.Mock(returncode=0, stdout="pizza v1.0.0 => pizza v1.0.1\n"),  # go list -mod readonly
+        mock.Mock(
+            returncode=0, stdout="pizza v1.0.0 => pizza v1.0.1\n"
+        ),  # go list -mod readonly
         mock.Mock(returncode=0, stdout=""),  # go list -find
         mock.Mock(returncode=0, stdout=""),  # go list -deps -json
     ]
@@ -462,13 +486,15 @@ def test_resolve_gomod_strict_mode_raise_error(
     archive_path = Path("./source/path/to/archive.tar.gz")
     request = Request(
         output_dir=tmpdir / "output",
-        dep_replacements=({"name": "pizza", "type": "gomod", "version": "v1.0.0"}, )
+        dep_replacements=({"name": "pizza", "type": "gomod", "version": "v1.0.0"},),
     )
     expected_error = (
         'The "gomod-vendor" or "gomod-vendor-check" flag must be set when your repository has '
         "vendored dependencies."
     )
-    with strict_vendor and pytest.raises(ValidationError, match=expected_error) or nullcontext():
+    with strict_vendor and pytest.raises(
+        ValidationError, match=expected_error
+    ) or nullcontext():
         _resolve_gomod(archive_path, request)
 
 
@@ -503,7 +529,9 @@ def test_resolve_gomod_no_deps(
     if force_gomod_tidy:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+        mock.Mock(
+            returncode=0, stdout="github.com/release-engineering/retrodep/v2"
+        )  # go list -m
     )
     run_side_effects.append(mock.Mock(returncode=0, stdout=""))  # go list -m all
     run_side_effects.append(
@@ -546,7 +574,7 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
     mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
     request = Request(
         output_dir=tmpdir / "output",
-        dep_replacements=({"name": "pizza", "type": "gomod", "version": "v1.0.0"}, )
+        dep_replacements=({"name": "pizza", "type": "gomod", "version": "v1.0.0"},),
     )
 
     # Mock the "subprocess.run" calls
@@ -554,7 +582,9 @@ def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
         mock.Mock(returncode=0, stdout=None),  # go mod edit -replace
         mock.Mock(returncode=0, stdout=None),  # go mod download
         mock.Mock(returncode=0, stdout=None),  # go mod tidy
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),  # go list -m
+        mock.Mock(
+            returncode=0, stdout="github.com/release-engineering/retrodep/v2"
+        ),  # go list -m
         mock.Mock(returncode=0, stdout=_generate_mock_cmd_output()),  # go list -m all
     ]
 
@@ -583,11 +613,14 @@ def test_go_list_cmd_failure(
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
         mock.Mock(returncode=go_mod_rc, stdout=None),  # go mod download
-        mock.Mock(returncode=go_list_rc, stdout=_generate_mock_cmd_output()),  # go list -m all
+        mock.Mock(
+            returncode=go_list_rc, stdout=_generate_mock_cmd_output()
+        ),  # go list -m all
     ]
 
     with pytest.raises(
-        (CachitoCalledProcessError, GoModError), match="Processing gomod dependencies failed"
+        (CachitoCalledProcessError, GoModError),
+        match="Processing gomod dependencies failed",
     ):
         _resolve_gomod(archive_path, request)
 
@@ -704,7 +737,9 @@ def test_go_list_cmd_failure(
 )
 def test_get_golang_version(tmpdir, module_suffix, ref, expected, subpath):
     # Extract the Git repository of a Go module to verify the correct versions are computed
-    repo_archive_path = os.path.join(os.path.dirname(__file__), "golang_git_repo.tar.gz")
+    repo_archive_path = os.path.join(
+        os.path.dirname(__file__), "golang_git_repo.tar.gz"
+    )
     with tarfile.open(repo_archive_path, "r:*") as archive:
         archive.extractall(tmpdir)
     repo_path = os.path.join(tmpdir, "golang_git_repo")
@@ -759,7 +794,9 @@ def test_get_golang_version(tmpdir, module_suffix, ref, expected, subpath):
     ),
 )
 @mock.patch("cachi2.core.package_managers.gomod._merge_files")
-def test_merge_bundle_dirs(mock_merge_files, tree_1, tree_2, result_tree, merge_file_executions):
+def test_merge_bundle_dirs(
+    mock_merge_files, tree_1, tree_2, result_tree, merge_file_executions
+):
     with tempDir() as dir_1, tempDir() as dir_2, tempDir() as dir_3:
         write_file_tree(tree_1, dir_1)
         write_file_tree(tree_2, dir_2)
@@ -1044,7 +1081,10 @@ def test_set_full_local_dep_relpaths_no_match():
         ),
         (
             # simple match beats versionless match
-            {"example.org/foo/v2": ["example.org/foo/v2/*"], "example.org/foo": ["example.org/*"]},
+            {
+                "example.org/foo/v2": ["example.org/foo/v2/*"],
+                "example.org/foo": ["example.org/*"],
+            },
             "example.org/foo/v2",
             ["example.org/foo/v2/*"],
         ),
@@ -1069,7 +1109,9 @@ def test_set_full_local_dep_relpaths_no_match():
     ],
 )
 @mock.patch("cachi2.core.package_managers.gomod.get_worker_config")
-def test_get_allowed_local_deps(mock_worker_config, allowlist, module_name, expect_allowed):
+def test_get_allowed_local_deps(
+    mock_worker_config, allowlist, module_name, expect_allowed
+):
     mock_worker_config.return_value.cachito_gomod_file_deps_allowlist = allowlist
     assert _get_allowed_local_deps(module_name) == expect_allowed
 
@@ -1103,7 +1145,9 @@ def test_path_to_subpackage(parent, subpackage, expect_path):
 
 
 def test_path_to_subpackage_not_a_subpackage():
-    with pytest.raises(ValueError, match="Package github.com/b does not belong to github.com/a"):
+    with pytest.raises(
+        ValueError, match="Package github.com/b does not belong to github.com/a"
+    ):
         _path_to_subpackage("github.com/a", "github.com/b")
 
 
@@ -1175,7 +1219,9 @@ def test_should_vendor_deps_strict(flags, vendor_exists, expect_error, tmp_path)
 @pytest.mark.parametrize("vendor_changed", [True, False])
 @mock.patch("cachi2.core.package_managers.gomod._run_download_cmd")
 @mock.patch("cachi2.core.package_managers.gomod._vendor_changed")
-def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor_changed):
+def test_vendor_deps(
+    mock_vendor_changed, mock_run_cmd, can_make_changes, vendor_changed
+):
     git_dir = "/fake/repo"
     app_dir = "/fake/repo/some/app"
     run_params = {"cwd": app_dir}
@@ -1264,7 +1310,9 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
         ),
     ],
 )
-def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change, fake_repo, caplog):
+def test_vendor_changed(
+    subpath, vendor_before, vendor_changes, expected_change, fake_repo, caplog
+):
     repo_dir, _ = fake_repo
     repo = git.Repo(repo_dir)
 
@@ -1325,7 +1373,9 @@ def test_module_lines_from_modules_txt(tmp_path):
         ),
     ],
 )
-def test_module_lines_from_modules_txt_invalid_format(file_content, expect_error_msg, tmp_path):
+def test_module_lines_from_modules_txt_invalid_format(
+    file_content, expect_error_msg, tmp_path
+):
     vendor = tmp_path / "vendor"
     vendor.mkdir()
     vendor.joinpath("modules.txt").write_text(file_content)
@@ -1425,7 +1475,9 @@ def test_get_dep_version(dep_info, expect_version):
 @mock.patch("cachi2.core.package_managers.gomod.get_worker_config")
 @mock.patch("subprocess.run")
 @mock.patch("time.sleep")
-def test_run_download_cmd_success(mock_sleep, mock_run, mock_worker_config, tries_needed, caplog):
+def test_run_download_cmd_success(
+    mock_sleep, mock_run, mock_worker_config, tries_needed, caplog
+):
     mock_worker_config.return_value.cachito_gomod_download_max_tries = 5
 
     failure = mock.Mock(returncode=1, stdout="")

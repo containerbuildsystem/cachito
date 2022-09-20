@@ -1,7 +1,6 @@
 backoff
 gitpython
 pydantic
-pytest
 requests
 semver
 setuptools

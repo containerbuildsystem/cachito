@@ -1,12 +1,11 @@
-import logging
 import json
+import logging
 import re
 import subprocess  # nosec
-from typing import Dict, Iterator
+from typing import Iterator
 
 from cachi2.core.config import get_worker_config
 from cachi2.core.errors import CachitoCalledProcessError, SubprocessCallError
-
 
 log = logging.getLogger(__name__)
 
