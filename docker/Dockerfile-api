@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:35
+FROM registry.fedoraproject.org/fedora:36
 LABEL maintainer="Red Hat"
 
 WORKDIR /src
@@ -27,9 +27,9 @@ RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes \
     && pip3 install . --no-deps --no-cache-dir
 
 # Use the system CA bundle for the requests library
-ENV REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/pem/directory-hash/ca-bundle.crt
 # Use the system CA bundle for native SSL calls from celery (python)
-ENV SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
+ENV SSL_CERT_FILE=/etc/pki/ca-trust/extracted/pem/directory-hash/ca-bundle.crt
 
 # Disable gitpython check for the git executable, cachito-api doesn't use git
 ENV GIT_PYTHON_REFRESH=quiet

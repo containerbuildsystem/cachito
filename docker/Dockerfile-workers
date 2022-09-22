@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:35
+FROM registry.fedoraproject.org/fedora:36
 LABEL maintainer="Red Hat"
 
 WORKDIR /src
@@ -8,7 +8,7 @@ RUN dnf -y install \
     --setopt=tsflags=nodocs \
     golang \
     gcc \
-    git-core-2.32.0 \
+    git-core \
     krb5-devel \
     libffi-devel \
     mercurial \
@@ -18,9 +18,6 @@ RUN dnf -y install \
     python3-pip \
     python3-setuptools \
     strace \
-    https://kojipkgs.fedoraproject.org//packages/golang/1.17/2.fc36/noarch/golang-src-1.17-2.fc36.noarch.rpm \
-    https://kojipkgs.fedoraproject.org//packages/golang/1.17/2.fc36/x86_64/golang-1.17-2.fc36.x86_64.rpm \
-    https://kojipkgs.fedoraproject.org//packages/golang/1.17/2.fc36/x86_64/golang-bin-1.17-2.fc36.x86_64.rpm \
     && dnf clean all
 
 COPY . .
@@ -30,9 +27,9 @@ RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes \
     && pip3 install . --no-deps --no-cache-dir
 
 # Use the system CA bundle for the requests library
-ENV REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/pem/directory-hash/ca-bundle.crt
 # Use the system CA bundle for native SSL calls from celery (python)
-ENV SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
+ENV SSL_CERT_FILE=/etc/pki/ca-trust/extracted/pem/directory-hash/ca-bundle.crt
 
 # Set git user configuration for GitPython
 ENV GIT_COMMITTER_NAME=cachito \
