@@ -100,6 +100,7 @@ paths:
           description: The specific page to view
           schema:
             type: integer
+            minimum: 1
             example: 1
             default: 1
         - name: per_page
@@ -107,15 +108,14 @@ paths:
           description: The number of requests to show per page
           schema:
             type: integer
+            minimum: 1
             example: 10
             default: 10
         - name: state
           in: query
           description: The state to filter requests by
           schema:
-            type: string
-            example: in_progress
-            default: null
+            $ref: "#/components/schemas/RequestState"
         - name: verbose
           in: query
           description: Shows the same view as /requests/{id}
@@ -128,15 +128,21 @@ paths:
           description: A full repository URL to filter request by
           schema:
             type: string
+            maxLength: 200
             example: https://github.com/release-engineering/retrodep.git
             default: null
+            nullable: true
         - name: ref
           in: query
           description: A git ref to filter request by
           schema:
             type: string
+            minLength: 40
+            maxLength: 40
+            pattern: '^[a-f0-9]{40}$'
             example: bc9767a71ede6e0084ae4a9e01dcd8b81c30b741
             default: null
+            nullable: true
         - name: pkg_manager
           in: query
           description: >
@@ -144,9 +150,7 @@ paths:
             can be specified multiple times, that will filter all
             requests that have the specified pkg_managers.
           schema:
-            type: string
-            example: gomod
-            default: null
+            $ref: "#/components/schemas/PackageManager"
         - name: created_from
           in: query
           description: >
@@ -157,6 +161,7 @@ paths:
             type: string
             example: "2019-09-17T18:52:57.577851"
             default: null
+            nullable: true
         - name: created_to
           in: query
           description: >
@@ -167,6 +172,7 @@ paths:
             type: string
             example: "2019-09-17T18:52:57.577851"
             default: null
+            nullable: true
         - name: error_origin
           in: query
           description: Filter requests by the given request error origin
@@ -174,6 +180,11 @@ paths:
             type: string
             example: "client"
             default: null
+            nullable: true
+            enum:
+              - null
+              - client
+              - server
         - name: error_type
           in: query
           description: Filter requests by the given request error type
@@ -181,6 +192,7 @@ paths:
             type: string
             example: "InvalidRequestData"
             default: null
+            nullable: true
       responses:
         "200":
           description: A list of requests
@@ -703,6 +715,9 @@ paths:
         required: false
         schema:
           type: string
+          enum:
+            - client
+            - server
       - name: error_type
         description: The type of a request error
         in: query
@@ -816,6 +831,46 @@ components:
         - type
         - version
       - $ref: "#/components/schemas/Package"
+    PackageConfig:
+      type: object
+      properties:
+        path:
+          type: string
+      additionalProperties: false
+      example:
+        path: client
+    PipPackageConfig:
+      type: object
+      properties:
+        path:
+          type: string
+        requirements_files:
+          type: array
+          items:
+            type: string
+        requirements_build_files:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+      example:
+        path: client
+        requirements_files:
+          - requirements.txt
+          - requirements-extras.txt
+        requirements_build_files:
+          - requirements-build.txt
+          - requirements-build-extras.txt
+    PackageManager:
+      type: string
+      example: gomod
+      enum:
+        - gomod
+        - npm
+        - pip
+        - git-submodule
+        - yarn
+        - rubygems
     EnvironmentVariable:
       type: object
       additionalProperties:
@@ -834,6 +889,7 @@ components:
           type: string
           description: The kind of the environment variable, e.g. "path" or "literal"
           example: "path"
+      additionalProperties: false
       required:
       - kind
       - value
@@ -885,7 +941,7 @@ components:
         pkg_managers:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/PackageManager"
           example:
             - gomod
         ref:
@@ -928,6 +984,7 @@ components:
       properties:
         content:
           type: string
+          format: byte
           description: Configuration file as base64 encoded string
           example: IlNodXQgdXAgYnJhaW4gb3IgSSdsbCBzdGFiIHlvdSB3aXRoIGEgUS1UaXAiIC0gSG9tZXIgSi4gU2ltcHNvbg==
         path:
@@ -938,6 +995,9 @@ components:
           type: string
           description: The type of the configuration file content (currently only "base64" is supported)
           example: base64
+          enum:
+            - base64
+      additionalProperties: false
       required:
       - content
       - path
@@ -1013,19 +1073,32 @@ components:
             example: some_flag
         packages:
           type: object
-          items:
-            type: array
-            items:
-              type: object
-          example:
+          properties:
+            gomod:
+              type: array
+              items:
+                $ref: "#/components/schemas/PackageConfig"
             npm:
-            - path: client
-            - path: legacy/client
+              type: array
+              items:
+                $ref: "#/components/schemas/PackageConfig"
+            pip:
+              type: array
+              items:
+                $ref: "#/components/schemas/PipPackageConfig"
+            rubygems:
+              type: array
+              items:
+                $ref: "#/components/schemas/PackageConfig"
+            yarn:
+              type: array
+              items:
+                $ref: "#/components/schemas/PackageConfig"
+          additionalProperties: false
         pkg_managers:
           type: array
           items:
-            type: string
-            example: gomod
+            $ref: "#/components/schemas/PackageManager"
           description: >
             The list of package managers to use on the request. If this is not set, Cachito will
             use the configured default package managers. In most deployments, this will be
@@ -1035,9 +1108,13 @@ components:
           - gomod
         ref:
           type: string
+          minLength: 40
+          maxLength: 40
+          pattern: '^[a-f0-9]{40}$'
           example: "a7ac8d4c0b7fe90d51fb911511cbf6939655c877"
         repo:
           type: string
+          maxLength: 200
           example: "https://github.com/kubernetes/kubernetes.git"
         user:
           type: string
@@ -1045,6 +1122,7 @@ components:
             The user this request is created on behalf of. This is reserved for privileged users
             that can act as a representative.
           example: tbrady@DOMAIN.LOCAL
+      additionalProperties: false
       required:
       - ref
       - repo
@@ -1066,21 +1144,27 @@ components:
               value: off
               kind: literal
         state:
-          type: string
-          example: complete
+          $ref: "#/components/schemas/RequestState"
         state_reason:
           type: string
           example: Completed successfully
         packages_count:
           type: integer
+          minimum: 0
           example: 1
         dependencies_count:
           type: integer
+          minimum: 0
           example: 100
         error_origin:
           type: string
+          enum:
+            - client
+            - server
         error_type:
           type: string
+      additionalProperties: false
+      minProperties: 1
     RequestVerbose:
       allOf:
       - type: object
@@ -1177,6 +1261,15 @@ components:
                   properties:
                     purl:
                       $ref: "#/components/schemas/Purl"
+    RequestState:
+      type: string
+      example: in_progress
+      enum:
+        - in_progress
+        - complete
+        - failed
+        - stale
+
   securitySchemes:
     negotiateAuth:  # Kerberos
       type: http
