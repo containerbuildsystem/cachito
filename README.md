@@ -709,16 +709,16 @@ Offline Installations   | ✓     | x   | x   | x    |
   they could find ways to do an offline install for any package manager, but only `gomod` supports
   this out of the box (i.e. the user does not need to change their workflow).
 
-### Actual Tool Versions
+### Current Tool Versions
 
 Tool   | Version |
 ---    |---------|
-Go     | 1.17    |
-Npm    | 8.0.0   |
-Node   | 16.11.0 |
-Pip    | 21.2.3  |
-Python | 3.10.0  |
-Git    | 2.32.0  |
+Go     | 1.18.6  |
+Npm    | 8.3.1   |
+Node   | 16.14.0 |
+Pip    | 21.3.1  |
+Python | 3.10.6  |
+Git    | 2.37.3  |
 Yarn*  | 1.x     |
 
 * Cachito does not use the Yarn runtime. The processing of yarn.lock files is handled by
