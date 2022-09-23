@@ -3,6 +3,8 @@ import logging
 import os
 from pathlib import Path
 
+from opentelemetry import trace
+
 from cachito.common.packages_data import PackagesData
 from cachito.errors import (
     FileAccessError,
@@ -25,6 +27,8 @@ from cachito.workers.tasks.utils import get_request, runs_if_request_in_progress
 
 __all__ = ["fetch_gomod_source"]
 log = logging.getLogger(__name__)
+
+tracer = trace.get_tracer(__name__)
 
 
 def _find_missing_gomod_files(bundle_dir, subpaths):
@@ -180,30 +184,34 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
         log.info(
             "Fetching the gomod dependencies for request %d in subpath %s", request_id, subpath
         )
-        set_request_state(
-            request_id,
-            "in_progress",
-            f'Fetching the gomod dependencies at the "{subpath}" directory',
-        )
-        request = get_request(request_id)
-        gomod_source_path = str(bundle_dir.app_subpath(subpath).source_dir)
-        try:
-            gomod = resolve_gomod(
-                gomod_source_path, request, dep_replacements, bundle_dir.source_dir
+        with tracer.start_as_current_span("fetching gomod deps in " + subpath) as parent:
+
+            set_request_state(
+                request_id,
+                "in_progress",
+                f'Fetching the gomod dependencies at the "{subpath}" directory',
             )
-        except GoModError:
-            log.exception("Failed to fetch gomod dependencies for request %d", request_id)
-            raise
+            request = get_request(request_id)
+            gomod_source_path = str(bundle_dir.app_subpath(subpath).source_dir)
+            try:
+                gomod = resolve_gomod(
+                    gomod_source_path, request, dep_replacements, bundle_dir.source_dir
+                )
+            except GoModError:
+                log.exception("Failed to fetch gomod dependencies for request %d", request_id)
+                raise
 
-        module_info = gomod["module"]
+            module_info = gomod["module"]
 
-        packages_json_data.add_package(module_info, subpath, gomod["module_deps"])
+            packages_json_data.add_package(module_info, subpath, gomod["module_deps"])
 
-        # add package deps
-        for package in gomod["packages"]:
-            pkg_info = package["pkg"]
-            package_subpath = _package_subpath(module_info["name"], pkg_info["name"], subpath)
-            packages_json_data.add_package(pkg_info, package_subpath, package.get("pkg_deps", []))
+            # add package deps
+            for package in gomod["packages"]:
+                pkg_info = package["pkg"]
+                package_subpath = _package_subpath(module_info["name"], pkg_info["name"], subpath)
+                packages_json_data.add_package(
+                    pkg_info, package_subpath, package.get("pkg_deps", [])
+                )
 
     _fail_if_parent_replacement_not_included(packages_json_data)
     packages_json_data.write_to_file(bundle_dir.gomod_packages_data)

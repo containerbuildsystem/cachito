@@ -6,10 +6,45 @@ from typing import Dict, List, Optional
 
 import celery
 import kombu
+from celery.signals import worker_process_init
+from opentelemetry import trace
+from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
 from cachito.errors import ConfigError
 
 ARCHIVES_VOLUME = os.path.join(tempfile.gettempdir(), "cachito-archives")
+
+RequestsInstrumentor().instrument()
+
+
+@worker_process_init.connect(weak=False)
+def init_celery_tracing(*args, **kwargs):
+    CeleryInstrumentor().instrument()
+    config = get_config()
+    if config.cachito_jaeger_exporter_endpoint:
+        jaeger_exporter = JaegerExporter(
+            agent_host_name=config.cachito_jaeger_exporter_endpoint,
+            agent_port=config.cachito_jaeger_exporter_port,
+        )
+        processor = BatchSpanProcessor(jaeger_exporter)
+    elif config.cachito_otlp_exporter_endpoint:
+        otlp_exporter = OTLPSpanExporter(endpoint=config.cachito_otlp_exporter_endpoint)
+        processor = BatchSpanProcessor(otlp_exporter)
+
+    if config.cachito_otlp_exporter_endpoint or config.cachito_jaeger_exporter_endpoint:
+        resource = Resource(attributes={SERVICE_NAME: "cachito-worker"})
+        provider = TracerProvider(resource=resource)
+        # Useful for debugging trace issues...
+        # processor = BatchSpanProcessor(ConsoleSpanExporter())
+        provider.add_span_processor(processor)
+        trace.set_tracer_provider(provider)
+
 
 app = celery.Celery()
 
@@ -38,6 +73,7 @@ class Config(object):
     cachito_log_level = "INFO"
     cachito_js_concurrency_limit = 5
     cachito_js_download_max_tries = 5
+    cachito_js_download_batch_size = 30
     cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
     cachito_nexus_hoster_password: Optional[str] = None
     cachito_nexus_hoster_url: Optional[str] = None
@@ -102,11 +138,17 @@ class Config(object):
     # other tasks aren't starved when processing a large archive.
     worker_prefetch_multiplier = 1
 
+    cachito_jaeger_exporter_endpoint = ""
+    cachito_jaeger_exporter_port = ""
+    cachito_otlp_exporter_endpoint = ""
+
 
 class ProductionConfig(Config):
     """The production Cachito Celery configuration."""
 
     cachito_auth_type = "kerberos"
+    if os.environ.get("CACHITO_OTLP_EXPORTER_ENDPOINT"):
+        cachito_otlp_exporter_endpoint = os.environ.get("CACHITO_OTLP_EXPORTER_ENDPOINT")
 
 
 class DevelopmentConfig(Config):
@@ -140,6 +182,11 @@ class DevelopmentConfig(Config):
     }
     cachito_request_file_logs_dir: Optional[str] = "/var/log/cachito/requests"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
+    if not os.environ.get("CACHITO_OTLP_EXPORTER_ENDPOINT"):
+        if os.environ.get("CACHITO_JAEGER_EXPORTER_ENDPOINT"):
+            print("Jaeger endpoint defined")
+            cachito_jaeger_exporter_endpoint = os.environ.get("CACHITO_JAEGER_EXPORTER_ENDPOINT")
+            cachito_jaeger_exporter_port = int(os.environ.get("CACHITO_JAEGER_EXPORTER_PORT"))
 
 
 class TestingConfig(DevelopmentConfig):
@@ -158,6 +205,8 @@ class TestingConfig(DevelopmentConfig):
     }
     cachito_npm_file_deps_allowlist = {"han_solo": ["millennium-falcon"]}
     cachito_request_file_logs_dir = None
+    if os.environ.get("CACHITO_OTLP_EXPORTER_ENDPOINT"):
+        cachito_otlp_exporter_endpoint = os.environ.get("CACHITO_OTLP_EXPORTER_ENDPOINT")
 
 
 def configure_celery(celery_app):
@@ -166,6 +215,13 @@ def configure_celery(celery_app):
 
     :param celery.Celery celery: the Celery application instance to configure
     """
+    config = get_config()
+
+    celery_app.config_from_object(config, force=True)
+    logging.getLogger("cachito.workers").setLevel(celery_app.conf.cachito_log_level)
+
+
+def get_config():
     config = ProductionConfig
     prod_config_file_path = "/etc/cachito/celery.py"
     if os.getenv("CACHITO_DEV", "").lower() == "true":
@@ -190,9 +246,7 @@ def configure_celery(celery_app):
             # The _user_config dictionary will contain the __builtins__ key, which we need to skip
             if not key.startswith("__"):
                 setattr(config, key, value)
-
-    celery_app.config_from_object(config, force=True)
-    logging.getLogger("cachito.workers").setLevel(celery_app.conf.cachito_log_level)
+    return config
 
 
 def validate_celery_config(conf, **kwargs):

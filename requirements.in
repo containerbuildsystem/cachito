@@ -18,3 +18,9 @@ requests_kerberos>=0.13.0
 requests
 semver
 setuptools
+opentelemetry-sdk
+opentelemetry-instrumentation-celery
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-sqlalchemy
+opentelemetry-exporter-jaeger
+opentelemetry-exporter-otlp-proto-http

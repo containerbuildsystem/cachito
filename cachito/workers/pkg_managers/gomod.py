@@ -16,6 +16,7 @@ import backoff
 import git
 import pydantic
 import semver
+from opentelemetry import trace
 
 from cachito.errors import (
     GoModError,
@@ -41,6 +42,8 @@ log = logging.getLogger(__name__)
 run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
 
 MODULE_VERSION_RE = re.compile(r"/v\d+$")
+
+tracer = trace.get_tracer(__name__)
 
 
 class _GolangModel(pydantic.BaseModel):
@@ -214,21 +217,21 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
     if not dep_replacements:
         dep_replacements = []
 
-    worker_config = get_worker_config()
-    athens_url = worker_config.cachito_athens_url
-    with GoCacheTemporaryDirectory(prefix="cachito-") as temp_dir:
-        env = {
-            "GOPATH": temp_dir,
-            "GO111MODULE": "on",
-            "GOCACHE": temp_dir,
-            "GOPROXY": f"{athens_url}|{athens_url}",
-            "PATH": os.environ.get("PATH", ""),
-            "GOMODCACHE": "{}/pkg/mod".format(temp_dir),
-        }
-        if "cgo-disable" in request.get("flags", []):
-            env["CGO_ENABLED"] = "0"
+    with tracer.start_as_current_span("resolve gomod " + app_source_path) as parent:
 
-        run_params = {"env": env, "cwd": app_source_path}
+        worker_config = get_worker_config()
+        athens_url = worker_config.cachito_athens_url
+        with GoCacheTemporaryDirectory(prefix="cachito-") as temp_dir:
+            env = {
+                "GOPATH": temp_dir,
+                "GO111MODULE": "on",
+                "GOCACHE": temp_dir,
+                "GOPROXY": f"{athens_url}|{athens_url}",
+                "PATH": os.environ.get("PATH", ""),
+                "GOMODCACHE": "{}/pkg/mod".format(temp_dir),
+            }
+            if "cgo-disable" in request.get("flags", []):
+                env["CGO_ENABLED"] = "0"
 
         # Collect all the dependency names that are being replaced to later report which
         # dependencies were replaced
@@ -336,7 +339,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
                     "Package %s is already listed as a package dependency. Skipping...",
                     pkg.import_path,
                 )
-                continue
+                module_lines = go_list_output.splitlines()
 
             pkg_deps = []
             for dep_name in pkg.deps:

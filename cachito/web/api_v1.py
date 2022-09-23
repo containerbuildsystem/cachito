@@ -14,6 +14,7 @@ import pydantic
 from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
+from opentelemetry import trace
 from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload, load_only
 from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
@@ -42,6 +43,8 @@ from cachito.web.utils import deep_sort_icm, normalize_end_date, pagination_meta
 from cachito.workers import tasks
 
 api_v1 = flask.Blueprint("api_v1", __name__)
+
+tracer = trace.get_tracer(__name__)
 
 
 class RequestsArgs(pydantic.BaseModel):
@@ -153,6 +156,8 @@ def get_requests():
     return flask.jsonify(response)
 
 
+@tracer.start_as_current_span("get_request")
+@api_v1.route("/requests/<int:request_id>", methods=["GET"])
 def get_request(request_id):
     """
     Retrieve details for the given request.
@@ -231,6 +236,8 @@ def get_request_environment_variables(request_id):
     return flask.jsonify(env_vars_json)
 
 
+@api_v1.route("/requests/<int:request_id>/download", methods=["GET"])
+@tracer.start_as_current_span("download_archive")
 def download_archive(request_id):
     """
     Download archive of source code.
