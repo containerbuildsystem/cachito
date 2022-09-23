@@ -2,4 +2,11 @@ jsonschema
 pytest
 pytest-asyncio
 pytest-cov
+pytest-opentelemetry
 pyyaml
+opentelemetry-sdk
+opentelemetry-instrumentation-celery
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-sqlalchemy
+opentelemetry-exporter-jaeger
+opentelemetry-exporter-otlp-proto-http
