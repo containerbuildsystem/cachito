@@ -171,7 +171,7 @@ def create_app(config_obj=None):
         print("Configuring ConsoleSpanExporter")
         processor = BatchSpanProcessor(ConsoleSpanExporter())
 
-    ### Toggle between sending to jaeger and displaying span info on console
+    # Toggle between sending to jaeger and displaying span info on console
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
 

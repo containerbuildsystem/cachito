@@ -14,7 +14,7 @@ from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from cachito.errors import ConfigError
 
@@ -25,6 +25,7 @@ RequestsInstrumentor().instrument()
 
 @worker_process_init.connect(weak=False)
 def init_celery_tracing(*args, **kwargs):
+    """Initialize OTLP tracing, set the processor & endpoint."""
     CeleryInstrumentor().instrument()
     config = get_config()
     if config.cachito_jaeger_exporter_endpoint:
@@ -138,9 +139,9 @@ class Config(object):
     # other tasks aren't starved when processing a large archive.
     worker_prefetch_multiplier = 1
 
-    cachito_jaeger_exporter_endpoint = ""
-    cachito_jaeger_exporter_port = ""
-    cachito_otlp_exporter_endpoint = ""
+    cachito_jaeger_exporter_endpoint: Optional[str] = ""
+    cachito_jaeger_exporter_port: Optional[int] = ""
+    cachito_otlp_exporter_endpoint: Optional[str] = ""
 
 
 class ProductionConfig(Config):
@@ -222,6 +223,7 @@ def configure_celery(celery_app):
 
 
 def get_config():
+    """Read in the config based on the environment."""
     config = ProductionConfig
     prod_config_file_path = "/etc/cachito/celery.py"
     if os.getenv("CACHITO_DEV", "").lower() == "true":

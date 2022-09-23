@@ -217,7 +217,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
     if not dep_replacements:
         dep_replacements = []
 
-    with tracer.start_as_current_span("resolve gomod " + app_source_path) as parent:
+    with tracer.start_as_current_span("resolve gomod " + app_source_path):
 
         worker_config = get_worker_config()
         athens_url = worker_config.cachito_athens_url

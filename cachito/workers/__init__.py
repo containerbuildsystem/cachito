@@ -32,7 +32,7 @@ def run_cmd(cmd, params, exc_msg=None):
     params.setdefault("capture_output", True)
     params.setdefault("universal_newlines", True)
     params.setdefault("encoding", "utf-8")
-    with tracer.start_as_current_span("running cmd " + "".join(cmd)) as parent:
+    with tracer.start_as_current_span("running cmd " + "".join(cmd)):
 
         conf = get_worker_config()
         params.setdefault("timeout", conf.cachito_subprocess_timeout)
