@@ -114,6 +114,16 @@ services:
       - nexus
       - rabbitmq
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      # OTLP/gprc -  used by pytest to forward integration test traces to jaeger.
+      - "4317:4317"
+      # Development environment is hard-coded to send to port 6831.
+      - "6831:6831/udp"
+      # Web UI is available at port 16686
+      - "16686:16686"
+
 volumes:
   cachito-archives:
   athens-storage:

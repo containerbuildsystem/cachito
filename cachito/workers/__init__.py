@@ -8,11 +8,14 @@ from pathlib import Path
 from tarfile import ExtractError, TarFile
 from typing import Iterator
 
+from opentelemetry import trace
+
 from cachito.errors import SubprocessCallError
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import CachitoCalledProcessError
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 def run_cmd(cmd, params, exc_msg=None):
@@ -29,22 +32,22 @@ def run_cmd(cmd, params, exc_msg=None):
     params.setdefault("capture_output", True)
     params.setdefault("universal_newlines", True)
     params.setdefault("encoding", "utf-8")
+    with tracer.start_as_current_span("running cmd " + " ".join(cmd)):
+        conf = get_worker_config()
+        params.setdefault("timeout", conf.cachito_subprocess_timeout)
 
-    conf = get_worker_config()
-    params.setdefault("timeout", conf.cachito_subprocess_timeout)
+        try:
+            response = subprocess.run(cmd, **params)  # nosec
+        except subprocess.TimeoutExpired as e:
+            raise SubprocessCallError(str(e))
 
-    try:
-        response = subprocess.run(cmd, **params)  # nosec
-    except subprocess.TimeoutExpired as e:
-        raise SubprocessCallError(str(e))
+        if response.returncode != 0:
+            log.error('The command "%s" failed with: %s', " ".join(cmd), response.stderr)
+            raise CachitoCalledProcessError(
+                exc_msg or "An unexpected error occurred", response.returncode
+            )
 
-    if response.returncode != 0:
-        log.error('The command "%s" failed with: %s', " ".join(cmd), response.stderr)
-        raise CachitoCalledProcessError(
-            exc_msg or "An unexpected error occurred", response.returncode
-        )
-
-    return response.stdout
+        return response.stdout
 
 
 def load_json_stream(s: str) -> Iterator:
@@ -79,7 +82,6 @@ def safe_extract(tar: TarFile, path: str = ".", *, numeric_owner: bool = False):
     """
     abs_path = Path(path).resolve()
     for member in tar.getmembers():
-
         member_path = Path(path).joinpath(member.name)
         abs_member_path = member_path.resolve()
 

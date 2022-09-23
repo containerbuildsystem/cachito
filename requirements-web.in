@@ -7,3 +7,11 @@ greenlet>=1.1.0
 psycopg2-binary
 SQLAlchemy<1.5
 prometheus-flask-exporter
+opentelemetry-instrumentation-flask
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-psycopg2
+opentelemetry-instrumentation-sqlalchemy
+opentelemetry-exporter-jaeger
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk
+opentelemetry-api

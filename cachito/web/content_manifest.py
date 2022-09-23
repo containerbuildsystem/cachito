@@ -91,7 +91,6 @@ class ContentManifest:
         :param type: icm or sbom component
         """
         if dependency.type == "gomod":
-
             parent_module_name = package.name
             relpath_from_parent_module_to_dep = None
 
@@ -339,7 +338,6 @@ class ContentManifest:
         self._gitsubmodule_data = {}
 
         for package in self.packages:
-
             if package.type == "go-package":
                 purl = to_top_level_purl(package, self.request, subpath=package.path)
                 self._gopkg_data.setdefault(

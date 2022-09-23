@@ -9,6 +9,7 @@ from typing import Dict, Optional
 import aiohttp
 import aiohttp_retry
 import requests
+from opentelemetry import trace
 
 from cachito.common.checksum import hash_file
 from cachito.errors import InvalidChecksum, InvalidRequestData, NetworkError, UnknownHashAlgorithm
@@ -27,6 +28,7 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 ChecksumInfo = collections.namedtuple("ChecksumInfo", "algorithm hexdigest")
 
@@ -45,6 +47,7 @@ def _get_request_url(request_id):
     return f'{config.cachito_api_url.rstrip("/")}/requests/{request_id}'
 
 
+@tracer.start_as_current_span("update_request_with_config_files")
 def update_request_with_config_files(request_id, config_files):
     """
     Update the Cachito request with the input configuration files.
@@ -77,6 +80,7 @@ def update_request_with_config_files(request_id, config_files):
         raise InvalidRequestData(f"Adding configuration files on request {request_id} failed")
 
 
+@tracer.start_as_current_span("update_request_env_vars")
 def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]) -> None:
     """Update environment variables of a request.
 
@@ -111,6 +115,7 @@ def update_request_env_vars(request_id: int, env_vars: Dict[str, Dict[str, str]]
         raise InvalidRequestData(f"Updating environment variables on request {request_id} failed")
 
 
+@tracer.start_as_current_span("verify_checksum")
 def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int = 10240):
     """
     Verify the checksum of the file at the given path matches the expected checksum info.
@@ -138,6 +143,7 @@ def verify_checksum(file_path: str, checksum_info: ChecksumInfo, chunk_size: int
         raise InvalidChecksum(msg)
 
 
+@tracer.start_as_current_span("download_binary_file")
 def download_binary_file(url, download_path, auth=None, insecure=False, chunk_size=8192):
     """
     Download a binary file (such as a TAR archive) from a URL.
@@ -205,6 +211,7 @@ async def async_download_binary_file(
     log.debug(f"Download completed - {tarball_name}")
 
 
+@tracer.start_as_current_span("download_raw_component")
 def download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):
     """
     Download raw component if present in raw repo.
@@ -222,6 +229,7 @@ def download_raw_component(raw_component_name, raw_repo_name, download_path, nex
     return False
 
 
+@tracer.start_as_current_span("upload_raw_package")
 def upload_raw_package(repo_name, artifact_path, dest_dir, filename, is_request_repository):
     """
     Upload a raw package to a Nexus repository.

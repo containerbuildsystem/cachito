@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator, Optional, Self
 
+from opentelemetry import trace
+
 from cachito.errors import CachitoError, FileAccessError, ValidationError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
@@ -27,6 +29,7 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 @dataclass
@@ -642,6 +645,7 @@ def get_npm_proxy_username(request_id):
     return f"cachito-npm-{request_id}"
 
 
+@tracer.start_as_current_span("get_package_and_deps")
 def get_package_and_deps(package_json_path, package_lock_path):
     """
     Get the main package and dependencies based on the lock file.
@@ -703,6 +707,7 @@ def get_package_and_deps(package_json_path, package_lock_path):
     return rv
 
 
+@tracer.start_as_current_span("resolve_npm")
 def resolve_npm(app_source_path, request, skip_deps=None):
     """
     Resolve and fetch npm dependencies for the given app source archive.
