@@ -2,7 +2,7 @@
 import logging
 import os
 import tempfile
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 import celery
 import kombu
@@ -29,9 +29,11 @@ def init_celery_tracing(*args, **kwargs):
     CeleryInstrumentor().instrument()
     config = get_config()
     if config.cachito_jaeger_exporter_endpoint:
+        print(config.cachito_jaeger_exporter_endpoint)
+        print(config.cachito_jaeger_exporter_port)
         jaeger_exporter = JaegerExporter(
             agent_host_name=config.cachito_jaeger_exporter_endpoint,
-            agent_port=config.cachito_jaeger_exporter_port,
+            agent_port=int(config.cachito_jaeger_exporter_port),
         )
         processor = BatchSpanProcessor(jaeger_exporter)
     elif config.cachito_otlp_exporter_endpoint:
@@ -140,7 +142,7 @@ class Config(object):
     worker_prefetch_multiplier = 1
 
     cachito_jaeger_exporter_endpoint: Optional[str] = ""
-    cachito_jaeger_exporter_port: Optional[int] = ""
+    cachito_jaeger_exporter_port: Optional[int]
     cachito_otlp_exporter_endpoint: Optional[str] = ""
 
 
@@ -187,7 +189,12 @@ class DevelopmentConfig(Config):
         if os.environ.get("CACHITO_JAEGER_EXPORTER_ENDPOINT"):
             print("Jaeger endpoint defined")
             cachito_jaeger_exporter_endpoint = os.environ.get("CACHITO_JAEGER_EXPORTER_ENDPOINT")
-            cachito_jaeger_exporter_port = int(os.environ.get("CACHITO_JAEGER_EXPORTER_PORT"))
+            cachito_jaeger_exporter_port = cast(int, os.environ.get("CACHITO_JAEGER_EXPORTER_PORT"))
+    else:
+        print(
+            "OTLP endpoint defined: " + cast(str, os.environ.get("CACHITO_OTLP_EXPORTER_ENDPOINT"))
+        )
+        cachito_otlp_exporter_endpoint = os.environ.get("CACHITO_OTLP_EXPORTER_ENDPOINT")
 
 
 class TestingConfig(DevelopmentConfig):

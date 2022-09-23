@@ -33,7 +33,6 @@ def run_cmd(cmd, params, exc_msg=None):
     params.setdefault("universal_newlines", True)
     params.setdefault("encoding", "utf-8")
     with tracer.start_as_current_span("running cmd " + "".join(cmd)):
-
         conf = get_worker_config()
         params.setdefault("timeout", conf.cachito_subprocess_timeout)
 
@@ -83,7 +82,6 @@ def safe_extract(tar: TarFile, path: str = ".", *, numeric_owner: bool = False):
     """
     abs_path = Path(path).resolve()
     for member in tar.getmembers():
-
         member_path = Path(path).joinpath(member.name)
         abs_member_path = member_path.resolve()
 

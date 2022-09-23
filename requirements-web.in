@@ -9,6 +9,7 @@ SQLAlchemy<1.5
 prometheus-flask-exporter
 opentelemetry-instrumentation-flask
 opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-psycopg2
 opentelemetry-instrumentation-sqlalchemy
 opentelemetry-exporter-jaeger
 opentelemetry-exporter-otlp-proto-http

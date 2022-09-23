@@ -39,11 +39,10 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
 
 MODULE_VERSION_RE = re.compile(r"/v\d+$")
-
-tracer = trace.get_tracer(__name__)
 
 
 class _GolangModel(pydantic.BaseModel):
@@ -92,6 +91,7 @@ class GoPackage(_GolangModel):
     deps: list[str] = []
 
 
+@tracer.start_as_current_span("run_download_cmd")
 def run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
     """Run gomod command that downloads dependencies.
 
@@ -196,6 +196,7 @@ def match_parent_module(package_name: str, module_names: Iterable[str]) -> Optio
     )
 
 
+@tracer.start_as_current_span("resolve_gomod")
 def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=None):
     """
     Resolve and fetch gomod dependencies for given app source archive.
@@ -217,21 +218,21 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
     if not dep_replacements:
         dep_replacements = []
 
-    with tracer.start_as_current_span("resolve gomod " + app_source_path):
+    worker_config = get_worker_config()
+    athens_url = worker_config.cachito_athens_url
+    with GoCacheTemporaryDirectory(prefix="cachito-") as temp_dir:
+        env = {
+            "GOPATH": temp_dir,
+            "GO111MODULE": "on",
+            "GOCACHE": temp_dir,
+            "GOPROXY": f"{athens_url}|{athens_url}",
+            "PATH": os.environ.get("PATH", ""),
+            "GOMODCACHE": "{}/pkg/mod".format(temp_dir),
+        }
+        if "cgo-disable" in request.get("flags", []):
+            env["CGO_ENABLED"] = "0"
 
-        worker_config = get_worker_config()
-        athens_url = worker_config.cachito_athens_url
-        with GoCacheTemporaryDirectory(prefix="cachito-") as temp_dir:
-            env = {
-                "GOPATH": temp_dir,
-                "GO111MODULE": "on",
-                "GOCACHE": temp_dir,
-                "GOPROXY": f"{athens_url}|{athens_url}",
-                "PATH": os.environ.get("PATH", ""),
-                "GOMODCACHE": "{}/pkg/mod".format(temp_dir),
-            }
-            if "cgo-disable" in request.get("flags", []):
-                env["CGO_ENABLED"] = "0"
+        run_params = {"env": env, "cwd": app_source_path}
 
         # Collect all the dependency names that are being replaced to later report which
         # dependencies were replaced
@@ -242,9 +243,11 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             new_name = dep_replacement.get("new_name", name)
             version = dep_replacement["version"]
             log.info("Applying the gomod replacement %s => %s@%s", name, new_name, version)
-            run_gomod_cmd(
-                ("go", "mod", "edit", "-replace", f"{name}={new_name}@{version}"), run_params
-            )
+            with tracer.start_as_current_span("run gomod " + new_name):
+                run_gomod_cmd(
+                    ("go", "mod", "edit", "-replace", f"{name}={new_name}@{version}"),
+                    run_params,
+                )
 
         # Vendor dependencies if the gomod-vendor flag is set
         flags = request.get("flags", [])
@@ -301,7 +304,11 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
                 else app_source_path.replace(f"{git_dir_path}/", "")
             ),
         )
-        main_module = {"type": "gomod", "name": main_module_name, "version": main_module_version}
+        main_module = {
+            "type": "gomod",
+            "name": main_module_name,
+            "version": main_module_version,
+        }
 
         def go_list_deps(pattern: Literal["./...", "all"]) -> Iterator[GoPackage]:
             """Run go list -deps -json and return the parsed list of packages.
@@ -339,7 +346,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
                     "Package %s is already listed as a package dependency. Skipping...",
                     pkg.import_path,
                 )
-                module_lines = go_list_output.splitlines()
+                continue
 
             pkg_deps = []
             for dep_name in pkg.deps:
@@ -449,6 +456,7 @@ def _should_vendor_deps(flags: List[str], app_dir: str, strict: bool) -> Tuple[b
     return False, False
 
 
+@tracer.start_as_current_span("_vendor_deps")
 def _vendor_deps(run_params: dict, can_make_changes: bool, git_dir: str) -> list[GoModule]:
     """
     Vendor golang dependencies.
@@ -523,6 +531,7 @@ def _parse_vendor(module_dir: Union[str, Path]) -> list[GoModule]:
     return [module for module, has_packages in zip(modules, module_has_packages) if has_packages]
 
 
+@tracer.start_as_current_span("_vendor_changed")
 def _vendor_changed(git_dir: str, app_dir: str) -> bool:
     """Check for changes in the vendor directory."""
     vendor = Path(app_dir).relative_to(git_dir).joinpath("vendor")
@@ -666,6 +675,7 @@ def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[di
             dep["version"] = os.path.join(dep_path, path_from_module_to_pkg)
 
 
+@tracer.start_as_current_span("_merge_bundle_dirs")
 def _merge_bundle_dirs(root_src_dir, root_dst_dir):
     """
     Merge two bundle directories together.
@@ -771,6 +781,7 @@ def _get_golang_pseudo_version(commit, tag=None, module_major_version=None, subp
     return f"v{pseudo_semantic_version}{version_seperator}0.{commit_timestamp}-{commit_hash}"
 
 
+@tracer.start_as_current_span("_get_highest_semver_tag")
 def _get_highest_semver_tag(repo, target_commit, major_version, all_reachable=False, subpath=None):
     """
     Get the highest semantic version tag related to the input commit.
@@ -858,6 +869,7 @@ def _get_semantic_version_from_tag(tag_name, subpath=None):
     return semver.VersionInfo.parse(semantic_version)
 
 
+@tracer.start_as_current_span("get_golang_version")
 def get_golang_version(module_name, git_path, commit_sha, update_tags=False, subpath=None):
     """
     Get the version of the Go module in the input Git repository in the same format as `go list`.

@@ -185,7 +185,6 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             "Fetching the gomod dependencies for request %d in subpath %s", request_id, subpath
         )
         with tracer.start_as_current_span("fetching gomod deps in " + subpath):
-
             set_request_state(
                 request_id,
                 "in_progress",

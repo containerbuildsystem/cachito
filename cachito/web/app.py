@@ -15,6 +15,7 @@ from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
@@ -163,8 +164,8 @@ def create_app(config_obj=None):
         processor = BatchSpanProcessor(jaeger_exporter)
     # test/stage/prod environments....
     elif os.getenv("CACHITO_OTLP_EXPORTER_ENDPOINT"):
-        print("Configuring OTLP Exporter")
-        otlp_exporter = OTLPSpanExporter(endpoint=app.config.get("CACHITO_OTLP_EXPORTER_ENDPOINT"))
+        print("Configuring OTLP Exporter: " + str(os.getenv("CACHITO_OTLP_EXPORTER_ENDPOINT")))
+        otlp_exporter = OTLPSpanExporter(endpoint=os.getenv("CACHITO_OTLP_EXPORTER_ENDPOINT"))
         processor = BatchSpanProcessor(otlp_exporter)
     # Undefined; send data to the console.
     else:
@@ -178,8 +179,14 @@ def create_app(config_obj=None):
     FlaskInstrumentor().instrument_app(app)
     RequestsInstrumentor().instrument()
     CeleryInstrumentor().instrument()
-    SQLAlchemyInstrumentor().instrument(enable_commenter=True, commenter_options={})
+    SQLAlchemyInstrumentor().instrument(
+        enable_commenter=True,
+        commenter_options={
+            "db_driver": True,
+        },
+    )
 
+    Psycopg2Instrumentor().instrument(enable_commenter=True, commenter_options={})
     return app
 
 
