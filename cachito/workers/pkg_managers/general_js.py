@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 import aiohttp
 from aiohttp_retry import JitterRetry, RetryClient
+from opentelemetry import trace
 
 from cachito.errors import (
     FileAccessError,
@@ -57,6 +58,7 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 NPM_REGISTRY_CNAMES = ("registry.npmjs.org", "registry.yarnpkg.com")
@@ -98,6 +100,7 @@ def parse_dependency(
     return (proxied_url, tarball_name)
 
 
+@tracer.start_as_current_span("get_dependencies")
 async def get_dependencies(
     proxy_repo_url: str,
     download_dir: Path,
@@ -179,6 +182,7 @@ async def get_dependencies(
         return results
 
 
+@tracer.start_as_current_span("download_dependencies")
 def download_dependencies(
     download_dir: Path,
     deps: List[Dict[str, Any]],
@@ -297,6 +301,7 @@ def download_dependencies(
     return downloaded_deps
 
 
+@tracer.start_as_current_span("finalize_nexus_for_js_request")
 def finalize_nexus_for_js_request(repo_name, username):
     """
     Finalize the Nexus configuration so that the request's npm repository is ready for consumption.
@@ -446,6 +451,7 @@ def get_js_hosted_repo_name():
     return config.cachito_nexus_js_hosted_repo_name
 
 
+@tracer.start_as_current_span("_get_js_component_info_from_nexus")
 def _get_js_component_info_from_nexus(
     name: str, version: str, repository: str, is_hosted: bool, max_attempts: int = 1
 ) -> Optional[dict]:
@@ -481,6 +487,7 @@ def _get_js_component_info_from_nexus(
     )
 
 
+@tracer.start_as_current_span("get_npm_component_info_from_nexus")
 def get_npm_component_info_from_nexus(
     name: str, version: str, max_attempts: int = 1
 ) -> Optional[dict]:
@@ -520,6 +527,7 @@ def get_yarn_component_info_from_non_hosted_nexus(
     )
 
 
+@tracer.start_as_current_span("prepare_nexus_for_js_request")
 def prepare_nexus_for_js_request(repo_name):
     """
     Prepare Nexus so that Cachito can stage JavaScript content.
@@ -545,6 +553,7 @@ def prepare_nexus_for_js_request(repo_name):
         raise NexusError("Failed to prepare Nexus for Cachito to stage JavaScript content")
 
 
+@tracer.start_as_current_span("upload_non_registry_dependency")
 def upload_non_registry_dependency(
     dep_identifier: str,
     version_suffix: str,
@@ -605,6 +614,7 @@ def upload_non_registry_dependency(
         nexus.upload_asset_only_component(repo_name, "npm", modified_dep_archive)
 
 
+@tracer.start_as_current_span("_fetch_external_dep")
 def _fetch_external_dep(dep_identifier: str, is_git: bool, temp_dir: str) -> str:
     """Fetch an external (git or https) JS dependency.
 
@@ -660,6 +670,7 @@ def _fetch_external_dep(dep_identifier: str, is_git: bool, temp_dir: str) -> str
     return dep_archive
 
 
+@tracer.start_as_current_span("_clone_git_dep")
 def _clone_git_dep(dep_identifier: str) -> Path:
     """Clone a git dependency, create a tar archive from it and return the archive's path.
 
