@@ -10,6 +10,17 @@ from flask import current_app
 from flask.logging import default_handler
 from flask_login import LoginManager
 from flask_migrate import Migrate
+from opentelemetry import trace
+from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
@@ -134,6 +145,50 @@ def create_app(config_obj=None):
 
     init_metrics(app)
 
+    # Some of the following has already been executed due to the manner in which
+    # the tasks config is included....
+
+    service_name = "cachito-api"
+    resource = Resource(attributes={SERVICE_NAME: service_name})
+    provider = TracerProvider(resource=resource)
+
+    # Used for local development environment aka docker-compose up.
+    if "CACHITO_JAEGER_EXPORTER_ENDPOINT" in app.config.keys():
+        app.logger.info("Configuring Jaeger Exporter")
+        jaeger_exporter = JaegerExporter(
+            agent_host_name=app.config["CACHITO_JAEGER_EXPORTER_ENDPOINT"],
+            agent_port=int(app.config["CACHITO_JAEGER_EXPORTER_PORT"]),
+        )
+        processor = BatchSpanProcessor(jaeger_exporter)
+    # test/stage/prod environments....
+    elif "CACHITO_OTLP_EXPOTER_ENDPOINT" in app.config.keys():
+        app.logger.info(
+            "Configuring OTLP Exporter: " + str(app.config["CACHITO_OTLP_EXPOTER_ENDPOINT"])
+        )
+        otlp_exporter = OTLPSpanExporter(endpoint=app.config["CACHITO_OTLP_EXPOTER_ENDPOINT"])
+        processor = BatchSpanProcessor(otlp_exporter)
+    # Undefined; send data to the console.
+    else:
+        app.logger.info("Configuring ConsoleSpanExporter")
+        processor = BatchSpanProcessor(ConsoleSpanExporter())
+
+    # Toggle between sending to jaeger and displaying span info on console
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+
+    FlaskInstrumentor().instrument_app(
+        app, excluded_urls="/static/*,/favicon.ico,/metrics,/healthcheck"
+    )
+    RequestsInstrumentor().instrument()
+    CeleryInstrumentor().instrument()
+    SQLAlchemyInstrumentor().instrument(
+        enable_commenter=True,
+        commenter_options={
+            "db_driver": True,
+        },
+    )
+
+    Psycopg2Instrumentor().instrument(enable_commenter=True, commenter_options={})
     return app
 
 

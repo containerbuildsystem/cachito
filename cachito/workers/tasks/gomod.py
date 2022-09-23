@@ -3,6 +3,8 @@ import logging
 import os
 from pathlib import Path
 
+from opentelemetry import trace
+
 from cachito.common.packages_data import PackagesData
 from cachito.errors import (
     FileAccessError,
@@ -25,6 +27,8 @@ from cachito.workers.tasks.utils import get_request, runs_if_request_in_progress
 
 __all__ = ["fetch_gomod_source"]
 log = logging.getLogger(__name__)
+
+tracer = trace.get_tracer(__name__)
 
 
 def _find_missing_gomod_files(bundle_dir, subpaths):

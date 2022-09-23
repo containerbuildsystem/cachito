@@ -548,6 +548,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_subprocess_timeout` - a number (in seconds) to set a timeout for commands executed by
   the `subprocess` module. Default is 3600 seconds. A timeout is always required, and there is no
   way provided by Cachito to disable it. Set a larger number to give the subprocess execution more time.
+* `cachito_otlp_exporter_endpoint` - A valid URL with a port number as necessary to a OTLP/http-compatible
+  endpoint to receive OpenTelemetry trace data. 
 
 To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
 environment variable to the path of the keytab. Additional Kerberos configuration can be made in
@@ -574,6 +576,8 @@ Custom configuration for the API:
 * `CACHITO_WORKER_USERNAMES` - the list of usernames that are allowed to use the `/requests/<id>`
   PATCH endpoint.
 * `LOGIN_DISABLED` - disables authentication requirements.
+* `CACHITO_OTLP_EXPOTER_ENDPOINT` - A valid URL with a port number as necessary to a OTLP/http-compatible
+  endpoint to receive OpenTelemetry trace data. 
 
 Additionally, to configure the communication with the Cachito Celery workers, create a Python file
 at `/etc/cachito/celery.py`, and set the

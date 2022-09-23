@@ -23,6 +23,11 @@ setup(
         "requests",
         "semver",
         "setuptools",
+        "opentelemetry-sdk",
+        "opentelemetry-instrumentation-celery",
+        "opentelemetry-instrumentation-requests",
+        "opentelemetry-exporter-jaeger",
+        "opentelemetry-exporter-otlp-proto-http",
     ],
     extras_require={
         "web": [
@@ -32,6 +37,7 @@ setup(
             "Flask-SQLAlchemy",
             "psycopg2-binary",
             "prometheus-flask-exporter",
+            "opentelemetry-instrumentation-sqlalchemy",
         ],
     },
     entry_points={
