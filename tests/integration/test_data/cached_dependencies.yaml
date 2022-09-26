@@ -173,7 +173,15 @@ gomod_cached_deps:
         replaces: null
         type: "go-package"
         version: null
+      - name: "internal/goarch"
+        replaces: null
+        type: "go-package"
+        version: null
       - name: "internal/goexperiment"
+        replaces: null
+        type: "go-package"
+        version: null
+      - name: "internal/goos"
         replaces: null
         type: "go-package"
         version: null
@@ -262,6 +270,10 @@ gomod_cached_deps:
         type: "go-package"
         version: null
       - name: "runtime/internal/sys"
+        replaces: null
+        type: "go-package"
+        version: null
+      - name: "runtime/internal/syscall"
         replaces: null
         type: "go-package"
         version: null
@@ -365,7 +377,15 @@ gomod_cached_deps:
       replaces: null
       type: "go-package"
       version: null
+    - name: "internal/goarch"
+      replaces: null
+      type: "go-package"
+      version: null
     - name: "internal/goexperiment"
+      replaces: null
+      type: "go-package"
+      version: null
+    - name: "internal/goos"
       replaces: null
       type: "go-package"
       version: null
@@ -457,6 +477,10 @@ gomod_cached_deps:
       replaces: null
       type: "go-package"
       version: null
+    - name: runtime/internal/syscall
+      replaces: null
+      type: go-package
+      version: null
     - name: "sort"
       replaces: null
       type: "go-package"
@@ -528,7 +552,9 @@ gomod_cached_deps:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -551,6 +577,7 @@ gomod_cached_deps:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/strings"
