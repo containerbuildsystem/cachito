@@ -64,7 +64,15 @@ go_generate:
       replaces: null
       type: go-package
       version: null
+    - name: internal/goarch
+      replaces: null
+      type: go-package
+      version: null
     - name: internal/goexperiment
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/goos
       replaces: null
       type: go-package
       version: null
@@ -152,6 +160,10 @@ go_generate:
       replaces: null
       type: go-package
       version: null
+    - name: runtime/internal/syscall
+      replaces: null
+      type: go-package
+      version: null
     - name: sort
       replaces: null
       type: go-package
@@ -222,7 +234,15 @@ go_generate:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -303,6 +323,10 @@ go_generate:
           type: go-package
           version: null
         - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
           replaces: null
           type: go-package
           version: null
@@ -390,7 +414,15 @@ go_generate:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -478,6 +510,10 @@ go_generate:
           replaces: null
           type: go-package
           version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
         - name: sort
           replaces: null
           type: go-package
@@ -545,7 +581,9 @@ go_generate:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -567,6 +605,7 @@ go_generate:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/strings"
@@ -586,7 +625,9 @@ go_generate:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -607,6 +648,7 @@ go_generate:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/sync"
@@ -667,7 +709,15 @@ go_generate_generated:
       replaces: null
       type: go-package
       version: null
+    - name: internal/goarch
+      replaces: null
+      type: go-package
+      version: null
     - name: internal/goexperiment
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/goos
       replaces: null
       type: go-package
       version: null
@@ -755,6 +805,10 @@ go_generate_generated:
       replaces: null
       type: go-package
       version: null
+    - name: runtime/internal/syscall
+      replaces: null
+      type: go-package
+      version: null
     - name: sort
       replaces: null
       type: go-package
@@ -825,7 +879,15 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -906,6 +968,10 @@ go_generate_generated:
           type: go-package
           version: null
         - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
           replaces: null
           type: go-package
           version: null
@@ -973,7 +1039,15 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -1054,6 +1128,10 @@ go_generate_generated:
           type: go-package
           version: null
         - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
           replaces: null
           type: go-package
           version: null
@@ -1142,7 +1220,15 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -1230,6 +1316,10 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
         - name: sort
           replaces: null
           type: go-package
@@ -1292,7 +1382,9 @@ go_generate_generated:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -1313,6 +1405,7 @@ go_generate_generated:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/sync"
@@ -1335,7 +1428,9 @@ go_generate_generated:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -1357,6 +1452,7 @@ go_generate_generated:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/strings"
@@ -1376,7 +1472,9 @@ go_generate_generated:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -1397,6 +1495,7 @@ go_generate_generated:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/sync"
@@ -1461,7 +1560,15 @@ go_generate_imported:
       replaces: null
       type: go-package
       version: null
+    - name: internal/goarch
+      replaces: null
+      type: go-package
+      version: null
     - name: internal/goexperiment
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/goos
       replaces: null
       type: go-package
       version: null
@@ -1549,6 +1656,10 @@ go_generate_imported:
       replaces: null
       type: go-package
       version: null
+    - name: runtime/internal/syscall
+      replaces: null
+      type: go-package
+      version: null
     - name: sort
       replaces: null
       type: go-package
@@ -1611,7 +1722,15 @@ go_generate_imported:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -1628,6 +1747,10 @@ go_generate_imported:
           type: go-package
           version: null
         - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
           replaces: null
           type: go-package
           version: null
@@ -1683,7 +1806,15 @@ go_generate_imported:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -1768,6 +1899,10 @@ go_generate_imported:
           type: go-package
           version: null
         - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
           replaces: null
           type: go-package
           version: null
@@ -1839,7 +1974,9 @@ go_generate_imported:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -1861,6 +1998,7 @@ go_generate_imported:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/strings"
@@ -1878,11 +2016,14 @@ go_generate_imported:
       - "pkg:golang/internal%2Fabi"
       - "pkg:golang/internal%2Fbytealg"
       - "pkg:golang/internal%2Fcpu"
+      - "pkg:golang/internal%2Fgoarch"
       - "pkg:golang/internal%2Fgoexperiment"
+      - "pkg:golang/internal%2Fgoos"
       - "pkg:golang/runtime"
       - "pkg:golang/runtime%2Finternal%2Fatomic"
       - "pkg:golang/runtime%2Finternal%2Fmath"
       - "pkg:golang/runtime%2Finternal%2Fsys"
+      - "pkg:golang/runtime%2Finternal%2Fsyscall"
       - "pkg:golang/unsafe"
 go_generate_imported_generated:
   repo: https://github.com/cachito-testing/go-generate-imported-generated.git
@@ -1938,7 +2079,15 @@ go_generate_imported_generated:
       replaces: null
       type: go-package
       version: null
+    - name: internal/goarch
+      replaces: null
+      type: go-package
+      version: null
     - name: internal/goexperiment
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/goos
       replaces: null
       type: go-package
       version: null
@@ -2023,6 +2172,10 @@ go_generate_imported_generated:
       type: go-package
       version: null
     - name: runtime/internal/sys
+      replaces: null
+      type: go-package
+      version: null
+    - name: runtime/internal/syscall
       replaces: null
       type: go-package
       version: null
@@ -2100,7 +2253,15 @@ go_generate_imported_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -2181,6 +2342,10 @@ go_generate_imported_generated:
           type: go-package
           version: null
         - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
           replaces: null
           type: go-package
           version: null
@@ -2268,7 +2433,15 @@ go_generate_imported_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
           replaces: null
           type: go-package
           version: null
@@ -2356,6 +2529,10 @@ go_generate_imported_generated:
           replaces: null
           type: go-package
           version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
         - name: sort
           replaces: null
           type: go-package
@@ -2424,7 +2601,9 @@ go_generate_imported_generated:
     - "pkg:golang/internal%2Fbytealg"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
     - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
     - "pkg:golang/internal%2Fitoa"
     - "pkg:golang/internal%2Foserror"
     - "pkg:golang/internal%2Fpoll"
@@ -2446,6 +2625,7 @@ go_generate_imported_generated:
     - "pkg:golang/runtime%2Finternal%2Fatomic"
     - "pkg:golang/runtime%2Finternal%2Fmath"
     - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
     - "pkg:golang/sort"
     - "pkg:golang/strconv"
     - "pkg:golang/strings"
@@ -2466,7 +2646,9 @@ go_generate_imported_generated:
       - "pkg:golang/internal%2Fbytealg"
       - "pkg:golang/internal%2Fcpu"
       - "pkg:golang/internal%2Ffmtsort"
+      - "pkg:golang/internal%2Fgoarch"
       - "pkg:golang/internal%2Fgoexperiment"
+      - "pkg:golang/internal%2Fgoos"
       - "pkg:golang/internal%2Fitoa"
       - "pkg:golang/internal%2Foserror"
       - "pkg:golang/internal%2Fpoll"
@@ -2487,6 +2669,7 @@ go_generate_imported_generated:
       - "pkg:golang/runtime%2Finternal%2Fatomic"
       - "pkg:golang/runtime%2Finternal%2Fmath"
       - "pkg:golang/runtime%2Finternal%2Fsys"
+      - "pkg:golang/runtime%2Finternal%2Fsyscall"
       - "pkg:golang/sort"
       - "pkg:golang/strconv"
       - "pkg:golang/sync"
