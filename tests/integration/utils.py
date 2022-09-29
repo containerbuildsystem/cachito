@@ -347,21 +347,9 @@ def assert_expected_files(source_path, expected_files, tmpdir):
             expected_archive = os.path.join(tmpdir, f"archive_{dir_identifier}.tar.gz")
             # A directory path with extracted expected data
             expected_data_path = os.path.join(tmpdir, f"expected_data_{dir_identifier}")
-            # Dependencies instead of source code are saved as archives.
-            # Therefore we should extract it firstly
-            if os.path.isdir(test_path):
-                package_root_dir = test_path
-            else:
-                archive_path = test_path
-                if archive_path.endswith(".gem"):
-                    shutil.unpack_archive(archive_path, deps_data_path, "gztar")
-                else:
-                    shutil.unpack_archive(archive_path, deps_data_path)
-                if deps_data_path.endswith(".gem"):
-                    package_root_dir = deps_data_path
-                else:
-                    # deps_data_path is unique and contains only one expected package
-                    package_root_dir = os.path.join(deps_data_path, os.listdir(deps_data_path)[0])
+
+            package_root_dir = unpack_test_archives(deps_data_path, test_path)
+
             download_archive(archive_url, expected_archive)
             shutil.unpack_archive(expected_archive, expected_data_path)
 
@@ -383,6 +371,34 @@ def assert_expected_files(source_path, expected_files, tmpdir):
                     shutil.rmtree(temp_data)
                 elif os.path.isfile(temp_data):
                     os.remove(temp_data)
+
+
+def unpack_test_archives(deps_data_path, test_path):
+    """
+    Unpack `test_path` if it's NOT a directory.
+
+    Dependencies are unlike source code stored as archives, so they have to be extracted.
+
+    :param deps_data_path: a path into which dependency will be unpacked (not always
+        the same as return value)
+    :param test_path: a directory path to unpack
+    :return: root directory of an unpacked dependency
+    """
+    if os.path.isdir(test_path):
+        package_root_dir = test_path
+    else:
+        archive_path = test_path
+        if archive_path.endswith(".gem"):
+            shutil.unpack_archive(archive_path, deps_data_path, "gztar")
+        else:
+            shutil.unpack_archive(archive_path, deps_data_path)
+
+        if deps_data_path.endswith(".gem"):
+            package_root_dir = deps_data_path
+        else:
+            # deps_data_path is unique and contains only one expected package
+            package_root_dir = os.path.join(deps_data_path, os.listdir(deps_data_path)[0])
+    return package_root_dir
 
 
 def assert_content_manifest(client, request_id, image_contents):
