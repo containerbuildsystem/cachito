@@ -15,11 +15,10 @@ venv:
 	venv/bin/pip install tox
 	venv/bin/pip install -e .
 
-# Keep test target for backwards compatibility
-test test-unit:
+test:
 	PATH="${PWD}/venv/bin:${PATH}" tox
 
-test-suite test-tox:
+test-unit:
 	PATH="${PWD}/venv/bin:${PATH}" tox -e $(TOX_ENVLIST) -- $(TOX_ARGS)
 
 pip-compile: venv/bin/pip-compile
