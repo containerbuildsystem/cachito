@@ -48,8 +48,7 @@ test-suite test-tox:
 pip-compile: venv/bin/pip-compile
 	# --allow-unsafe: we use pkg_resources (provided by setuptools) as a runtime dependency
 	venv/bin/pip-compile --allow-unsafe --generate-hashes --output-file=requirements.txt pyproject.toml
-	# --allow-unsafe: requirements-test.in includes requirements.txt
-	venv/bin/pip-compile --allow-unsafe --generate-hashes --output-file=requirements-test.txt requirements-test.in
+	venv/bin/pip-compile --generate-hashes --output-file=requirements-test.txt requirements-test.in
 
 venv/bin/pip-compile:
 	venv/bin/pip install pip-tools
