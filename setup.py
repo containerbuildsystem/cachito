@@ -15,6 +15,14 @@ setup(
     ],
     license="GPLv3+",
     python_requires=">=3.9",
+    install_requires=[
+        "backoff",
+        "gitpython",
+        "pydantic",
+        "requests",
+        "semver",
+        "setuptools",
+    ],
     setup_requires=['setuptools-git-versioning'],
     setuptools_git_versioning={
         "enabled": True,
