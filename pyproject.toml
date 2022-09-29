@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-git-versioning"]
+requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -25,6 +25,5 @@ dependencies = [
 [tool.setuptools]
 packages = ["cachi2"]
 
-[tool.setuptools-git-versioning]
-enabled = true
-dev_template = "{tag}.post{ccount}+git.{sha}"
+[tool.setuptools_scm]
+version_scheme = "post-release"
