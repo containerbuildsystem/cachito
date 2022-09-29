@@ -36,7 +36,7 @@ venv:
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install -r requirements.txt
 	venv/bin/pip install tox
-	venv/bin/python setup.py develop
+	venv/bin/pip install -e .
 
 # Keep test target for backwards compatibility
 test test-unit:

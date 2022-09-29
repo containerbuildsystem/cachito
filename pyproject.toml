@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools", "setuptools-git-versioning"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cachi2"
+dynamic = ["version"]
+license = {text = "GPLv3+"}
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "backoff",
+    "gitpython",
+    "pydantic",
+    "requests",
+    "semver",
+    "setuptools",
+]
+
+[tool.setuptools]
+packages = ["cachi2"]
+
+[tool.setuptools-git-versioning]
+enabled = true
+dev_template = "{tag}.post{ccount}+git.{sha}"
