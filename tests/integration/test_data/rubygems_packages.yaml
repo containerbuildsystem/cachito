@@ -1,0 +1,137 @@
+# Test data for RubyGems packages
+# RubyGems package with Gemfile and Gemfile.lock containing no dependency
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files (empty)
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+without_deps:
+  repo: https://github.com/cachito-testing/cachito-rubygems-without-deps.git
+  ref: 4f1ca077899d42064d097dad90f3565fbf4e1ce7
+  pkg_managers: ["rubygems"]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-rubygems-without-deps/tarball/4f1ca077899d42064d097dad90f3565fbf4e1ce7
+    deps/rubygems: null
+  response_expectations:
+    dependencies: []
+    packages:
+      - dependencies: []
+        name: "cachito-rubygems-without-deps"
+        type: "rubygems"
+        version: "4f1ca077899d42064d097dad90f3565fbf4e1ce7"
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-rubygems-without-deps@4f1ca077899d42064d097dad90f3565fbf4e1ce7"
+# RubyGems package with GEM, GIT and PATH dependencies in Gemfile and Gemfile.lock
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files <relative_path>
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+with_deps:
+  repo: https://github.com/cachito-testing/cachito-rubygems-with-dependencies.git
+  ref: ef6b2d7f9e4719be204531639a3ab90cfd731f26
+  pkg_managers: ["rubygems"]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-rubygems-with-dependencies/tarball/ef6b2d7f9e4719be204531639a3ab90cfd731f26
+    deps/rubygems/zeitwerk/zeitwerk-2.6.0.gem: https://rubygems.org/downloads/zeitwerk-2.6.0.gem
+    deps/rubygems/github.com/RadPad/swagger-ui_rails/swagger-ui_rails-external-gitcommit-7234e21e621b628d6b43194f9ba5cce5ca587f16/app: https://github.com/RadPad/swagger-ui_rails/tarball/7234e21e621b628d6b43194f9ba5cce5ca587f16
+  response_expectations:
+    dependencies:
+      - name: pathgem
+        replaces: null
+        type: rubygems
+        version: './vendor/pathgem'
+      - name: swagger-ui_rails
+        replaces: null
+        type: rubygems
+        version: git+https://github.com/RadPad/swagger-ui_rails.git@7234e21e621b628d6b43194f9ba5cce5ca587f16
+      - name: zeitwerk
+        replaces: null
+        type: rubygems
+        version: '2.6.0'
+    packages:
+      - dependencies:
+        - name: pathgem
+          replaces: null
+          type: rubygems
+          version: './vendor/pathgem'
+        - name: swagger-ui_rails
+          replaces: null
+          type: rubygems
+          version: git+https://github.com/RadPad/swagger-ui_rails.git@7234e21e621b628d6b43194f9ba5cce5ca587f16
+        - name: zeitwerk
+          replaces: null
+          type: rubygems
+          version: '2.6.0'
+        name: cachito-rubygems-with-dependencies
+        type: rubygems
+        version: ef6b2d7f9e4719be204531639a3ab90cfd731f26
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-rubygems-with-dependencies@ef6b2d7f9e4719be204531639a3ab90cfd731f26"
+    dep_purls:
+    - "pkg:gem/zeitwerk@2.6.0"
+    - "pkg:github/cachito-testing/cachito-rubygems-with-dependencies@ef6b2d7f9e4719be204531639a3ab90cfd731f26#vendor/pathgem"
+    - "pkg:github/radpad/swagger-ui_rails@7234e21e621b628d6b43194f9ba5cce5ca587f16"
+    source_purls:
+    - "pkg:gem/zeitwerk@2.6.0"
+    - "pkg:github/cachito-testing/cachito-rubygems-with-dependencies@ef6b2d7f9e4719be204531639a3ab90cfd731f26#vendor/pathgem"
+    - "pkg:github/radpad/swagger-ui_rails@7234e21e621b628d6b43194f9ba5cce5ca587f16"
+# Multiple RubyGems packages
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files <relative_path>
+# response_expectations: Parts of the Cachito response to check
+# purl: PURL of the package
+# dep_purls: PURLs if dependencies
+multiple:
+  repo: https://github.com/cachito-testing/cachito-rubygems-multiple.git
+  ref: d5f91c54a8b35c3f2bdcf9a602184022b003ed75
+  pkg_managers: ["rubygems"]
+  packages:
+    rubygems: [{"path": "first_pkg"}, {"path": "second_pkg"}]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-rubygems-multiple/tarball/d5f91c54a8b35c3f2bdcf9a602184022b003ed75
+    deps/rubygems/tilt/tilt-2.0.11.gem: https://rubygems.org/downloads/tilt-2.0.11.gem
+  response_expectations:
+    dependencies:
+    - name: pathgem
+      replaces: null
+      type: rubygems
+      version: './vendor/pathgem'
+    - name: tilt
+      replaces: null
+      type: rubygems
+      version: '2.0.11'
+    packages:
+    - dependencies:
+      - name: pathgem
+        replaces: null
+        type: rubygems
+        version: './vendor/pathgem'
+      name: cachito-rubygems-multiple/first_pkg
+      path: first_pkg
+      type: rubygems
+      version: d5f91c54a8b35c3f2bdcf9a602184022b003ed75
+    - dependencies:
+      - name: tilt
+        replaces: null
+        type: rubygems
+        version: '2.0.11'
+      name: cachito-rubygems-multiple/second_pkg
+      path: second_pkg
+      type: rubygems
+      version: d5f91c54a8b35c3f2bdcf9a602184022b003ed75
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-rubygems-multiple@d5f91c54a8b35c3f2bdcf9a602184022b003ed75#first_pkg"
+    dep_purls:
+      - "pkg:github/cachito-testing/cachito-rubygems-multiple@d5f91c54a8b35c3f2bdcf9a602184022b003ed75#first_pkg/vendor/pathgem"
+    source_purls:
+      - "pkg:github/cachito-testing/cachito-rubygems-multiple@d5f91c54a8b35c3f2bdcf9a602184022b003ed75#first_pkg/vendor/pathgem"
+  - purl: "pkg:github/cachito-testing/cachito-rubygems-multiple@d5f91c54a8b35c3f2bdcf9a602184022b003ed75#second_pkg"
+    dep_purls:
+    - "pkg:gem/tilt@2.0.11"
+    source_purls:
+    - "pkg:gem/tilt@2.0.11"

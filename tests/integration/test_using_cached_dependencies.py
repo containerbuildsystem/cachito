@@ -4,6 +4,7 @@ import random
 import shutil
 import string
 from pathlib import Path
+from textwrap import dedent
 
 import git
 import pytest
@@ -123,7 +124,14 @@ class TestCachedDependencies:
             )
 
     @pytest.mark.parametrize(
-        "env_name", ["pip_cached_deps", "gomod_cached_deps", "npm_cached_deps", "yarn_cached_deps"]
+        "env_name",
+        [
+            "pip_cached_deps",
+            "gomod_cached_deps",
+            "npm_cached_deps",
+            "yarn_cached_deps",
+            "rubygems_cached_deps",
+        ],
     )
     def test_package_with_cached_deps(self, test_env, tmpdir, env_name):
         """
@@ -210,7 +218,8 @@ class TestCachedDependencies:
         )
 
         diff_files = self.cloned_main_repo.git.diff(None, name_only=True)
-        self.cloned_main_repo.git.add(diff_files)
+        for diff_file in diff_files.split("\n"):
+            self.cloned_main_repo.git.add(diff_file)
         self.cloned_main_repo.git.commit("-m", "test commit")
         self.main_repo_commit = self.cloned_main_repo.head.object.hexsha
         self.main_repo_origin = self.cloned_main_repo.remote(name="origin")
@@ -425,6 +434,9 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
         * insert new dependency in between the two segments
           and paste into package.json file
         * return replacement rules based on commits
+    rubygems:
+        * insert a new GIT dependency into Gemfile & Gemfile.lock
+        * return commit hash of an added dependency
 
     :param dict env_data: the test data
     :param str repo_dir: path to the main repository
@@ -488,4 +500,31 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
         return {
             "FIRST_DEP_COMMIT": new_dep_commits[0],
             "SECOND_DEP_COMMIT": new_dep_commits[1],
+        }
+    elif env_data["pkg_managers"] == ["rubygems"]:
+        with open(os.path.join(repo_dir, "Gemfile"), "a") as f:
+            f.write(f"gem 'my-package', git: '{env_data['https_dep_repo']}'\n")
+        with open(os.path.join(repo_dir, "Gemfile.lock"), "r") as f:
+            gemlock = f.read()
+
+            gemlock = gemlock.replace(
+                "GIT",
+                dedent(
+                    f"""
+                    GIT
+                      remote: {env_data['https_dep_repo']}
+                      revision: {new_dep_commits[0]}
+                      specs:
+                        my-package (1.0.0)
+
+                    GIT"""
+                ),
+            )
+            gemlock = gemlock.replace("DEPENDENCIES", "DEPENDENCIES\n  my-package!")
+
+        with open(os.path.join(repo_dir, "Gemfile.lock"), "w") as f:
+            f.write(gemlock)
+
+        return {
+            "FIRST_DEP_COMMIT": new_dep_commits[0],
         }

@@ -887,3 +887,75 @@ yarn_cached_deps:
     - "pkg:npm/is-positive@3.1.0"
     - "pkg:npm/pathval@1.1.1"
     - "pkg:npm/type-detect@4.0.8"
+rubygems_cached_deps:
+  # Use local version of repos.
+  # <use_local: True> is not supported in local environment and will be skipped.
+  use_local: True
+  # test repo user
+  git_user: "Arthur Dent"
+  # test repo user email
+  git_email: "dent42@cachito.rocks"
+  # HTTPS and SSH links to main and dependency repos respectively
+  https_main_repo: https://github.com/cachito-testing/cachito-rubygems-with-dependencies.git
+  https_dep_repo: https://github.com/cachito-testing/cachito-rubygems-without-deps.git
+  ssh_main_repo: "git@github.com:cachito-testing/cachito-rubygems-with-dependencies.git"
+  ssh_dep_repo: "git@github.com:cachito-testing/cachito-rubygems-without-deps.git"
+  # Base URL for downloading dependency archive
+  dep_archive_baseurl: "https://github.com/cachito-testing/cachito-rubygems-without-deps/archive/"
+  pkg_managers: [ "rubygems" ]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-rubygems-with-dependencies/tarball/MAIN_REPO_COMMIT
+    deps/rubygems/zeitwerk/zeitwerk-2.6.0.gem: https://rubygems.org/downloads/zeitwerk-2.6.0.gem
+    deps/rubygems/github.com/RadPad/swagger-ui_rails/swagger-ui_rails-external-gitcommit-7234e21e621b628d6b43194f9ba5cce5ca587f16/app: https://github.com/RadPad/swagger-ui_rails/tarball/7234e21e621b628d6b43194f9ba5cce5ca587f16
+  # Parts of Cachito response to check
+  response_expectations:
+    dependencies:
+      - name: my-package
+        replaces: null
+        type: rubygems
+        version: git+https://github.com/cachito-testing/cachito-rubygems-without-deps.git@FIRST_DEP_COMMIT
+      - name: pathgem
+        replaces: null
+        type: rubygems
+        version: './vendor/pathgem'
+      - name: swagger-ui_rails
+        replaces: null
+        type: rubygems
+        version: git+https://github.com/RadPad/swagger-ui_rails.git@7234e21e621b628d6b43194f9ba5cce5ca587f16
+      - name: zeitwerk
+        replaces: null
+        type: rubygems
+        version: '2.6.0'
+    packages:
+      - dependencies:
+        - name: my-package
+          replaces: null
+          type: rubygems
+          version: git+https://github.com/cachito-testing/cachito-rubygems-without-deps.git@FIRST_DEP_COMMIT
+        - name: pathgem
+          replaces: null
+          type: rubygems
+          version: './vendor/pathgem'
+        - name: swagger-ui_rails
+          replaces: null
+          type: rubygems
+          version: git+https://github.com/RadPad/swagger-ui_rails.git@7234e21e621b628d6b43194f9ba5cce5ca587f16
+        - name: zeitwerk
+          replaces: null
+          type: rubygems
+          version: '2.6.0'
+        name: cachito-rubygems-with-dependencies
+        type: rubygems
+        version: MAIN_REPO_COMMIT
+  content_manifest:
+    purl: "pkg:github/cachito-testing/cachito-rubygems-with-dependencies@MAIN_REPO_COMMIT"
+    dep_purls:
+      - "pkg:gem/zeitwerk@2.6.0"
+      - "pkg:github/cachito-testing/cachito-rubygems-with-dependencies@MAIN_REPO_COMMIT#vendor/pathgem"
+      - "pkg:github/cachito-testing/cachito-rubygems-without-deps@FIRST_DEP_COMMIT"
+      - "pkg:github/radpad/swagger-ui_rails@7234e21e621b628d6b43194f9ba5cce5ca587f16"
+    source_purls:
+      - "pkg:gem/zeitwerk@2.6.0"
+      - "pkg:github/cachito-testing/cachito-rubygems-with-dependencies@MAIN_REPO_COMMIT#vendor/pathgem"
+      - "pkg:github/cachito-testing/cachito-rubygems-without-deps@FIRST_DEP_COMMIT"
+      - "pkg:github/radpad/swagger-ui_rails@7234e21e621b628d6b43194f9ba5cce5ca587f16"

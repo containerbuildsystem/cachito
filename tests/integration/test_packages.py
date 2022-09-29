@@ -41,6 +41,9 @@ from . import utils
         ("yarn_packages", "without_deps"),
         ("yarn_packages", "with_deps"),
         ("yarn_packages", "git_submodule"),
+        ("rubygems_packages", "without_deps"),
+        ("rubygems_packages", "with_deps"),
+        ("rubygems_packages", "multiple"),
     ],
 )
 def test_packages(env_package, env_name, test_env, tmpdir):

@@ -353,15 +353,25 @@ def assert_expected_files(source_path, expected_files, tmpdir):
                 package_root_dir = test_path
             else:
                 archive_path = test_path
-                shutil.unpack_archive(archive_path, deps_data_path)
-                # deps_data_path is unique and contains only one expected package
-                package_root_dir = os.path.join(deps_data_path, os.listdir(deps_data_path)[0])
+                if archive_path.endswith(".gem"):
+                    shutil.unpack_archive(archive_path, deps_data_path, "gztar")
+                else:
+                    shutil.unpack_archive(archive_path, deps_data_path)
+                if deps_data_path.endswith(".gem"):
+                    package_root_dir = deps_data_path
+                else:
+                    # deps_data_path is unique and contains only one expected package
+                    package_root_dir = os.path.join(deps_data_path, os.listdir(deps_data_path)[0])
             download_archive(archive_url, expected_archive)
             shutil.unpack_archive(expected_archive, expected_data_path)
+
             # Root directory for expected data of package or dependency
-            expected_package_root_dir = os.path.join(
-                expected_data_path, os.listdir(expected_data_path)[0]
-            )
+            if expected_data_path.endswith(".gem"):
+                expected_package_root_dir = expected_data_path
+            else:
+                expected_package_root_dir = os.path.join(
+                    expected_data_path, os.listdir(expected_data_path)[0]
+                )
             assert os.path.isdir(
                 expected_package_root_dir
             ), f"Wrong directory path {expected_package_root_dir}."
@@ -369,8 +379,10 @@ def assert_expected_files(source_path, expected_files, tmpdir):
             assert_directories_equal(package_root_dir, expected_package_root_dir)
             # Delete temporary data
             for temp_data in [deps_data_path, expected_data_path, expected_archive]:
-                if os.path.exists(deps_data_path):
+                if os.path.isdir(temp_data):
                     shutil.rmtree(temp_data)
+                elif os.path.isfile(temp_data):
+                    os.remove(temp_data)
 
 
 def assert_content_manifest(client, request_id, image_contents):
