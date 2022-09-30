@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import backoff
 import git
@@ -322,7 +322,7 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
             _run_gomod_cmd([*go_list, "-e", "-deps", "-json", "./..."], run_params)
         )
 
-        packages = []
+        packages: list[dict] = []
         processed_pkg_deps = set()
         for pkg_name in package_list:
             if pkg_name in processed_pkg_deps:
@@ -337,7 +337,7 @@ def _resolve_gomod(path: Path, request: Request, git_dir_path=None):
 
             pkg_level_deps = []
             for dep_name in package_info[pkg_name].get("Deps", []):
-                dep_info = package_info.get(dep_name)
+                dep_info = package_info[dep_name]
 
                 processed_pkg_deps.add(dep_name)
                 if "Standard" in dep_info:
@@ -390,7 +390,7 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
             super().__exit__(exc, value, tb)
 
 
-def _run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
+def _run_download_cmd(cmd: Iterable[str], params: Dict[str, Any]) -> str:
     """Run gomod command that downloads dependencies.
 
     Such commands may fail due to network errors (go is bad at retrying), so the entire operation
@@ -409,7 +409,7 @@ def _run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
         max_tries=n_tries,
         logger=log,
     )
-    def run_go(_cmd, _params) -> str:
+    def run_go(_cmd: Iterable[str], _params: Dict[str, Any]) -> str:
         log.debug(f"Running {_cmd}")
         return _run_gomod_cmd(_cmd, _params)
 
@@ -424,7 +424,7 @@ def _run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
 
 
 def _should_vendor_deps(
-    flags: List[str], app_dir: Path, strict: bool
+    flags: Iterable[str], app_dir: Path, strict: bool
 ) -> Tuple[bool, bool]:
     """
     Determine if Cachito should vendor dependencies and if it is allowed to make changes.
