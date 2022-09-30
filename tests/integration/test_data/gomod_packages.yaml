@@ -1956,3 +1956,8 @@ without_pkg_manager:
     app: https://github.com/cachito-testing/cachito-gomod-without-deps/tarball/a888f7261b9a9683972fbd77da2d12fe86faef5e
     deps: null
   content_manifest: []
+# The test data for gomod package manager test: check for Go workspaces
+with_workspace:
+  repo: https://github.com/cachito-testing/cachito-gomod-with-workspace.git
+  ref: 8149e2e6996ec6e5b572a15b243773a277229f32
+  pkg_managers: ["gomod"]

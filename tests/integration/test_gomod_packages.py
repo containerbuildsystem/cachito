@@ -66,3 +66,30 @@ def test_gomod_vendor_check_fail(env_name, test_env):
         f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
         f"{completed_response.data['state_reason']}. Expected message was: {error_msg}"
     )
+
+
+def test_gomod_workspace_check(test_env):
+    """
+    Validate failing of gomod requests that contain workspaces.
+
+    Checks:
+    * The request fails with expected error message
+    """
+    env_data = utils.load_test_data("gomod_packages.yaml")["with_workspace"]
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+    initial_response = client.create_new_request(
+        payload={
+            "repo": env_data["repo"],
+            "ref": env_data["ref"],
+            "pkg_managers": env_data["pkg_managers"],
+        },
+    )
+    completed_response = client.wait_for_complete_request(initial_response)
+    assert completed_response.status == 200
+    assert completed_response.data["state"] == "failed"
+    error_msg = "Go workspaces are not supported by Cachito."
+
+    assert error_msg in completed_response.data["state_reason"], (
+        f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
+        f"{completed_response.data['state_reason']}. Expected message was: {error_msg}"
+    )
