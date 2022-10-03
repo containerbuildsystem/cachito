@@ -99,9 +99,7 @@ class PackagesData:
             )
         )
 
-    def add_package(
-        self, pkg_info: Dict[str, str], path: str, deps: List[Dict[str, Any]]
-    ) -> None:
+    def add_package(self, pkg_info: Dict[str, str], path: str, deps: List[Dict[str, Any]]) -> None:
         """Add a package with deps.
 
         :param dict[str, str] pkg_info: a mapping containing package information.
@@ -177,9 +175,7 @@ class PackagesData:
             data = json.load(f)
             packages = data.get("packages")
             if packages is None:
-                log.warning(
-                    "Packages data file %s does not include key 'packages'.", file_name
-                )
+                log.warning("Packages data file %s does not include key 'packages'.", file_name)
                 return
 
             log.info("Loaded file %s, found %i packages.", file_name, len(packages))
