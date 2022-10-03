@@ -16,7 +16,7 @@ from git import Repo
 from git.exc import CheckoutError
 
 from cachito.common.utils import get_repo_name
-from cachito.errors import GitError, NexusError, ValidationError
+from cachito.errors import GitError, NexusError, UnsupportedFeature, ValidationError
 from cachito.workers import get_worker_config, nexus
 from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.paths import RequestBundleDir
@@ -186,7 +186,7 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, username):
     return password
 
 
-def download_dependencies(request_id, dependencies, package_root):
+def download_dependencies(request_id, dependencies, package_root, allowed_path_deps: set[str]):
     """
     Download all dependencies from Gemfile.lock with its sources.
 
@@ -197,9 +197,11 @@ def download_dependencies(request_id, dependencies, package_root):
     :param int request_id: ID of the request these dependencies are being downloaded for
     :param list[GemMetadata] dependencies: List of dependencies
     :param package_root: path to the root of the processed package
+    :param set[str] allowed_path_deps: allowed RubyGems PATH dependencies
     :return: Info about downloaded packages; all items will contain "kind" and "path" keys
         (and more based on kind, see _download_*_package functions for more details)
     :rtype: list[dict]
+    :raises UnsupportedFeature: when any not allowed PATH dependency should be downloaded
     """
     bundle_dir = RequestBundleDir(request_id)
     bundle_dir.rubygems_deps_dir.mkdir(parents=True, exist_ok=True)
@@ -225,6 +227,7 @@ def download_dependencies(request_id, dependencies, package_root):
                 dep, bundle_dir.rubygems_deps_dir, rubygems_raw_repo_name, nexus_auth
             )
         elif dep.type == "PATH":
+            verify_path_dep_is_allowed(dep, allowed_path_deps)
             download_info = _get_path_package_info(dep, package_root)
         else:
             # Should not happen
@@ -260,6 +263,22 @@ def download_dependencies(request_id, dependencies, package_root):
         downloads.append(download_info)
 
     return downloads
+
+
+def verify_path_dep_is_allowed(dep: GemMetadata, allowed_path_deps: set[str]):
+    """
+    Verify that PATH dependency is part of allowed_path_deps set.
+
+    :param GemMetadata dep: dependency to check
+    :param set[str] allowed_path_deps: allowed RubyGems PATH dependencies
+    :raises UnsupportedFeature: when any not allowed PATH dependency should be downloaded
+    """
+    if dep.name not in allowed_path_deps:
+        log.debug(f"rubygems_file_deps_allowlist: {allowed_path_deps}")
+        raise UnsupportedFeature(
+            f"PATH dependency {dep.name} is not allowed. "
+            f"Please contact maintainers of this Cachito instance to allow it."
+        )
 
 
 def _download_rubygems_package(gem, deps_dir, proxy_url, proxy_auth):
@@ -369,9 +388,17 @@ def resolve_rubygems(package_root, request):
     bundle_dir = RequestBundleDir(request["id"])
     bundle_dir.rubygems_deps_dir.mkdir(parents=True, exist_ok=True)
 
+    main_package_name, main_package_version = _get_metadata(package_root, request)
+
     gemlock_path = package_root / GEMFILE_LOCK
     dependencies = parse_gemlock(package_root, gemlock_path)
-    dependencies = download_dependencies(request["id"], dependencies, package_root)
+
+    allowed_path_deps = set(
+        get_worker_config().cachito_rubygems_file_deps_allowlist.get(main_package_name, [])
+    )
+    dependencies = download_dependencies(
+        request["id"], dependencies, package_root, allowed_path_deps
+    )
 
     rubygems_repo_name = get_rubygems_hosted_repo_name(request["id"])
     for dependency in dependencies:
@@ -382,14 +409,18 @@ def resolve_rubygems(package_root, request):
         if dep["kind"] == "GIT":
             prepare_git_dependency(dep)
 
-    name, version = _get_metadata(package_root, request)
     if package_root == bundle_dir:
         package_rel_path = None
     else:
         package_rel_path = package_root.resolve().relative_to(bundle_dir)
 
     return {
-        "package": {"name": name, "version": version, "type": "rubygems", "path": package_rel_path},
+        "package": {
+            "name": main_package_name,
+            "version": main_package_version,
+            "type": "rubygems",
+            "path": package_rel_path,
+        },
         "dependencies": dependencies,
     }
 
