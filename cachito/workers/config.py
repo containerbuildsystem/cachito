@@ -54,6 +54,7 @@ class Config(object):
     cachito_npm_file_deps_allowlist: Dict[str, List[str]] = {}
     cachito_yarn_file_deps_allowlist: Dict[str, List[str]] = {}
     cachito_gomod_file_deps_allowlist: Dict[str, List[str]] = {}
+    cachito_rubygems_file_deps_allowlist: Dict[str, List[str]] = {}
     cachito_request_file_logs_dir: Optional[str] = None
     cachito_request_file_logs_format = (
         "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
@@ -125,6 +126,10 @@ class DevelopmentConfig(Config):
     cachito_yarn_file_deps_allowlist = {"cachito-yarn-test": ["subpackage"]}
     cachito_gomod_file_deps_allowlist = {
         "github.com/cachito-testing/cachito-gomod-local-deps": ["github.com/cachito-testing/*"],
+    }
+    cachito_rubygems_file_deps_allowlist = {
+        "cachito-rubygems-with-dependencies": ["pathgem"],
+        "cachito-rubygems-multiple/first_pkg": ["pathgem"],
     }
     cachito_request_file_logs_dir: Optional[str] = "/var/log/cachito/requests"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
