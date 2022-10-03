@@ -86,6 +86,7 @@ inject_config_files () {
     for path in "${paths[@]}"; do
         # Show the path indented by 4 spaces
         echo "    $path"
+        mkdir -p "$(dirname "$output_dir/remote-source/$path")"
 
         jq '.[] | select(.path == "'"$path"'") | .content' -r < "$config_json" |
             base64 --decode > "$output_dir/remote-source/$path"
