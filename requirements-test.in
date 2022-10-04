@@ -4,5 +4,6 @@ flake8-docstrings==1.6.0
 importlib-resources==5.4.0
 jsonschema
 pytest
+pytest-asyncio
 pytest-cov
 pyyaml

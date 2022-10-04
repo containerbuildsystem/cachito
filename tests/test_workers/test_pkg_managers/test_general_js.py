@@ -21,13 +21,13 @@ from cachito.workers.pkg_managers import general, general_js, npm
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("os.path.exists")
 @mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
-@mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
+@mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
 @mock.patch("shutil.move")
 @mock.patch("cachito.workers.paths.get_worker_config")
 def test_download_dependencies(
     mock_gwc,
     mock_move,
-    mock_run_cmd,
+    mock_async_download_binary_file,
     mock_gawnf,
     mock_exists,
     mock_td,
@@ -39,14 +39,8 @@ def test_download_dependencies(
     mock_td_path = tmpdir.mkdir("cachito-agfdsk")
     mock_td.return_value.__enter__.return_value = str(mock_td_path)
     mock_exists.return_value = nexus_ca_cert_exists
-    mock_run_cmd.return_value = textwrap.dedent(
-        """\
-        angular-devkit-architect-0.803.26.tgz
-        angular-animations-8.2.14.tgz
-        rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz
-        exsp-2.10.2-external-sha512-abcdefg.tar.gz
-        """
-    )
+    mock_async_download_binary_file.side_effect = lambda s, u, d, tarball_name, auth: tarball_name
+
     deps = [
         {
             "bundled": False,
@@ -95,6 +89,7 @@ def test_download_dependencies(
     proxy_repo_url = npm.get_npm_proxy_repo_url(request_id)
     download_dir = tmpdir.join("deps")
     download_dir.mkdir()
+
     general_js.download_dependencies(
         Path(download_dir), deps, proxy_repo_url, pkg_manager=pkg_manager
     )
@@ -116,25 +111,11 @@ def test_download_dependencies(
             "cachito",
             custom_ca_path=None,
         )
-    mock_run_cmd.assert_called_once()
-    # This ensures that the bundled dependency is skipped
-    expected_npm_pack = [
-        "npm",
-        "pack",
-        "@angular-devkit/architect@0.803.26",
-        "@angular/animations@8.2.14",
-        "rxjs@6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
-        "exsp@2.10.2-external-sha512-abcdefg",
-    ]
-    assert mock_run_cmd.call_args[0][0] == expected_npm_pack
-    run_cmd_env_vars = mock_run_cmd.call_args[0][1]["env"]
-    assert run_cmd_env_vars["NPM_CONFIG_CACHE"] == str(mock_td_path.join("cache"))
-    assert run_cmd_env_vars["NPM_CONFIG_USERCONFIG"] == mock_npm_rc_path
-    assert mock_run_cmd.call_args[0][1]["cwd"] == download_dir
 
     dep1_source_path = os.path.join(download_dir, "angular-devkit-architect-0.803.26.tgz")
     dep1_dest_path = os.path.join(
-        download_dir, "@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz"
+        download_dir,
+        "@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz",
     )
     dep2_source_path = os.path.join(download_dir, "angular-animations-8.2.14.tgz")
     dep2_dest_path = os.path.join(download_dir, "@angular/animations/angular-animations-8.2.14.tgz")
@@ -146,10 +127,18 @@ def test_download_dependencies(
         "github/ReactiveX/rxjs/"
         "rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz",
     )
-    dep4_source_path = os.path.join(download_dir, "exsp-2.10.2-external-sha512-abcdefg.tar.gz")
-    dep4_dest_path = os.path.join(
-        download_dir, "external-exsp/exsp-2.10.2-external-sha512-abcdefg.tar.gz"
+    dep4_source_path = os.path.join(
+        download_dir,
+        "exsp-2.10.2-external-sha512-abcdefg.tgz",
     )
+    dep4_source_path = os.path.join(download_dir, "exsp-2.10.2-external-sha512-abcdefg.tgz")
+    dep4_dest_path = os.path.join(
+        download_dir, "external-exsp/exsp-2.10.2-external-sha512-abcdefg.tgz"
+    )
+
+    # This ensures that the bundled dependency is skipped
+    assert len(mock_move.call_args_list) == 4
+
     mock_move.assert_has_calls(
         [
             mock.call(dep1_source_path, dep1_dest_path),
@@ -163,13 +152,13 @@ def test_download_dependencies(
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("os.path.exists")
 @mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
-@mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
+@mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
 @mock.patch("shutil.move")
 @mock.patch("cachito.workers.paths.get_worker_config")
 def test_download_dependencies_skip_deps(
     mock_gwc,
     mock_move,
-    mock_run_cmd,
+    mock_async_download_binary_file,
     mock_gawnf,
     mock_exists,
     mock_td,
@@ -179,12 +168,8 @@ def test_download_dependencies_skip_deps(
     mock_gwc.return_value.cachito_bundles_dir = str(bundles_dir)
     mock_td.return_value.__enter__.return_value = str(tmpdir.mkdir("cachito-agfdsk"))
     mock_exists.return_value = False
-    mock_run_cmd.return_value = textwrap.dedent(
-        """\
-        angular-devkit-architect-0.803.26.tgz
-        rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz
-        """
-    )
+    mock_async_download_binary_file.side_effect = lambda s, u, d, tarball_name, auth: tarball_name
+
     deps = [
         {
             "bundled": False,
@@ -208,23 +193,113 @@ def test_download_dependencies_skip_deps(
             "version_in_nexus": "6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
         },
     ]
-    proxy_repo_url = npm.get_npm_proxy_repo_url(1)
+
+    request_id = 1
+    proxy_repo_url = npm.get_npm_proxy_repo_url(request_id)
     download_dir = tmpdir.join("deps")
     download_dir.mkdir()
+
     general_js.download_dependencies(
         Path(download_dir), deps, proxy_repo_url, {"@angular/animations@8.2.14"}
     )
 
-    mock_run_cmd.assert_called_once()
-    # This ensures that the skipped dependency is not downloaded
-    expected_npm_pack = [
-        "npm",
-        "pack",
-        "@angular-devkit/architect@0.803.26",
-        "rxjs@6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30",
+    # dep_1
+    dep1_source_path = os.path.join(
+        download_dir,
+        "angular-devkit-architect-0.803.26.tgz",
+    )
+    dep1_dest_path = os.path.join(
+        download_dir,
+        "@angular-devkit/architect/angular-devkit-architect-0.803.26.tgz",
+    )
+    # dep_2
+    dep2_source_path = os.path.join(
+        download_dir,
+        "rxjs-6.5.5-external-gitcommit-78032157f5c1655436829017bbda787565b48c30.tgz",
+    )
+    commit_hash = "-gitcommit-78032157f5c1655436829017bbda787565b48c30"
+    dep2_dest_path = os.path.join(
+        download_dir,
+        f"github/ReactiveX/rxjs/rxjs-6.5.5-external{commit_hash}.tgz",
+    )
+
+    # This ensures that the skipped dependency is skipped
+    assert len(mock_move.call_args_list) == 2
+
+    mock_move.assert_has_calls(
+        [
+            mock.call(dep1_source_path, dep1_dest_path),
+            mock.call(dep2_source_path, dep2_dest_path),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {
+            "dep": "chai@4.2.0",
+            "p_url": "http://nexus:8081/repository/1/chai/-/chai-4.2.0.tgz",
+            "tarball_name": "chai-4.2.0.tgz",
+        },
+        {
+            "dep": "assertion-error@1.1.0",
+            "p_url": "http://nexus:8081/repository/1/assertion-error/-/assertion-error-1.1.0.tgz",
+            "tarball_name": "assertion-error-1.1.0.tgz",
+        },
+        {
+            "dep": "@fake_dep@4.2.0",
+            "p_url": "http://nexus:8081/repository/1/@fake_dep/-/@fake_dep-4.2.0.tgz",
+            "tarball_name": "fake_dep-4.2.0.tgz",
+        },
+    ],
+)
+def test_parse_dependency(data):
+
+    proxy_repo_url = "http://nexus:8081/repository/1/"
+
+    result = general_js.parse_dependency(proxy_repo_url, data["dep"])
+    assert result == (data["p_url"], data["tarball_name"])
+
+
+@mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
+@pytest.mark.asyncio
+async def test_get_dependecies(mock_async_download_binary_file):
+
+    mock_async_download_binary_file.side_effect = lambda s, u, d, tarball_name, auth: tarball_name
+
+    deps_list = [
+        "assertion-error@1.1.0",
+        "chai@4.2.0",
+        "check-error@1.0.2",
+        "deep-eql@3.0.1",
+        "fecha@4.2.0-external-sha1-f09ea0b8115b9733dddc88227086c73ba4ddc926",
+        "get-func-name@2.0.0",
+        "is-positive@3.1.0",
+        "pathval@1.1.1",
+        "type-detect@4.0.8",
     ]
 
-    assert mock_run_cmd.call_args[0][0] == expected_npm_pack
+    expected_result = [
+        "assertion-error-1.1.0.tgz",
+        "chai-4.2.0.tgz",
+        "check-error-1.0.2.tgz",
+        "deep-eql-3.0.1.tgz",
+        "fecha-4.2.0-external-sha1-f09ea0b8115b9733dddc88227086c73ba4ddc926.tgz",
+        "get-func-name-2.0.0.tgz",
+        "is-positive-3.1.0.tgz",
+        "pathval-1.1.1.tgz",
+        "type-detect-4.0.8.tgz",
+    ]
+
+    result = await general_js.get_dependencies(
+        "http://nexus:8081/repository/cachito-yarn-53/",
+        "/tmp/cachito-archives/bundles/temp/53/deps/yarn",
+        deps_list,
+        5,
+    )
+
+    assert result == expected_result
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.execute_script")
