@@ -3,8 +3,10 @@ import collections
 import logging
 import os
 import urllib
+from pathlib import Path
 from typing import Dict
 
+import aiohttp
 import requests
 
 from cachito.common.checksum import hash_file
@@ -155,6 +157,40 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
     with open(download_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=chunk_size):
             f.write(chunk)
+
+
+async def async_download_binary_file(
+    session: aiohttp.ClientSession,
+    url: str,
+    download_dir: Path,
+    tarball_name: str,
+    auth: aiohttp.BasicAuth = None,
+    chunk_size: int = 8192,
+):
+    """
+    Download a binary file (such as a TAR archive) from a URL using asyncio.
+
+    :param aiohttp.ClientSession session: Aiohttp interface for making HTTP requests.
+    :param str url: URL for file download
+    :param str download_dir: Path to download file to
+    :param str tarball_name: Name of the file
+    :param aiohttp.BasicAuth auth: Authentication for the URL
+    :param int chunk_size: Chunk size param for Response.content.read()
+    :raise NetworkError: If download failed
+    """
+    try:
+        log.debug(f"Download started - {tarball_name}")
+        async with session.get(url, auth=auth, raise_for_status=True) as resp:
+            with open(os.path.join(download_dir, tarball_name), "wb") as f:
+                while True:
+                    chunk = await resp.content.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+    except Exception as e:
+        raise NetworkError(f"Could not download {url}: {e}")
+
+    log.debug(f"Download completed - {tarball_name}")
 
 
 def download_raw_component(raw_component_name, raw_repo_name, download_path, nexus_auth):

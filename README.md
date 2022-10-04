@@ -455,9 +455,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_gomod_strict_vendor` - the bool to disable/enable the strict vendor mode. This defaults
   to `False`. For a repo that has gomod dependencies, if the `vendor` directory exists and this config
   option is set to `True`, Cachito will fail the request.
-* `cachito_js_download_batch_size` - the number of JavaScript dependencies to download at once using
-  `npm pack`. If this value is too high, Nexus will return the error "Header is too large". This
-  defaults to `30`.
+* `cachito_js_concurrency_limit` - the maximum number of concurrent download tasks in javascript
+  requests. Upon reaching this limit, a task must end for another to be created. This defaults to `5`.
 * `cachito_log_level` - the log level to configure the workers with (e.g. `DEBUG`, `INFO`, etc.).
 * `cachito_nexus_ca_cert` - the CA certificate that signed the SSL certificate used by the Nexus
   instance. This defaults to `/etc/cachito/nexus_ca.pem`. If this file does not exist, Cachito will
