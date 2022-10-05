@@ -9,7 +9,7 @@ from requests import RequestException
 from cachito.errors import NoWorkers, WorkerConfigError
 from cachito.web import status
 
-TEST_PACKAGE_MANAGERS = ["gomod", "npm", "pip", "git-submodule", "yarn"]
+TEST_PACKAGE_MANAGERS = ["gomod", "npm", "pip", "git-submodule", "yarn", "rubygems"]
 
 
 @pytest.fixture
@@ -205,37 +205,86 @@ def test_workers_status(mock_ping_workers, retries, ping_result, expect_result):
         (
             False,
             [],
-            {"gomod": False, "npm": False, "pip": False, "git-submodule": False, "yarn": False},
+            {
+                "gomod": False,
+                "npm": False,
+                "pip": False,
+                "git-submodule": False,
+                "yarn": False,
+                "rubygems": False,
+            },
         ),
         (
             True,
             ["rabbitmq"],
-            {"gomod": False, "npm": False, "pip": False, "git-submodule": False, "yarn": False},
+            {
+                "gomod": False,
+                "npm": False,
+                "pip": False,
+                "git-submodule": False,
+                "yarn": False,
+                "rubygems": False,
+            },
         ),
         (
             True,
             ["database"],
-            {"gomod": False, "npm": False, "pip": False, "git-submodule": False, "yarn": False},
+            {
+                "gomod": False,
+                "npm": False,
+                "pip": False,
+                "git-submodule": False,
+                "yarn": False,
+                "rubygems": False,
+            },
         ),
         (
             True,
             ["athens"],
-            {"gomod": False, "npm": True, "pip": True, "git-submodule": True, "yarn": True},
+            {
+                "gomod": False,
+                "npm": True,
+                "pip": True,
+                "git-submodule": True,
+                "yarn": True,
+                "rubygems": True,
+            },
         ),
         (
             True,
             ["nexus"],
-            {"gomod": True, "npm": False, "pip": False, "git-submodule": True, "yarn": False},
+            {
+                "gomod": True,
+                "npm": False,
+                "pip": False,
+                "git-submodule": True,
+                "yarn": False,
+                "rubygems": False,
+            },
         ),
         (
             True,
             ["nexus-hoster"],
-            {"gomod": True, "npm": False, "pip": False, "git-submodule": True, "yarn": False},
+            {
+                "gomod": True,
+                "npm": False,
+                "pip": False,
+                "git-submodule": True,
+                "yarn": False,
+                "rubygems": False,
+            },
         ),
         (
             True,
             ["athens", "nexus"],
-            {"gomod": False, "npm": False, "pip": False, "git-submodule": True, "yarn": False},
+            {
+                "gomod": False,
+                "npm": False,
+                "pip": False,
+                "git-submodule": True,
+                "yarn": False,
+                "rubygems": False,
+            },
         ),
     ],
 )
