@@ -22,6 +22,7 @@ PKG_MANAGER_REQUIRES = {
     "npm": {NEXUS, NEXUS_HOSTER},
     "pip": {NEXUS, NEXUS_HOSTER},
     "yarn": {NEXUS, NEXUS_HOSTER},
+    "rubygems": {NEXUS, NEXUS_HOSTER},
     "*": {DATABASE, RABBITMQ},
 }
 
