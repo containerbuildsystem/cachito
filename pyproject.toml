@@ -5,3 +5,7 @@ target-version = ['py310']
 # Leave this empty to avoid a bug introduced in setuptools-git-versioning 1.8.0
 # See https://github.com/dolfinus/setuptools-git-versioning/blob/df461e6b33493642ef39b96f8c5d68689f304bf7/setuptools_git_versioning.py#L180
 [tool.setuptools-git-versioning]
+
+[tool.isort]
+profile = "black"
+line_length = 100
