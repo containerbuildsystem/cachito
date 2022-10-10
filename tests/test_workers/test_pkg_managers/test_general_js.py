@@ -12,6 +12,7 @@ import pytest
 
 from cachito.errors import FileAccessError, InvalidFileFormat, NexusError, UnsupportedFeature
 from cachito.workers import nexus
+from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general, general_js, npm
 
@@ -20,7 +21,6 @@ from cachito.workers.pkg_managers import general, general_js, npm
 @pytest.mark.parametrize("pkg_manager", ["npm", "yarn"])
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("os.path.exists")
-@mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
 @mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
 @mock.patch("shutil.move")
 @mock.patch("cachito.workers.paths.get_worker_config")
@@ -28,7 +28,6 @@ def test_download_dependencies(
     mock_gwc,
     mock_move,
     mock_async_download_binary_file,
-    mock_gawnf,
     mock_exists,
     mock_td,
     nexus_ca_cert_exists,
@@ -94,24 +93,6 @@ def test_download_dependencies(
         Path(download_dir), deps, proxy_repo_url, pkg_manager=pkg_manager
     )
 
-    mock_npm_rc_path = str(mock_td_path.join(".npmrc"))
-    if nexus_ca_cert_exists:
-        mock_gawnf.assert_called_once_with(
-            mock_npm_rc_path,
-            "http://nexus:8081/repository/cachito-npm-1/",
-            "cachito",
-            "cachito",
-            custom_ca_path="/etc/cachito/nexus_ca.pem",
-        )
-    else:
-        mock_gawnf.assert_called_once_with(
-            mock_npm_rc_path,
-            "http://nexus:8081/repository/cachito-npm-1/",
-            "cachito",
-            "cachito",
-            custom_ca_path=None,
-        )
-
     dep1_source_path = os.path.join(download_dir, "angular-devkit-architect-0.803.26.tgz")
     dep1_dest_path = os.path.join(
         download_dir,
@@ -151,7 +132,6 @@ def test_download_dependencies(
 
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("os.path.exists")
-@mock.patch("cachito.workers.pkg_managers.general_js.generate_and_write_npmrc_file")
 @mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
 @mock.patch("shutil.move")
 @mock.patch("cachito.workers.paths.get_worker_config")
@@ -159,7 +139,6 @@ def test_download_dependencies_skip_deps(
     mock_gwc,
     mock_move,
     mock_async_download_binary_file,
-    mock_gawnf,
     mock_exists,
     mock_td,
     tmpdir,
@@ -292,11 +271,14 @@ async def test_get_dependecies(mock_async_download_binary_file):
         "type-detect-4.0.8.tgz",
     ]
 
+    conf = get_worker_config()
     result = await general_js.get_dependencies(
         "http://nexus:8081/repository/cachito-yarn-53/",
         "/tmp/cachito-archives/bundles/temp/53/deps/yarn",
         deps_list,
         5,
+        conf.cachito_nexus_username,
+        conf.cachito_nexus_password,
     )
 
     assert result == expected_result
@@ -377,22 +359,6 @@ def test_generate_npmrc_content(custom_ca_path):
         expected += f'cafile="{custom_ca_path}"\n'
 
     assert npm_rc == expected
-
-
-@mock.patch("cachito.workers.pkg_managers.general_js.generate_npmrc_content")
-def test_generate_and_write_npmrc_file(mock_gen_npmrc):
-    npmrc_content = "registry=http://nexus:8081/repository/cachito-npm-1/"
-    mock_gen_npmrc.return_value = npmrc_content
-    mock_open = mock.mock_open()
-
-    npm_rc_path = "/tmp/cachito-hgfsd/.npmrc"
-    with mock.patch("cachito.workers.pkg_managers.general_js.open", mock_open):
-        general_js.generate_and_write_npmrc_file(
-            npm_rc_path, "http://nexus:8081/repository/cachito-npm-1/", 1, "admin", "admin123"
-        )
-
-    mock_open.assert_called_once_with(npm_rc_path, "w")
-    mock_open().write.assert_called_once_with(npmrc_content)
 
 
 def test_get_js_hosted_repo_name():

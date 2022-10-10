@@ -36,9 +36,10 @@ from cachito.workers.pkg_managers.general import (
 
 __all__ = [
     "download_dependencies",
+    "get_dependencies",
+    "parse_dependency",
     "finalize_nexus_for_js_request",
     "find_package_json",
-    "generate_and_write_npmrc_file",
     "generate_npmrc_content",
     "get_js_hosted_repo_name",
     "get_npm_component_info_from_nexus",
@@ -82,6 +83,8 @@ async def get_dependencies(
     download_dir: Path,
     deps_to_download: List[str],
     concurrency_limit: int,
+    nexus_username: str,
+    nexus_password: str,
 ) -> List[str]:
     """
     Asynchronous function that execute the dependencies download.
@@ -93,10 +96,11 @@ async def get_dependencies(
     :param Path download_dir: Path to download file to.
     :param list[str] deps_to_download: List of dependencies to be downloaded.
     :param int concurrency_limit: Max number of concurrent tasks (downloads).
+    :param str nexus_username: Nexus username.
+    :param str nexus_password: Nexus password.
     :return: a list of the downloaded tarballs.
     :rtype: list[str]
     """
-    nexus_username, nexus_password = nexus.get_nexus_hoster_credentials()
     nexus_auth = aiohttp.BasicAuth(nexus_username, nexus_password)
 
     async with aiohttp.ClientSession() as session:
@@ -165,96 +169,85 @@ def download_dependencies(
         skip_deps = set()
 
     conf = get_worker_config()
-    with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
-        npm_rc_file = os.path.join(temp_dir, ".npmrc")
-        if conf.cachito_nexus_ca_cert and os.path.exists(conf.cachito_nexus_ca_cert):
-            nexus_ca = conf.cachito_nexus_ca_cert
-        else:
-            nexus_ca = None
+    # Download the dependencies directly in the bundle directory
+    log.info("Processing %d %s dependencies to stage in Nexus", len(deps), pkg_manager)
 
-        # The token must be privileged so that it has access to the cachito-js repository
-        generate_and_write_npmrc_file(
-            npm_rc_file,
+    downloaded_deps = set()
+    deps_to_download = []
+
+    # Filtering the dependencies
+    for dep in deps:
+        external_dep_version = None
+        if dep.get("version_in_nexus"):
+            version = dep["version_in_nexus"]
+            external_dep_version = dep["version"]
+        else:
+            version = dep["version"]
+
+        dep_identifier = f"{dep['name']}@{version}"
+
+        if dep["bundled"]:
+            log.debug("Not downloading %s since it is a bundled dependency", dep_identifier)
+            continue
+        elif dep["version"].startswith("file:"):
+            log.debug("Not downloading %s since it is a file dependency", dep_identifier)
+            continue
+        elif dep_identifier in skip_deps:
+            log.debug(
+                "Not downloading %s since it was already downloaded previously", dep_identifier
+            )
+            continue
+
+        downloaded_deps.add(dep_identifier)
+        deps_to_download.append((dep_identifier, external_dep_version))
+
+    dep_identifiers = [dep_identifier for dep_identifier, _ in deps_to_download]
+    log.debug(
+        f"Downloading {len(dep_identifiers)} {pkg_manager} dependencies",
+    )
+
+    results = asyncio.run(
+        get_dependencies(
             proxy_repo_url,
+            download_dir,
+            dep_identifiers,
+            conf.cachito_js_concurrency_limit,
             conf.cachito_nexus_username,
             conf.cachito_nexus_password,
-            custom_ca_path=nexus_ca,
         )
+    )
 
-        # Download the dependencies directly in the bundle directory
-        log.info("Processing %d %s dependencies to stage in Nexus", len(deps), pkg_manager)
+    # Move dependencies to their respective folders
+    # Iterate through the tuples made of dependency tarball and dep_identifier
+    # e.g. ('ab-2.10.2-external-sha512-ab.tar.gz', ('ab@2.10.2-external-sha512-ab',
+    # 'https://github.com/ab/2.10.2.tar.gz'))
+    for tarball, (dep_identifier, external_dep_version) in zip(results, deps_to_download):
+        # tarball: e.g. ab-2.10.2-external-sha512-ab.tar.gz
+        # dep_identifier: ab@2.10.2-external-sha512-ab
+        # external_dep_version:  https://github.com/ab/2.10.2.tar.gz
+        dir_path = dep_identifier.rsplit("@", 1)[0]  # ab
 
-        downloaded_deps = set()
-        deps_to_download = []
-
-        # Filtering the dependencies
-        for dep in deps:
-            external_dep_version = None
-            if dep.get("version_in_nexus"):
-                version = dep["version_in_nexus"]
-                external_dep_version = dep["version"]
-            else:
-                version = dep["version"]
-
-            dep_identifier = f"{dep['name']}@{version}"
-
-            if dep["bundled"]:
-                log.debug("Not downloading %s since it is a bundled dependency", dep_identifier)
-                continue
-            elif dep["version"].startswith("file:"):
-                log.debug("Not downloading %s since it is a file dependency", dep_identifier)
-                continue
-            elif dep_identifier in skip_deps:
-                log.debug(
-                    "Not downloading %s since it was already downloaded previously", dep_identifier
-                )
-                continue
-
-            downloaded_deps.add(dep_identifier)
-            deps_to_download.append((dep_identifier, external_dep_version))
-
-        dep_identifiers = [dep_identifier for dep_identifier, _ in deps_to_download]
-        log.debug(
-            f"Downloading {len(dep_identifiers)} {pkg_manager} dependencies",
-        )
-
-        results = asyncio.run(
-            get_dependencies(
-                proxy_repo_url, download_dir, dep_identifiers, conf.cachito_js_concurrency_limit
+        # In case of external dependencies, create additional intermediate
+        # parent e.g. github/<org>/<repo> or external-<repo>
+        if external_dep_version:
+            known_git_host_match = re.match(
+                r"^(?P<host>.+)(?::)(?!//)(?P<repo_path>.+)(?:#.+)$", external_dep_version
             )
-        )
+            if known_git_host_match:
+                # This means external_dep_version is in the format of
+                # <git-host>:<namespace>/<repo>#<commit>
+                groups = known_git_host_match.groupdict()
+                dir_path = os.path.join(groups["host"], *groups["repo_path"].split("/"))
+            else:
+                dir_path = f"external-{dir_path}"
 
-        # Move dependencies to their respective folders
-        # Iterate through the tuples made of dependency tarball and dep_identifier
-        # e.g. ('ab-2.10.2-external-sha512-ab.tar.gz', ('ab@2.10.2-external-sha512-ab',
-        # 'https://github.com/ab/2.10.2.tar.gz'))
-        for tarball, (dep_identifier, external_dep_version) in zip(results, deps_to_download):
-            # tarball: e.g. ab-2.10.2-external-sha512-ab.tar.gz
-            # dep_identifier: ab@2.10.2-external-sha512-ab
-            # external_dep_version:  https://github.com/ab/2.10.2.tar.gz
-            dir_path = dep_identifier.rsplit("@", 1)[0]  # ab
+        # Create the target directory for the dependency
+        dep_dir = download_dir.joinpath(*dir_path.split("/", 1))
+        dep_dir.mkdir(exist_ok=True, parents=True)
+        # Move the dependency into the target directory
+        shutil.move(str(download_dir.joinpath(tarball)), str(dep_dir.joinpath(tarball)))
 
-            # In case of external dependencies, create additional intermediate
-            # parent e.g. github/<org>/<repo> or external-<repo>
-            if external_dep_version:
-                known_git_host_match = re.match(
-                    r"^(?P<host>.+)(?::)(?!//)(?P<repo_path>.+)(?:#.+)$", external_dep_version
-                )
-                if known_git_host_match:
-                    # This means external_dep_version is in the format of
-                    # <git-host>:<namespace>/<repo>#<commit>
-                    groups = known_git_host_match.groupdict()
-                    dir_path = os.path.join(groups["host"], *groups["repo_path"].split("/"))
-                else:
-                    dir_path = f"external-{dir_path}"
-
-            # Create the target directory for the dependency
-            dep_dir = download_dir.joinpath(*dir_path.split("/", 1))
-            dep_dir.mkdir(exist_ok=True, parents=True)
-            # Move the dependency into the target directory
-            shutil.move(str(download_dir.joinpath(tarball)), str(dep_dir.joinpath(tarball)))
-
-        return downloaded_deps
+    return downloaded_deps
 
 
 def finalize_nexus_for_js_request(repo_name, username):
@@ -320,28 +313,6 @@ def find_package_json(package_archive):
                     package_archive,
                 )
                 return member.name
-
-
-def generate_and_write_npmrc_file(
-    npm_rc_path, proxy_repo_url, username, password, custom_ca_path=None
-):
-    """
-    Generate a .npmrc file at the input location with the registry and authentication configured.
-
-    :param str npm_rc_path: the path to create the .npmrc file
-    :param str proxy_repo_url: the npm registry URL
-    :param str username: the username of the user to use for authenticating to the registry
-    :param str password: the password of the user to use for authenticating to the registry
-    :param str custom_ca_path: the path to set ``cafile`` to in the .npm rc file; if not provided,
-        this option will be omitted
-    """
-    log.debug("Generating a .npmrc file at %s", npm_rc_path)
-    with open(npm_rc_path, "w") as f:
-        f.write(
-            generate_npmrc_content(
-                proxy_repo_url, username, password, custom_ca_path=custom_ca_path
-            )
-        )
 
 
 def generate_npmrc_content(proxy_repo_url, username, password, custom_ca_path=None):
