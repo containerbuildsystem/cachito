@@ -99,7 +99,26 @@ class Git(SCM):
             repo_path = os.path.join(temp_dir, "app")
             try:
                 with tarfile.open(self.sources_dir.archive_path, mode="r:gz") as tar:
-                    tar.extractall(temp_dir)
+                    def is_within_directory(directory, target):
+                        
+                        abs_directory = os.path.abspath(directory)
+                        abs_target = os.path.abspath(target)
+                    
+                        prefix = os.path.commonprefix([abs_directory, abs_target])
+                        
+                        return prefix == abs_directory
+                    
+                    def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                    
+                        for member in tar.getmembers():
+                            member_path = os.path.join(path, member.name)
+                            if not is_within_directory(path, member_path):
+                                raise Exception("Attempted Path Traversal in Tar File")
+                    
+                        tar.extractall(path, members, numeric_owner=numeric_owner) 
+                        
+                    
+                    safe_extract(tar, temp_dir)
             except (tarfile.ExtractError, zlib.error, OSError) as exc:
                 log.error(err_msg["log"], self.sources_dir.archive_path, exc)
                 raise SubprocessCallError(err_msg["exception"])
@@ -202,7 +221,26 @@ class Git(SCM):
         """
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
             with tarfile.open(previous_archive, mode="r:gz") as tar:
-                tar.extractall(temp_dir)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner=numeric_owner) 
+                    
+                
+                safe_extract(tar, temp_dir)
 
             repo = git.Repo(os.path.join(temp_dir, "app"))
             try:

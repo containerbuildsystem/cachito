@@ -694,7 +694,26 @@ def test_get_golang_version(tmpdir, module_suffix, ref, expected, subpath):
     # Extract the Git repository of a Go module to verify the correct versions are computed
     repo_archive_path = os.path.join(os.path.dirname(__file__), "golang_git_repo.tar.gz")
     with tarfile.open(repo_archive_path, "r:*") as archive:
-        archive.extractall(tmpdir)
+        def is_within_directory(directory, target):
+            
+            abs_directory = os.path.abspath(directory)
+            abs_target = os.path.abspath(target)
+        
+            prefix = os.path.commonprefix([abs_directory, abs_target])
+            
+            return prefix == abs_directory
+        
+        def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+        
+            for member in tar.getmembers():
+                member_path = os.path.join(path, member.name)
+                if not is_within_directory(path, member_path):
+                    raise Exception("Attempted Path Traversal in Tar File")
+        
+            tar.extractall(path, members, numeric_owner=numeric_owner) 
+            
+        
+        safe_extract(archive, tmpdir)
     repo_path = os.path.join(tmpdir, "golang_git_repo")
 
     module_name = f"github.com/mprahl/test-golang-pseudo-versions{module_suffix}"
