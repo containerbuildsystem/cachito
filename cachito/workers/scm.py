@@ -16,7 +16,7 @@ from cachito.errors import (
     RepositoryAccessError,
     SubprocessCallError,
 )
-from cachito.workers import run_cmd
+from cachito.workers import run_cmd, safe_extract
 from cachito.workers.paths import SourcesDir
 
 log = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ class Git(SCM):
             repo_path = os.path.join(temp_dir, "app")
             try:
                 with tarfile.open(self.sources_dir.archive_path, mode="r:gz") as tar:
-                    tar.extractall(temp_dir)
+                    safe_extract(tar, temp_dir)
             except (tarfile.ExtractError, zlib.error, OSError) as exc:
                 log.error(err_msg["log"], self.sources_dir.archive_path, exc)
                 raise SubprocessCallError(err_msg["exception"])
@@ -202,7 +202,7 @@ class Git(SCM):
         """
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
             with tarfile.open(previous_archive, mode="r:gz") as tar:
-                tar.extractall(temp_dir)
+                safe_extract(tar, temp_dir)
 
             repo = git.Repo(os.path.join(temp_dir, "app"))
             try:
