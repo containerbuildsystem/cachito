@@ -60,6 +60,7 @@ def test_clone_and_archive(
     # Mock the archive being created
     mock_exists.return_value = True
     mock_tarfile = mock.Mock()
+    mock_tarfile.getmembers.return_value = []
     mock_tarfile_open.return_value.__enter__.return_value = mock_tarfile
     # Mock the commit being returned from repo.commit(self.ref)
     mock_commit = mock.Mock()
@@ -274,6 +275,7 @@ def test_update_and_archive(
     # Mock the archive being created
     mock_exists.return_value = True
     mock_tarfile = mock.Mock()
+    mock_tarfile.getmembers.return_value = []
     mock_tarfile_open.return_value.__enter__.return_value = mock_tarfile
 
     # Mock the tempfile.TemporaryDirectory context manager

@@ -19,6 +19,7 @@ from cachito.errors import (
     UnsupportedFeature,
     ValidationError,
 )
+from cachito.workers import safe_extract
 from cachito.workers.errors import CachitoCalledProcessError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
@@ -694,7 +695,7 @@ def test_get_golang_version(tmpdir, module_suffix, ref, expected, subpath):
     # Extract the Git repository of a Go module to verify the correct versions are computed
     repo_archive_path = os.path.join(os.path.dirname(__file__), "golang_git_repo.tar.gz")
     with tarfile.open(repo_archive_path, "r:*") as archive:
-        archive.extractall(tmpdir)
+        safe_extract(archive, tmpdir)
     repo_path = os.path.join(tmpdir, "golang_git_repo")
 
     module_name = f"github.com/mprahl/test-golang-pseudo-versions{module_suffix}"

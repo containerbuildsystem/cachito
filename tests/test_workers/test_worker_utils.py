@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
+import tarfile
 from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
 
-from cachito.workers import load_json_stream, run_cmd
+from cachito.workers import load_json_stream, run_cmd, safe_extract
 
 
 @pytest.mark.parametrize(
@@ -62,3 +63,13 @@ def test_load_json_stream_invalid():
     assert next(data) == 2
     with pytest.raises(json.JSONDecodeError, match="Expecting value: line 1 column 5"):
         next(data)
+
+
+def test_safe_extract(tmp_path):
+
+    with tarfile.open(tmp_path / "fake.tar", "w") as tf:
+        tf.add("README.md", "../README.md")
+
+    with tarfile.open(tmp_path / "fake.tar") as tar:
+        with pytest.raises(tarfile.ExtractError):
+            safe_extract(tar, tmp_path)
