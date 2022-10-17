@@ -8,6 +8,7 @@ RUN dnf -y install \
     --setopt=tsflags=nodocs \
     httpd \
     gcc \
+    git-core \
     libffi-devel \
     libpq-devel \
     mod_auth_gssapi \
