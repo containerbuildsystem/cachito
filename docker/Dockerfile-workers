@@ -24,7 +24,8 @@ COPY . .
 
 # All the requirements except pyarn should already be installed
 RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes \
-    && pip3 install . --no-deps --no-cache-dir
+    && pip3 install . --no-deps --no-cache-dir \
+    && rm -rf .git
 
 # Use the system CA bundle for the requests library
 ENV REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/pem/directory-hash/ca-bundle.crt
