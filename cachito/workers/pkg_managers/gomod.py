@@ -200,11 +200,10 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         should_vendor, can_make_changes = _should_vendor_deps(
             flags, app_source_path, worker_config.cachito_gomod_strict_vendor
         )
+        log.info("Downloading the gomod dependencies")
+        run_download_cmd(("go", "mod", "download"), run_params)
         if should_vendor:
             _vendor_deps(run_params, can_make_changes, git_dir_path)
-        else:
-            log.info("Downloading the gomod dependencies")
-            run_download_cmd(("go", "mod", "download"), run_params)
         if "force-gomod-tidy" in flags or dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
 

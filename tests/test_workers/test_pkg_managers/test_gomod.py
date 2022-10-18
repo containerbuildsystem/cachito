@@ -373,6 +373,7 @@ def test_resolve_gomod_vendor_dependencies(
 
     # Mock the "subprocess.run" calls
     run_side_effects = []
+    run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
     run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod vendor
     if force_gomod_tidy:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
@@ -399,7 +400,8 @@ def test_resolve_gomod_vendor_dependencies(
         request["flags"].append("force-gomod-tidy")
     gomod = resolve_gomod(archive_path, request)
 
-    assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
+    assert mock_run.call_args_list[0][0][0] == ("go", "mod", "download")
+    assert mock_run.call_args_list[1][0][0] == ("go", "mod", "vendor")
     # when vendoring, go list should be called without -mod readonly
     assert mock_run.call_args_list[-2][0][0] == ["go", "list", "-find", "./..."]
     assert gomod["module"] == sample_package
