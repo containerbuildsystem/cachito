@@ -276,7 +276,7 @@ async def test_get_dependecies(mock_async_download_binary_file):
         "http://nexus:8081/repository/cachito-yarn-53/",
         "/tmp/cachito-archives/bundles/temp/53/deps/yarn",
         deps_list,
-        5,
+        conf.cachito_js_concurrency_limit,
         conf.cachito_nexus_username,
         conf.cachito_nexus_password,
     )
