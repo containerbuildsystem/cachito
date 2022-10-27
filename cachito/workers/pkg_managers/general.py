@@ -187,8 +187,17 @@ async def async_download_binary_file(
                     if not chunk:
                         break
                     f.write(chunk)
-    except Exception as e:
-        raise NetworkError(f"Could not download {url}: {e}")
+
+    except Exception as exception:
+        log.error(f"Unsuccessful download: {tarball_name}")
+        # "from None" since we have the exception context in the logs
+        raise NetworkError(
+            (
+                f"Could not download {tarball_name} from {url}. "
+                f"exception_name: {exception.__class__.__name__}, "
+                f"details: {exception}"
+            )
+        ) from None
 
     log.debug(f"Download completed - {tarball_name}")
 

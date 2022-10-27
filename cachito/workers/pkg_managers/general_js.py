@@ -22,6 +22,7 @@ from cachito.errors import (
     FileAccessError,
     InvalidChecksum,
     InvalidFileFormat,
+    NetworkError,
     NexusError,
     UnsupportedFeature,
 )
@@ -106,16 +107,25 @@ async def get_dependencies(
     async with aiohttp.ClientSession() as session:
 
         tasks: Set[asyncio.Task] = set()
+
         results = []
 
         for dep_identifier in deps_to_download:
-            proxied_url, tarball_name = parse_dependency(proxy_repo_url, dep_identifier)
-            results.append(tarball_name)
 
             if len(tasks) >= concurrency_limit:
                 # Wait for some download to finish before adding a new one
-                _, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                # Check for exceptions
+                try:
+                    await asyncio.gather(*done)
+                except NetworkError:
+                    for t in tasks:
+                        t.cancel()
+                    raise
 
+            proxied_url, tarball_name = parse_dependency(proxy_repo_url, dep_identifier)
+
+            results.append(tarball_name)
             tasks.add(
                 asyncio.create_task(
                     async_download_binary_file(
