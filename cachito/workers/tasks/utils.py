@@ -3,7 +3,7 @@ import base64
 import functools
 import logging
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import requests
 
@@ -262,7 +262,7 @@ def set_packages_and_deps_counts(request_id: int, packages_count: int, dependenc
 
 
 def _get_request_or_fail(
-    request_id: int, connect_error_msg: str, status_error_msg: str, endpoint: str = None
+    request_id: int, connect_error_msg: str, status_error_msg: str, endpoint: Optional[str] = None
 ) -> dict:
     """
     Try to download the JSON data for a request from the Cachito API.
