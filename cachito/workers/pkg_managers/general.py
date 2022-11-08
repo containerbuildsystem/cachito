@@ -4,7 +4,7 @@ import logging
 import os
 import urllib
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import aiohttp
 import requests
@@ -164,7 +164,7 @@ async def async_download_binary_file(
     url: str,
     download_dir: Path,
     tarball_name: str,
-    auth: aiohttp.BasicAuth = None,
+    auth: Optional[aiohttp.BasicAuth] = None,
     chunk_size: int = 8192,
 ):
     """

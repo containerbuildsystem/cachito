@@ -2,7 +2,7 @@
 import json
 import logging
 import os
-from typing import List, Set
+from typing import List, Optional, Set
 
 import pyarn.lockfile
 
@@ -88,7 +88,7 @@ def _yarn_lock_to_str(yarn_lock_data: dict) -> str:
 
 @app.task
 @runs_if_request_in_progress
-def fetch_yarn_source(request_id: int, package_configs: List[dict] = None):
+def fetch_yarn_source(request_id: int, package_configs: Optional[List[dict]] = None):
     """
     Resolve and fetch yarn dependencies for a given request.
 

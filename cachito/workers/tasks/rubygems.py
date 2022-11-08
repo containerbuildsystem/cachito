@@ -4,6 +4,7 @@ import os
 from os.path import relpath
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 
 from cachito.common.packages_data import PackagesData
 from cachito.errors import CachitoError
@@ -43,7 +44,7 @@ def cleanup_rubygems_request(request_id):
 
 @app.task
 @runs_if_request_in_progress
-def fetch_rubygems_source(request_id: int, package_configs: list[dict] = None):
+def fetch_rubygems_source(request_id: int, package_configs: Optional[list[dict]] = None):
     """
     Resolve and fetch RubyGems dependencies for a given request.
 
