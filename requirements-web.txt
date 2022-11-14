@@ -25,9 +25,9 @@ flask-login==0.6.2 \
     --hash=sha256:1ef79843f5eddd0f143c2cd994c1b05ac83c0401dc6234c143495af9a939613f \
     --hash=sha256:c0a7baa9fdc448cdd3dd6f0939df72eec5177b2f7abe6cb82fc934d29caac9c3
     # via -r requirements-web.in
-flask-migrate==3.1.0 \
-    --hash=sha256:57d6060839e3a7f150eaab6fe4e726d9e3e7cffe2150fb223d73f92421c6d1d9 \
-    --hash=sha256:a6498706241aba6be7a251078de9cf166d74307bca41a4ca3e403c9d39e2f897
+flask-migrate==4.0.0 \
+    --hash=sha256:2a301c3040af6844f29d9149abe428a0f08ebc8fa149e72113bbb36fa341920a \
+    --hash=sha256:e75a46b657e3062296b9f6e92f31e19662f76cfee8abd6ae94640cbcb79fe016
     # via -r requirements-web.in
 flask-sqlalchemy==2.5.1 \
     --hash=sha256:2bda44b43e7cacb15d4e05ff3cc1f8bc97936cc464623424102bfc2c35e95912 \
