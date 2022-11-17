@@ -334,6 +334,18 @@ def create_request():
         raise ValidationError("The input data must be a JSON object")
 
     request = Request.from_json(payload)
+
+    pkg_manager_names = set(pkg_manager.name for pkg_manager in request.pkg_managers)
+    supported_pkg_managers = set(flask.current_app.config["CACHITO_PACKAGE_MANAGERS"])
+    unsupported_pkg_managers = pkg_manager_names - supported_pkg_managers
+    if unsupported_pkg_managers:
+        # At this point, unsupported_pkg_managers would only contain valid package managers that
+        # are not enabled
+        raise ValidationError(
+            "The following package managers are not "
+            f"enabled: {', '.join(unsupported_pkg_managers)}"
+        )
+
     db.session.add(request)
     db.session.commit()
 
@@ -346,17 +358,6 @@ def create_request():
         )
     else:
         flask.current_app.logger.info("An anonymous user submitted request %d", request.id)
-
-    pkg_manager_names = set(pkg_manager.name for pkg_manager in request.pkg_managers)
-    supported_pkg_managers = set(flask.current_app.config["CACHITO_PACKAGE_MANAGERS"])
-    unsupported_pkg_managers = pkg_manager_names - supported_pkg_managers
-    if unsupported_pkg_managers:
-        # At this point, unsupported_pkg_managers would only contain valid package managers that
-        # are not enabled
-        raise ValidationError(
-            "The following package managers are not "
-            f"enabled: {', '.join(unsupported_pkg_managers)}"
-        )
 
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)
