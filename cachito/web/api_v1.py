@@ -531,7 +531,7 @@ def patch_request(request_id):
         new_state = payload["state"]
         delete_bundle = new_state == "stale" and request.state.state_name != "failed"
         if new_state in ("stale", "failed"):
-            for pkg_manager in ["npm", "pip", "yarn"]:
+            for pkg_manager in ["npm", "pip", "rubygems", "yarn"]:
                 if any(p.name == pkg_manager for p in request.pkg_managers):
                     cleanup_nexus.append(pkg_manager)
         delete_bundle_temp = new_state in ("complete", "failed", "stale")
