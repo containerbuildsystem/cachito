@@ -3392,11 +3392,21 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
     if kind == "vcs":
         version = f"git+https://github.com/spam/eggs@{GIT_REF}"
         raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+        additional_keys = {
+            "url": "https://github.com/spam/eggs",
+            "host": "github.com",
+            "namespace": "spam",
+            "repo": "eggs",
+            "ref": GIT_REF,
+        }
     elif kind == "url":
         url = "https://example.org/eggs.tar.gz"
         url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
         version = url_with_hash
         raw_component = "eggs/eggs.tar.gz"
+        additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
+    else:
+        raise Exception("Invalid dependency kind.")
 
     dest_dir, filename = raw_component.rsplit("/", 1)
     req = {
@@ -3406,16 +3416,6 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
         "kind": kind,
         "dev": dev,
     }
-    if kind == "vcs":
-        additional_keys = {
-            "url": "https://github.com/spam/eggs",
-            "host": "github.com",
-            "namespace": "spam",
-            "repo": "eggs",
-            "ref": GIT_REF,
-        }
-    elif kind == "url":
-        additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
 
     req.update(additional_keys)
 
@@ -3441,11 +3441,21 @@ def test_push_downloaded_requirement_non_pypi_duplicated(
     if kind == "vcs":
         version = f"git+https://github.com/spam/eggs@{GIT_REF}"
         raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+        additional_keys = {
+            "url": "https://github.com/spam/eggs",
+            "host": "github.com",
+            "namespace": "spam",
+            "repo": "eggs",
+            "ref": GIT_REF,
+        }
     elif kind == "url":
         url = "https://example.org/eggs.tar.gz"
         url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
         version = url_with_hash
         raw_component = "eggs/eggs.tar.gz"
+        additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
+    else:
+        raise Exception("Invalid dependency kind.")
 
     dest_dir, filename = raw_component.rsplit("/", 1)
     req = {
@@ -3455,16 +3465,6 @@ def test_push_downloaded_requirement_non_pypi_duplicated(
         "kind": kind,
         "dev": False,
     }
-    if kind == "vcs":
-        additional_keys = {
-            "url": "https://github.com/spam/eggs",
-            "host": "github.com",
-            "namespace": "spam",
-            "repo": "eggs",
-            "ref": GIT_REF,
-        }
-    elif kind == "url":
-        additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
 
     req.update(additional_keys)
 

@@ -67,6 +67,8 @@ def test_validate_celery_config_failure(mock_isdir, bundles_dir, sources_dir):
     elif sources_dir:
         celery_app.conf.cachito_sources_dir = "/tmp/some-path/sources"
         dir_name = "cachito_bundles_dir"
+    else:
+        raise Exception("Invalid test configuration.")
 
     setattr(celery_app.conf, dir_name, None)
     expected = f'The configuration "{dir_name}" must be set to an existing directory'
