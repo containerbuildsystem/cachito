@@ -323,6 +323,7 @@ def find_package_json(package_archive):
                     package_archive,
                 )
                 return member.name
+        return None
 
 
 def generate_npmrc_content(proxy_repo_url, username, password, custom_ca_path=None):

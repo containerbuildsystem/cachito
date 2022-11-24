@@ -528,3 +528,4 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
         return {
             "FIRST_DEP_COMMIT": new_dep_commits[0],
         }
+    return None

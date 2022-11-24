@@ -140,7 +140,7 @@ def runs_if_request_in_progress(task_fn):
                 task_fn.__name__,
                 request_state,
             )
-            return
+            return None
 
         return task_fn(*args, **kwargs)
 
