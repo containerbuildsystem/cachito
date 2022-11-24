@@ -3,6 +3,7 @@ LABEL maintainer="Red Hat"
 
 WORKDIR /src
 RUN dnf -y install \
+    --disablerepo=updates \
     --setopt=deltarpm=0 \
     --setopt=install_weak_deps=false \
     --setopt=tsflags=nodocs \
