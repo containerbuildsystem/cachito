@@ -11,6 +11,7 @@ servers:
 paths:
   /status:
     get:
+      operationId: cachito.web.api_v1.get_status
       summary: Get Cachito status
       description: >
         Return status of Cachito workers and services that Cachito depends on.
@@ -75,6 +76,7 @@ paths:
                   - workers
   /status/short:
     get:
+      operationId: cachito.web.api_v1.get_status_short
       summary: Get Cachito status (short)
       description: >
         If everything is working correctly (i.e. all package managers can be processed),
@@ -92,6 +94,7 @@ paths:
               example: { "ok": false, "reason": "no workers are available" }
   /requests:
     get:
+      operationId: cachito.web.api_v1.get_requests
       summary: List Cachito requests
       description: Return all the Cachito requests
       parameters:
@@ -118,7 +121,7 @@ paths:
             $ref: "#/components/schemas/RequestState"
         - name: verbose
           in: query
-          description: Shows the same view as /requests/{id}
+          description: Shows the same view as /requests/{request_id}
           schema:
             type: boolean
             example: true
@@ -219,6 +222,7 @@ paths:
                     type: string
                     example: The requested resource was not found
     post:
+      operationId: cachito.web.api_v1.create_request
       summary: Create a Cachito request
       description: Create a new Cachito request
       requestBody:
@@ -257,12 +261,13 @@ paths:
                   error:
                     type: string
                     example: You are not authorized to create a request on behalf of another user
-  "/requests/{id}":
+  "/requests/{request_id}":
     get:
+      operationId: cachito.web.api_v1.get_request
       summary: Get a Cachito request
       description: Return a specific Cachito request
       parameters:
-      - name: id
+      - name: request_id
         in: path
         required: true
         description: The ID of the Cachito request to retrieve
@@ -286,10 +291,11 @@ paths:
                     type: string
                     example: The requested resource was not found
     patch:
+      operationId: cachito.web.api_v1.patch_request
       summary: Update a Cachito request
       description: Update a Cachito request (requires special authorization)
       parameters:
-      - name: id
+      - name: request_id
         in: path
         required: true
         description: The ID of the Cachito request to update
@@ -337,12 +343,13 @@ paths:
               $ref: '#/components/schemas/RequestUpdate'
       security:
       - negotiateAuth: []
-  "/requests/{id}/configuration-files":
+  "/requests/{request_id}/configuration-files":
     get:
+      operationId: cachito.web.api_v1.get_request_config_files
       summary: List configuration files of a request
       description: Return the configuration files of a Cachito request
       parameters:
-      - name: id
+      - name: request_id
         in: path
         required: true
         description: The ID of the Cachito request to retrieve the configuration files for
@@ -378,10 +385,11 @@ paths:
                     type: string
                     example: The requested resource was not found
     post:
+      operationId: cachito.web.api_v1.add_request_config_files
       summary: Add configuration files to a request
       description: Add configuration files to the Cachito request (requires special authorization)
       parameters:
-      - name: id
+      - name: request_id
         in: path
         required: true
         description: The ID of the Cachito request to update
@@ -421,12 +429,13 @@ paths:
                 $ref: "#/components/schemas/RequestConfiguration"
       security:
       - negotiateAuth: []
-  "/requests/{id}/content-manifest":
+  "/requests/{request_id}/content-manifest":
     get:
+      operationId: cachito.web.api_v1.get_request_content_manifest
       summary: Get the content manifest of a request
       description: Return the content manifest of a request
       parameters:
-      - name: id
+      - name: request_id
         in: path
         required: true
         description: The ID of the Cachito request to retrieve the content manifest for
@@ -459,12 +468,13 @@ paths:
                   error:
                     type: string
                     example: "Content manifests are only available for requests in the \"complete\" or \"stale\" states"
-  "/requests/{id}/environment-variables":
+  "/requests/{request_id}/environment-variables":
     get:
+      operationId: cachito.web.api_v1.get_request_environment_variables
       summary: List environment variables of a request
       description: Return information about the environment variables of a Cachito request
       parameters:
-      - name: id
+      - name: request_id
         in: path
         required: true
         description: The ID of the Cachito request to retrieve the environment variables for
@@ -499,12 +509,13 @@ paths:
                   error:
                     type: string
                     example: The requested resource was not found
-  "/requests/{id}/download":
+  "/requests/{request_id}/download":
     get:
+      operationId: cachito.web.api_v1.download_archive
       summary: Download a Cachito request bundle
       description: Download a Cachito request bundle
       parameters:
-      - name: id
+      - name: request_id
         in: path
         required: true
         description: The ID of the Cachito request
@@ -540,12 +551,13 @@ paths:
                   error:
                     type: string
                     example: "The request must be in the \"complete\" state before downloading the archive"
-  "/requests/{id}/logs":
+  "/requests/{request_id}/logs":
     get:
+      operationId: cachito.web.api_v1.get_request_logs
       summary: Get Cachito request logs
       description: Return the logs for a specific Cachito request
       parameters:
-        - name: id
+        - name: request_id
           in: path
           required: true
           description: The ID of the Cachito request to retrieve the logs for
@@ -582,12 +594,13 @@ paths:
                   error:
                     type: string
                     example: The logs for the Cachito request 1 no longer exist
-  "/requests/{id}/packages":
+  "/requests/{request_id}/packages":
     get:
+      operationId: cachito.web.api_v1.list_packages_and_dependencies
       summary: List packages and dependencies for a request
       description: Return the packages and dependencies for a request
       parameters:
-        - name: id
+        - name: request_id
           in: path
           required: true
           description: The ID of the Cachito request
@@ -638,6 +651,7 @@ paths:
                     example: "Invalid state: packages file was not found."
   "/content-manifest":
     get:
+      operationId: cachito.web.api_v1.get_content_manifest_by_requests
       summary: Get the content manifest of multiple requests
       description: Return the content manifest of the specified Cachito requests
       parameters:
@@ -667,6 +681,7 @@ paths:
                     example: "Request 1 is in state in_progress, not complete or stale."
   "/request-metrics":
     get:
+      operationId: cachito.web.api_v1.get_request_metrics
       summary: List requests with a final state information
       description: Return a list of Cachito requests with a final state information
       parameters:
@@ -737,6 +752,7 @@ paths:
 
   "/request-metrics/summary":
     get:
+      operationId: cachito.web.api_v1.get_request_metrics_summary
       summary: Get a summary of requests
       description: Return a summary about number and duration of Cachito requests
       parameters:
