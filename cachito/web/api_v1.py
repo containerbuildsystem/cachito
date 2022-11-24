@@ -53,13 +53,11 @@ class RequestsArgs(pydantic.BaseModel):
     error_type: Union[str, None]
 
 
-@api_v1.route("/status", methods=["GET"])
 def get_status():
     """Return status of Cachito workers and services that Cachito depends on."""
     return flask.jsonify(status())
 
 
-@api_v1.route("/status/short", methods=["GET"])
 def get_status_short():
     """Return 200 if all workers and services seem to be ok, 503 otherwise."""
     try:
@@ -72,7 +70,6 @@ def get_status_short():
     return flask.jsonify(retval), 200 if retval["ok"] else 503
 
 
-@api_v1.route("/requests", methods=["GET"])
 def get_requests():
     """
     Retrieve paginated details for requests.
@@ -156,7 +153,6 @@ def get_requests():
     return flask.jsonify(response)
 
 
-@api_v1.route("/requests/<int:request_id>", methods=["GET"])
 def get_request(request_id):
     """
     Retrieve details for the given request.
@@ -184,7 +180,6 @@ def get_request(request_id):
     return flask.jsonify(json)
 
 
-@api_v1.route("/requests/<int:request_id>/configuration-files", methods=["GET"])
 def get_request_config_files(request_id):
     """
     Retrieve the configuration files associated with the given request.
@@ -200,7 +195,6 @@ def get_request_config_files(request_id):
     return flask.jsonify(config_files_json)
 
 
-@api_v1.route("/requests/<int:request_id>/content-manifest", methods=["GET"])
 def get_request_content_manifest(request_id):
     """
     Retrieve the content manifest associated with the given request.
@@ -221,7 +215,6 @@ def get_request_content_manifest(request_id):
     return send_content_manifest_back(content_manifest_json)
 
 
-@api_v1.route("/requests/<int:request_id>/environment-variables", methods=["GET"])
 def get_request_environment_variables(request_id):
     """
     Retrieve the environment variables associated with the given request.
@@ -238,7 +231,6 @@ def get_request_environment_variables(request_id):
     return flask.jsonify(env_vars_json)
 
 
-@api_v1.route("/requests/<int:request_id>/download", methods=["GET"])
 def download_archive(request_id):
     """
     Download archive of source code.
@@ -286,7 +278,6 @@ def download_archive(request_id):
     return resp
 
 
-@api_v1.route("/requests/<int:request_id>/packages", methods=["GET"])
 def list_packages_and_dependencies(request_id):
     """
     Return the contents of the packages file for a request.
@@ -319,7 +310,6 @@ def list_packages_and_dependencies(request_id):
     return {"packages": packages_data.packages, "dependencies": packages_data.all_dependencies}
 
 
-@api_v1.route("/requests", methods=["POST"])
 @login_required
 def create_request():
     """
@@ -467,7 +457,6 @@ def worker_required(func):
     return wrapper
 
 
-@api_v1.route("/requests/<int:request_id>", methods=["PATCH"])
 @login_required
 @worker_required
 def patch_request(request_id):
@@ -652,7 +641,6 @@ def patch_request(request_id):
     return "", 200
 
 
-@api_v1.route("/requests/<int:request_id>/configuration-files", methods=["POST"])
 @login_required
 @worker_required
 def add_request_config_files(request_id):
@@ -714,7 +702,6 @@ def generate_stream_response(text_file_path):
             yield data
 
 
-@api_v1.route("/requests/<int:request_id>/logs")
 def get_request_logs(request_id):
     """
     Retrieve the logs for the Cachito request.
@@ -758,7 +745,6 @@ def send_content_manifest_back(content_manifest: Dict[str, Any]) -> flask.Respon
         os.unlink(filename)
 
 
-@api_v1.route("/content-manifest", methods=["GET"])
 def get_content_manifest_by_requests():
     """
     Retrieve the content manifest associated with the given requests.
@@ -819,7 +805,6 @@ class RequestMetricsArgs(pydantic.BaseModel):
     _normalize_end_date = pydantic.validator("finished_to", allow_reuse=True)(normalize_end_date)
 
 
-@api_v1.route("/request-metrics", methods=["GET"])
 def get_request_metrics():
     """Return a list of completed requests with a final state information."""
     max_per_page = flask.current_app.config["CACHITO_MAX_PER_PAGE"]
@@ -866,7 +851,6 @@ class RequestMetricsSummaryArgs(pydantic.BaseModel):
     _normalize_end_date = pydantic.validator("finished_to", allow_reuse=True)(normalize_end_date)
 
 
-@api_v1.route("/request-metrics/summary", methods=["GET"])
 def get_request_metrics_summary():
     """Return a summary about completed requests for a given period of time."""
     args = RequestMetricsSummaryArgs(**flask.request.args)
