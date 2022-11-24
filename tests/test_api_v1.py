@@ -8,7 +8,6 @@ from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Dict, List, Union
 from unittest import mock
-from urllib.parse import urlencode
 
 import flask
 import kombu.exceptions
@@ -2741,7 +2740,7 @@ def test_get_request_metrics(
             db.session.add(state)
         db.session.commit()
 
-    rv = client.get(f"/api/v1/request-metrics?{urlencode(finished_filter)}")
+    rv = client.get(f"/api/v1/request-metrics?{urllib.parse.urlencode(finished_filter)}")
     assert rv.status_code == response_status
     if response_status == 200:
         if not final_state:

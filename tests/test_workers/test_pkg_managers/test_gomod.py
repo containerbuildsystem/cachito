@@ -2,7 +2,6 @@
 import os
 import re
 import tarfile
-import textwrap
 from contextlib import nullcontext
 from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
@@ -1195,7 +1194,7 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
         (
             {},
             {"vendor": {"modules.txt": "foo v1.0.0\n"}},
-            textwrap.dedent(
+            dedent(
                 """
                 --- /dev/null
                 +++ b/{subpath}vendor/modules.txt
@@ -1208,7 +1207,7 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
         (
             {"vendor": {"modules.txt": "foo v1.0.0\n"}},
             {"vendor": {"modules.txt": "foo v2.0.0\n"}},
-            textwrap.dedent(
+            dedent(
                 """
                 --- a/{subpath}vendor/modules.txt
                 +++ b/{subpath}vendor/modules.txt
@@ -1222,7 +1221,7 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
         (
             {},
             {"vendor": {"some_file": "foo"}},
-            textwrap.dedent(
+            dedent(
                 """
                 A\t{subpath}vendor/some_file
                 """
@@ -1232,7 +1231,7 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
         (
             {"vendor": {"some_file": "foo"}},
             {"vendor": {"some_file": "bar", "other_file": "baz"}},
-            textwrap.dedent(
+            dedent(
                 """
                 A\t{subpath}vendor/other_file
                 M\t{subpath}vendor/some_file
@@ -1245,7 +1244,7 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
         (
             {".gitignore": "vendor/"},
             {"vendor": {"some_file": "foo"}},
-            textwrap.dedent(
+            dedent(
                 """
                 A\t{subpath}vendor/some_file
                 """
