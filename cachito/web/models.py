@@ -698,6 +698,7 @@ class RequestState(db.Model):
         """Get the state's display name."""
         if self.state:
             return RequestStateMapping(self.state).name
+        return None
 
     def __repr__(self):
         return '<RequestState id={} state="{}" request_id={}>'.format(

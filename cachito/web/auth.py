@@ -48,7 +48,7 @@ def _get_cert_dn(request):
         current_app.logger.debug(
             "The SSL_CLIENT_VERIFY environment variable was set to %s", ssl_client_verify
         )
-        return
+        return None
 
     return request.environ.get("SSL_CLIENT_S_DN")
 
@@ -75,7 +75,7 @@ def load_user_from_request(request):
                 "The REMOTE_USER environment variable wasn't set on the request, but the "
                 "LOGIN_DISABLED configuration is set to True."
             )
-        return
+        return None
 
     current_app.logger.info(f'The user "{username}" was authenticated successfully by httpd')
     user = User.get_or_create(username)

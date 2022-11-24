@@ -189,6 +189,7 @@ def get_ca_cert():
     if config.cachito_nexus_ca_cert and os.path.exists(config.cachito_nexus_ca_cert):
         with open(config.cachito_nexus_ca_cert, "r") as f:
             return f.read()
+    return None
 
 
 def get_component_info_from_nexus(

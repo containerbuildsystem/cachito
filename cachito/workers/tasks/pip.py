@@ -189,7 +189,7 @@ def _get_custom_requirement_config_file(
 
     if not differs_from_original:
         # No vcs or url dependencies. No need for a custom requirements file
-        return
+        return None
 
     cachito_requirement_file = PipRequirementsFile.from_requirements_and_options(
         cachito_requirements, original_requirement_file.options
