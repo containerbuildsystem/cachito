@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
 import os
+from pathlib import Path
 from timeit import default_timer as timer
 
+import connexion
 import pydantic
-from flask import Flask, current_app
+from flask import current_app
 from flask.logging import default_handler
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -19,7 +21,6 @@ from cachito.errors import (
     ValidationError,
 )
 from cachito.web import db
-from cachito.web.api_v1 import api_v1
 from cachito.web.auth import load_user_from_request, user_loader
 from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
@@ -80,7 +81,9 @@ def create_app(config_obj=None):
     :return: a Flask application object
     :rtype: flask.Flask
     """
-    app = Flask(__name__)
+    connexion_app = connexion.FlaskApp(__name__)
+    app = connexion_app.app
+
     if config_obj:
         app.config.from_object(config_obj)
     else:
@@ -109,7 +112,10 @@ def create_app(config_obj=None):
     login_manager.request_loader(load_user_from_request)
 
     app.register_blueprint(docs)
-    app.register_blueprint(api_v1, url_prefix="/api/v1")
+
+    path = Path(__file__).parent.absolute()
+    connexion_app.add_api(f"{path}/static/api_v1.yaml")
+
     app.add_url_rule("/healthcheck", view_func=healthcheck)
 
     for code in default_exceptions.keys():
