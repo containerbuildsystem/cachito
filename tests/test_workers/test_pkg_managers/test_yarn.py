@@ -712,7 +712,8 @@ def test_resolve_yarn(
             n_pop_calls += 1
 
             if expected_keys:
-                assert key == expected_keys.pop()
+                popped_key = expected_keys.pop()
+                assert key == popped_key
             else:
                 assert False
 
