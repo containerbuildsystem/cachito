@@ -1328,7 +1328,6 @@ def test_set_state(state, app, client, db, worker_auth_env, tmpdir):
     db.session.commit()
 
     request_id = 1
-    state = state
     state_reason = "Some status"
     payload = {"state": state, "state_reason": state_reason}
 
