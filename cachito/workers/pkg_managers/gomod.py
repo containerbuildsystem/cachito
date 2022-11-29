@@ -345,10 +345,10 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
         allowlist = _get_allowed_local_deps(module_name)
         log.debug("Allowed local dependencies for %s: %s", module_name, allowlist)
-        _vet_local_deps(module_level_deps, module_name, allowlist)
+        _vet_local_deps(module_level_deps, module_name, allowlist, app_source_path, git_dir_path)
         for pkg in packages:
             # Local dependencies are always relative to the main module, even for subpackages
-            _vet_local_deps(pkg["pkg_deps"], module_name, allowlist)
+            _vet_local_deps(pkg["pkg_deps"], module_name, allowlist, app_source_path, git_dir_path)
             _set_full_local_dep_relpaths(pkg["pkg_deps"], module_level_deps)
 
         return {"module": module, "module_deps": module_level_deps, "packages": packages}
@@ -520,7 +520,13 @@ def _get_dep_version(dep_info: dict) -> Optional[str]:
     return module.get("Version")
 
 
-def _vet_local_deps(dependencies: List[dict], module_name: str, allowed_patterns: List[str]):
+def _vet_local_deps(
+    dependencies: List[dict],
+    module_name: str,
+    allowed_patterns: List[str],
+    app_source_path: str,
+    git_dir_path: str,
+) -> None:
     """
     Fail if any dependency is replaced by a local path unless the module is allowlisted.
 
@@ -540,17 +546,29 @@ def _vet_local_deps(dependencies: List[dict], module_name: str, allowed_patterns
                 name,
                 version,
             )
-            if ".." in Path(version).parts:
-                raise UnsupportedFeature(
-                    f"Path to gomod dependency contains '..': {version}. "
-                    "Cachito does not support this case."
-                )
             _fail_unless_allowed(module_name, name, allowed_patterns)
+            _validate_local_dependency_path(app_source_path, git_dir_path, version)
         elif version.startswith("/") or PureWindowsPath(version).root:
             # This will disallow paths starting with '/', '\' or '<drive letter>:\'
             raise UnsupportedFeature(
                 f"Absolute paths to gomod dependencies are not supported: {version}"
             )
+
+
+def _validate_local_dependency_path(app_source_path: str, git_dir_path: str, dep_path: str) -> None:
+    """
+    Validate that the local dependency path exists and is not outside the repository.
+
+    :param str app_source_path: the full path to the application source code
+    :param str git_dir_path: the full path to the git repository
+    :param str dep_path: the relative path for local replacements (the dep version)
+    :raise ValidationError: if the local dependency path is invalid
+    """
+    try:
+        resolved_dep_path = Path(app_source_path, dep_path).resolve(strict=True)
+        resolved_dep_path.relative_to(Path(git_dir_path).resolve(strict=True))
+    except ValueError:
+        raise ValidationError(f"The local dependency path {dep_path} is outside the repository")
 
 
 def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: List[str]):
