@@ -168,6 +168,36 @@ dependencies you will need. Here is how you would use it:
 3. run `pip_find_builddeps.py requirements.txt -o requirements-build.in --append`
 4. run `pip-compile requirements-build.in -o requirements-build.txt --allow-unsafe`
 
+You could also use this script as [pre-commit](https://pre-commit.com/) hooks.
+To do so, copy `pip_find_builddeps.py` create a `.pre-commit-hooks.yaml` with the follwing:
+
+```
+id: update-build-requirements
+  name: update-build-requirements
+  description: find build dependencies with cachito's pip_find_builddeps.py script
+  entry: path/to/pip_find_builddeps.py
+  language: python
+  language_version: python3
+  pass_filenames: false
+  files: ^requirements.txt$
+  args: ["requirements.txt", "-o", "requirements-build.in", "-a", "--only-write-on-update"]
+```
+...then add the following lines to `.pre-commit-config.yaml`:
+
+```
+repos:
+  - repo: https://github.com/containerbuildsystem/cachito.git
+    rev: ... # a sha or tag from cachito that contains the  .pre-commit-hooks.yaml file.
+    hooks:
+      - id: update-build-requirements
+  - repo: https://github.com/jazzband/pip-tools
+    rev: 6.8.0 # or whichever version you prefer
+    hooks:
+      - id: pip-compile
+        name: pip-compile requirements-build.in
+        args: [requirements-build.in, -o, requirements-build.txt, --allow-unsafe]
+```
+
 When building your app using the Cachito-provided content, you will need to make sure build
 dependencies are installed before runtime dependencies. If you use a packaging system, specify
 all the build dependencies in the proper location (e.g. `options.setup_requires` in `setup.cfg` or
