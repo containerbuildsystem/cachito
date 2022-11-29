@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
 import json
+import os
 from pathlib import Path
 from unittest import mock
 
@@ -8,7 +9,12 @@ import pytest
 
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
-from cachito.errors import FileAccessError, InvalidRepoStructure, UnsupportedFeature
+from cachito.errors import (
+    FileAccessError,
+    InvalidRepoStructure,
+    InvalidRequestData,
+    UnsupportedFeature,
+)
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
 
@@ -364,3 +370,68 @@ def test_fail_if_bundle_dir_has_workspaces(add_go_work_file, tmpdir):
             gomod._fail_if_bundle_dir_has_workspaces(bundle_dir, ["."])
     else:
         gomod._fail_if_bundle_dir_has_workspaces(bundle_dir, ["."])
+
+
+def test_fail_if_parent_replacement_not_included():
+    packages = [
+        {"name": "foo", "type": "gomod", "version": "1.0.0", "dependencies": []},
+        {
+            "name": "foo/bar",
+            "type": "gomod",
+            "version": "1.0.0",
+            "dependencies": [
+                {"name": "foo", "type": "gomod", "version": "../"},
+                {"name": "foo/bar/baz", "type": "go-package", "version": "1.0.0"},
+            ],
+        },
+    ]
+    packages_json_data = PackagesData()
+
+    for package in packages:
+        packages_json_data.add_package(package, os.curdir, package.get("dependencies", []))
+
+    gomod._fail_if_parent_replacement_not_included(packages_json_data)
+
+
+def test_fail_if_parent_replacement_not_included_no_dep_module():
+    packages = [
+        {
+            "name": "foo/bar",
+            "type": "gomod",
+            "version": "1.0.0",
+            "dependencies": [
+                {"name": "foo", "type": "gomod", "version": "../"},
+                {"name": "foo/bar/baz", "type": "go-package", "version": "1.0.0"},
+            ],
+        }
+    ]
+    packages_json_data = PackagesData()
+    for package in packages:
+        packages_json_data.add_package(package, os.curdir, package.get("dependencies", []))
+    msg = (
+        "Could not find a Go module in this request containing foo while processing "
+        "dependency {'name': 'foo', 'type': 'gomod', 'version': '../'} of package foo/bar. "
+        "Please tell Cachito to process the module which contains the dependency. "
+        "Perhaps the parent module of foo/bar?"
+    )
+
+    with pytest.raises(InvalidRequestData, match=msg):
+        gomod._fail_if_parent_replacement_not_included(packages_json_data)
+
+
+def test_fail_if_parent_replacement_not_included_no_pkg_module():
+    packages = [
+        {
+            "name": "foo/bar",
+            "type": "go-package",
+            "version": "1.0.0",
+            "dependencies": [{"name": "foo", "type": "go-package", "version": "../foo/baz"}],
+        }
+    ]
+    packages_json_data = PackagesData()
+    for package in packages:
+        packages_json_data.add_package(package, os.curdir, package.get("dependencies", []))
+    msg = "Could not find parent Go module for package: foo/bar"
+
+    with pytest.raises(RuntimeError, match=msg):
+        gomod._fail_if_parent_replacement_not_included(packages_json_data)

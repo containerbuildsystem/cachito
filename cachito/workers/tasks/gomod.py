@@ -4,12 +4,22 @@ import os
 from pathlib import Path
 
 from cachito.common.packages_data import PackagesData
-from cachito.errors import FileAccessError, GoModError, InvalidRepoStructure, UnsupportedFeature
+from cachito.errors import (
+    FileAccessError,
+    GoModError,
+    InvalidRepoStructure,
+    InvalidRequestData,
+    UnsupportedFeature,
+)
 from cachito.workers import run_cmd
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import update_request_env_vars
-from cachito.workers.pkg_managers.gomod import path_to_subpackage, resolve_gomod
+from cachito.workers.pkg_managers.gomod import (
+    match_parent_module,
+    path_to_subpackage,
+    resolve_gomod,
+)
 from cachito.workers.tasks.celery import app
 from cachito.workers.tasks.utils import get_request, runs_if_request_in_progress, set_request_state
 
@@ -60,6 +70,44 @@ def _fail_if_bundle_dir_has_workspaces(bundle_dir: RequestBundleDir, subpaths: l
     for subpath in subpaths:
         if _is_workspace(bundle_dir.source_root_dir, subpath):
             raise InvalidRepoStructure("Go workspaces are not supported by Cachito.")
+
+
+def _fail_if_parent_replacement_not_included(packages_json_data: PackagesData) -> None:
+    """
+    Fail if any dependency replacement refers to a parent dir that isn't included in this request.
+
+    :param PackagesData packages_json_data: the collection of resolved packages for the request
+    :raises RuntimeError: if there is no parent Go module for the package being processed
+    :raises InvalidRequestData: if the module being replaced is not part of this request
+    """
+    modules = [
+        package["name"] for package in packages_json_data.packages if package["type"] == "gomod"
+    ]
+
+    for package in packages_json_data.packages:
+        for dependency in package.get("dependencies", []):
+            if dependency["version"] and ".." in Path(dependency["version"]).parts:
+                pkg_module_name = match_parent_module(package["name"], modules)
+                if pkg_module_name is None:
+                    # This should be impossible
+                    raise RuntimeError(
+                        f"Could not find parent Go module for package: {package['name']}"
+                    )
+
+                dep_normpath = os.path.normpath(
+                    os.path.join(pkg_module_name, dependency["version"])
+                )
+                dep_module_name = match_parent_module(dep_normpath, modules)
+                if dep_module_name is None:
+                    raise InvalidRequestData(
+                        (
+                            f"Could not find a Go module in this request containing {dep_normpath} "
+                            f"while processing dependency {dependency} of package "
+                            f"{package['name']}. Please tell Cachito to process the module which "
+                            f"contains the dependency. Perhaps the parent module of "
+                            f"{pkg_module_name}?"
+                        )
+                    )
 
 
 @app.task
@@ -153,6 +201,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             package_subpath = _package_subpath(module_info["name"], pkg_info["name"], subpath)
             packages_json_data.add_package(pkg_info, package_subpath, package.get("pkg_deps", []))
 
+    _fail_if_parent_replacement_not_included(packages_json_data)
     packages_json_data.write_to_file(bundle_dir.gomod_packages_data)
 
 

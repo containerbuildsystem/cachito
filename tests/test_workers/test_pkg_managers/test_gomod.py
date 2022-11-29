@@ -3,6 +3,7 @@ import os
 import re
 import tarfile
 from contextlib import nullcontext
+from pathlib import Path
 from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
 from unittest import mock
@@ -28,6 +29,7 @@ from cachito.workers.pkg_managers.gomod import (
     _merge_bundle_dirs,
     _merge_files,
     _set_full_local_dep_relpaths,
+    _validate_local_dependency_path,
     _vet_local_deps,
     contains_package,
     get_golang_version,
@@ -345,8 +347,14 @@ def test_resolve_gomod(
     mock_get_allowed_local_deps.assert_called_once_with(expect_module_name)
     mock_vet_local_deps.assert_has_calls(
         [
-            mock.call(expected_deps, expect_module_name, ["*"]),
-            mock.call(gomod["packages"][0]["pkg_deps"], expect_module_name, ["*"]),
+            mock.call(expected_deps, expect_module_name, ["*"], archive_path, archive_path),
+            mock.call(
+                gomod["packages"][0]["pkg_deps"],
+                expect_module_name,
+                ["*"],
+                archive_path,
+                archive_path,
+            ),
         ],
     )
     mock_set_full_relpaths.assert_called_once_with(gomod["packages"][0]["pkg_deps"], expected_deps)
@@ -812,21 +820,31 @@ def test_merge_files(file_1_content, file_2_content, result_file_content):
         assert_directories_equal(dir_2, dir_3)
 
 
+@mock.patch("cachito.workers.pkg_managers.gomod._validate_local_dependency_path")
 @mock.patch("cachito.workers.pkg_managers.gomod._fail_unless_allowed")
-def test_vet_local_deps(mock_fail_allowlist):
+def test_vet_local_deps(mock_fail_allowlist, mock_validate_dep_path):
     dependencies = [
         {"name": "foo", "version": "./local/foo"},
         {"name": "bar", "version": "v1.0.0"},
         {"name": "baz", "version": "./local/baz"},
     ]
     module_name = "some-module"
+    app_dir = "/repo/some-module"
+    git_dir = "/repo"
+    mock_validate_dep_path.return_value = None
 
-    _vet_local_deps(dependencies, module_name, ["foo", "baz"])
+    _vet_local_deps(dependencies, module_name, ["foo", "baz"], app_dir, git_dir)
 
     mock_fail_allowlist.assert_has_calls(
         [
             mock.call("some-module", "foo", ["foo", "baz"]),
             mock.call("some-module", "baz", ["foo", "baz"]),
+        ],
+    )
+    mock_validate_dep_path.assert_has_calls(
+        [
+            mock.call(app_dir, git_dir, "./local/foo"),
+            mock.call(app_dir, git_dir, "./local/baz"),
         ],
     )
 
@@ -841,23 +859,35 @@ def test_vet_local_deps(mock_fail_allowlist):
 )
 def test_vet_local_deps_abspath(platform_specific_path):
     dependencies = [{"name": "foo", "version": platform_specific_path}]
+    app_dir = "/some/path"
 
     expect_error = re.escape(
         f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
     )
     with pytest.raises(UnsupportedFeature, match=expect_error):
-        _vet_local_deps(dependencies, "some-module", [])
+        _vet_local_deps(dependencies, "some-module", [], app_dir, app_dir)
 
 
-@pytest.mark.parametrize("path", ["../local/path", "./local/../path"])
-def test_vet_local_deps_parent_dir(path):
-    dependencies = [{"name": "foo", "version": path}]
+@pytest.mark.parametrize(
+    "app_dir, git_dir, dep_path, expect_error",
+    [
+        ("foo", "foo", "./..", True),
+        ("foo/bar", "foo", "./..", False),
+        ("foo/bar", "foo", "./../..", True),
+    ],
+)
+def test_validate_local_dependency_path(
+    tmp_path: Path, app_dir: str, git_dir: str, dep_path: str, expect_error: bool
+):
+    tmp_git_dir = tmp_path / git_dir
+    tmp_app_dir = tmp_path / app_dir
+    tmp_app_dir.mkdir(parents=True, exist_ok=True)
 
-    expect_error = re.escape(
-        f"Path to gomod dependency contains '..': {path}. Cachito does not support this case."
-    )
-    with pytest.raises(UnsupportedFeature, match=expect_error):
-        _vet_local_deps(dependencies, "some-module", [])
+    if expect_error:
+        with pytest.raises(ValidationError):
+            _validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
+    else:
+        _validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
 
 
 @pytest.mark.parametrize(
