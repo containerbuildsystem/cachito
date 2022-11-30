@@ -232,8 +232,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RequestNew'
-      security:
-      - negotiateAuth: []
       responses:
         "201":
           description: The request was initiated
@@ -341,8 +339,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RequestUpdate'
-      security:
-      - negotiateAuth: []
   "/requests/{request_id}/configuration-files":
     get:
       operationId: cachito.web.api_v1.get_request_config_files
@@ -427,8 +423,6 @@ paths:
               type: array
               items:
                 $ref: "#/components/schemas/RequestConfiguration"
-      security:
-      - negotiateAuth: []
   "/requests/{request_id}/content-manifest":
     get:
       operationId: cachito.web.api_v1.get_request_content_manifest
@@ -1272,8 +1266,3 @@ components:
         - complete
         - failed
         - stale
-
-  securitySchemes:
-    negotiateAuth:  # Kerberos
-      type: http
-      scheme: Negotiate
