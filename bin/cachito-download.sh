@@ -80,10 +80,7 @@ inject_config_files () {
     curl -fsS "$request_url/configuration-files" > "$config_json"
 
     echo "Injecting configuration files to remote-source/"
-    # According to shellcheck, this is the proper way to save lines in an array
-    mapfile -t paths < <(jq '.[].path' -r < "$config_json")
-
-    for path in "${paths[@]}"; do
+    jq '.[].path' -r < "$config_json" | while IFS= read -r path; do
         # Show the path indented by 4 spaces
         echo "    $path"
         mkdir -p "$(dirname "$output_dir/remote-source/$path")"
