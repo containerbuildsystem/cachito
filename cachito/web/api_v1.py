@@ -25,7 +25,7 @@ from cachito.common.utils import b64encode
 from cachito.errors import MessageBrokerError, NoWorkers, RequestErrorOrigin, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM
-from cachito.web.metrics import cachito_metrics
+from cachito.web.metrics import cachito_metrics, requests_dec, requests_inc
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -349,8 +349,8 @@ def create_request():
     db.session.add(request)
     db.session.commit()
 
-    cachito_metrics["gauge_state"].labels(state="total").inc()
-    cachito_metrics["gauge_state"].labels(state=request.state.state_name).inc()
+    requests_inc("total")
+    requests_inc(request.state.state_name)
 
     if current_user.is_authenticated:
         flask.current_app.logger.info(
@@ -439,9 +439,9 @@ def create_request():
             "Failed to schedule the task for request %d. Failing the request.", request.id
         )
         error = "Failed to schedule the task to the workers. Please try again."
-        cachito_metrics["gauge_state"].labels(state=request.state.state_name).dec()
+        requests_dec(request.state.state_name)
         request.add_state("failed", error)
-        cachito_metrics["gauge_state"].labels(state=request.state.state_name).inc()
+        requests_inc(request.state.state_name)
         db.session.commit()
         raise MessageBrokerError(error)
 
@@ -526,8 +526,8 @@ def patch_request(request_id):
     delete_logs = False
 
     if "state" in payload and "state_reason" in payload:
-        cachito_metrics["gauge_state"].labels(state=payload["state"]).inc()
-        cachito_metrics["gauge_state"].labels(state=request.state.state_name).dec()
+        requests_inc(payload["state"])
+        requests_dec(request.state.state_name)
         new_state = payload["state"]
         delete_bundle = new_state == "stale" and request.state.state_name != "failed"
         if new_state in ("stale", "failed"):
