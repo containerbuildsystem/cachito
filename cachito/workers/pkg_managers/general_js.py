@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
 import aiohttp
+from aiohttp_retry import JitterRetry, RetryClient
 
 from cachito.errors import (
     FileAccessError,
@@ -104,7 +105,24 @@ async def get_dependencies(
     """
     nexus_auth = aiohttp.BasicAuth(nexus_username, nexus_password)
 
-    async with aiohttp.ClientSession() as session:
+    attempts = get_worker_config().cachito_js_download_max_tries
+
+    async def on_request_start(
+        session,
+        trace_config_ctx,
+        params,
+    ) -> None:
+        current_attempt = trace_config_ctx.trace_request_ctx["current_attempt"]
+        if current_attempt > 1:
+            package_name = str(params.url).split("/")[-1]
+            log.debug(f"Attempt {current_attempt}/{retry_options.attempts} - {package_name}")
+
+    trace_config = aiohttp.TraceConfig()
+    trace_config.on_request_start.append(on_request_start)
+    retry_options = JitterRetry(attempts=attempts, retry_all_server_errors=True)
+    retry_client = RetryClient(retry_options=retry_options, trace_configs=[trace_config])
+
+    async with retry_client as session:
 
         tasks: Set[asyncio.Task] = set()
 
@@ -119,6 +137,9 @@ async def get_dependencies(
                 try:
                     await asyncio.gather(*done)
                 except NetworkError:
+                    # Close retry_client if any request fails (other tasks can be running,
+                    # if a task is closed with the client open, an Warning is raised).
+                    await retry_client.close()
                     for t in tasks:
                         t.cancel()
                     raise

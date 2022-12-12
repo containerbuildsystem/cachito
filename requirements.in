@@ -2,6 +2,7 @@
 # https://github.com/celery/py-amqp/pull/350
 # but cachito is still being affected by the regression
 aiohttp
+aiohttp-retry
 amqp
 backoff
 celery>=5.2.2
