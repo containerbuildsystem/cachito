@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import aiohttp
+import aiohttp_retry
 import requests
 
 from cachito.common.checksum import hash_file
@@ -160,7 +161,7 @@ def download_binary_file(url, download_path, auth=None, insecure=False, chunk_si
 
 
 async def async_download_binary_file(
-    session: aiohttp.ClientSession,
+    session: aiohttp_retry.RetryClient,
     url: str,
     download_dir: Path,
     tarball_name: str,
@@ -170,7 +171,7 @@ async def async_download_binary_file(
     """
     Download a binary file (such as a TAR archive) from a URL using asyncio.
 
-    :param aiohttp.ClientSession session: Aiohttp interface for making HTTP requests.
+    :param aiohttp_retry.RetryClient session: Aiohttp interface for making HTTP requests.
     :param str url: URL for file download
     :param str download_dir: Path to download file to
     :param str tarball_name: Name of the file

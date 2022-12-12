@@ -37,6 +37,7 @@ class Config(object):
     cachito_gomod_strict_vendor = False
     cachito_log_level = "INFO"
     cachito_js_concurrency_limit = 5
+    cachito_js_download_max_tries = 5
     cachito_nexus_ca_cert = "/etc/cachito/nexus_ca.pem"
     cachito_nexus_hoster_password: Optional[str] = None
     cachito_nexus_hoster_url: Optional[str] = None
