@@ -1,0 +1,25 @@
+# Test data for git submodules
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files (empty)
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+# With git-submodule
+git_submodule_no_master_branch:
+  repo: https://github.com/cachito-testing/git-submodule-no-master
+  ref: 3351cc868284974bf8f232551d045f4b6ec926a0
+  pkg_managers: ["git-submodule"]
+  expected_files:
+    app: https://github.com/cachito-testing/git-submodule-no-master-tarball/tarball/4d608aa801bc30753499c9910c72aa98abe9194f
+    deps: null
+  response_expectations:
+    dependencies: []
+    packages:
+      - dependencies: []
+        name: repo-no-master-branch
+        path: repo-no-master-branch
+        type: git-submodule
+        version: https://github.com/cachito-testing/repo-no-master-branch.git#309749e2ef8755319cb4f7dd5faa8f2fbdacda70
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/repo-no-master-branch@309749e2ef8755319cb4f7dd5faa8f2fbdacda70"
