@@ -286,15 +286,26 @@ class Git(SCM):
         `go-github` submodule, the dir structure would look like,
         retrodep/go-github/<content_of_go-github_repo>
 
+        The git command is called directly because of an issue with GitPython's handling of
+        submodules: https://github.com/gitpython-developers/GitPython/issues/1058
+
         :param git.Repo repo: the repository object.
-        :raises RepositoryAccessError: if updating the git submodules fail.
+        :raises SubprocessCallError: if the 'git submodule update --init' command fails to
+                                     update the git submodules.
         """
+        log.debug(f"Git submodules for the requested repo are: {repo.submodules}")
+        cmd = ["git", "submodule", "update", "--init"]
         try:
-            log.debug(f"Git submodules for the requested repo are: {repo.submodules}")
-            repo.submodule_update(recursive=False)
-        except Exception as e:
-            log.exception("Updating the Git submodule(s) from '%s' failed %s", self.url, e)
-            raise RepositoryAccessError("Updating the Git submodule(s) failed")
+            run_cmd(cmd, {"cwd": repo.working_dir, "check": True})
+        except subprocess.CalledProcessError as exc:
+            log.error(
+                (
+                    f"Updating the Git submodule(s) from {self.url} failed. Cachito attempted "
+                    f"to execute the \"{' '.join(cmd)}\" command but encountered an error. "
+                    f"STDERR: {exc.stderr}"
+                )
+            )
+            raise SubprocessCallError("Updating the Git submodule(s) failed")
 
     @property
     def repo_name(self):
