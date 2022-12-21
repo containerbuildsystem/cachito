@@ -465,20 +465,22 @@ def test_fetch_source_invalid_archive_exists(mock_clone, mock_verify, caplog, gi
 
 
 @mock.patch("git.Repo")
-def test_update_git_submodules(mock_repo):
+@mock.patch("cachito.workers.scm.run_cmd")
+def test_update_git_submodules(mock_git_submodule_update: mock.Mock, mock_repo: mock.Mock):
     git_obj = scm.Git(url, ref)
     git_obj.update_git_submodules(mock_repo)
     # Verify the git submodule update was called correctly
-    mock_repo.submodule_update.assert_called_once_with(recursive=False)
+    mock_git_submodule_update.assert_called_once()
 
 
 @mock.patch("git.Repo")
-def test_update_git_submodules_failed(mock_repo):
+@mock.patch("cachito.workers.scm.run_cmd")
+def test_update_git_submodules_failed(mock_git_submodule_update: mock.Mock, mock_repo: mock.Mock):
     repo = mock_repo.return_value
     # Set up the side effect for submodule_update call
-    repo.submodule_update.side_effect = git.GitCommandError("some error", 1)
+    mock_git_submodule_update.side_effect = subprocess.CalledProcessError(1, "fake_command")
 
     expected = re.escape("Updating the Git submodule(s) failed")
     git_obj = scm.Git(url, ref)
-    with pytest.raises(RepositoryAccessError, match=expected):
+    with pytest.raises(SubprocessCallError, match=expected):
         git_obj.update_git_submodules(repo)
