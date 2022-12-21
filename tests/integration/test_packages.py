@@ -44,6 +44,7 @@ from . import utils
         ("rubygems_packages", "without_deps"),
         ("rubygems_packages", "with_deps"),
         ("rubygems_packages", "multiple"),
+        ("git_submodule_packages", "git_submodule_no_master_branch"),
     ],
 )
 def test_packages(env_package, env_name, test_env, tmpdir):
