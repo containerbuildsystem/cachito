@@ -31,7 +31,16 @@ class FindBuilddepsError(Exception):
 
 def _pip_download(requirements_files, output_file, tmpdir, no_cache):
     """Run pip download, write output to file."""
-    cmd = ["pip", "download", "-d", tmpdir, "--no-binary", ":all:", "--verbose"]
+    cmd = [
+        "pip",
+        "download",
+        "-d",
+        tmpdir,
+        "--no-binary",
+        ":all:",
+        "--use-pep517",
+        "--verbose",
+    ]
     if no_cache:
         cmd.append("--no-cache-dir")
     for file in requirements_files:
