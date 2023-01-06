@@ -26,6 +26,7 @@ from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
 from cachito.web.errors import json_error, validation_error
 from cachito.web.metrics import init_metrics
+from cachito.web.validation import RequestBodyValidator
 
 
 def healthcheck():
@@ -114,7 +115,11 @@ def create_app(config_obj=None):
     app.register_blueprint(docs)
 
     path = Path(__file__).parent.absolute()
-    connexion_app.add_api(f"{path}/static/api_v1.yaml")
+    connexion_app.add_api(
+        f"{path}/static/api_v1.yaml",
+        strict_validation=True,
+        validator_map={"body": RequestBodyValidator},
+    )
 
     app.add_url_rule("/healthcheck", view_func=healthcheck)
 

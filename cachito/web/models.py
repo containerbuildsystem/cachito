@@ -439,13 +439,19 @@ class Request(db.Model):  # type: ignore[name-defined]
 
         if verbose:
             rv["configuration_files"] = flask.url_for(
-                "api_v1.get_request_config_files", request_id=self.id, _external=True
+                "/api/v1.cachito_web_api_v1_get_request_config_files",
+                request_id=self.id,
+                _external=True,
             )
             rv["content_manifest"] = flask.url_for(
-                "api_v1.get_request_content_manifest", request_id=self.id, _external=True
+                "/api/v1.cachito_web_api_v1_get_request_content_manifest",
+                request_id=self.id,
+                _external=True,
             )
             rv["environment_variables_info"] = flask.url_for(
-                "api_v1.get_request_environment_variables", request_id=self.id, _external=True
+                "/api/v1.cachito_web_api_v1_get_request_environment_variables",
+                request_id=self.id,
+                _external=True,
             )
             # Use this list comprehension instead of a RequestState.to_json method to avoid
             # including redundant information about the request itself
@@ -469,7 +475,9 @@ class Request(db.Model):  # type: ignore[name-defined]
             if flask.current_app.config["CACHITO_REQUEST_FILE_LOGS_DIR"]:
                 rv["logs"] = {
                     "url": flask.url_for(
-                        "api_v1.get_request_logs", request_id=self.id, _external=True
+                        "/api/v1.cachito_web_api_v1_get_request_logs",
+                        request_id=self.id,
+                        _external=True,
                     )
                 }
         else:
