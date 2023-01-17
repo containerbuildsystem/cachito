@@ -96,6 +96,10 @@ go_generate:
       replaces: null
       type: go-package
       version: null
+    - name: internal/safefilepath
+      replaces: null
+      type: go-package
+      version: null
     - name: internal/syscall/execenv
       replaces: null
       type: go-package
@@ -263,6 +267,10 @@ go_generate:
           type: go-package
           version: null
         - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
           replaces: null
           type: go-package
           version: null
@@ -446,6 +454,10 @@ go_generate:
           replaces: null
           type: go-package
           version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/syscall/execenv
           replaces: null
           type: go-package
@@ -589,6 +601,7 @@ go_generate:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -633,6 +646,7 @@ go_generate:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -738,6 +752,10 @@ go_generate_generated:
       type: go-package
       version: null
     - name: internal/reflectlite
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/safefilepath
       replaces: null
       type: go-package
       version: null
@@ -911,6 +929,10 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/syscall/execenv
           replaces: null
           type: go-package
@@ -1068,6 +1090,10 @@ go_generate_generated:
           type: go-package
           version: null
         - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
           replaces: null
           type: go-package
           version: null
@@ -1252,6 +1278,10 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/syscall/execenv
           replaces: null
           type: go-package
@@ -1390,6 +1420,7 @@ go_generate_generated:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -1436,6 +1467,7 @@ go_generate_generated:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -1480,6 +1512,7 @@ go_generate_generated:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -1589,6 +1622,10 @@ go_generate_imported:
       type: go-package
       version: null
     - name: internal/reflectlite
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/safefilepath
       replaces: null
       type: go-package
       version: null
@@ -1838,6 +1875,10 @@ go_generate_imported:
           replaces: null
           type: go-package
           version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/syscall/execenv
           replaces: null
           type: go-package
@@ -1982,6 +2023,7 @@ go_generate_imported:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -2108,6 +2150,10 @@ go_generate_imported_generated:
       type: go-package
       version: null
     - name: internal/reflectlite
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/safefilepath
       replaces: null
       type: go-package
       version: null
@@ -2282,6 +2328,10 @@ go_generate_imported_generated:
           type: go-package
           version: null
         - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
           replaces: null
           type: go-package
           version: null
@@ -2465,6 +2515,10 @@ go_generate_imported_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/syscall/execenv
           replaces: null
           type: go-package
@@ -2609,6 +2663,7 @@ go_generate_imported_generated:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -2654,6 +2709,7 @@ go_generate_imported_generated:
       - "pkg:golang/internal%2Fpoll"
       - "pkg:golang/internal%2Frace"
       - "pkg:golang/internal%2Freflectlite"
+      - "pkg:golang/internal%2Fsafefilepath"
       - "pkg:golang/internal%2Fsyscall%2Fexecenv"
       - "pkg:golang/internal%2Fsyscall%2Funix"
       - "pkg:golang/internal%2Ftestlog"

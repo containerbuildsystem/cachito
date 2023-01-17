@@ -205,6 +205,10 @@ gomod_cached_deps:
         replaces: null
         type: "go-package"
         version: null
+      - name: "internal/safefilepath"
+        replaces: null
+        type: "go-package"
+        version: null
       - name: "internal/syscall/execenv"
         replaces: null
         type: "go-package"
@@ -409,6 +413,10 @@ gomod_cached_deps:
       replaces: null
       type: "go-package"
       version: null
+    - name: "internal/safefilepath"
+      replaces: null
+      type: "go-package"
+      version: null
     - name: "internal/syscall/execenv"
       replaces: null
       type: "go-package"
@@ -560,6 +568,7 @@ gomod_cached_deps:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
