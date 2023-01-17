@@ -123,6 +123,10 @@ with_deps:
         replaces: null
         type: go-package
         version: null
+      - name: internal/safefilepath
+        replaces: null
+        type: go-package
+        version: null
       - name: internal/syscall/execenv
         replaces: null
         type: go-package
@@ -314,6 +318,10 @@ with_deps:
           type: go-package
           version: null
         - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
           replaces: null
           type: go-package
           version: null
@@ -471,6 +479,7 @@ with_deps:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -577,6 +586,10 @@ vendored_with_flag:
         type: go-package
         version: null
       - name: internal/reflectlite
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/safefilepath
         replaces: null
         type: go-package
         version: null
@@ -771,6 +784,10 @@ vendored_with_flag:
           type: go-package
           version: null
         - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
           replaces: null
           type: go-package
           version: null
@@ -928,6 +945,7 @@ vendored_with_flag:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -1037,6 +1055,10 @@ implicit_gomod:
         type: go-package
         version: null
       - name: internal/reflectlite
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/safefilepath
         replaces: null
         type: go-package
         version: null
@@ -1234,6 +1256,10 @@ implicit_gomod:
           replaces: null
           type: go-package
           version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/syscall/execenv
           replaces: null
           type: go-package
@@ -1388,6 +1414,7 @@ implicit_gomod:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"
@@ -1537,6 +1564,10 @@ force_tidy_vendored:
         replaces: null
         type: go-package
         version: null
+      - name: internal/safefilepath
+        replaces: null
+        type: go-package
+        version: null
       - name: internal/syscall/execenv
         replaces: null
         type: go-package
@@ -1731,6 +1762,10 @@ force_tidy_vendored:
           replaces: null
           type: go-package
           version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/syscall/execenv
           replaces: null
           type: go-package
@@ -1885,6 +1920,7 @@ force_tidy_vendored:
     - "pkg:golang/internal%2Fpoll"
     - "pkg:golang/internal%2Frace"
     - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
     - "pkg:golang/internal%2Fsyscall%2Fexecenv"
     - "pkg:golang/internal%2Fsyscall%2Funix"
     - "pkg:golang/internal%2Ftestlog"

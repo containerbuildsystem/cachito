@@ -125,6 +125,7 @@ get:
     - ["internal/poll", "go-package", null]
     - ["internal/race", "go-package", null]
     - ["internal/reflectlite", "go-package", null]
+    - ["internal/safefilepath", "go-package", null]
     - ["internal/singleflight", "go-package", null]
     - ["internal/syscall/execenv", "go-package", null]
     - ["internal/syscall/unix", "go-package", null]
@@ -243,4 +244,4 @@ various_packages:
   gomod:
     repo: https://github.com/cachito-testing/cachito-gomod-test
     ref: 1827221d787cbd1e979b339cfbbf59728eddf0d4
-    dependencies_count: 48
+    dependencies_count: 49
