@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
 import json
+import os
 import re
 import urllib.parse
 from datetime import datetime, timedelta
@@ -1858,7 +1859,15 @@ def test_fetch_request_content_manifest_go(
 
     for d in sample_deps:
         d.pop("replaces")
-        p = to_purl(Package.from_json(d)).replace(PARENT_PURL_PLACEHOLDER, main_pkg)
+        relpath_from_parent_module_to_dep = None
+        if d["version"].startswith("."):
+            dep_normpath = os.path.normpath(os.path.join(sample_package["name"], d["version"]))
+            relpath_from_parent_module_to_dep = Path(dep_normpath).relative_to(
+                Path(sample_pkg_lvl_pkg["name"])
+            )
+        p = to_purl(Package.from_json(d), relpath_from_parent_module_to_dep).replace(
+            PARENT_PURL_PLACEHOLDER, main_pkg
+        )
         image_content["sources"].append({"purl": p})
     for d in sample_pkg_deps:
         d.pop("replaces")

@@ -81,7 +81,44 @@ def test_process_go(app, default_request):
     assert cm._gomod_data == expected_gomod_contents
 
 
-def test_process_gomod_replace_parent_purl(default_request):
+def test_process_gomod_with_local_dep(default_request: Request):
+    packages_json = [
+        {
+            "name": "example.com/org/project",
+            "type": "gomod",
+            "version": "1.1.1",
+            "dependencies": [],
+        },
+        {
+            "name": "example.com/org/project/foo",
+            "type": "gomod",
+            "version": "1.1.1",
+            "dependencies": [
+                {"name": "example.com/org/project", "type": "gomod", "version": "../"}
+            ],
+        },
+    ]
+
+    expected_parent_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
+    expected_foo_purl = "pkg:golang/example.com%2Forg%2Fproject%2Ffoo@1.1.1"
+    expected_src_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
+
+    packages = _load_packages_from_json(packages_json)
+    parent_module = packages[0]
+    foo_module = packages[1]
+
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
+
+    expected_gomod_contents = {
+        parent_module.name: {"purl": expected_parent_purl, "dependencies": []},
+        foo_module.name: {"purl": expected_foo_purl, "dependencies": [{"purl": expected_src_purl}]},
+    }
+
+    assert cm._gomod_data == expected_gomod_contents
+
+
+def test_process_gomod_with_local_dep_unprocessed_module(default_request: Request):
     packages_json = [
         {
             "name": "example.com/org/project",
@@ -112,6 +149,124 @@ def test_process_gomod_replace_parent_purl(default_request):
             "dependencies": [{"purl": expected_dependency_purl}],
         },
     }
+
+
+def test_process_go_package_with_local_dep_unprocessed_module(default_request: Request):
+    packages_json = [
+        {
+            "name": "example.com/org/project",
+            "type": "gomod",
+            "version": "1.1.1",
+            "dependencies": [
+                {
+                    "name": "example.com/otherorg/project/foo",
+                    "type": "gomod",
+                    "version": "./foo",
+                },
+            ],
+        },
+        {
+            "name": "example.com/org/project",
+            "type": "go-package",
+            "version": "1.1.1",
+            "dependencies": [
+                {
+                    "name": "example.com/otherorg/project/foo/package",
+                    "type": "go-package",
+                    "version": "./foo/package",
+                },
+            ],
+        },
+    ]
+
+    root_module_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
+    foo_module_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1#foo"
+    foo_package_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1#foo/package"
+
+    packages = _load_packages_from_json(packages_json)
+    root_module = packages[0]
+    root_package = packages[1]
+
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
+
+    expected_gopkg_contents = {
+        root_package: {
+            "purl": root_module_purl,
+            "dependencies": [{"purl": foo_package_purl}],
+            "sources": [{"purl": foo_module_purl}],
+        },
+    }
+
+    expected_gomod_contents = {
+        root_module.name: {"purl": root_module_purl, "dependencies": [{"purl": foo_module_purl}]},
+    }
+
+    assert cm._gopkg_data == expected_gopkg_contents
+    assert cm._gomod_data == expected_gomod_contents
+
+
+def test_process_go_package_with_local_dep(default_request: Request):
+    packages_json = [
+        {
+            "name": "example.com/org/project",
+            "type": "gomod",
+            "version": "1.1.1",
+            "dependencies": [
+                {
+                    "name": "example.com/org/project/foo",
+                    "type": "gomod",
+                    "version": "./foo",
+                },
+            ],
+        },
+        {
+            "name": "example.com/org/project/foo",
+            "type": "gomod",
+            "version": "2.2.2",
+            "dependencies": [],
+        },
+        {
+            "name": "example.com/org/project",
+            "type": "go-package",
+            "version": "1.1.1",
+            "dependencies": [
+                {
+                    "name": "example.com/org/project/foo/package",
+                    "type": "go-package",
+                    "version": "./foo/package",
+                },
+            ],
+        },
+    ]
+
+    root_module_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
+    foo_module_purl = "pkg:golang/example.com%2Forg%2Fproject%2Ffoo@2.2.2"
+    foo_package_purl = "pkg:golang/example.com%2Forg%2Fproject%2Ffoo%2Fpackage@2.2.2"
+
+    packages = _load_packages_from_json(packages_json)
+    root_module = packages[0]
+    foo_module = packages[1]
+    root_package = packages[2]
+
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
+
+    expected_gopkg_contents = {
+        root_package: {
+            "purl": root_module_purl,
+            "dependencies": [{"purl": foo_package_purl}],
+            "sources": [{"purl": foo_module_purl}],
+        },
+    }
+
+    expected_gomod_contents = {
+        root_module.name: {"purl": root_module_purl, "dependencies": [{"purl": foo_module_purl}]},
+        foo_module.name: {"purl": foo_module_purl, "dependencies": []},
+    }
+
+    assert cm._gopkg_data == expected_gopkg_contents
+    assert cm._gomod_data == expected_gomod_contents
 
 
 def test_process_npm(default_request, default_toplevel_purl):
@@ -564,127 +719,52 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
 
 
 @pytest.mark.parametrize(
-    "gopkg_name, gomod_data, expected_parent_purl",
+    "package, expected_purl, parent_package_rel_path, defined, known_protocol",
     [
-        (
-            "k8s.io/kubernetes",
-            {
-                "k8s.io/kubernetes": {
-                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
-                    "dependencies": [],
-                },
-            },
-            "pkg:golang/k8s.io/kubernetes@v1.0.0",
-        ),
-        (
-            # If the package name starts with the module name, that is also a match
-            "k8s.io/kubernetes/x",
-            {
-                "k8s.io/kubernetes": {
-                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
-                    "dependencies": [],
-                },
-            },
-            "pkg:golang/k8s.io/kubernetes@v1.0.0",
-        ),
-        (
-            # Longer match wins
-            "k8s.io/kubernetes/x",
-            {
-                "k8s.io/kubernetes": {
-                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
-                    "dependencies": [],
-                },
-                "k8s.io/kubernetes/x": {
-                    "purl": "pkg:golang/k8s.io/kubernetes/x@v1.0.0",
-                    "dependencies": [],
-                },
-            },
-            "pkg:golang/k8s.io/kubernetes/x@v1.0.0",
-        ),
-        (
-            # The longer module name does not match, the shorter one does
-            "k8s.io/kubernetes/x",
-            {
-                "k8s.io/kubernetes": {
-                    "purl": "pkg:golang/k8s.io/kubernetes@v1.0.0",
-                    "dependencies": [],
-                },
-                "k8s.io/kubernetes/x/y": {
-                    "purl": "pkg:golang/k8s.io/kubernetes/x/y@v1.0.0",
-                    "dependencies": [],
-                },
-            },
-            "pkg:golang/k8s.io/kubernetes@v1.0.0",
-        ),
-    ],
-)
-def test_set_go_package_sources_replace_parent_purl(
-    gopkg_name, gomod_data, expected_parent_purl, default_request
-):
-    pre_replaced_dependencies = [
-        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/foo"},
-        {"purl": f"{PARENT_PURL_PLACEHOLDER}#staging/src/k8s.io/bar"},
-        {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
-    ]
-    post_replaced_dependencies = [
-        {"purl": f"{expected_parent_purl}#staging/src/k8s.io/foo"},
-        {"purl": f"{expected_parent_purl}#staging/src/k8s.io/bar"},
-        {"purl": "pkg:golang/example.com/some-other-project@v1.0.0"},
-    ]
-
-    cm = ContentManifest(default_request, [])
-    cm._gomod_data = gomod_data
-    cm._gopkg_data = {
-        1: {
-            "name": gopkg_name,
-            "purl": "not-important",
-            "dependencies": pre_replaced_dependencies,
-            "sources": [],
-        },
-    }
-
-    cm.set_go_package_sources()
-    assert cm._gopkg_data == {
-        1: {
-            # name is popped by set_go_package_sources()
-            "purl": "not-important",
-            "dependencies": post_replaced_dependencies,
-            "sources": [],
-        },
-    }
-
-
-@pytest.mark.parametrize(
-    "package, expected_purl, defined, known_protocol",
-    [
-        [{"name": "bacon", "type": "invalid", "version": "1.0.0"}, None, False, False],
+        [{"name": "bacon", "type": "invalid", "version": "1.0.0"}, None, None, False, False],
         [
             {"name": "example.com/org/project", "type": "go-package", "version": "1.1.1"},
             "pkg:golang/example.com%2Forg%2Fproject@1.1.1",
+            None,
             True,
             True,
         ],
         [
             {"name": "example.com/org/project", "type": "gomod", "version": "1.1.1"},
             "pkg:golang/example.com%2Forg%2Fproject@1.1.1",
+            None,
             True,
             True,
         ],
         [
             {"name": "example.com/org/project", "type": "go-package", "version": "./src/project"},
             f"{PARENT_PURL_PLACEHOLDER}#src/project",
+            "src/project",
             True,
             True,
         ],
-        [{"name": "fmt", "type": "go-package", "version": ""}, "pkg:golang/fmt", True, True],
+        [{"name": "fmt", "type": "go-package", "version": ""}, "pkg:golang/fmt", None, True, True],
         [
             {"name": "example.com/org/project", "type": "gomod", "version": "./src/project"},
             f"{PARENT_PURL_PLACEHOLDER}#src/project",
+            "src/project",
             True,
             True,
         ],
-        [{"name": "grc-ui", "type": "npm", "version": "1.0.0"}, "pkg:npm/grc-ui@1.0.0", True, True],
+        [
+            {"name": "example.com/org/project", "type": "gomod", "version": "./src/project"},
+            f"{PARENT_PURL_PLACEHOLDER}",
+            None,
+            True,
+            True,
+        ],
+        [
+            {"name": "grc-ui", "type": "npm", "version": "1.0.0"},
+            "pkg:npm/grc-ui@1.0.0",
+            None,
+            True,
+            True,
+        ],
         [
             {
                 "name": "security-middleware",
@@ -692,6 +772,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "version": "github:open-cluster-management/security-middleware#i0am0a0commit0hash",
             },
             "pkg:github/open-cluster-management/security-middleware@i0am0a0commit0hash",
+            None,
             True,
             True,
         ],
@@ -702,6 +783,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "version": "gitlab:deep/nested/repo/security-middleware#i0am0a0commit0hash",
             },
             "pkg:gitlab/deep/nested/repo/security-middleware@i0am0a0commit0hash",
+            None,
             True,
             True,
         ],
@@ -715,6 +797,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "pkg:generic/fromgit?vcs_url=git%3A%2F%2Fsome.domain%2Fmy%2Fproject%2Frepo.git"
                 "%23i0am0a0commit0hash"
             ),
+            None,
             True,
             True,
         ],
@@ -728,12 +811,14 @@ def test_set_go_package_sources_replace_parent_purl(
                 "pkg:generic/fromweb?download_url=https%3A%2F%2Fsome.domain%2Fmy%2Fproject"
                 "%2Fpackage.tar.gz"
             ),
+            None,
             True,
             True,
         ],
         [
             {"name": "fromfile", "type": "npm", "version": "file:client-default"},
             "generic/fromfile?file%3Aclient-default",
+            None,
             True,
             True,
         ],
@@ -744,18 +829,21 @@ def test_set_go_package_sources_replace_parent_purl(
                 "version": "unknown://some.domain/my/project/package.tar.gz",
             },
             None,
+            None,
             True,
             False,
         ],
         [
             {"name": "requests", "type": "pip", "version": "2.24.0"},
             "pkg:pypi/requests@2.24.0",
+            None,
             True,
             True,
         ],
         [
             {"name": "requests_FOO bar", "type": "pip", "version": "2.24.0"},
             "pkg:pypi/requests-foo-bar@2.24.0",
+            None,
             True,
             True,
         ],
@@ -766,6 +854,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "version": "git+https://github.com/quay/appr@abcdef",
             },
             "pkg:github/quay/appr@abcdef",
+            None,
             True,
             True,
         ],
@@ -784,6 +873,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "%2Farchive%2F1234.tar.gz%23egg%3Doperator-manifest%26cachito_hash%3Dsha256%3Aabcd"
                 "&checksum=sha256:abcd"
             ),
+            None,
             True,
             True,
         ],
@@ -796,12 +886,14 @@ def test_set_go_package_sources_replace_parent_purl(
                 ),
             },
             "pkg:github/testrepo/tour@58c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+            None,
             True,
             True,
         ],
         [
             {"name": "grc-ui", "type": "yarn", "version": "1.0.0"},
             "pkg:npm/grc-ui@1.0.0",
+            None,
             True,
             True,
         ],
@@ -812,6 +904,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "version": "github:open-cluster-management/security-middleware#i0am0a0commit0hash",
             },
             "pkg:github/open-cluster-management/security-middleware@i0am0a0commit0hash",
+            None,
             True,
             True,
         ],
@@ -822,6 +915,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "version": "gitlab:deep/nested/repo/security-middleware#i0am0a0commit0hash",
             },
             "pkg:gitlab/deep/nested/repo/security-middleware@i0am0a0commit0hash",
+            None,
             True,
             True,
         ],
@@ -835,6 +929,7 @@ def test_set_go_package_sources_replace_parent_purl(
                 "pkg:generic/fromgit?vcs_url=git%3A%2F%2Fsome.domain%2Fmy%2Fproject%2Frepo.git"
                 "%23i0am0a0commit0hash"
             ),
+            None,
             True,
             True,
         ],
@@ -848,12 +943,14 @@ def test_set_go_package_sources_replace_parent_purl(
                 "pkg:generic/fromweb?download_url=https%3A%2F%2Fsome.domain%2Fmy%2Fproject"
                 "%2Fpackage.tar.gz"
             ),
+            None,
             True,
             True,
         ],
         [
             {"name": "fromfile", "type": "yarn", "version": "file:client-default"},
             "generic/fromfile?file%3Aclient-default",
+            None,
             True,
             True,
         ],
@@ -864,12 +961,14 @@ def test_set_go_package_sources_replace_parent_purl(
                 "version": "unknown://some.domain/my/project/package.tar.gz",
             },
             None,
+            None,
             True,
             False,
         ],
         [
             {"name": "zeitwerk", "type": "rubygems", "version": "2.4.2"},
             "pkg:gem/zeitwerk@2.4.2",
+            None,
             True,
             True,
         ],
@@ -880,22 +979,23 @@ def test_set_go_package_sources_replace_parent_purl(
                 "type": "rubygems",
             },
             f"pkg:github/3scale/httpclient@{DEP_COMMIT_ID}",
+            None,
             True,
             True,
         ],
     ],
 )
-def test_purl_conversion(package, expected_purl, defined, known_protocol):
+def test_purl_conversion(package, expected_purl, parent_package_rel_path, defined, known_protocol):
     pkg = Package.from_json(package)
     if defined and known_protocol:
-        purl = to_purl(pkg)
+        purl = to_purl(pkg, parent_package_rel_path)
         assert purl == expected_purl
     else:
         msg = f"The PURL spec is not defined for {pkg.type} packages"
         if defined:
             msg = f"Unknown protocol in {pkg.type} package version: {pkg.version}"
         with pytest.raises(ContentManifestError, match=msg):
-            to_purl(pkg)
+            to_purl(pkg, parent_package_rel_path)
 
 
 def test_purl_conversion_bogus_forge():
@@ -986,3 +1086,90 @@ def test_top_level_purl_conversion_bogus(default_request):
     msg = "'bogus' is not a valid top level package"
     with pytest.raises(ContentManifestError, match=msg):
         to_top_level_purl(pkg, default_request)
+
+
+def test_get_local_go_package_dep_purl_not_local(default_request: Request):
+    packages_json = [
+        {
+            "name": "example.com/org/project/foo",
+            "type": "go-package",
+            "version": "1.0.0",
+            "dependencies": [
+                {
+                    "name": "example.com/org/project/bar",
+                    "type": "go-package",
+                    "version": "1.0.0",
+                },
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+    dependency = package.dependencies[0]
+
+    cm = ContentManifest(default_request, packages)
+
+    msg = f"{dependency} has an invalid version for a local dependency"
+    with pytest.raises(ValueError, match=msg):
+        cm._get_local_go_package_dep_purl(package, dependency)
+
+
+def test_get_local_go_package_dep_purl_no_pkg_module(default_request: Request):
+    packages_json = [
+        {
+            "name": "example.com/org/project/foo",
+            "type": "go-package",
+            "version": "1.0.0",
+            "dependencies": [
+                {
+                    "name": "example.com/org/project/bar",
+                    "type": "go-package",
+                    "version": "../bar",
+                },
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[0]
+    dependency = package.dependencies[0]
+
+    cm = ContentManifest(default_request, packages)
+
+    msg = f"Could not find parent Go module for package: {package.name}"
+    with pytest.raises(RuntimeError, match=msg):
+        cm._get_local_go_package_dep_purl(package, dependency)
+
+
+def test_get_local_go_package_dep_purl_no_dep_module(default_request: Request):
+    packages_json = [
+        {
+            "name": "example.com/org/project/foo",
+            "type": "gomod",
+            "version": "1.0.0",
+            "dependencies": [],
+        },
+        {
+            "name": "example.com/org/project/foo",
+            "type": "go-package",
+            "version": "1.0.0",
+            "dependencies": [
+                {
+                    "name": "example.com/org/project/bar",
+                    "type": "go-package",
+                    "version": "../bar",
+                },
+            ],
+        },
+    ]
+
+    packages = _load_packages_from_json(packages_json)
+    package = packages[1]
+    dependency = package.dependencies[0]
+
+    cm = ContentManifest(default_request, packages)
+
+    msg = f"Could not find parent Go module for package: {dependency.name}"
+    with pytest.raises(RuntimeError, match=msg):
+        cm._get_local_go_package_dep_purl(package, dependency)

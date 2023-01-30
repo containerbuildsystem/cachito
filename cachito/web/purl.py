@@ -2,10 +2,15 @@
 import os
 import re
 import urllib.parse
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 import pkg_resources
 
 from cachito.errors import ContentManifestError
+
+if TYPE_CHECKING:
+    from cachito.web.content_manifest import Package
 
 PARENT_PURL_PLACEHOLDER = "PARENT_PURL"
 
@@ -21,7 +26,7 @@ def to_purl(package, parent_package_rel_path=None):
     :raise ContentManifestError: if the there is no implementation for the package type
     """
     if package.type in ("go-package", "gomod"):
-        return _to_purl_go(package)
+        return _to_purl_go(package, parent_package_rel_path)
     elif package.type in ("npm", "yarn"):
         return _to_purl_npm(package)
     elif package.type == "pip":
@@ -34,11 +39,13 @@ def to_purl(package, parent_package_rel_path=None):
         raise ContentManifestError(f"The PURL spec is not defined for {package.type} packages")
 
 
-def _to_purl_go(package):
+def _to_purl_go(package: "Package", parent_package_rel_path: Optional[Path] = None) -> str:
     if package.version and package.version.startswith("."):
+        if parent_package_rel_path is None:
+            return f"{PARENT_PURL_PLACEHOLDER}"
         # Package is relative to the parent module
-        normpath = os.path.normpath(package.version)
-        return f"{PARENT_PURL_PLACEHOLDER}#{normpath}"
+        else:
+            return f"{PARENT_PURL_PLACEHOLDER}#{parent_package_rel_path}"
 
     # Use only the PURL "name" field to avoid ambiguity for Go modules/packages
     # see https://github.com/package-url/purl-spec/issues/63 for further reference
@@ -209,15 +216,3 @@ def to_top_level_purl(package, request, subpath=None):
 def replace_parent_purl_placeholder(dep_purl, parent_purl):
     """Replace PARENT_PURL_PLACEHOLDER in dependency with the parent purl."""
     return dep_purl.replace(PARENT_PURL_PLACEHOLDER, parent_purl)
-
-
-def replace_parent_purl_gopkg(go_pkg, module_purl):
-    """
-    Replace PARENT_PURL_PLACEHOLDER in go-package dependencies with the parent module purl.
-
-    The purl of the package itself cannot contain a placeholder. The purls of all of its
-    sources will have been replaced at this point already (they come from the parent module).
-    Only dependencies need to be replaced here.
-    """
-    for dep in go_pkg["dependencies"]:
-        dep["purl"] = dep["purl"].replace(PARENT_PURL_PLACEHOLDER, module_purl)
