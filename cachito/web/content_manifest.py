@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
 from copy import deepcopy
+from functools import cached_property
+from pathlib import Path
 from typing import List, Optional
 
 import flask
 
 from cachito.common.utils import get_repo_name
 from cachito.web.purl import (
-    replace_parent_purl_gopkg,
     replace_parent_purl_placeholder,
     to_purl,
     to_top_level_purl,
@@ -63,6 +65,11 @@ class ContentManifest:
         # package
         self._gitsubmodule_data = {}
 
+    @cached_property
+    def go_modules_by_name(self) -> dict[str, "Package"]:
+        """Get a mapping of go module names to their respective package object."""
+        return {module.name: module for module in self.packages if module.type == "gomod"}
+
     def process_gomod(self, package, dependency):
         """
         Process gomod package.
@@ -71,8 +78,25 @@ class ContentManifest:
         :param Dependency dependency: the gomod package dependency to process
         """
         if dependency.type == "gomod":
-            parent_purl = self._gomod_data[package.name]["purl"]
-            dep_purl = to_purl(dependency)
+
+            parent_module_name = package.name
+            relpath_from_parent_module_to_dep = None
+
+            # if we're processing a local dependency
+            if dependency.version and dependency.version.startswith("."):
+                dep_normpath = os.path.normpath(os.path.join(package.name, dependency.version))
+                parent_module_name = gomod.match_parent_module(
+                    dep_normpath, self._gomod_data.keys()
+                )
+                # if the dependency is not in this repo, use a relative path from the root module
+                # otherwise just use the parent purl directly
+                if dependency.name not in self._gomod_data:
+                    relpath_from_parent_module_to_dep = Path(dep_normpath).relative_to(
+                        Path(parent_module_name)
+                    )
+
+            parent_purl = self._gomod_data[parent_module_name]["purl"]
+            dep_purl = to_purl(dependency, relpath_from_parent_module_to_dep)
             dep_purl = replace_parent_purl_placeholder(dep_purl, parent_purl)
             icm_source = {"purl": dep_purl}
             self._gomod_data[package.name]["dependencies"].append(icm_source)
@@ -85,8 +109,49 @@ class ContentManifest:
         :param Dependency dependency: the go-package package dependency to process
         """
         if dependency.type == "go-package":
-            icm_dependency = {"purl": to_purl(dependency)}
+            if dependency.version and dependency.version.startswith("."):
+                dep_purl = self._get_local_go_package_dep_purl(package, dependency)
+            else:
+                dep_purl = to_purl(dependency)
+
+            icm_dependency = {"purl": dep_purl}
             self._gopkg_data[package]["dependencies"].append(icm_dependency)
+
+    def _get_local_go_package_dep_purl(self, package: "Package", dependency: "Package") -> str:
+        """
+        Get the purl for a local go-package dependency.
+
+        :param Package package: the go-package package to process
+        :param Dependency dependency: the go-package package dependency to process
+        """
+        if not dependency.version or not dependency.version.startswith("."):
+            raise ValueError(f"{dependency} has an invalid version for a local dependency")
+
+        modules = self.go_modules_by_name
+        dep_module_name = gomod.match_parent_module(dependency.name, modules.keys())
+
+        # if the dep_module is in this repo, replace the dependency version with the module version
+        if dep_module_name is not None:
+            dependency.version = modules[dep_module_name].version
+            return to_purl(dependency)
+
+        # dep_module is not in this repo, so use a purl with a relative path from the root module
+        package_module_name = gomod.match_parent_module(package.name, modules.keys())
+        if package_module_name is None:
+            # This should be impossible. A top-level go-package should match a module
+            raise RuntimeError(f"Could not find parent Go module for package: {package.name}")
+
+        dep_normpath = os.path.normpath(os.path.join(package_module_name, dependency.version))
+        dep_module_name = gomod.match_parent_module(dep_normpath, modules.keys())
+        if dep_module_name is None:
+            # This should be impossible. The dep module should at least match the root module
+            raise RuntimeError(f"Could not find parent Go module for package: {dep_normpath}")
+
+        relpath_from_parent_module_to_dep = Path(dep_normpath).relative_to(Path(dep_module_name))
+        parent_purl = self._gomod_data[dep_module_name]["purl"]
+        dep_purl = to_purl(dependency, relpath_from_parent_module_to_dep)
+
+        return replace_parent_purl_placeholder(dep_purl, parent_purl)
 
     def set_go_package_sources(self):
         """
@@ -108,7 +173,6 @@ class ContentManifest:
             if module_name is not None:
                 module = self._gomod_data[module_name]
                 self._gopkg_data[package_id]["sources"] = module["dependencies"]
-                replace_parent_purl_gopkg(self._gopkg_data[package_id], module["purl"])
             else:
                 flask.current_app.logger.warning(
                     "Could not find a Go module for %s", pkg_data["purl"]
