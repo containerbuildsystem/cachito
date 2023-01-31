@@ -93,3 +93,45 @@ def test_gomod_workspace_check(test_env):
         f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
         f"{completed_response.data['state_reason']}. Expected message was: {error_msg}"
     )
+
+
+def test_gomod_with_local_replacements_in_parent_dir_missing(test_env):
+    """
+    Test that a gomod local replacement from a parent directory includes the parent module.
+
+    For example, if in the foo/bar module we locally replace the foo module with ../ we
+    need to also include the parent foo module in the same cachito request.
+
+    Checks:
+    * The request failed with expected error message
+    """
+    env_data = utils.load_test_data("gomod_packages.yaml")["with_local_replacements_in_parent_dir"]
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+
+    # include only the submodule and not the parent
+    packages = {"gomod": [{"path": "foo-module"}]}
+    initial_response = client.create_new_request(
+        payload={
+            "repo": env_data["repo"],
+            "ref": env_data["ref"],
+            "pkg_managers": env_data["pkg_managers"],
+            "packages": packages,
+        },
+    )
+    completed_response = client.wait_for_complete_request(initial_response)
+    assert completed_response.status == 200
+    assert completed_response.data["state"] == "failed"
+    error_msg = (
+        "Could not find a Go module in this request containing "
+        "github.com/cachito-testing/cachito-gomod-local-parent-deps while processing "
+        "dependency {'name': 'github.com/cachito-testing/cachito-gomod-local-parent-deps', "
+        "'replaces': None, 'type': 'gomod', 'version': '../'} of package "
+        "github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module. Please tell "
+        "Cachito to process the module which contains the dependency. Perhaps the parent "
+        "module of github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module?"
+    )
+
+    assert error_msg in completed_response.data["state_reason"], (
+        f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
+        f"{completed_response.data['state_reason']}. Expected message was: {error_msg}"
+    )

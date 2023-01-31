@@ -127,6 +127,12 @@ class DevelopmentConfig(Config):
     cachito_yarn_file_deps_allowlist = {"cachito-yarn-test": ["subpackage"]}
     cachito_gomod_file_deps_allowlist = {
         "github.com/cachito-testing/cachito-gomod-local-deps": ["github.com/cachito-testing/*"],
+        "github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module": [
+            "github.com/cachito-testing/*"
+        ],
+        "github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module": [
+            "github.com/cachito-testing/*"
+        ],
     }
     cachito_rubygems_file_deps_allowlist = {
         "cachito-rubygems-with-dependencies": ["pathgem"],

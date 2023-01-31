@@ -1997,3 +1997,710 @@ with_workspace:
   repo: https://github.com/cachito-testing/cachito-gomod-with-workspace.git
   ref: 8149e2e6996ec6e5b572a15b243773a277229f32
   pkg_managers: ["gomod"]
+with_local_replacements_in_parent_dir:
+  repo: https://github.com/cachito-testing/cachito-gomod-local-parent-deps
+  ref: 651e1901735b02f18465cf7ed3618e48ea6387a1
+  pkg_managers: ["gomod"]
+  packages:
+    gomod:
+      - path: "."
+      - path: "foo-module"
+      - path: "foo-module/bar-module"
+  response_expectations:
+    packages:
+      - dependencies:
+        - name: errors
+          replaces: null
+          type: go-package
+          version: null
+        - name: fmt
+          replaces: null
+          type: go-package
+          version: null
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/baz-package
+          replaces: null
+          type: go-package
+          version: v1.0.0
+        - name: internal/abi
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/cpu
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/fmtsort
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/itoa
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/oserror
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/poll
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/race
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/execenv
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/unix
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/testlog
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/unsafeheader
+          replaces: null
+          type: go-package
+          version: null
+        - name: io
+          replaces: null
+          type: go-package
+          version: null
+        - name: io/fs
+          replaces: null
+          type: go-package
+          version: null
+        - name: math
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/bits
+          replaces: null
+          type: go-package
+          version: null
+        - name: os
+          replaces: null
+          type: go-package
+          version: null
+        - name: path
+          replaces: null
+          type: go-package
+          version: null
+        - name: reflect
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/math
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: sort
+          replaces: null
+          type: go-package
+          version: null
+        - name: strconv
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: time
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode/utf8
+          replaces: null
+          type: go-package
+          version: null
+        - name: unsafe
+          replaces: null
+          type: go-package
+          version: null
+        name: github.com/cachito-testing/cachito-gomod-local-parent-deps
+        type: go-package
+        version: v1.0.0
+      - dependencies:
+        - name: errors
+          replaces: null
+          type: go-package
+          version: null
+        - name: fmt
+          replaces: null
+          type: go-package
+          version: null
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/baz-package
+          replaces: null
+          type: go-package
+          version: ../baz-package
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module/bar-package
+          replaces: null
+          type: go-package
+          version: ./foo-package/../bar-module/bar-package
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/foo-package
+          replaces: null
+          type: go-package
+          version: v0.0.0-20230131175254-651e1901735b
+        - name: github.com/cachito-testing/spam-module/spam
+          replaces: null
+          type: go-package
+          version: ../staging/src/spam-module/spam
+        - name: internal/abi
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/cpu
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/fmtsort
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/itoa
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/oserror
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/poll
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/race
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/execenv
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/unix
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/testlog
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/unsafeheader
+          replaces: null
+          type: go-package
+          version: null
+        - name: io
+          replaces: null
+          type: go-package
+          version: null
+        - name: io/fs
+          replaces: null
+          type: go-package
+          version: null
+        - name: math
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/bits
+          replaces: null
+          type: go-package
+          version: null
+        - name: os
+          replaces: null
+          type: go-package
+          version: null
+        - name: path
+          replaces: null
+          type: go-package
+          version: null
+        - name: reflect
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/math
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: sort
+          replaces: null
+          type: go-package
+          version: null
+        - name: strconv
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: time
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode/utf8
+          replaces: null
+          type: go-package
+          version: null
+        - name: unsafe
+          replaces: null
+          type: go-package
+          version: null
+        name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module
+        path: foo-module
+        type: go-package
+        version: v0.0.0-20230131175254-651e1901735b
+      - dependencies:
+        - name: errors
+          replaces: null
+          type: go-package
+          version: null
+        - name: fmt
+          replaces: null
+          type: go-package
+          version: null
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/baz-package
+          replaces: null
+          type: go-package
+          version: ../../baz-package
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module/bar-package
+          replaces: null
+          type: go-package
+          version: v0.0.0-20230131175254-651e1901735b
+        - name: internal/abi
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/cpu
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/fmtsort
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/itoa
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/oserror
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/poll
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/race
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/execenv
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/unix
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/testlog
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/unsafeheader
+          replaces: null
+          type: go-package
+          version: null
+        - name: io
+          replaces: null
+          type: go-package
+          version: null
+        - name: io/fs
+          replaces: null
+          type: go-package
+          version: null
+        - name: math
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/bits
+          replaces: null
+          type: go-package
+          version: null
+        - name: os
+          replaces: null
+          type: go-package
+          version: null
+        - name: path
+          replaces: null
+          type: go-package
+          version: null
+        - name: reflect
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/math
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: sort
+          replaces: null
+          type: go-package
+          version: null
+        - name: strconv
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: time
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode/utf8
+          replaces: null
+          type: go-package
+          version: null
+        - name: unsafe
+          replaces: null
+          type: go-package
+          version: null
+        name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module
+        path: foo-module/bar-module
+        type: go-package
+        version: v0.0.0-20230131175254-651e1901735b
+      - dependencies: []
+        name: github.com/cachito-testing/cachito-gomod-local-parent-deps
+        type: gomod
+        version: v1.0.0
+      - dependencies:
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps
+          replaces: null
+          type: gomod
+          version: ../
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module
+          replaces: null
+          type: gomod
+          version: ./foo-package/../bar-module
+        - name: github.com/cachito-testing/spam-module
+          replaces: null
+          type: gomod
+          version: ../staging/src/spam-module
+        name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module
+        path: foo-module
+        type: gomod
+        version: v0.0.0-20230131175254-651e1901735b
+      - dependencies:
+        - name: github.com/cachito-testing/cachito-gomod-local-parent-deps
+          replaces: null
+          type: gomod
+          version: ../../
+        name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module
+        path: foo-module/bar-module
+        type: gomod
+        version: v0.0.0-20230131175254-651e1901735b
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-gomod-local-parent-deps/tarball/651e1901735b02f18465cf7ed3618e48ea6387a1
+    deps/gomod/pkg/mod/cache/download: null
+  content_manifest:
+  - dep_purls:
+    - pkg:golang/errors
+    - pkg:golang/fmt
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Fbaz-package@v1.0.0
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module%2Fbar-package@v0.0.0-20230131175254-651e1901735b
+    - pkg:golang/internal%2Fabi
+    - pkg:golang/internal%2Fbytealg
+    - pkg:golang/internal%2Fcpu
+    - pkg:golang/internal%2Ffmtsort
+    - pkg:golang/internal%2Fgoarch
+    - pkg:golang/internal%2Fgoexperiment
+    - pkg:golang/internal%2Fgoos
+    - pkg:golang/internal%2Fitoa
+    - pkg:golang/internal%2Foserror
+    - pkg:golang/internal%2Fpoll
+    - pkg:golang/internal%2Frace
+    - pkg:golang/internal%2Freflectlite
+    - pkg:golang/internal%2Fsafefilepath
+    - pkg:golang/internal%2Fsyscall%2Fexecenv
+    - pkg:golang/internal%2Fsyscall%2Funix
+    - pkg:golang/internal%2Ftestlog
+    - pkg:golang/internal%2Funsafeheader
+    - pkg:golang/io
+    - pkg:golang/io%2Ffs
+    - pkg:golang/math
+    - pkg:golang/math%2Fbits
+    - pkg:golang/os
+    - pkg:golang/path
+    - pkg:golang/reflect
+    - pkg:golang/runtime
+    - pkg:golang/runtime%2Finternal%2Fatomic
+    - pkg:golang/runtime%2Finternal%2Fmath
+    - pkg:golang/runtime%2Finternal%2Fsys
+    - pkg:golang/runtime%2Finternal%2Fsyscall
+    - pkg:golang/sort
+    - pkg:golang/strconv
+    - pkg:golang/sync
+    - pkg:golang/sync%2Fatomic
+    - pkg:golang/syscall
+    - pkg:golang/time
+    - pkg:golang/unicode
+    - pkg:golang/unicode%2Futf8
+    - pkg:golang/unsafe
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module@v0.0.0-20230131175254-651e1901735b
+    source_purls:
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0
+  - dep_purls:
+    - pkg:golang/errors
+    - pkg:golang/fmt
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Fbaz-package@v1.0.0
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module%2Fbar-package@v0.0.0-20230131175254-651e1901735b
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Ffoo-package@v0.0.0-20230131175254-651e1901735b
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0#staging/src/spam-module/spam
+    - pkg:golang/internal%2Fabi
+    - pkg:golang/internal%2Fbytealg
+    - pkg:golang/internal%2Fcpu
+    - pkg:golang/internal%2Ffmtsort
+    - pkg:golang/internal%2Fgoarch
+    - pkg:golang/internal%2Fgoexperiment
+    - pkg:golang/internal%2Fgoos
+    - pkg:golang/internal%2Fitoa
+    - pkg:golang/internal%2Foserror
+    - pkg:golang/internal%2Fpoll
+    - pkg:golang/internal%2Frace
+    - pkg:golang/internal%2Freflectlite
+    - pkg:golang/internal%2Fsafefilepath
+    - pkg:golang/internal%2Fsyscall%2Fexecenv
+    - pkg:golang/internal%2Fsyscall%2Funix
+    - pkg:golang/internal%2Ftestlog
+    - pkg:golang/internal%2Funsafeheader
+    - pkg:golang/io
+    - pkg:golang/io%2Ffs
+    - pkg:golang/math
+    - pkg:golang/math%2Fbits
+    - pkg:golang/os
+    - pkg:golang/path
+    - pkg:golang/reflect
+    - pkg:golang/runtime
+    - pkg:golang/runtime%2Finternal%2Fatomic
+    - pkg:golang/runtime%2Finternal%2Fmath
+    - pkg:golang/runtime%2Finternal%2Fsys
+    - pkg:golang/runtime%2Finternal%2Fsyscall
+    - pkg:golang/sort
+    - pkg:golang/strconv
+    - pkg:golang/sync
+    - pkg:golang/sync%2Fatomic
+    - pkg:golang/syscall
+    - pkg:golang/time
+    - pkg:golang/unicode
+    - pkg:golang/unicode%2Futf8
+    - pkg:golang/unsafe
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module@v0.0.0-20230131175254-651e1901735b
+    source_purls:
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module@v0.0.0-20230131175254-651e1901735b
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0#staging/src/spam-module
+  - dep_purls:
+    - pkg:golang/errors
+    - pkg:golang/fmt
+    - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Fbaz-package@v1.0.0
+    - pkg:golang/internal%2Fabi
+    - pkg:golang/internal%2Fbytealg
+    - pkg:golang/internal%2Fcpu
+    - pkg:golang/internal%2Ffmtsort
+    - pkg:golang/internal%2Fgoarch
+    - pkg:golang/internal%2Fgoexperiment
+    - pkg:golang/internal%2Fgoos
+    - pkg:golang/internal%2Fitoa
+    - pkg:golang/internal%2Foserror
+    - pkg:golang/internal%2Fpoll
+    - pkg:golang/internal%2Frace
+    - pkg:golang/internal%2Freflectlite
+    - pkg:golang/internal%2Fsafefilepath
+    - pkg:golang/internal%2Fsyscall%2Fexecenv
+    - pkg:golang/internal%2Fsyscall%2Funix
+    - pkg:golang/internal%2Ftestlog
+    - pkg:golang/internal%2Funsafeheader
+    - pkg:golang/io
+    - pkg:golang/io%2Ffs
+    - pkg:golang/math
+    - pkg:golang/math%2Fbits
+    - pkg:golang/os
+    - pkg:golang/path
+    - pkg:golang/reflect
+    - pkg:golang/runtime
+    - pkg:golang/runtime%2Finternal%2Fatomic
+    - pkg:golang/runtime%2Finternal%2Fmath
+    - pkg:golang/runtime%2Finternal%2Fsys
+    - pkg:golang/runtime%2Finternal%2Fsyscall
+    - pkg:golang/sort
+    - pkg:golang/strconv
+    - pkg:golang/sync
+    - pkg:golang/sync%2Fatomic
+    - pkg:golang/syscall
+    - pkg:golang/time
+    - pkg:golang/unicode
+    - pkg:golang/unicode%2Futf8
+    - pkg:golang/unsafe
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0
+    source_purls: []
