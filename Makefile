@@ -57,6 +57,14 @@ run-build run-rebuild: run-down
 # stop any containers, rebuild containers, and start it again
 run-build-start: run-rebuild run-start
 
+lint run-lint: 
+	PATH="${PWD}/venv/bin:${PATH}"
+	tox -e bandit
+	tox -e black
+	tox -e isort
+	tox -e flake8
+	tox -e mypy
+
 # Keep test target for backwards compatibility
 test test-unit:
 	PATH="${PWD}/venv/bin:${PATH}" tox
