@@ -516,6 +516,35 @@ def test_extra_query_parameter(client):
     assert rv.json["error"] == "Extra query parameter(s) tom_hanks not in spec"
 
 
+@pytest.mark.parametrize(
+    "date, is_valid, expected_status",
+    [
+        ("tom_hanks", False, 400),
+        ("2011-11-04", True, 200),
+        ("2011-20-04", False, 400),
+        ("2011-11-04T00:05:23", True, 200),
+        ("2011-01-01T24:00:00", False, 400),
+        ("2011-11-04 00:05:23.283", True, 200),
+        ("2011-01-01T22:00:00.0", True, 200),
+        ("1676468605", False, 400),
+    ],
+)
+def test_datetime_validator(client, date, is_valid, expected_status):
+    urls = [
+        f"requests?created_from={date}",
+        f"requests?created_to={date}",
+        f"request-metrics?finished_from={date}",
+        f"request-metrics?finished_to={date}",
+    ]
+
+    for url in urls:
+        rv = client.get(f"api/v1/{url}")
+        if not is_valid:
+            expected = f"'{date}' is not a valid datetime(ISO 8601 format)."
+            assert expected in rv.json["error"]
+        assert rv.status_code == expected_status
+
+
 def test_fetch_paginated_requests(
     app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env, tmpdir
 ):

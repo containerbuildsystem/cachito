@@ -159,6 +159,7 @@ paths:
           schema:
             type: string
             example: "2019-09-17T18:52:57.577851"
+            format: datetime
         - name: created_to
           in: query
           description: >
@@ -168,6 +169,7 @@ paths:
           schema:
             type: string
             example: "2019-09-17T18:52:57.577851"
+            format: datetime
         - name: error_origin
           in: query
           description: Filter requests by the given request error origin
@@ -715,6 +717,7 @@ paths:
         required: false
         schema:
           type: string
+          format: datetime
         examples:
           date:
             value: "2021-12-01"
@@ -728,6 +731,7 @@ paths:
         required: false
         schema:
           type: string
+          format: datetime
         examples:
           date:
             value: "2021-12-31"
@@ -787,6 +791,7 @@ paths:
         schema:
           type: string
           example: "2021-12-01"
+          format: datetime
       - name: finished_to
         description: The latest possible date/time of request end (date, datetime or timestamp format)
         in: query
@@ -794,6 +799,7 @@ paths:
         schema:
           type: string
           example: "2021-12-31"
+          format: datetime
       responses:
         "200":
           description: Aggregated data about all requests of the given period
