@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import datetime
 from typing import Any, Dict, List
 
 import jsonschema
@@ -94,3 +95,19 @@ class ParameterValidator(decorators.validation.ParameterValidator):
                 raise ValidationError(exception.detail)
 
         return handle_wrapper
+
+
+@jsonschema.draft4_format_checker.checks("datetime")
+def datetime_validator(val: Any) -> bool:
+    """Validate that datetime fields have the correct format."""
+    if not isinstance(val, str):
+        raise ValidationError(
+            f"'{val}' is not string type to be evaluated as datetime(ISO 8601 format)."
+        )
+
+    try:
+        datetime.datetime.fromisoformat(val)
+    except ValueError:
+        raise ValidationError(f"'{val}' is not a valid datetime(ISO 8601 format).")
+
+    return True
