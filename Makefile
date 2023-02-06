@@ -69,11 +69,9 @@ test-suite test-tox:
 
 test-all: test-unit test-integration
 
-pip-compile: venv/bin/pip-compile
+pip-compile:
+	venv/bin/pip install -U pip-tools
 	# --allow-unsafe: we use pkg_resources (provided by setuptools) as a runtime dependency
 	venv/bin/pip-compile --allow-unsafe --generate-hashes --output-file=requirements.txt requirements.in
 	venv/bin/pip-compile --generate-hashes --output-file=requirements-web.txt requirements-web.in
 	venv/bin/pip-compile --generate-hashes --output-file=requirements-test.txt requirements-test.in
-
-venv/bin/pip-compile:
-	venv/bin/pip install pip-tools
