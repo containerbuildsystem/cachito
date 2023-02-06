@@ -310,7 +310,7 @@ def sqlite_utcnow(element, compiler, **kw):
     return r"(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))"
 
 
-class Request(db.Model):
+class Request(db.Model):  # type: ignore[name-defined]
     """A Cachito user request."""
 
     id = db.Column(db.Integer, primary_key=True)
@@ -621,7 +621,7 @@ class Request(db.Model):
         self.state = request_state
 
 
-class PackageManager(db.Model):
+class PackageManager(db.Model):  # type: ignore[name-defined]
     """A package manager that Cachito supports."""
 
     id = db.Column(db.Integer, primary_key=True)
@@ -683,7 +683,7 @@ class PackageManager(db.Model):
         return cls.query.filter(cls.name == name).scalar()
 
 
-class RequestState(db.Model):
+class RequestState(db.Model):  # type: ignore[name-defined]
     """Represents a state (historical or present) of a request."""
 
     id = db.Column(db.Integer, primary_key=True)
@@ -744,7 +744,7 @@ class RequestState(db.Model):
         )
 
 
-class RequestError(db.Model):
+class RequestError(db.Model):  # type: ignore[name-defined]
     """A Cachito request error."""
 
     id = db.Column(db.Integer, primary_key=True, unique=True)
@@ -783,7 +783,7 @@ class RequestError(db.Model):
         return cls(**data)
 
 
-class EnvironmentVariable(db.Model):
+class EnvironmentVariable(db.Model):  # type: ignore[name-defined]
     """An environment variable that the consumer of the request should set."""
 
     VALID_KINDS = ("path", "literal")
@@ -847,7 +847,7 @@ class EnvironmentVariable(db.Model):
         return cls(name=name, **info)
 
 
-class User(db.Model, UserMixin):
+class User(db.Model, UserMixin):  # type: ignore[name-defined]
     """Represents an external user that owns a Cachito request."""
 
     id = db.Column(db.Integer, primary_key=True)
@@ -872,7 +872,7 @@ class User(db.Model, UserMixin):
         return user
 
 
-class Flag(db.Model):
+class Flag(db.Model):  # type: ignore[name-defined]
     """A flag to enable a feature on the Cachito request."""
 
     id = db.Column(db.Integer, primary_key=True)
@@ -947,7 +947,7 @@ class ConfigFileBase:
                 )
 
 
-class ConfigFileBase64(ConfigFileBase, db.Model):
+class ConfigFileBase64(ConfigFileBase, db.Model):  # type: ignore[name-defined]
     """A configuration file that the consumer must set for the bundle to be usable."""
 
     content = db.Column(db.String, nullable=False)
