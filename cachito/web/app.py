@@ -4,7 +4,7 @@ import os
 from timeit import default_timer as timer
 
 import pydantic
-from flask import Flask, current_app
+from flask import Flask, current_app, has_request_context, request
 from flask.logging import default_handler
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -25,6 +25,19 @@ from cachito.web.config import validate_cachito_config
 from cachito.web.docs import docs
 from cachito.web.errors import json_error, validation_error
 from cachito.web.metrics import init_metrics
+
+
+class LogFormatter(logging.Formatter):
+    """Make request fields available to the logger."""
+
+    def format(self, record):
+        """Make the remote address (or client IP) available to the logger."""
+        if has_request_context():
+            record.remote_addr = request.remote_addr
+        else:
+            record.remote_addr = None
+
+        return super().format(record)
 
 
 def healthcheck():
@@ -88,7 +101,7 @@ def create_app(config_obj=None):
 
     # Configure logging
     default_handler.setFormatter(
-        logging.Formatter(fmt=app.config["CACHITO_LOG_FORMAT"], datefmt="%Y-%m-%d %H:%M:%S")
+        LogFormatter(fmt=app.config["CACHITO_LOG_FORMAT"], datefmt="%Y-%m-%d %H:%M:%S")
     )
     app.logger.setLevel(app.config["CACHITO_LOG_LEVEL"])
     for logger_name in app.config["CACHITO_ADDITIONAL_LOGGERS"]:

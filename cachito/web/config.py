@@ -17,7 +17,9 @@ class Config(object):
     CACHITO_DEFAULT_PACKAGE_MANAGERS: List[str] = ["gomod"]
     # This sets the level of the "flask.app" logger, which is accessed from current_app.logger
     CACHITO_LOG_LEVEL = "INFO"
-    CACHITO_LOG_FORMAT = "[%(asctime)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
+    CACHITO_LOG_FORMAT = (
+        "[%(asctime)s %(levelname)s %(module)s.%(funcName)s %(remote_addr)s] %(message)s"
+    )
     CACHITO_MAX_PER_PAGE = 100
     # Pairs of mutually exclusive package managers (cannot process the same package)
     CACHITO_MUTUALLY_EXCLUSIVE_PACKAGE_MANAGERS = [("npm", "yarn")]
