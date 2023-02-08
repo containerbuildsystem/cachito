@@ -36,6 +36,7 @@ venv:
 	venv/bin/pip install --upgrade pip
 	venv/bin/pip install -r requirements.txt -r requirements-web.txt
 	venv/bin/pip install tox
+	venv/bin/pip install 'cachi2 @ https://github.com/chmeliik/cachi2/archive/cachito-compatibility.tar.gz'
 	venv/bin/python setup.py develop
 
 # Keep run target for backwards compatibility

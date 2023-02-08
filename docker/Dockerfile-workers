@@ -20,12 +20,15 @@ RUN dnf -y install \
     strace \
     && dnf clean all
 
-COPY . .
+COPY requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes
 
-# All the requirements except pyarn should already be installed
-RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes \
-    && pip3 install . --no-deps --no-cache-dir \
+COPY . .
+RUN pip3 install . --no-deps --no-cache-dir \
     && rm -rf .git
+
+RUN pip3 install -U pip \
+    && pip3 install 'cachi2 @ https://github.com/chmeliik/cachi2/archive/cachito-compatibility.tar.gz'
 
 # Use the system CA bundle for the requests library
 ENV REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/pem/directory-hash/ca-bundle.crt

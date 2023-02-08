@@ -1,0 +1,3 @@
+- TODO: the build process breaks if you try to add cachi2 to the requirements properly
+    - pip in base image too old to understand pyproject.toml metadata
+    - if you upgrade pip, then the build fails on uninstalling setuptools (because setuptools is installed from RPM)
