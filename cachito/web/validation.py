@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 import jsonschema
 from connexion import decorators
+from connexion.exceptions import BadRequestProblem, ExtraParameterProblem
 
 from cachito.errors import ValidationError
 
@@ -70,3 +71,26 @@ class RequestBodyValidator(decorators.validation.RequestBodyValidator):
             raise ValidationError(exception.message)
 
         return None
+
+
+class ParameterValidator(decorators.validation.ParameterValidator):
+    """
+    Changes the default Connexion exception to Cachito's ValidationError.
+
+    For more information about custom validation error handling:
+        - https://github.com/zalando/connexion/issues/558
+        - https://connexion.readthedocs.io/en/latest/request.html
+    """
+
+    def __call__(self, function):
+        """Throw cachito.ValidationError."""
+        wrapper = super().__call__(function)
+
+        def handle_wrapper(request):
+            """Handle original wrapper."""
+            try:
+                return wrapper(request)
+            except (BadRequestProblem, ExtraParameterProblem) as exception:
+                raise ValidationError(exception.detail)
+
+        return handle_wrapper
