@@ -7,6 +7,8 @@ services:
       POSTGRES_PASSWORD: cachito
       POSTGRES_DB: cachito
       POSTGRES_INITDB_ARGS: "--auth='ident' --auth='trust'"
+    volumes:
+      - db-storage:/var/run/postgresql
 
   rabbitmq:
     image: rabbitmq:3.9-management
@@ -115,3 +117,4 @@ volumes:
   cachito-archives:
   athens-storage:
   cachito-request-logs:
+  db-storage:
