@@ -44,10 +44,10 @@ setup(
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
     license="GPLv3+",
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     use_scm_version={
         "version_scheme": "post-release",
     },
