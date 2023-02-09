@@ -2,7 +2,6 @@
 import copy
 import json
 import os
-import re
 import urllib.parse
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -41,10 +40,6 @@ from cachito.workers.tasks import (
     fetch_yarn_source,
     finalize_request,
     process_fetched_sources,
-)
-
-RE_INVALID_PACKAGES_VALUE = (
-    r'The value of "packages.\w+" must be an array of objects with the following keys: \w+(, \w+)*'
 )
 
 
@@ -514,6 +509,12 @@ def test_create_and_fetch_request_with_flag(mock_chain, app, auth_env, client, d
     assert fetched_request["logs"]["url"] == "http://localhost/api/v1/requests/1/logs"
 
 
+def test_extra_query_parameter(client):
+    # Extra query parameter returns error
+    rv = client.get("/api/v1/requests?tom_hanks=tom_hanks")
+    assert rv.json["error"] == "Extra query parameter(s) tom_hanks not in spec"
+
+
 def test_fetch_paginated_requests(
     app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env, tmpdir
 ):
@@ -566,10 +567,9 @@ def test_fetch_paginated_requests(
     assert fetched_requests[0]["dependencies"] == len(sample_deps_replace)
     assert fetched_requests[0]["packages"] == 1
 
-    # Invalid per_page defaults to 10
+    # Invalid per_page returns error
     rv = client.get("/api/v1/requests?per_page=tom_hanks")
-    assert len(rv.json["items"]) == 10
-    assert response["meta"]["per_page"] == 10
+    assert rv.json["error"] == "Wrong type, expected 'integer' for query parameter 'per_page'"
 
     # per_page and page parameters are honored
     rv = client.get("/api/v1/requests?page=3&per_page=5&verbose=True&state=complete")
@@ -822,9 +822,9 @@ def test_invalid_state(app, auth_env, client, db):
     """Test that the proper error is thrown when an invalid state is entered."""
     rv = client.get("/api/v1/requests?state=complet")
     assert rv.status_code == 400
+    states = ["in_progress", "complete", "failed", "stale"]
     response = rv.json
-    states = ", ".join(RequestStateMapping.get_state_names())
-    assert response["error"] == f"complet is not a valid request state. Valid states are: {states}"
+    assert f"'complet' is not one of {states}" in response["error"]
 
 
 def assert_request_is_not_created(**criteria):
@@ -848,12 +848,19 @@ def test_create_request_invalid_repo(invalid_repo, auth_env, client, db):
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == 'The "repo" parameter must be shorter than 200 characters'
+    assert rv.json["error"] == f"'{invalid_repo}' is too long"
     assert_request_is_not_created(repo=invalid_repo)
 
 
-@pytest.mark.parametrize("invalid_ref", ["not-a-ref", "23ae3f", "1234" * 20])
-def test_create_request_invalid_ref(invalid_ref, auth_env, client, db):
+@pytest.mark.parametrize(
+    "invalid_ref, size",
+    (
+        ("not-a-ref", "short"),
+        ("23ae3f", "short"),
+        ("1234" * 20, "long"),
+    ),
+)
+def test_create_request_invalid_ref(invalid_ref, size, auth_env, client, db):
     data = {
         "repo": "https://github.com/release-engineering/retrodep.git",
         "ref": invalid_ref,
@@ -862,16 +869,16 @@ def test_create_request_invalid_ref(invalid_ref, auth_env, client, db):
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == 'The "ref" parameter must be a 40 character hex string'
+    assert rv.json["error"] == f"'{invalid_ref}' is too {size}"
     assert_request_is_not_created(ref=invalid_ref)
 
 
 @pytest.mark.parametrize(
     "pkg_managers, expected",
     (
-        (["something_wrong"], "The following package managers are invalid: something_wrong"),
-        ("gomod", 'The "pkg_managers" value must be an array of strings'),
-        ([True], 'The "pkg_managers" value must be an array of strings'),
+        (["something_wrong"], "'something_wrong' is not one of"),
+        ("gomod", "'gomod' is not of type 'array'"),
+        ([True], "True is not of type 'string'"),
     ),
 )
 def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, client, db):
@@ -883,7 +890,7 @@ def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, cl
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == expected
+    assert expected in rv.json["error"]
 
 
 @pytest.mark.parametrize(
@@ -892,10 +899,9 @@ def test_create_request_invalid_pkg_manager(pkg_managers, expected, auth_env, cl
         (
             "npm",
             ["mypackage"],
-            "A dependency replacement must be a JSON object with the following keys: name, type, "
-            "version. It may also contain the following optional keys: new_name.",
+            "'mypackage' is not of type 'object'",
         ),
-        ("npm", "mypackage", '"dependency_replacements" must be an array'),
+        ("npm", "mypackage", "'mypackage' is not of type 'array'"),
         (
             "npm",
             [{"name": "rxjs", "type": "npm", "version": "6.5.5"}],
@@ -936,15 +942,15 @@ def test_create_request_invalid_dependency_replacement(
 @pytest.mark.parametrize(
     "packages, pkg_managers, error_msg",
     (
-        (["npm"], ["npm"], 'The "packages" parameter must be an object'),
+        (["npm"], ["npm"], "is not of type 'object'"),
         (
             {"gomod": [{"path": "client"}]},
             ["npm"],
             'The following package managers in the "packages" object do not apply: gomod',
         ),
-        ({"gomod": {"path": "client"}}, ["gomod"], RE_INVALID_PACKAGES_VALUE),
-        ({"gomod": ["path"]}, ["gomod"], RE_INVALID_PACKAGES_VALUE),
-        ({"gomod": [{}]}, ["gomod"], RE_INVALID_PACKAGES_VALUE),
+        ({"gomod": {"path": "client"}}, ["gomod"], "is not of type 'array'"),
+        ({"gomod": ["path"]}, ["gomod"], "is not of type 'object'"),
+        ({"gomod": [{}]}, ["gomod"], "must be an array of objects with the following keys"),
         (
             {"npm": [{"path": "client"}]},
             ["gomod"],
@@ -974,16 +980,13 @@ def test_create_request_invalid_dependency_replacement(
                 "source repository"
             ),
         ),
-        ({"npm": {"path": "client"}}, ["npm"], RE_INVALID_PACKAGES_VALUE),
-        ({"npm": ["path"]}, ["npm"], RE_INVALID_PACKAGES_VALUE),
-        ({"npm": [{}]}, ["npm"], RE_INVALID_PACKAGES_VALUE),
+        ({"npm": {"path": "client"}}, ["npm"], "is not of type 'array'"),
+        ({"npm": ["path"]}, ["npm"], "is not of type 'object'"),
+        ({"npm": [{}]}, ["npm"], "must be an array of objects with the following keys"),
         (
             {"npm": [{"path": 1}]},
             ["npm"],
-            (
-                'The "path" values in the "packages.npm" value must be to a relative path in the '
-                "source repository"
-            ),
+            "is not of type 'string'",
         ),
         (
             {"npm": [{"path": ""}]},
@@ -1009,8 +1012,16 @@ def test_create_request_invalid_dependency_replacement(
                 "source repository"
             ),
         ),
-        ({"pip": {"path": "client"}}, ["pip"], RE_INVALID_PACKAGES_VALUE),
-        ({"pip": [{}]}, ["pip"], RE_INVALID_PACKAGES_VALUE),
+        (
+            {"pip": {"path": "client"}},
+            ["pip"],
+            "is not of type 'array'",
+        ),
+        (
+            {"pip": [{}]},
+            ["pip"],
+            "must be an array of objects with the following keys",
+        ),
         (
             {"pip": [{"requirements_files": ["../etc/httpd", "foo"]}]},
             ["pip"],
@@ -1027,16 +1038,13 @@ def test_create_request_invalid_dependency_replacement(
                 "relative path in the source repository"
             ),
         ),
-        ({"yarn": {"path": "client"}}, ["yarn"], RE_INVALID_PACKAGES_VALUE),
-        ({"yarn": ["path"]}, ["yarn"], RE_INVALID_PACKAGES_VALUE),
-        ({"yarn": [{}]}, ["yarn"], RE_INVALID_PACKAGES_VALUE),
+        ({"yarn": {"path": "client"}}, ["yarn"], "is not of type 'array'"),
+        ({"yarn": ["path"]}, ["yarn"], "is not of type 'object'"),
+        ({"yarn": [{}]}, ["yarn"], "must be an array of objects with the following keys"),
         (
             {"yarn": [{"path": 1}]},
             ["yarn"],
-            (
-                'The "path" values in the "packages.yarn" value must be to a relative path in the '
-                "source repository"
-            ),
+            "is not of type 'string'",
         ),
         (
             {"yarn": [{"path": ""}]},
@@ -1062,7 +1070,7 @@ def test_create_request_invalid_dependency_replacement(
                 "source repository"
             ),
         ),
-        ({"rubygems": {"path": "client"}}, ["rubygems"], RE_INVALID_PACKAGES_VALUE),
+        ({"rubygems": {"path": "client"}}, ["rubygems"], "is not of type 'array'"),
         (
             {"rubygems": [{"path": "../../../../etc/httpd"}]},
             ["rubygems"],
@@ -1083,16 +1091,13 @@ def test_create_request_invalid_packages(packages, pkg_managers, error_msg, auth
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    assert re.match(error_msg, rv.json["error"])
+    assert error_msg in rv.json["error"]
 
 
 def test_create_request_not_an_object(auth_env, client, db):
     rv = client.post("/api/v1/requests", json=None, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == (
-        "Did not attempt to load JSON data because "
-        "the request Content-Type was not 'application/json'."
-    )
+    assert rv.json["error"] == "None is not of type 'object'"
 
 
 def test_create_request_invalid_parameter(auth_env, client, db):
@@ -1105,7 +1110,7 @@ def test_create_request_invalid_parameter(auth_env, client, db):
 
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
-    assert rv.json["error"] == "The following parameters are invalid: username"
+    assert rv.json["error"] == "Additional properties are not allowed ('username' was unexpected)"
 
 
 def test_create_request_cannot_set_user(client, db):
@@ -1189,9 +1194,7 @@ def test_validate_required_params(auth_env, client, db, removed_params):
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
     error_msg = rv.json["error"]
-    assert "Missing required" in error_msg
-    for removed_param in removed_params:
-        assert removed_param in error_msg
+    assert "is a required property" in error_msg
 
 
 def test_validate_extraneous_params(auth_env, client, db):
@@ -1205,7 +1208,7 @@ def test_validate_extraneous_params(auth_env, client, db):
     rv = client.post("/api/v1/requests", json=data, environ_base=auth_env)
     assert rv.status_code == 400
     error_msg = rv.json["error"]
-    assert error_msg == "The following parameters are invalid: spam"
+    assert error_msg == "Additional properties are not allowed ('spam' was unexpected)"
 
 
 @mock.patch("cachito.web.api_v1.chain")
@@ -1571,8 +1574,7 @@ def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
             1,
             {"state": "call_for_support", "state_reason": "It broke"},
             400,
-            'The state "call_for_support" is invalid. It must be one of: complete, failed, '
-            "in_progress, stale.",
+            "'call_for_support' is not one of ['in_progress', 'complete', 'failed', 'stale']",
         ),
         (
             1337,
@@ -1580,14 +1582,14 @@ def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
             404,
             "The requested resource was not found",
         ),
-        (1, {}, 400, "At least one key must be specified to update the request"),
+        (1, {}, 400, "{} does not have enough properties"),
         (
             1,
             {"state": "complete", "state_reason": "Success", "id": 42},
             400,
-            "The following keys are not allowed: id",
+            "Additional properties are not allowed ('id' was unexpected)",
         ),
-        (1, {"state": 1, "state_reason": "Success"}, 400, 'The value for "state" must be a string'),
+        (1, {"state": 1, "state_reason": "Success"}, 400, "1 is not of type 'string'"),
         (
             1,
             {"state": "complete"},
@@ -1600,48 +1602,48 @@ def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
             400,
             'The "state" key is required when "state_reason" is supplied',
         ),
-        (1, "some string", 400, "The input data must be a JSON object"),
+        (1, "some string", 400, "'some string' is not of type 'object'"),
         (
             1,
             {"environment_variables": "spam"},
             400,
-            'The value for "environment_variables" must be an object',
+            "'spam' is not of type 'object'",
         ),
         (
             1,
             {"environment_variables": {"spam": None}},
             400,
-            "The info of environment variables must be an object",
+            "None is not of type 'object'",
         ),
         (
             1,
             {"environment_variables": {"spam": ["maps"]}},
             400,
-            "The info of environment variables must be an object",
+            "['maps'] is not of type 'object'",
         ),
         (
             1,
             {"environment_variables": {"spam": {}}},
             400,
-            "The following keys must be set in the info of the environment variables: kind, value",
+            "'kind' is a required property",
         ),
         (
             1,
             {"environment_variables": {"spam": {"value": "maps", "kind": "literal", "x": "ham"}}},
             400,
-            "The following keys are not allowed in the info of the environment variables: x",
+            "Additional properties are not allowed ('x' was unexpected)",
         ),
         (
             1,
             {"environment_variables": {"spam": {"value": 101, "kind": "literal"}}},
             400,
-            "The value of environment variables must be a string",
+            "101 is not of type 'string'",
         ),
         (
             1,
             {"environment_variables": {"spam": {"value": "maps", "kind": 101}}},
             400,
-            "The kind of environment variables must be a string",
+            "101 is not of type 'string'",
         ),
         (
             1,
@@ -1649,12 +1651,12 @@ def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
             400,
             "The environment variable kind, ham, is not supported",
         ),
-        (1, {"packages_count": 1.5}, 400, 'The value for "packages_count" must be an integer'),
+        (1, {"packages_count": 1.5}, 400, "1.5 is not of type 'integer'"),
         (
             1,
             {"dependencies_count": 2.5},
             400,
-            'The value for "dependencies_count" must be an integer',
+            "2.5 is not of type 'integer'",
         ),
     ),
 )
@@ -1674,11 +1676,17 @@ def test_request_patch_invalid(
 
     rv = client.patch(f"/api/v1/requests/{request_id}", json=payload, environ_base=worker_auth_env)
     assert rv.status_code == status_code
-    assert rv.json == {"error": message}
+    assert message in rv.json["error"]
 
 
 def test_request_patch_not_authorized(auth_env, client, db):
-    rv = client.patch("/api/v1/requests/1", json={}, environ_base=auth_env)
+    data = {
+        "state": "complete",
+        "state_reason": "Ok",
+        "packages_count": 1,
+        "dependencies_count": 1,
+    }
+    rv = client.patch("/api/v1/requests/1", json=data, environ_base=auth_env)
     assert rv.status_code == 403
     assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
 
@@ -1715,19 +1723,19 @@ def test_request_post_config(app, client, db, worker_auth_env):
 @pytest.mark.parametrize(
     "request_id, payload, status_code, message",
     (
-        (1, {"hello": "world"}, 400, "The input data must be a JSON array"),
+        (1, {"hello": "world"}, 400, "{'hello': 'world'} is not of type 'array'"),
         (1337, [], 404, "The requested resource was not found"),
         (
             1,
             [{"content": "cmVnaXN0cnk9aHR0cDovL2RvbWFpbi5sb2NhbC9yZXBvLwo=", "type": "base64"}],
             400,
-            "The following keys for the base64 configuration file are missing: path",
+            "'path' is a required property",
         ),
         (
             1,
             [{"content": "Home on the range", "path": "app/music", "type": "song"}],
             400,
-            'The configuration type of "song" is invalid',
+            "'song' is not one of ['base64']",
         ),
         (
             1,
@@ -1740,7 +1748,7 @@ def test_request_post_config(app, client, db, worker_auth_env):
                 }
             ],
             400,
-            "The following keys for the base64 configuration file are invalid: lunch",
+            "Additional properties are not allowed ('lunch' was unexpected)",
         ),
         (
             1,
@@ -1752,13 +1760,13 @@ def test_request_post_config(app, client, db, worker_auth_env):
                 }
             ],
             400,
-            'The base64 configuration file key of "path" must be a string',
+            "3 is not of type 'string'",
         ),
         (
             1,
             [{"content": 123, "path": "src/.npmrc", "type": "base64"}],
             400,
-            'The base64 configuration file key of "content" must be a string',
+            "123 is not of type 'string'",
         ),
     ),
 )
@@ -1781,11 +1789,12 @@ def test_request_post_config_invalid(
         environ_base=worker_auth_env,
     )
     assert rv.status_code == status_code
-    assert rv.json == {"error": message}
+    assert message in rv.json["error"]
 
 
 def test_request_config_post_not_authorized(auth_env, client, db):
-    rv = client.post("/api/v1/requests/1/configuration-files", json={}, environ_base=auth_env)
+    data = [{"content": "IlNodXQgdXAgYnJhaW4gb3IgSSdsbC", "path": "app/.npmrc", "type": "base64"}]
+    rv = client.post("/api/v1/requests/1/configuration-files", json=data, environ_base=auth_env)
     assert rv.status_code == 403
     assert rv.json["error"] == "This API endpoint is restricted to Cachito workers"
 
@@ -2414,10 +2423,10 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
         [
             "repo=https://github.com/org/" + ("bar" * 100) + ".git",
             None,
-            'The \\"repo\\" parameter must be shorter than 200 characters',
+            "is too long",
         ],
         [
-            "repo=",
+            "",
             3,
             [
                 "https://github.com/org/bar.git",
@@ -2426,34 +2435,15 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
             ],
         ],
         ["ref=b50b93a32df1c9d700e3e80996845bc2e13be848", 1, ["https://github.com/org/bar.git"]],
-        [
-            "ref=",
-            3,
-            [
-                "https://github.com/org/bar.git",
-                "https://github.com/org/baz.git",
-                "https://github.com/org/foo.git",
-            ],
-        ],
-        ["ref=a-git-ref", None, 'The \\"ref\\" parameter must be a 40 character hex string'],
+        ["ref=a-git-ref", None, "is too short"],
         [
             "pkg_manager=gomod",
             2,
             ["https://github.com/org/foo.git", "https://github.com/org/baz.git"],
         ],
-        [
-            "pkg_manager=",
-            3,
-            [
-                "https://github.com/org/bar.git",
-                "https://github.com/org/baz.git",
-                "https://github.com/org/foo.git",
-            ],
-        ],
         ["pkg_manager=yarn&pkg_manager=gomod", 1, ["https://github.com/org/baz.git"]],
-        ["pkg_manager=yarn&pkg_manager=gomod&pkg_manager=", 1, ["https://github.com/org/baz.git"]],
         ["pkg_manager=gomod&repo=https://github.com/org/bar.git", 0, []],
-        ["pkg_manager=coolmanager", None, "Cachito does not have package manager coolmanager"],
+        ["pkg_manager=coolmanager", None, "'coolmanager' is not one of"],
     ],
 )
 def test_filter_requests(
@@ -2486,7 +2476,7 @@ def test_filter_requests(
 
     if expected_items_count is None:
         assert HTTPStatus.BAD_REQUEST == rv.status_code
-        assert expected_repos in rv.data.decode()
+        assert expected_repos in rv.json["error"]
     else:
         result = json.loads(rv.data)
         assert expected_items_count == len(result["items"])
