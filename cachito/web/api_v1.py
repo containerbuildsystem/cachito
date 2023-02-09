@@ -6,7 +6,7 @@ import tempfile
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import date, datetime
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Set, Union
 
 import flask
 import kombu.exceptions
@@ -24,7 +24,7 @@ from cachito.common.paths import RequestBundleDir
 from cachito.common.utils import b64encode
 from cachito.errors import MessageBrokerError, NoWorkers, RequestErrorOrigin, ValidationError
 from cachito.web import db
-from cachito.web.content_manifest import BASE_ICM
+from cachito.web.content_manifest import BASE_ICM, BASE_SBOM
 from cachito.web.metrics import cachito_metrics
 from cachito.web.models import (
     ConfigFileBase64,
@@ -218,7 +218,7 @@ def get_request_content_manifest(request_id):
         )
     content_manifest = request.content_manifest
     content_manifest_json = content_manifest.to_json()
-    return send_content_manifest_back(content_manifest_json)
+    return send_json_file_back(content_manifest_json)
 
 
 @api_v1.route("/requests/<int:request_id>/environment-variables", methods=["GET"])
@@ -744,18 +744,64 @@ def get_request_logs(request_id):
     )
 
 
-def send_content_manifest_back(content_manifest: Dict[str, Any]) -> flask.Response:
-    """Send content manifest back to the client."""
+def send_json_file_back(json_content: Dict[str, Any]) -> flask.Response:
+    """Send json file back to the client."""
     debug = flask.current_app.logger.debug
-    fd, filename = tempfile.mkstemp(prefix="request-content-manifest-json-", text=True)
-    debug("Write content manifest into file: %s", filename)
+    fd, filename = tempfile.mkstemp(prefix="request-json-", text=True)
+    debug("Write json into file: %s", filename)
     try:
         with open(fd, "w") as f:
-            json.dump(content_manifest, f, sort_keys=True)
+            json.dump(json_content, f, sort_keys=True)
         return flask.send_file(filename, mimetype="application/json")
     finally:
-        debug("The content manifest is sent back to the client. Remove %s", filename)
+        debug("Json file is sent back to the client. Remove %s", filename)
         os.unlink(filename)
+
+
+def _get_valid_request_ids(all_request_ids: str) -> List[int]:
+    request_ids = set()
+    item: str
+    for item in all_request_ids.split(","):
+        if not item.strip():
+            continue
+        if not item.strip().isdigit():
+            raise BadRequest(f"{item} is not an integer.")
+        request_ids.add(int(item))
+
+    return list(request_ids)
+
+
+def _get_all_requests(request_ids: List[int]) -> list[Request]:
+    requests = (
+        Request.query.filter(Request.id.in_(request_ids))
+        .options(load_only("id"), joinedload(Request.state))
+        .all()
+    )
+
+    request: Request
+    for request in requests:
+        request_ids.remove(request.id)
+
+    if request_ids:
+        nonexistent_ids = ",".join(map(str, request_ids))
+        raise BadRequest(f"Cannot find request(s) {nonexistent_ids}.")
+
+    return requests
+
+
+def _check_requests_state(requests: List[Request], valid_states: Set[str]) -> None:
+    error_msg = ""
+
+    request: Request
+    for request in requests:
+        if request.state.state_name not in valid_states:
+            error_msg += (
+                f"Request {request.id} is in state {request.state.state_name}, "
+                f"not in {valid_states}.\n"
+            )
+
+    if error_msg:
+        raise BadRequest(error_msg)
 
 
 @api_v1.route("/content-manifest", methods=["GET"])
@@ -771,41 +817,62 @@ def get_content_manifest_by_requests():
     arg = flask.request.args.get("requests")
     if not arg:
         return flask.jsonify(BASE_ICM)
-    request_ids = set()
-    item: str
-    for item in arg.split(","):
-        if not item.strip():
-            continue
-        if not item.strip().isdigit():
-            raise BadRequest(f"{item} is not an integer.")
-        request_ids.add(int(item))
 
-    requests = (
-        Request.query.filter(Request.id.in_(request_ids))
-        .options(load_only("id"), joinedload(Request.state))
-        .all()
-    )
-    states = (RequestStateMapping.complete.name, RequestStateMapping.stale.name)
+    request_ids = _get_valid_request_ids(arg)
+    requests = _get_all_requests(request_ids)
+
+    valid_states = set([RequestStateMapping.complete.name])
+    _check_requests_state(requests, valid_states)
+
     request: Request
-    for request in requests:
-        if request.state.state_name not in states:
-            raise BadRequest(
-                f"Request {request.id} is in state {request.state.state_name}, "
-                f"not complete or stale."
-            )
-        request_ids.remove(request.id)
-
-    if request_ids:
-        nonexistent_ids = ",".join(map(str, request_ids))
-        raise BadRequest(f"Cannot find request(s) {nonexistent_ids}.")
-
     assembled_icm = deepcopy(BASE_ICM)
     for request in requests:
         manifest = request.content_manifest.to_json()
         assembled_icm["image_contents"].extend(manifest["image_contents"])
     if len(requests) > 1:
         deep_sort_icm(assembled_icm)
-    return send_content_manifest_back(assembled_icm)
+    return send_json_file_back(assembled_icm)
+
+
+@api_v1.route("/sbom", methods=["GET"])
+def get_sbom_by_requests() -> flask.Response:
+    """
+    Retrieve the content manifest sbom associated with the given requests.
+
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise BadRequest: if any of the given request is not in the "complete" or
+        "stale" state, If any of the given request cannot be found.
+    """
+    arg = flask.request.args.get("requests")
+    if not arg:
+        return flask.jsonify(BASE_SBOM)
+
+    request_ids = _get_valid_request_ids(arg)
+    requests = _get_all_requests(request_ids)
+
+    valid_states = set([RequestStateMapping.complete.name])
+    _check_requests_state(requests, valid_states)
+
+    request: Request
+    assembled_sbom = deepcopy(BASE_SBOM)
+
+    all_components = []
+    for request in requests:
+        sbom_components = request.content_manifest.sbom_components_list()
+        all_components.extend(sbom_components)
+
+    unique_components: List[Dict[str, Any]] = []
+
+    all_components.sort(key=lambda c: (c["purl"], c["name"], c.get("version")))
+
+    for component in all_components:
+        if not unique_components or component != unique_components[-1]:
+            unique_components.append(component)
+
+    assembled_sbom["components"] = unique_components
+
+    return send_json_file_back(assembled_sbom)
 
 
 class RequestMetricsArgs(pydantic.BaseModel):

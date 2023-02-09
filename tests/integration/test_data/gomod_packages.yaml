@@ -26,6 +26,11 @@ without_deps:
     deps/gomod/pkg/mod/cache/download: null
   content_manifest:
   - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
+  sbom:
+  - name: github.com/cachito-testing/cachito-gomod-without-deps
+    type: library
+    version: v0.0.0-20200925115855-a888f7261b9a
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a
 # same as above but uses the gomod-vendor-check flag to test how Cachito
 #   behaves when vendoring is requested but there is nothing to vendor
 without_deps_vendor_check:
@@ -49,6 +54,11 @@ without_deps_vendor_check:
     deps/gomod/pkg/mod/cache/download: null
   content_manifest:
   - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
+  sbom:
+  - name: github.com/cachito-testing/cachito-gomod-without-deps
+    type: library
+    version: v0.0.0-20200925115855-a888f7261b9a
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a
 with_deps:
   repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
   ref: 4c65d49cae6bfbada4d479b321d8c0109fa1aa97
@@ -512,6 +522,157 @@ with_deps:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+  sbom:
+  - name: bytes
+    type: library
+    purl: pkg:golang/bytes
+  - name: errors
+    type: library
+    purl: pkg:golang/errors
+  - name: fmt
+    type: library
+    purl: pkg:golang/fmt
+  - name: github.com/cachito-testing/cachito-gomod-with-deps
+    type: library
+    version: v0.0.0-20201001160613-4c65d49cae6b
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@v0.0.0-20201001160613-4c65d49cae6b
+  - name: golang.org/x/text/internal/tag
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text/language
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c
+  - name: internal/abi
+    type: library
+    purl: pkg:golang/internal%2Fabi
+  - name: internal/bytealg
+    type: library
+    purl: pkg:golang/internal%2Fbytealg
+  - name: internal/cpu
+    type: library
+    purl: pkg:golang/internal%2Fcpu
+  - name: internal/fmtsort
+    type: library
+    purl: pkg:golang/internal%2Ffmtsort
+  - name: internal/goarch
+    type: library
+    purl: pkg:golang/internal%2Fgoarch
+  - name: internal/goexperiment
+    type: library
+    purl: pkg:golang/internal%2Fgoexperiment
+  - name: internal/goos
+    type: library
+    purl: pkg:golang/internal%2Fgoos
+  - name: internal/itoa
+    type: library
+    purl: pkg:golang/internal%2Fitoa
+  - name: internal/oserror
+    type: library
+    purl: pkg:golang/internal%2Foserror
+  - name: internal/poll
+    type: library
+    purl: pkg:golang/internal%2Fpoll
+  - name: internal/race
+    type: library
+    purl: pkg:golang/internal%2Frace
+  - name: internal/reflectlite
+    type: library
+    purl: pkg:golang/internal%2Freflectlite
+  - name: internal/safefilepath
+    type: library
+    purl: pkg:golang/internal%2Fsafefilepath
+  - name: internal/syscall/execenv
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Fexecenv
+  - name: internal/syscall/unix
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Funix
+  - name: internal/testlog
+    type: library
+    purl: pkg:golang/internal%2Ftestlog
+  - name: internal/unsafeheader
+    type: library
+    purl: pkg:golang/internal%2Funsafeheader
+  - name: io
+    type: library
+    purl: pkg:golang/io
+  - name: io/fs
+    type: library
+    purl: pkg:golang/io%2Ffs
+  - name: math
+    type: library
+    purl: pkg:golang/math
+  - name: math/bits
+    type: library
+    purl: pkg:golang/math%2Fbits
+  - name: os
+    type: library
+    purl: pkg:golang/os
+  - name: path
+    type: library
+    purl: pkg:golang/path
+  - name: reflect
+    type: library
+    purl: pkg:golang/reflect
+  - name: rsc.io/quote
+    type: library
+    version: v1.5.2
+    purl: pkg:golang/rsc.io%2Fquote@v1.5.2
+  - name: rsc.io/sampler
+    type: library
+    version: v1.3.0
+    purl: pkg:golang/rsc.io%2Fsampler@v1.3.0
+  - name: runtime
+    type: library
+    purl: pkg:golang/runtime
+  - name: runtime/internal/atomic
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fatomic
+  - name: runtime/internal/math
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fmath
+  - name: runtime/internal/sys
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsys
+  - name: runtime/internal/syscall
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsyscall
+  - name: sort
+    type: library
+    purl: pkg:golang/sort
+  - name: strconv
+    type: library
+    purl: pkg:golang/strconv
+  - name: strings
+    type: library
+    purl: pkg:golang/strings
+  - name: sync
+    type: library
+    purl: pkg:golang/sync
+  - name: sync/atomic
+    type: library
+    purl: pkg:golang/sync%2Fatomic
+  - name: syscall
+    type: library
+    purl: pkg:golang/syscall
+  - name: time
+    type: library
+    purl: pkg:golang/time
+  - name: unicode
+    type: library
+    purl: pkg:golang/unicode
+  - name: unicode/utf8
+    type: library
+    purl: pkg:golang/unicode%2Futf8
+  - name: unsafe
+    type: library
+    purl: pkg:golang/unsafe
 # The test data for gomod package with vendor directory
 # and with `gomod-vendor` flag.
 vendored_with_flag:
@@ -978,6 +1139,157 @@ vendored_with_flag:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+  sbom:
+  - name: bytes
+    type: library
+    purl: pkg:golang/bytes
+  - name: errors
+    type: library
+    purl: pkg:golang/errors
+  - name: fmt
+    type: library
+    purl: pkg:golang/fmt
+  - name: github.com/cachito-testing/gomod-vendored
+    type: library
+    version: v0.0.0-20200916135625-ff1960095dd1
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fgomod-vendored@v0.0.0-20200916135625-ff1960095dd1
+  - name: golang.org/x/text/internal/tag
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text/language
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c
+  - name: internal/abi
+    type: library
+    purl: pkg:golang/internal%2Fabi
+  - name: internal/bytealg
+    type: library
+    purl: pkg:golang/internal%2Fbytealg
+  - name: internal/cpu
+    type: library
+    purl: pkg:golang/internal%2Fcpu
+  - name: internal/fmtsort
+    type: library
+    purl: pkg:golang/internal%2Ffmtsort
+  - name: internal/goarch
+    type: library
+    purl: pkg:golang/internal%2Fgoarch
+  - name: internal/goexperiment
+    type: library
+    purl: pkg:golang/internal%2Fgoexperiment
+  - name: internal/goos
+    type: library
+    purl: pkg:golang/internal%2Fgoos
+  - name: internal/itoa
+    type: library
+    purl: pkg:golang/internal%2Fitoa
+  - name: internal/oserror
+    type: library
+    purl: pkg:golang/internal%2Foserror
+  - name: internal/poll
+    type: library
+    purl: pkg:golang/internal%2Fpoll
+  - name: internal/race
+    type: library
+    purl: pkg:golang/internal%2Frace
+  - name: internal/reflectlite
+    type: library
+    purl: pkg:golang/internal%2Freflectlite
+  - name: internal/safefilepath
+    type: library
+    purl: pkg:golang/internal%2Fsafefilepath
+  - name: internal/syscall/execenv
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Fexecenv
+  - name: internal/syscall/unix
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Funix
+  - name: internal/testlog
+    type: library
+    purl: pkg:golang/internal%2Ftestlog
+  - name: internal/unsafeheader
+    type: library
+    purl: pkg:golang/internal%2Funsafeheader
+  - name: io
+    type: library
+    purl: pkg:golang/io
+  - name: io/fs
+    type: library
+    purl: pkg:golang/io%2Ffs
+  - name: math
+    type: library
+    purl: pkg:golang/math
+  - name: math/bits
+    type: library
+    purl: pkg:golang/math%2Fbits
+  - name: os
+    type: library
+    purl: pkg:golang/os
+  - name: path
+    type: library
+    purl: pkg:golang/path
+  - name: reflect
+    type: library
+    purl: pkg:golang/reflect
+  - name: rsc.io/quote
+    type: library
+    version: v1.5.2
+    purl: pkg:golang/rsc.io%2Fquote@v1.5.2
+  - name: rsc.io/sampler
+    type: library
+    version: v1.3.0
+    purl: pkg:golang/rsc.io%2Fsampler@v1.3.0
+  - name: runtime
+    type: library
+    purl: pkg:golang/runtime
+  - name: runtime/internal/atomic
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fatomic
+  - name: runtime/internal/math
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fmath
+  - name: runtime/internal/sys
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsys
+  - name: runtime/internal/syscall
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsyscall
+  - name: sort
+    type: library
+    purl: pkg:golang/sort
+  - name: strconv
+    type: library
+    purl: pkg:golang/strconv
+  - name: strings
+    type: library
+    purl: pkg:golang/strings
+  - name: sync
+    type: library
+    purl: pkg:golang/sync
+  - name: sync/atomic
+    type: library
+    purl: pkg:golang/sync%2Fatomic
+  - name: syscall
+    type: library
+    purl: pkg:golang/syscall
+  - name: time
+    type: library
+    purl: pkg:golang/time
+  - name: unicode
+    type: library
+    purl: pkg:golang/unicode
+  - name: unicode/utf8
+    type: library
+    purl: pkg:golang/unicode%2Futf8
+  - name: unsafe
+    type: library
+    purl: pkg:golang/unsafe
 # The test data for gomod package with vendor directory
 # and without `gomod-vendor` flag.
 vendored_without_flag:
@@ -1447,6 +1759,157 @@ implicit_gomod:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+  sbom:
+  - name: bytes
+    type: library
+    purl: pkg:golang/bytes
+  - name: errors
+    type: library
+    purl: pkg:golang/errors
+  - name: fmt
+    type: library
+    purl: pkg:golang/fmt
+  - name: github.com/cachito-testing/cachito-gomod-with-deps
+    type: library
+    version: v0.0.0-20201001160613-4c65d49cae6b
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-with-deps@v0.0.0-20201001160613-4c65d49cae6b
+  - name: golang.org/x/text/internal/tag
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text/language
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c
+  - name: internal/abi
+    type: library
+    purl: pkg:golang/internal%2Fabi
+  - name: internal/bytealg
+    type: library
+    purl: pkg:golang/internal%2Fbytealg
+  - name: internal/cpu
+    type: library
+    purl: pkg:golang/internal%2Fcpu
+  - name: internal/fmtsort
+    type: library
+    purl: pkg:golang/internal%2Ffmtsort
+  - name: internal/goarch
+    type: library
+    purl: pkg:golang/internal%2Fgoarch
+  - name: internal/goexperiment
+    type: library
+    purl: pkg:golang/internal%2Fgoexperiment
+  - name: internal/goos
+    type: library
+    purl: pkg:golang/internal%2Fgoos
+  - name: internal/itoa
+    type: library
+    purl: pkg:golang/internal%2Fitoa
+  - name: internal/oserror
+    type: library
+    purl: pkg:golang/internal%2Foserror
+  - name: internal/poll
+    type: library
+    purl: pkg:golang/internal%2Fpoll
+  - name: internal/race
+    type: library
+    purl: pkg:golang/internal%2Frace
+  - name: internal/reflectlite
+    type: library
+    purl: pkg:golang/internal%2Freflectlite
+  - name: internal/safefilepath
+    type: library
+    purl: pkg:golang/internal%2Fsafefilepath
+  - name: internal/syscall/execenv
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Fexecenv
+  - name: internal/syscall/unix
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Funix
+  - name: internal/testlog
+    type: library
+    purl: pkg:golang/internal%2Ftestlog
+  - name: internal/unsafeheader
+    type: library
+    purl: pkg:golang/internal%2Funsafeheader
+  - name: io
+    type: library
+    purl: pkg:golang/io
+  - name: io/fs
+    type: library
+    purl: pkg:golang/io%2Ffs
+  - name: math
+    type: library
+    purl: pkg:golang/math
+  - name: math/bits
+    type: library
+    purl: pkg:golang/math%2Fbits
+  - name: os
+    type: library
+    purl: pkg:golang/os
+  - name: path
+    type: library
+    purl: pkg:golang/path
+  - name: reflect
+    type: library
+    purl: pkg:golang/reflect
+  - name: rsc.io/quote
+    type: library
+    version: v1.5.2
+    purl: pkg:golang/rsc.io%2Fquote@v1.5.2
+  - name: rsc.io/sampler
+    type: library
+    version: v1.3.0
+    purl: pkg:golang/rsc.io%2Fsampler@v1.3.0
+  - name: runtime
+    type: library
+    purl: pkg:golang/runtime
+  - name: runtime/internal/atomic
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fatomic
+  - name: runtime/internal/math
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fmath
+  - name: runtime/internal/sys
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsys
+  - name: runtime/internal/syscall
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsyscall
+  - name: sort
+    type: library
+    purl: pkg:golang/sort
+  - name: strconv
+    type: library
+    purl: pkg:golang/strconv
+  - name: strings
+    type: library
+    purl: pkg:golang/strings
+  - name: sync
+    type: library
+    purl: pkg:golang/sync
+  - name: sync/atomic
+    type: library
+    purl: pkg:golang/sync%2Fatomic
+  - name: syscall
+    type: library
+    purl: pkg:golang/syscall
+  - name: time
+    type: library
+    purl: pkg:golang/time
+  - name: unicode
+    type: library
+    purl: pkg:golang/unicode
+  - name: unicode/utf8
+    type: library
+    purl: pkg:golang/unicode%2Futf8
+  - name: unsafe
+    type: library
+    purl: pkg:golang/unsafe
 # The test data for gomod package manager test: missing go.mod file
 missing_gomod:
   repo: https://github.com/cachito-testing/cachito-missing-gomod-file.git
@@ -1459,6 +1922,7 @@ missing_gomod:
     app: https://github.com/cachito-testing/cachito-missing-gomod-file/tarball/0ae32a94a2a4f17b6702f8dddb1ddb88154f4473
     deps: null
   content_manifest: []
+  sbom: []
 # gomod package without dependencies and with force-gomod-tidy flag
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -1488,6 +1952,11 @@ force_tidy_without_deps:
     deps/gomod/pkg/mod/cache/download: null
   content_manifest:
   - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a"
+  sbom:
+  - name: github.com/cachito-testing/cachito-gomod-without-deps
+    type: library
+    version: v0.0.0-20200925115855-a888f7261b9a
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-without-deps@v0.0.0-20200925115855-a888f7261b9a
 # The test data for gomod package with vendor directory and with force-gomod-tidy flag
 force_tidy_vendored:
   repo: https://github.com/cachito-testing/gomod-vendored.git
@@ -1953,6 +2422,157 @@ force_tidy_vendored:
     - "pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/rsc.io%2Fquote@v1.5.2"
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
+  sbom:
+  - name: bytes
+    type: library
+    purl: pkg:golang/bytes
+  - name: errors
+    type: library
+    purl: pkg:golang/errors
+  - name: fmt
+    type: library
+    purl: pkg:golang/fmt
+  - name: github.com/cachito-testing/gomod-vendored
+    type: library
+    version: v0.0.0-20200916135625-ff1960095dd1
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fgomod-vendored@v0.0.0-20200916135625-ff1960095dd1
+  - name: golang.org/x/text/internal/tag
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Finternal%2Ftag@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text/language
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c
+  - name: golang.org/x/text
+    type: library
+    version: v0.0.0-20170915032832-14c0d48ead0c
+    purl: pkg:golang/golang.org%2Fx%2Ftext@v0.0.0-20170915032832-14c0d48ead0c
+  - name: internal/abi
+    type: library
+    purl: pkg:golang/internal%2Fabi
+  - name: internal/bytealg
+    type: library
+    purl: pkg:golang/internal%2Fbytealg
+  - name: internal/cpu
+    type: library
+    purl: pkg:golang/internal%2Fcpu
+  - name: internal/fmtsort
+    type: library
+    purl: pkg:golang/internal%2Ffmtsort
+  - name: internal/goarch
+    type: library
+    purl: pkg:golang/internal%2Fgoarch
+  - name: internal/goexperiment
+    type: library
+    purl: pkg:golang/internal%2Fgoexperiment
+  - name: internal/goos
+    type: library
+    purl: pkg:golang/internal%2Fgoos
+  - name: internal/itoa
+    type: library
+    purl: pkg:golang/internal%2Fitoa
+  - name: internal/oserror
+    type: library
+    purl: pkg:golang/internal%2Foserror
+  - name: internal/poll
+    type: library
+    purl: pkg:golang/internal%2Fpoll
+  - name: internal/race
+    type: library
+    purl: pkg:golang/internal%2Frace
+  - name: internal/reflectlite
+    type: library
+    purl: pkg:golang/internal%2Freflectlite
+  - name: internal/safefilepath
+    type: library
+    purl: pkg:golang/internal%2Fsafefilepath
+  - name: internal/syscall/execenv
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Fexecenv
+  - name: internal/syscall/unix
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Funix
+  - name: internal/testlog
+    type: library
+    purl: pkg:golang/internal%2Ftestlog
+  - name: internal/unsafeheader
+    type: library
+    purl: pkg:golang/internal%2Funsafeheader
+  - name: io
+    type: library
+    purl: pkg:golang/io
+  - name: io/fs
+    type: library
+    purl: pkg:golang/io%2Ffs
+  - name: math
+    type: library
+    purl: pkg:golang/math
+  - name: math/bits
+    type: library
+    purl: pkg:golang/math%2Fbits
+  - name: os
+    type: library
+    purl: pkg:golang/os
+  - name: path
+    type: library
+    purl: pkg:golang/path
+  - name: reflect
+    type: library
+    purl: pkg:golang/reflect
+  - name: rsc.io/quote
+    type: library
+    version: v1.5.2
+    purl: pkg:golang/rsc.io%2Fquote@v1.5.2
+  - name: rsc.io/sampler
+    type: library
+    version: v1.3.0
+    purl: pkg:golang/rsc.io%2Fsampler@v1.3.0
+  - name: runtime
+    type: library
+    purl: pkg:golang/runtime
+  - name: runtime/internal/atomic
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fatomic
+  - name: runtime/internal/math
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fmath
+  - name: runtime/internal/sys
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsys
+  - name: runtime/internal/syscall
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsyscall
+  - name: sort
+    type: library
+    purl: pkg:golang/sort
+  - name: strconv
+    type: library
+    purl: pkg:golang/strconv
+  - name: strings
+    type: library
+    purl: pkg:golang/strings
+  - name: sync
+    type: library
+    purl: pkg:golang/sync
+  - name: sync/atomic
+    type: library
+    purl: pkg:golang/sync%2Fatomic
+  - name: syscall
+    type: library
+    purl: pkg:golang/syscall
+  - name: time
+    type: library
+    purl: pkg:golang/time
+  - name: unicode
+    type: library
+    purl: pkg:golang/unicode
+  - name: unicode/utf8
+    type: library
+    purl: pkg:golang/unicode%2Futf8
+  - name: unsafe
+    type: library
+    purl: pkg:golang/unsafe
 symlink_loop:
   repo: https://github.com/cachito-testing/cachito-gomod-symlink-loop.git
   ref: 2448c37cc276b5d0db613ec58178c30810bb045c
@@ -1973,6 +2593,11 @@ symlink_loop:
     deps/gomod/pkg/mod/cache/download: null
   content_manifest:
   - purl: "pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-symlink-loop@v0.0.0-20220712180726-2448c37cc276"
+  sbom:
+  - name: github.com/cachito-testing/cachito-gomod-symlink-loop
+    type: library
+    version: v0.0.0-20220712180726-2448c37cc276
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-symlink-loop@v0.0.0-20220712180726-2448c37cc276
 # gomod package without package manager and dependencies
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -1992,6 +2617,7 @@ without_pkg_manager:
     app: https://github.com/cachito-testing/cachito-gomod-without-deps/tarball/a888f7261b9a9683972fbd77da2d12fe86faef5e
     deps: null
   content_manifest: []
+  sbom: []
 # The test data for gomod package manager test: check for Go workspaces
 with_workspace:
   repo: https://github.com/cachito-testing/cachito-gomod-with-workspace.git
@@ -2704,3 +3330,168 @@ with_local_replacements_in_parent_dir:
     - pkg:golang/unsafe
     purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0
     source_purls: []
+  sbom:
+  - name: errors
+    type: library
+    purl: pkg:golang/errors
+  - name: fmt
+    type: library
+    purl: pkg:golang/fmt
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/baz-package
+    type: library
+    version: v1.0.0
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Fbaz-package@v1.0.0
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module/bar-package
+    type: library
+    version: v0.0.0-20230131175254-651e1901735b
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module%2Fbar-package@v0.0.0-20230131175254-651e1901735b
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module
+    type: library
+    version: ./foo-package/../bar-module
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module@v0.0.0-20230131175254-651e1901735b
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module
+    type: library
+    version: v0.0.0-20230131175254-651e1901735b
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module@v0.0.0-20230131175254-651e1901735b
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/foo-package
+    type: library
+    version: v0.0.0-20230131175254-651e1901735b
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Ffoo-package@v0.0.0-20230131175254-651e1901735b
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module
+    type: library
+    version: v0.0.0-20230131175254-651e1901735b
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module@v0.0.0-20230131175254-651e1901735b
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps
+    type: library
+    version: ../
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps
+    type: library
+    version: ../../
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0
+  - name: github.com/cachito-testing/cachito-gomod-local-parent-deps
+    type: library
+    version: v1.0.0
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0
+  - name: github.com/cachito-testing/spam-module
+    type: library
+    version: ../staging/src/spam-module
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0#staging/src/spam-module
+  - name: github.com/cachito-testing/spam-module/spam
+    type: library
+    version: ../staging/src/spam-module/spam
+    purl: pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0#staging/src/spam-module/spam
+  - name: internal/abi
+    type: library
+    purl: pkg:golang/internal%2Fabi
+  - name: internal/bytealg
+    type: library
+    purl: pkg:golang/internal%2Fbytealg
+  - name: internal/cpu
+    type: library
+    purl: pkg:golang/internal%2Fcpu
+  - name: internal/fmtsort
+    type: library
+    purl: pkg:golang/internal%2Ffmtsort
+  - name: internal/goarch
+    type: library
+    purl: pkg:golang/internal%2Fgoarch
+  - name: internal/goexperiment
+    type: library
+    purl: pkg:golang/internal%2Fgoexperiment
+  - name: internal/goos
+    type: library
+    purl: pkg:golang/internal%2Fgoos
+  - name: internal/itoa
+    type: library
+    purl: pkg:golang/internal%2Fitoa
+  - name: internal/oserror
+    type: library
+    purl: pkg:golang/internal%2Foserror
+  - name: internal/poll
+    type: library
+    purl: pkg:golang/internal%2Fpoll
+  - name: internal/race
+    type: library
+    purl: pkg:golang/internal%2Frace
+  - name: internal/reflectlite
+    type: library
+    purl: pkg:golang/internal%2Freflectlite
+  - name: internal/safefilepath
+    type: library
+    purl: pkg:golang/internal%2Fsafefilepath
+  - name: internal/syscall/execenv
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Fexecenv
+  - name: internal/syscall/unix
+    type: library
+    purl: pkg:golang/internal%2Fsyscall%2Funix
+  - name: internal/testlog
+    type: library
+    purl: pkg:golang/internal%2Ftestlog
+  - name: internal/unsafeheader
+    type: library
+    purl: pkg:golang/internal%2Funsafeheader
+  - name: io
+    type: library
+    purl: pkg:golang/io
+  - name: io/fs
+    type: library
+    purl: pkg:golang/io%2Ffs
+  - name: math
+    type: library
+    purl: pkg:golang/math
+  - name: math/bits
+    type: library
+    purl: pkg:golang/math%2Fbits
+  - name: os
+    type: library
+    purl: pkg:golang/os
+  - name: path
+    type: library
+    purl: pkg:golang/path
+  - name: reflect
+    type: library
+    purl: pkg:golang/reflect
+  - name: runtime
+    type: library
+    purl: pkg:golang/runtime
+  - name: runtime/internal/atomic
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fatomic
+  - name: runtime/internal/math
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fmath
+  - name: runtime/internal/sys
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsys
+  - name: runtime/internal/syscall
+    type: library
+    purl: pkg:golang/runtime%2Finternal%2Fsyscall
+  - name: sort
+    type: library
+    purl: pkg:golang/sort
+  - name: strconv
+    type: library
+    purl: pkg:golang/strconv
+  - name: sync
+    type: library
+    purl: pkg:golang/sync
+  - name: sync/atomic
+    type: library
+    purl: pkg:golang/sync%2Fatomic
+  - name: syscall
+    type: library
+    purl: pkg:golang/syscall
+  - name: time
+    type: library
+    purl: pkg:golang/time
+  - name: unicode
+    type: library
+    purl: pkg:golang/unicode
+  - name: unicode/utf8
+    type: library
+    purl: pkg:golang/unicode%2Futf8
+  - name: unsafe
+    type: library
+    purl: pkg:golang/unsafe

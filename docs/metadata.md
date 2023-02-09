@@ -579,12 +579,71 @@ Any Golang repository processed by Cachito will contain both modules and package
 [go-package type][go-package-type]). The Content Manifest lists only the packages. That
 is usually good enough. Modules for dependencies *are* listed in [sources](#sources).
 
+## SBOM
+
+The SBOM (full name Software bill of materials) is a document that describes the
+content present in a container image and it is in CycloneDx format.
+It contains all components (packages and dependencies) for specified requests.
+A JSON Schema specification is available in the
+CycloneDX repository): [sbom.json].
+Purl follows the same rules as in Content Manifest.
+
+The document returned from the
+`/api/v1/sbom?requests={id1},{id2},..` endpoint conforms to the schema.
+
+<details>
+<summary>Example</summary>
+
+SBOM for [cachito-yarn-lorem-ipsum@bootstrap-yarn][cachito-yarn-lorem-ipsum]
+
+```json
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "version": 1,
+  "components": [
+    {
+      "name": "axios",
+      "version": "0.21.1",
+      "purl": "pkg:npm/axios@0.21.1",
+      "type": "library",
+    },
+    {
+      "name": "follow-redirects",
+      "version": "1.14.0",
+      "purl": "pkg:npm/follow-redirects@1.14.0",
+      "type": "library",
+    },
+    {
+      "name": "lorem-ipsum",
+      "version": "1.0.0",
+      "purl": "pkg:github/cachito-testing/cachito-yarn-lorem-ipsum@b470410e50caff0447bc18ca4f011663681e7e17",
+      "type": "library",
+    },
+    {
+      "name": "yarn",
+      "version": "1.22.10",
+      "purl": "pkg:npm/yarn@1.22.10",
+      "type": "library",
+    },
+    {
+      "name": "bootstrap-yarn",
+      "version": "1.0.0",
+      "purl": "pkg:github/cachito-testing/cachito-yarn-lorem-ipsum@b470410e50caff0447bc18ca4f011663681e7e17#bootstrap-yarn",
+      "type": "library",
+    },
+  ]
+}
+```
+</details>
+
 [cachito-yarn-lorem-ipsum]: https://github.com/cachito-testing/cachito-yarn-lorem-ipsum/tree/b470410e50caff0447bc18ca4f011663681e7e17
 [go-package-type]: ../README.md#go-package-level-dependencies-and-the-go-package-cachito-package-type
 [feature-support]: ../README.md#feature-support
 [gomod-replace]: https://golang.org/ref/mod#go-mod-file-replace
 [atomic-reactor]: https://github.com/containerbuildsystem/atomic-reactor
 [content_manifest.json]: https://github.com/containerbuildsystem/atomic-reactor/blob/master/atomic_reactor/schemas/content_manifest.json
+[sbom.json]: https://raw.githubusercontent.com/CycloneDX/specification/1.4/schema/bom-1.4.schema.json
 [OSBS]: https://osbs.readthedocs.io
 [purl-spec]: https://github.com/package-url/purl-spec
 [openshift-apiserver]: https://github.com/openshift/kubernetes-apiserver

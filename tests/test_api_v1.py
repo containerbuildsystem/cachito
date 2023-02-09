@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Union
 from unittest import mock
 
 import flask
+import flask_sqlalchemy
 import kombu.exceptions
 import pytest
 
@@ -18,7 +19,7 @@ from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
 from cachito.errors import NoWorkers, RequestErrorOrigin, ValidationError
-from cachito.web.content_manifest import BASE_ICM, Package
+from cachito.web.content_manifest import BASE_ICM, BASE_SBOM, Package
 from cachito.web.models import (
     ConfigFileBase64,
     EnvironmentVariable,
@@ -2405,6 +2406,155 @@ def test_get_content_manifests_by_requests(app, client, db, auth_env, tmpdir):
             assembled_icm["image_contents"] = expected_image_contents
             deep_sort_icm(assembled_icm)
             assert assembled_icm == json.loads(resp.data)
+
+
+def test_get_content_manifests_sbom_by_requests(
+    app: flask.Flask,
+    client: flask.testing.FlaskClient,
+    db: flask_sqlalchemy.SQLAlchemy,
+    auth_env: Dict[str, Any],
+    tmpdir,
+) -> None:
+    # create request objects
+    request_data = [
+        (
+            # request_json, request_state
+            {
+                "repo": "https://github.com/release-engineering/dummy.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["npm"],
+            },
+            RequestStateMapping.complete,
+        ),
+        (
+            {
+                "repo": "https://github.com/release-engineering/dummy-foo.git",
+                "ref": "450b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["pip"],
+            },
+            RequestStateMapping.complete,
+        ),
+        (
+            {
+                "repo": "https://github.com/org/foo.git",
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["gomod"],
+            },
+            RequestStateMapping.complete,
+        ),
+        (
+            {
+                "repo": "https://github.com/release-engineering/dummy-bar.git",
+                "ref": "b50b93a32df1c9d700e3e80996845bc2e13be848",
+                "pkg_managers": ["npm"],
+            },
+            RequestStateMapping.in_progress,
+        ),
+    ]
+
+    requests = []
+
+    for item in request_data:
+        request_json = item[0]
+        state = item[1]
+
+        with app.test_request_context(environ_base=auth_env):
+            request = Request.from_json(request_json)
+
+        request.add_state(state.name, f"Set {state.name} directly for test")
+        db.session.add(request)
+
+        requests.append(request)
+
+    db.session.commit()
+
+    # create packages json files
+    cachito_bundles_dir = str(tmpdir)
+    app.config["CACHITO_BUNDLES_DIR"] = cachito_bundles_dir
+
+    package_data = [
+        {"name": "pkg1", "version": "0.1", "type": "npm", "dependencies": []},
+        {"name": "pkg2", "version": "0.3", "type": "pip", "dependencies": []},
+        {"name": "pkg2", "version": "", "type": "gomod", "dependencies": []},
+        {"name": "pkg3", "version": "0.2", "type": "npm", "dependencies": []},
+    ]
+
+    for i in range(len(package_data)):
+        to_write = [package_data[i]]
+        request_id = requests[i].id
+
+        bundle_dir = RequestBundleDir(request_id, root=cachito_bundles_dir)
+        _write_test_packages_data(to_write, bundle_dir.packages_data)
+
+    # define api call parameters and corresponding expected result data
+    pkg1 = Package.from_json(package_data[0])
+    pkg2 = Package.from_json(package_data[1])
+    pkg3 = Package.from_json(package_data[2])
+
+    test_data = [
+        # requests, expected_image_contents
+        ["", []],
+        ["requests=", []],
+        [
+            f"requests={requests[0].id}",
+            [
+                {
+                    "name": package_data[0]["name"],
+                    "purl": to_top_level_purl(pkg1, requests[0]),
+                    "version": package_data[0]["version"],
+                    "type": "library",
+                },
+            ],
+        ],
+        [
+            f"requests={requests[0].id},,{requests[1].id},{requests[2].id}",
+            [
+                {
+                    "name": package_data[0]["name"],
+                    "purl": to_top_level_purl(pkg1, requests[0]),
+                    "version": package_data[0]["version"],
+                    "type": "library",
+                },
+                {
+                    "name": package_data[1]["name"],
+                    "purl": to_top_level_purl(pkg2, requests[1]),
+                    "version": package_data[1]["version"],
+                    "type": "library",
+                },
+                {
+                    "name": package_data[2]["name"],
+                    "purl": to_top_level_purl(pkg3, requests[2]),
+                    "type": "library",
+                },
+            ],
+        ],
+        [
+            f"requests={requests[3].id}",
+            f"Request {requests[3].id} is in state {requests[3].state.state_name}",
+        ],
+        [
+            f"requests={requests[1].id},{requests[3].id}",
+            f"Request {requests[3].id} is in state {requests[3].state.state_name}",
+        ],
+        ["requests=a100", "a100 is not an integer"],
+        [
+            f"requests={requests[0].id},{requests[1].id + 100}",
+            f"Cannot find request(s) {requests[1].id + 100}.",
+        ],
+    ]
+
+    # run tests
+    for requests, expected_image_contents in test_data:
+        resp = client.get(f"/api/v1/sbom?{requests}")
+        if isinstance(expected_image_contents, str):
+            assert HTTPStatus.BAD_REQUEST == resp.status_code
+            assert expected_image_contents in resp.data.decode()
+        else:
+            assembled_sbom = copy.deepcopy(BASE_SBOM)
+            assembled_sbom["components"] = expected_image_contents
+            deep_sort_icm(assembled_sbom)
+
+            assert json.loads(resp.data) == assembled_sbom
 
 
 @pytest.mark.parametrize(

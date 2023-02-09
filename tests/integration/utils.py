@@ -12,6 +12,7 @@ import yaml
 from requests.packages.urllib3.util.retry import Retry
 from requests_kerberos import HTTPKerberosAuth
 
+from cachito.web.content_manifest import SBOM_SCHEMA_URL
 from tests.helper_utils import assert_directories_equal
 
 Response = namedtuple("Response", "data id status")
@@ -135,6 +136,18 @@ class Client:
         )
         resp.raise_for_status()
         return Response(resp.json(), request_id, resp.status_code)
+
+    def fetch_sbom(self, request_ids):
+        """
+        Fetch a sbom for request_ids  from the Cachito API.
+
+        :param str request_ids: The IDs of the Cachito requests separated by ','
+        :return: An object that contains the response from the Cachito API
+        :rtype: Response
+        """
+        resp = self.requests_session.get(f"{self._cachito_api_url}/sbom?requests={request_ids}")
+        resp.raise_for_status()
+        return Response(resp.json(), request_ids, resp.status_code)
 
     def fetch_request_metrics(self, **params) -> requests.Response:
         resp = self.requests_session.get(f"{self._cachito_api_url}/request-metrics", params=params)
@@ -294,6 +307,15 @@ def assert_content_manifest_schema(response_data):
     ), f"ICM data not valid for schema at {response_data['metadata']['icm_spec']}: {response_data}"
 
 
+def assert_sbom_schema(response_data):
+    """Validate sbom according with JSON schema."""
+    requests_session = get_requests_session()
+    schema = requests_session.get(SBOM_SCHEMA_URL, timeout=30).json()
+    assert validate_json(
+        schema, response_data
+    ), f"SBOM data not valid for schema at {SBOM_SCHEMA_URL}: {response_data}"
+
+
 def assert_elements_from_response(response_data, expected_response_data):
     """
     Check elements from the response data.
@@ -426,6 +448,34 @@ def assert_content_manifest(client, request_id, image_contents):
         f"\nResponse image content: "
         f"{json.dumps(content_manifest_response.data['image_contents'], indent=4, sort_keys=True)},"
         f"\nTest expectations: {json.dumps(image_contents, indent=4, sort_keys=True)}"
+    )
+
+
+def assert_sbom(client, request_id, sbom_components):
+    """
+    Check that the sbom is successfully generated and contains correct content.
+
+    Checks:
+    * Check that status of sbom request is 200
+    * Validate sbom schema
+    * Check components from sbom
+
+    :param Client client: the Cachito API client
+    :param int request_id: The Cachito request id
+    :param list sbom_components: expected components part from sbom
+    """
+    sbom_response = client.fetch_sbom(request_ids=str(request_id))
+    assert (
+        sbom_response.status == 200
+    ), f"#{sbom_response.id}: response status {sbom_response.status} != 200"
+
+    response_data = sbom_response.data
+    assert_sbom_schema(response_data)
+    assert sbom_components == sbom_response.data["components"], (
+        f"#{sbom_response.id}: components in response differs from test expectations."
+        f"\nResponse components: "
+        f"{json.dumps(sbom_response.data['components'], indent=4, sort_keys=True)},"
+        f"\nTest expectations: {json.dumps(sbom_components, indent=4, sort_keys=True)}"
     )
 
 

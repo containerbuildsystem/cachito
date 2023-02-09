@@ -3,7 +3,7 @@ import os
 from copy import deepcopy
 from functools import cached_property
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import flask
 
@@ -22,6 +22,9 @@ JSON_SCHEMA_URL = (
     "https://raw.githubusercontent.com/containerbuildsystem/atomic-reactor/"
     "f4abcfdaf8247a6b074f94fa84f3846f82d781c6/atomic_reactor/schemas/content_manifest.json"
 )
+SBOM_SCHEMA_URL = (
+    "https://raw.githubusercontent.com/CycloneDX/specification/1.4/schema/bom-1.4.schema.json"
+)
 UNKNOWN_LAYER_INDEX = -1
 
 # A base (empty) image content manifest which will be used as a template to
@@ -34,6 +37,13 @@ BASE_ICM = {
         "image_layer_index": UNKNOWN_LAYER_INDEX,
     },
     "image_contents": [],
+}
+
+BASE_SBOM = {
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.4",
+    "version": 1,
+    "components": [],
 }
 
 
@@ -64,18 +74,21 @@ class ContentManifest:
         # dict to store gitsubmodule package level data; uses the package id as key to identify a
         # package
         self._gitsubmodule_data = {}
+        # list to store sbom components
+        self._sbom_components = []
 
     @cached_property
     def go_modules_by_name(self) -> dict[str, "Package"]:
         """Get a mapping of go module names to their respective package object."""
         return {module.name: module for module in self.packages if module.type == "gomod"}
 
-    def process_gomod(self, package, dependency):
+    def process_gomod(self, package, dependency, type="icm"):
         """
         Process gomod package.
 
         :param Package package: the gomod package to process
         :param Dependency dependency: the gomod package dependency to process
+        :param type: icm or sbom component
         """
         if dependency.type == "gomod":
 
@@ -99,14 +112,27 @@ class ContentManifest:
             dep_purl = to_purl(dependency, relpath_from_parent_module_to_dep)
             dep_purl = replace_parent_purl_placeholder(dep_purl, parent_purl)
             icm_source = {"purl": dep_purl}
-            self._gomod_data[package.name]["dependencies"].append(icm_source)
 
-    def process_go_package(self, package, dependency):
+            if type == "icm":
+                self._gomod_data[package.name]["dependencies"].append(icm_source)
+            elif type == "sbom":
+                component = {
+                    "type": "library",
+                    "name": dependency.name,
+                    "purl": dep_purl,
+                }
+                if dependency.version:
+                    component["version"] = dependency.version
+
+                self._sbom_components.append(component)
+
+    def process_go_package(self, package, dependency, type="icm"):
         """
         Process go-package package.
 
         :param Package package: the go-package package to process
         :param Dependency dependency: the go-package package dependency to process
+        :param type: icm or sbom component
         """
         if dependency.type == "go-package":
             if dependency.version and dependency.version.startswith("."):
@@ -115,7 +141,18 @@ class ContentManifest:
                 dep_purl = to_purl(dependency)
 
             icm_dependency = {"purl": dep_purl}
-            self._gopkg_data[package]["dependencies"].append(icm_dependency)
+
+            if type == "icm":
+                self._gopkg_data[package]["dependencies"].append(icm_dependency)
+            elif type == "sbom":
+                component = {
+                    "type": "library",
+                    "name": dependency.name,
+                    "purl": dep_purl,
+                }
+                if dependency.version:
+                    component["version"] = dependency.version
+                self._sbom_components.append(component)
 
     def _get_local_go_package_dep_purl(self, package: "Package", dependency: "Package") -> str:
         """
@@ -178,35 +215,47 @@ class ContentManifest:
                     "Could not find a Go module for %s", pkg_data["purl"]
                 )
 
-    def process_npm_package(self, package, dependency):
+    def process_npm_package(self, package, dependency, type="icm"):
         """
         Process npm package.
 
         :param Package package: the npm package to process
         :param Dependency dependency: the npm package dependency to process
+        :param type: icm or sbom component
         """
         if dependency.type == "npm":
-            self._process_standard_package("npm", package, dependency)
+            if type == "icm":
+                self._process_standard_package("npm", package, dependency)
+            elif type == "sbom":
+                self._process_standard_package_sbom(dependency)
 
-    def process_pip_package(self, package, dependency):
+    def process_pip_package(self, package, dependency, type="icm"):
         """
         Process pip package.
 
         :param Package package: the pip package to process
         :param Dependency dependency: the pip package dependency to process
+        :param type: icm or sbom component
         """
         if dependency.type == "pip":
-            self._process_standard_package("pip", package, dependency)
+            if type == "icm":
+                self._process_standard_package("pip", package, dependency)
+            elif type == "sbom":
+                self._process_standard_package_sbom(dependency)
 
-    def process_yarn_package(self, package, dependency):
+    def process_yarn_package(self, package, dependency, type="icm"):
         """
         Process yarn package.
 
         :param Package package: the yarn package to process
         :param Dependency dependency: the yarn package dependency to process
+        :param type: icm or sbom component
         """
         if dependency.type == "yarn":
-            self._process_standard_package("yarn", package, dependency)
+            if type == "icm":
+                self._process_standard_package("yarn", package, dependency)
+            elif type == "sbom":
+                self._process_standard_package_sbom(dependency)
 
     def _process_standard_package(self, pkg_type, package, dependency):
         """
@@ -221,12 +270,29 @@ class ContentManifest:
         if not dependency.dev:
             pkg_type_data[package]["dependencies"].append(icm_dependency)
 
-    def process_rubygems_package(self, package, dependency):
+    def _process_standard_package_sbom(self, dependency: "Package") -> None:
+        """
+        Process a standard package (standard = does not require the same magic as go packages).
+
+        Currently, all package types except for gomod and go-package are standard.
+        """
+        purl = to_purl(dependency)
+        component = {
+            "type": "library",
+            "name": dependency.name,
+            "purl": purl,
+        }
+        if dependency.version:
+            component["version"] = dependency.version
+        self._sbom_components.append(component)
+
+    def process_rubygems_package(self, package, dependency, type="icm"):
         """
         Process RubyGems package.
 
         :param Package package: the RubyGems package to process
         :param Dependency dependency: the RubyGems package dependency to process
+        :param type: icm or sbom component
         """
         if dependency.type == "rubygems":
             parent_package_name = get_repo_name(self.request.repo).split("/")[-1]
@@ -236,8 +302,19 @@ class ContentManifest:
             dep_purl = replace_parent_purl_placeholder(dep_purl, parent_purl)
 
             icm_dependency = {"purl": dep_purl}
-            self._rubygems_data[package]["sources"].append(icm_dependency)
-            self._rubygems_data[package]["dependencies"].append(icm_dependency)
+
+            if type == "icm":
+                self._rubygems_data[package]["sources"].append(icm_dependency)
+                self._rubygems_data[package]["dependencies"].append(icm_dependency)
+            elif type == "sbom":
+                component = {
+                    "type": "library",
+                    "name": dependency.name,
+                    "purl": dep_purl,
+                }
+                if dependency.version:
+                    component["version"] = dependency.version
+                self._sbom_components.append(component)
 
     def to_json(self):
         """
@@ -319,6 +396,60 @@ class ContentManifest:
         icm["image_contents"] = image_contents or []
         deep_sort_icm(icm)
         return icm
+
+    def sbom_components_list(self) -> List[Dict[str, Any]]:
+        """
+        Generate sbom components list.
+
+        :return: the CycloneDX components dict
+        :rtype: list
+        """
+        self._sbom_components = []
+        self._gomod_data = {}
+
+        for package in self.packages:
+            component = {"type": "library", "name": package.name}
+            if package.version:
+                component["version"] = package.version
+
+            if package.type in (
+                "go-package",
+                "gomod",
+                "npm",
+                "pip",
+                "yarn",
+                "rubygems",
+                "git-submodule",
+            ):
+                purl = to_top_level_purl(package, self.request, subpath=package.path)
+                component["purl"] = purl
+
+                if package.type == "gomod":
+                    self._gomod_data.setdefault(package.name, {"purl": purl, "dependencies": []})
+
+                self._sbom_components.append(component)
+
+            else:
+                flask.current_app.logger.debug(
+                    "No SBOM implementation for '%s' packages", package.type
+                )
+
+        for package in self.packages:
+            for dependency in package.dependencies:
+                if package.type == "go-package":
+                    self.process_go_package(package, dependency, type="sbom")
+                elif package.type == "gomod":
+                    self.process_gomod(package, dependency, type="sbom")
+                elif package.type == "npm":
+                    self.process_npm_package(package, dependency, type="sbom")
+                elif package.type == "pip":
+                    self.process_pip_package(package, dependency, type="sbom")
+                elif package.type == "yarn":
+                    self.process_yarn_package(package, dependency, type="sbom")
+                elif package.type == "rubygems":
+                    self.process_rubygems_package(package, dependency, type="sbom")
+
+        return self._sbom_components
 
 
 class Package:

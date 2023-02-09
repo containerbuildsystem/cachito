@@ -22,6 +22,11 @@ without_deps:
         version: "1.0.0"
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-pip-without-deps@fb07c8492432631d557aba15e1715af9cef9c844"
+  sbom:
+  - name: cachito-pip-empty
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-pip-without-deps@fb07c8492432631d557aba15e1715af9cef9c844
 # pip package with dependencies in requirements.txt
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -85,6 +90,23 @@ with_deps:
       - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
       - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
       - "pkg:pypi/aiowsgi@0.7"
+  sbom:
+  - name: appr
+    type: library
+    version: https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+    purl: pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+  - name: cachito-pip-with-deps
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-pip-with-deps@83b387568b6287f6829403cff1e1377b0fb2f5d8
+  - name: appr
+    type: library
+    version: git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+    purl: pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+  - name: aiowsgi
+    type: library
+    version: "0.7"
+    purl: pkg:pypi/aiowsgi@0.7
 # pip package with local path
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -166,6 +188,27 @@ multiple:
     - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
     source_purls:
     - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
+  sbom:
+  - name: appr
+    type: library
+    version: https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+    purl: pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+  - name: first_pkg
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-pip-multiple@93c6c44b36075454a509d595850b81be29e53db0#first_pkg
+  - name: second_pkg
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-pip-multiple@93c6c44b36075454a509d595850b81be29e53db0#second_pkg
+  - name: appr
+    type: library
+    version: git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+    purl: pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+  - name: aiowsgi
+    type: library
+    version: "0.7"
+    purl: pkg:pypi/aiowsgi@0.7
 # With pip git-submodule
 git_submodule:
   repo: https://github.com/cachito-testing/git-submodule-pip.git
@@ -232,3 +275,24 @@ git_submodule:
       - "pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c"
       - "pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b"
       - "pkg:pypi/aiowsgi@0.7"
+  sbom:
+  - name: appr
+    type: library
+    version: https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76ee092fe206a84.zip#egg=appr&cachito_hash=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+    purl: pkg:generic/appr?download_url=https%3A%2F%2Fgithub.com%2Fquay%2Fappr%2Farchive%2F37ff9a487a54ad41b59855ecd76ee092fe206a84.zip%23egg%3Dappr%26cachito_hash%3Dsha256%3Aee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c&checksum=sha256:ee6a0a38bed8cff46a562ed3620bc453141a02262ab0c8dd055824af2829ee5c
+  - name: cachito-pip-with-deps
+    type: library
+    version: https://github.com/cachito-testing/cachito-pip-with-deps.git#56efa5f7eb4ff1b7ea1409dbad76f5bb378291e6
+    purl: pkg:github/cachito-testing/cachito-pip-with-deps@56efa5f7eb4ff1b7ea1409dbad76f5bb378291e6
+  - name: cachito-pip-with-deps
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/git-submodule-pip@6ff2f48835a224c0b170c2c79f48d8507aed89d7#cachito-pip-with-deps
+  - name: appr
+    type: library
+    version: git+https://github.com/quay/appr.git@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+    purl: pkg:github/quay/appr@58c88e4952e95935c0dd72d4a24b0c44f2249f5b
+  - name: aiowsgi
+    type: library
+    version: "0.7"
+    purl: pkg:pypi/aiowsgi@0.7
