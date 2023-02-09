@@ -743,12 +743,12 @@ The table below shows the supported package managers and their support level in 
 
 Tool     | Version |
 ---      |---------|
-Go       | 1.18.6  |
-Npm      | 8.3.1   |
-Node     | 16.14.0 |
-Pip      | 21.3.1  |
-Python   | 3.10.6  |
-Git      | 2.37.3  |
+Go       | 1.19.5  |
+Npm      | 8.19.2  |
+Node     | 18.12.1 |
+Pip      | 22.2.2  |
+Python   | 3.11.1  |
+Git      | 2.39.1  |
 Yarn*    | 1.x     |
 Bundler* | 2.x     |
 
