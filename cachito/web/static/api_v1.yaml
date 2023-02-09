@@ -665,6 +665,35 @@ paths:
                   error:
                     type: string
                     example: "Request 1 is in state in_progress, not complete or stale."
+  "/sbom":
+    get:
+      summary: Get the sbom of multiple requests
+      description: Return the sbom of the specified Cachito requests
+      parameters:
+      - name: requests
+        in: query
+        required: false
+        description: The comma separated IDs of the Cachito requests to retrieve the sbom for
+        schema:
+          type: string
+          example: [1,2,3]
+      responses:
+        "200":
+          description: The sbom of the Cachito requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sbom"
+        "400":
+          description: Any of the input Cachito request id is invalid.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Request 1 is in state in_progress, not complete or stale."
   "/request-metrics":
     get:
       summary: List requests with a final state information
@@ -1248,6 +1277,34 @@ components:
                   properties:
                     purl:
                       $ref: "#/components/schemas/Purl"
+    Sbom:
+      type: object
+      properties:
+        bomFormat:
+          type: string
+          example: "CycloneDX"
+        specVersion:
+          type: string
+          example: "1.4"
+        version:
+          type: integer
+          example: 1
+        components:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                example: "library"
+              name:
+                type: string
+                example: "vim"
+              version:
+                type: string
+                example: "9.0"
+              purl:
+                $ref: "#/components/schemas/Purl"
     RequestState:
       type: string
       example: in_progress

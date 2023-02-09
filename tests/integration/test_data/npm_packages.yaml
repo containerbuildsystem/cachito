@@ -23,6 +23,11 @@ without_deps:
         version: "1.0.0"
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-npm-without-deps@2f0ce1d7b1f8b35572d919428b965285a69583f6"
+  sbom:
+  - name: cachito-npm-without-deps
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-npm-without-deps@2f0ce1d7b1f8b35572d919428b965285a69583f6
 # npm package with dependencies package.json
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -175,6 +180,51 @@ with_deps:
     - "pkg:npm/get-func-name@2.0.0"
     - "pkg:npm/pathval@1.1.1"
     - "pkg:npm/type-detect@4.0.8"
+  sbom:
+  - name: cachito-npm-without-deps
+    type: library
+    version: git+https://github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+    purl: pkg:generic/cachito-npm-without-deps?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcachito-testing%2Fcachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b965285a69583f6
+  - name: fecha
+    type: library
+    version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+    purl: pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+  - name: cachito-npm-with-deps
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-npm-with-deps@565aba4c7f210c6196c1b522e2279f853f77d6d2
+  - name: is-positive
+    type: library
+    version: github:kevva/is-positive#97edff6f525f192a3f83cea1944765f769ae2678
+    purl: pkg:github/kevva/is-positive@97edff6f525f192a3f83cea1944765f769ae2678
+  - name: assertion-error
+    type: library
+    version: 1.1.0
+    purl: pkg:npm/assertion-error@1.1.0
+  - name: chai
+    type: library
+    version: 4.2.0
+    purl: pkg:npm/chai@4.2.0
+  - name: check-error
+    type: library
+    version: 1.0.2
+    purl: pkg:npm/check-error@1.0.2
+  - name: deep-eql
+    type: library
+    version: 3.0.1
+    purl: pkg:npm/deep-eql@3.0.1
+  - name: get-func-name
+    type: library
+    version: 2.0.0
+    purl: pkg:npm/get-func-name@2.0.0
+  - name: pathval
+    type: library
+    version: 1.1.1
+    purl: pkg:npm/pathval@1.1.1
+  - name: type-detect
+    type: library
+    version: 4.0.8
+    purl: pkg:npm/type-detect@4.0.8
 # With npm git-submodule
 git_submodule:
   repo: https://github.com/cachito-testing/git-submodule-npm.git
@@ -329,6 +379,55 @@ git_submodule:
     - "pkg:npm/get-func-name@2.0.0"
     - "pkg:npm/pathval@1.1.1"
     - "pkg:npm/type-detect@4.0.8"
+  sbom:
+  - name: cachito-npm-without-deps
+    type: library
+    version: git+https://github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+    purl: pkg:generic/cachito-npm-without-deps?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcachito-testing%2Fcachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b965285a69583f6
+  - name: fecha
+    type: library
+    version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+    purl: pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+  - name: cachito-npm-with-deps
+    type: library
+    version: https://github.com/cachito-testing/cachito-npm-with-deps.git#565aba4c7f210c6196c1b522e2279f853f77d6d2
+    purl: pkg:github/cachito-testing/cachito-npm-with-deps@565aba4c7f210c6196c1b522e2279f853f77d6d2
+  - name: cachito-npm-with-deps
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/git-submodule-npm@a209a89d1b88b757cd7dfd19bb2d96dd979398d6#cachito-npm-with-deps
+  - name: is-positive
+    type: library
+    version: github:kevva/is-positive#97edff6f525f192a3f83cea1944765f769ae2678
+    purl: pkg:github/kevva/is-positive@97edff6f525f192a3f83cea1944765f769ae2678
+  - name: assertion-error
+    type: library
+    version: 1.1.0
+    purl: pkg:npm/assertion-error@1.1.0
+  - name: chai
+    type: library
+    version: 4.2.0
+    purl: pkg:npm/chai@4.2.0
+  - name: check-error
+    type: library
+    version: 1.0.2
+    purl: pkg:npm/check-error@1.0.2
+  - name: deep-eql
+    type: library
+    version: 3.0.1
+    purl: pkg:npm/deep-eql@3.0.1
+  - name: get-func-name
+    type: library
+    version: 2.0.0
+    purl: pkg:npm/get-func-name@2.0.0
+  - name: pathval
+    type: library
+    version: 1.1.1
+    purl: pkg:npm/pathval@1.1.1
+  - name: type-detect
+    type: library
+    version: 4.0.8
+    purl: pkg:npm/type-detect@4.0.8
 # npm package for testing workspaces
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -365,3 +464,12 @@ workspaces:
       - "pkg:npm/abbrev@1.1.1"
     source_purls:
       - "pkg:npm/abbrev@1.1.1"
+  sbom:
+  - name: npm_test
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-npm-workspaces@7a83936be7177246a549acf66ab8074ea4c0d6f5
+  - name: abbrev
+    type: library
+    version: 1.1.1
+    purl: pkg:npm/abbrev@1.1.1

@@ -23,3 +23,8 @@ git_submodule_no_master_branch:
         version: https://github.com/cachito-testing/repo-no-master-branch.git#309749e2ef8755319cb4f7dd5faa8f2fbdacda70
   content_manifest:
   - purl: "pkg:github/cachito-testing/repo-no-master-branch@309749e2ef8755319cb4f7dd5faa8f2fbdacda70"
+  sbom:
+  - name: repo-no-master-branch
+    type: library
+    version: https://github.com/cachito-testing/repo-no-master-branch.git#309749e2ef8755319cb4f7dd5faa8f2fbdacda70
+    purl: pkg:github/cachito-testing/repo-no-master-branch@309749e2ef8755319cb4f7dd5faa8f2fbdacda70

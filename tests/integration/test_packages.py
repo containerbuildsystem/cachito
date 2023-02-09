@@ -108,3 +108,6 @@ def test_packages(env_package, env_name, test_env, tmpdir):
                 {"dependencies": dep_purls, "purl": purl, "sources": source_purls}
             )
     utils.assert_content_manifest(client, completed_response.id, image_contents)
+
+    sbom_components = env_data.get("sbom")
+    utils.assert_sbom(client, completed_response.id, sbom_components)

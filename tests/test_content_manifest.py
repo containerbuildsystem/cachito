@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from collections import OrderedDict
+from typing import Any, Dict, List
 from unittest import mock
 
 import pytest
@@ -615,6 +616,541 @@ def test_to_json(mock_top_level_purl, app, package, subpath):
     if package:
         package = Package.from_json(package)
         mock_top_level_purl.assert_called_once_with(package, request, subpath=subpath)
+
+
+@pytest.mark.parametrize(
+    "package, components",
+    [
+        [
+            None,
+            [],
+        ],
+        [
+            {
+                "name": "example.com/org/project",
+                "type": "go-package",
+                "version": "1.1.1",
+                "dependencies": [
+                    {
+                        "name": "example.com/org/project_dep",
+                        "type": "go-package",
+                        "version": "1.1.1_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "example.com/org/project",
+                    "version": "1.1.1",
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject@1.1.1",
+                },
+                {
+                    "type": "library",
+                    "name": "example.com/org/project_dep",
+                    "version": "1.1.1_dep",
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject_dep@1.1.1_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "example.com/org/project",
+                "type": "go-package",
+                "version": "1.1.1",
+                "path": "some/path",
+                "dependencies": [
+                    {
+                        "name": "example.com/org/project_dep",
+                        "type": "go-package",
+                        "version": "1.1.1_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "example.com/org/project",
+                    "version": "1.1.1",
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject@1.1.1",
+                },
+                {
+                    "type": "library",
+                    "name": "example.com/org/project_dep",
+                    "version": "1.1.1_dep",
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject_dep@1.1.1_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "gomod-some",
+                "type": "gomod",
+                "version": "1.0.0",
+                "dependencies": [
+                    {
+                        "name": "gomod-some_dep",
+                        "type": "gomod",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "gomod-some",
+                    "version": "1.0.0",
+                    "purl": "pkg:golang/gomod-some@1.0.0",
+                },
+                {
+                    "type": "library",
+                    "name": "gomod-some_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:golang/gomod-some_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "gomod-some",
+                "type": "gomod",
+                "version": "1.0.0",
+                "path": "some/path",
+                "dependencies": [
+                    {
+                        "name": "gomod-some_dep",
+                        "type": "gomod",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "gomod-some",
+                    "version": "1.0.0",
+                    "purl": "pkg:golang/gomod-some@1.0.0",
+                },
+                {
+                    "type": "library",
+                    "name": "gomod-some_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:golang/gomod-some_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "grc-ui",
+                "type": "npm",
+                "version": "1.0.0",
+                "dependencies": [
+                    {
+                        "name": "grc-ui_dep",
+                        "type": "npm",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "grc-ui",
+                    "version": "1.0.0",
+                    "purl": DEFAULT_PURL,
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:npm/grc-ui_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "grc-ui",
+                "type": "npm",
+                "version": "1.0.0",
+                "path": "some/path",
+                "dependencies": [
+                    {
+                        "name": "grc-ui_dep",
+                        "type": "npm",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "grc-ui",
+                    "version": "1.0.0",
+                    "purl": f"{DEFAULT_PURL}#some/path",
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:npm/grc-ui_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "requests",
+                "type": "pip",
+                "version": "2.24.0",
+                "dependencies": [
+                    {
+                        "name": "requests_dep",
+                        "type": "pip",
+                        "version": "2.24.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "requests",
+                    "version": "2.24.0",
+                    "purl": DEFAULT_PURL,
+                },
+                {
+                    "type": "library",
+                    "name": "requests_dep",
+                    "version": "2.24.0_dep",
+                    "purl": "pkg:pypi/requests-dep@2.24.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "requests",
+                "type": "pip",
+                "version": "2.24.0",
+                "path": "some/path",
+                "dependencies": [
+                    {
+                        "name": "requests_dep",
+                        "type": "pip",
+                        "version": "2.24.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "requests",
+                    "version": "2.24.0",
+                    "purl": f"{DEFAULT_PURL}#some/path",
+                },
+                {
+                    "type": "library",
+                    "name": "requests_dep",
+                    "version": "2.24.0_dep",
+                    "purl": "pkg:pypi/requests-dep@2.24.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "grc-ui",
+                "type": "yarn",
+                "version": "1.0.0",
+                "dependencies": [
+                    {
+                        "name": "grc-ui_dep",
+                        "type": "yarn",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "grc-ui",
+                    "version": "1.0.0",
+                    "purl": DEFAULT_PURL,
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:npm/grc-ui_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "grc-ui",
+                "type": "yarn",
+                "version": "1.0.0",
+                "path": "some/path",
+                "dependencies": [
+                    {
+                        "name": "grc-ui_dep",
+                        "type": "yarn",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "grc-ui",
+                    "version": "1.0.0",
+                    "purl": f"{DEFAULT_PURL}#some/path",
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:npm/grc-ui_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "ruby-some",
+                "type": "rubygems",
+                "version": "1.0.0",
+                "dependencies": [
+                    {
+                        "name": "ruby-some_dep",
+                        "type": "rubygems",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "ruby-some",
+                    "version": "1.0.0",
+                    "purl": DEFAULT_PURL,
+                },
+                {
+                    "type": "library",
+                    "name": "ruby-some_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:gem/ruby-some_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "ruby-some",
+                "type": "rubygems",
+                "version": "1.0.0",
+                "path": "some/path",
+                "dependencies": [
+                    {
+                        "name": "ruby-some_dep",
+                        "type": "rubygems",
+                        "version": "1.0.0_dep",
+                    },
+                ],
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "ruby-some",
+                    "version": "1.0.0",
+                    "purl": f"{DEFAULT_PURL}#some/path",
+                },
+                {
+                    "type": "library",
+                    "name": "ruby-some_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:gem/ruby-some_dep@1.0.0_dep",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "submodule-some",
+                "type": "git-submodule",
+                "version": "example.com/some.git#58c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "submodule-some",
+                    "version": "example.com/some.git#58c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+                    "purl": "pkg:generic/submodule-some?vcs_url=example.com%2Fsome.git%"
+                    "4058c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+                },
+            ],
+        ],
+        [
+            {
+                "name": "submodule-some",
+                "type": "git-submodule",
+                "path": "some/path",
+                "version": "example.com/some.git#58c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+            },
+            [
+                {
+                    "type": "library",
+                    "name": "submodule-some",
+                    "version": "example.com/some.git#58c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+                    "purl": "pkg:generic/submodule-some?vcs_url=example.com%2Fsome.git%"
+                    "4058c88e4952e95935c0dd72d4a24b0c44f2249f5b",
+                },
+            ],
+        ],
+    ],
+)
+def test_sbom_components_one_package(
+    package: Dict[str, Any], components: List[Dict[str, Any]], default_request: Request
+) -> None:
+    packages = _load_packages_from_json([package]) if package else []
+
+    cm = ContentManifest(default_request, packages)
+
+    assert components == cm.sbom_components_list()
+
+
+@pytest.mark.parametrize(
+    "packages_json, components",
+    [
+        [
+            [
+                {
+                    "name": "example.com/org/project",
+                    "type": "go-package",
+                    "version": "1.1.1",
+                    "dependencies": [
+                        {
+                            "name": "example.com/org/project_dep",
+                            "type": "go-package",
+                            "version": "1.1.1_dep",
+                        },
+                    ],
+                },
+                {
+                    "name": "grc-ui",
+                    "type": "npm",
+                    "version": "1.0.0",
+                    "dependencies": [
+                        {
+                            "name": "grc-ui_dep",
+                            "type": "npm",
+                            "version": "1.0.0_dep",
+                        },
+                    ],
+                },
+                {
+                    "name": "requests",
+                    "type": "pip",
+                    "version": "2.24.0",
+                    "dependencies": [
+                        {
+                            "name": "requests_dep",
+                            "type": "pip",
+                            "version": "2.24.0_dep",
+                        },
+                    ],
+                },
+                {
+                    "name": "grc-ui2",
+                    "type": "yarn",
+                    "version": "1.0.0",
+                    "dependencies": [
+                        {
+                            "name": "grc-ui2_dep",
+                            "type": "yarn",
+                            "version": "1.0.0_dep",
+                        },
+                    ],
+                },
+                {
+                    "name": "gomod-some",
+                    "type": "gomod",
+                    "version": "1.0.0",
+                    "dependencies": [
+                        {
+                            "name": "gomod-some_dep",
+                            "type": "gomod",
+                            "version": "1.0.0_dep",
+                        },
+                    ],
+                },
+            ],
+            [
+                {
+                    "type": "library",
+                    "name": "example.com/org/project",
+                    "version": "1.1.1",
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject@1.1.1",
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui",
+                    "version": "1.0.0",
+                    "purl": DEFAULT_PURL,
+                },
+                {
+                    "type": "library",
+                    "name": "requests",
+                    "version": "2.24.0",
+                    "purl": DEFAULT_PURL,
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui2",
+                    "version": "1.0.0",
+                    "purl": DEFAULT_PURL,
+                },
+                {
+                    "type": "library",
+                    "name": "gomod-some",
+                    "version": "1.0.0",
+                    "purl": "pkg:golang/gomod-some@1.0.0",
+                },
+                {
+                    "type": "library",
+                    "name": "example.com/org/project_dep",
+                    "version": "1.1.1_dep",
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject_dep@1.1.1_dep",
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:npm/grc-ui_dep@1.0.0_dep",
+                },
+                {
+                    "type": "library",
+                    "name": "requests_dep",
+                    "version": "2.24.0_dep",
+                    "purl": "pkg:pypi/requests-dep@2.24.0_dep",
+                },
+                {
+                    "type": "library",
+                    "name": "grc-ui2_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:npm/grc-ui2_dep@1.0.0_dep",
+                },
+                {
+                    "type": "library",
+                    "name": "gomod-some_dep",
+                    "version": "1.0.0_dep",
+                    "purl": "pkg:golang/gomod-some_dep@1.0.0_dep",
+                },
+            ],
+        ],
+    ],
+)
+def test_sbom_components_multiple_packages(
+    packages_json: List[Dict[str, Any]], components: List[Dict[str, Any]], default_request: Request
+) -> None:
+    packages = _load_packages_from_json(packages_json)
+
+    cm = ContentManifest(default_request, packages)
+
+    assert components == cm.sbom_components_list()
 
 
 @pytest.mark.parametrize(

@@ -22,6 +22,11 @@ without_deps:
         version: "4f1ca077899d42064d097dad90f3565fbf4e1ce7"
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-rubygems-without-deps@4f1ca077899d42064d097dad90f3565fbf4e1ce7"
+  sbom:
+  - name: cachito-rubygems-without-deps
+    type: library
+    version: 4f1ca077899d42064d097dad90f3565fbf4e1ce7
+    purl: pkg:github/cachito-testing/cachito-rubygems-without-deps@4f1ca077899d42064d097dad90f3565fbf4e1ce7
 # RubyGems package with GEM, GIT and PATH dependencies in Gemfile and Gemfile.lock
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -78,6 +83,23 @@ with_deps:
     - "pkg:gem/zeitwerk@2.6.0"
     - "pkg:github/cachito-testing/cachito-rubygems-with-dependencies@ef6b2d7f9e4719be204531639a3ab90cfd731f26#vendor/pathgem"
     - "pkg:github/radpad/swagger-ui_rails@7234e21e621b628d6b43194f9ba5cce5ca587f16"
+  sbom:
+  - name: zeitwerk
+    type: library
+    version: 2.6.0
+    purl: pkg:gem/zeitwerk@2.6.0
+  - name: cachito-rubygems-with-dependencies
+    type: library
+    version: ef6b2d7f9e4719be204531639a3ab90cfd731f26
+    purl: pkg:github/cachito-testing/cachito-rubygems-with-dependencies@ef6b2d7f9e4719be204531639a3ab90cfd731f26
+  - name: pathgem
+    type: library
+    version: ./vendor/pathgem
+    purl: pkg:github/cachito-testing/cachito-rubygems-with-dependencies@ef6b2d7f9e4719be204531639a3ab90cfd731f26#vendor/pathgem
+  - name: swagger-ui_rails
+    type: library
+    version: git+https://github.com/RadPad/swagger-ui_rails.git@7234e21e621b628d6b43194f9ba5cce5ca587f16
+    purl: pkg:github/radpad/swagger-ui_rails@7234e21e621b628d6b43194f9ba5cce5ca587f16
 # Multiple RubyGems packages
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
@@ -135,3 +157,20 @@ multiple:
     - "pkg:gem/tilt@2.0.11"
     source_purls:
     - "pkg:gem/tilt@2.0.11"
+  sbom:
+  - name: tilt
+    type: library
+    version: 2.0.11
+    purl: pkg:gem/tilt@2.0.11
+  - name: cachito-rubygems-multiple/first_pkg
+    type: library
+    version: d5f91c54a8b35c3f2bdcf9a602184022b003ed75
+    purl: pkg:github/cachito-testing/cachito-rubygems-multiple@d5f91c54a8b35c3f2bdcf9a602184022b003ed75#first_pkg
+  - name: pathgem
+    type: library
+    version: ./vendor/pathgem
+    purl: pkg:github/cachito-testing/cachito-rubygems-multiple@d5f91c54a8b35c3f2bdcf9a602184022b003ed75#first_pkg/vendor/pathgem
+  - name: cachito-rubygems-multiple/second_pkg
+    type: library
+    version: d5f91c54a8b35c3f2bdcf9a602184022b003ed75
+    purl: pkg:github/cachito-testing/cachito-rubygems-multiple@d5f91c54a8b35c3f2bdcf9a602184022b003ed75#second_pkg
