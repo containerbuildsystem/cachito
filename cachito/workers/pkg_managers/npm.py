@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
+import fnmatch
 import json
 import logging
 import os
+import pathlib
 
 from cachito.errors import FileAccessError, ValidationError
 from cachito.workers.config import get_worker_config
@@ -23,6 +25,22 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+
+
+def _is_workspace_version(version: str, workspaces: list[str]) -> bool:
+    """
+    Test if a version file path match one of the workspaces pattern string.
+
+    :param version a file: version string to match with a workspace glob pattern
+    :param list workspaces: package workspaces defined in package-lock.json
+    :return: true if path matches one of the workspaces
+    :rtype: boolean
+    """
+    path = version.removeprefix("file:")
+    for workspace in workspaces:
+        if fnmatch.fnmatch(path, pathlib.Path(workspace).as_posix()):
+            return True
+    return False
 
 
 def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspaces=None):
@@ -67,14 +85,15 @@ def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspa
     for name, info in package_lock_deps.items():
         nexus_replacement = None
         version_in_nexus = None
+        version = info["version"]
 
         # If the file dependency is in the allow list, then it'll be allowed since
         # convert_to_nexus_hosted won't run which would cause an exception. The code that uses the
         # output of this function to download the dependencies will ignore this dependency.
-        if info["version"].startswith("file:") and name in file_deps_allowlist:
+        if version.startswith("file:") and name in file_deps_allowlist:
             log.info("The dependency %r is an allowed exception", info)
         # If there is npm workspace entry in dependencies of package-lock.json, skip it.
-        elif info["version"].startswith("file:") and name in workspaces:
+        elif version.startswith("file:") and _is_workspace_version(version, workspaces):
             log.info(f"The dependency '{name}' is npm workspace, skipping.")
             continue
         # Note that a bundled dependency will not have the "resolved" key, but those are supported
@@ -93,7 +112,7 @@ def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspa
             "name": name,
             "version_in_nexus": version_in_nexus,
             "type": "npm",
-            "version": info["version"],
+            "version": version,
         }
         if nexus_replacement:
             # Replace the original dependency in the npm-shrinkwrap.json or package-lock.json file
