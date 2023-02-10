@@ -60,7 +60,7 @@ def test_gomod_vendor_check_fail(env_name, test_env):
     assert completed_response.data["state"] == "failed"
     error_msg = (
         "The content of the vendor directory is not consistent with go.mod. "
-        "Run `go mod vendor` locally to fix this problem. See the logs for more details."
+        "Please check the logs for more details."
     )
     assert error_msg in completed_response.data["state_reason"], (
         f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
@@ -123,12 +123,11 @@ def test_gomod_with_local_replacements_in_parent_dir_missing(test_env):
     assert completed_response.data["state"] == "failed"
     error_msg = (
         "Could not find a Go module in this request containing "
-        "github.com/cachito-testing/cachito-gomod-local-parent-deps while processing "
-        "dependency {'name': 'github.com/cachito-testing/cachito-gomod-local-parent-deps', "
-        "'replaces': None, 'type': 'gomod', 'version': '../'} of package "
-        "github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module. Please tell "
-        "Cachito to process the module which contains the dependency. Perhaps the parent "
-        "module of github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module?"
+        "github.com/cachito-testing/cachito-gomod-local-parent-deps while processing dependency "
+        "{'type': 'gomod', 'name': 'github.com/cachito-testing/cachito-gomod-local-parent-deps', 'version': '../', 'replaces': None} "
+        "of package github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module. "
+        "Please tell Cachito to process the module which contains the dependency. Perhaps the "
+        "parent module of github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module?"
     )
 
     assert error_msg in completed_response.data["state_reason"], (
