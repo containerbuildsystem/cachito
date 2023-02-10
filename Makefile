@@ -28,7 +28,7 @@ UP_OPTS ?=
 all: venv run-start
 
 clean: run-down
-	rm -rf venv && rm -rf *.egg-info && rm -rf dist && rm -rf *.log* && rm -rf .tox && rm -rf tmp
+	rm -rf *.egg-info && rm -rf dist && rm -rf *.log* && rm -rf .tox && rm -rf tmp
 
 .PHONY: venv
 venv:
@@ -38,6 +38,13 @@ venv:
 	venv/bin/pip install tox
 	venv/bin/pip install 'cachi2 @ https://github.com/chmeliik/cachi2/archive/cachito-compatibility.tar.gz'
 	venv/bin/python setup.py develop
+
+upchi2:
+	venv/bin/pip uninstall -y cachi2
+	venv/bin/pip install --no-cache 'cachi2 @ https://github.com/chmeliik/cachi2/archive/cachito-compatibility.tar.gz'
+	$(CACHITO_COMPOSE_ENGINE) build cachito-worker
+	$(CACHITO_COMPOSE_ENGINE) down
+	$(CACHITO_COMPOSE_ENGINE) up -d
 
 # Keep run target for backwards compatibility
 run run-start:
