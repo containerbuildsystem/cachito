@@ -6,7 +6,8 @@ from pathlib import Path
 from cachito.common.packages_data import PackagesData
 from cachito.errors import InvalidRepoStructure, InvalidRequestData
 from cachito.workers import run_cmd
-from cachito.workers.cachi2_compatibility import Cachi2Adapter
+from cachito.workers.cachi2_compatibility import Cachi2Adapter, set_cachi2_config
+from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
 from cachito.workers.tasks.celery import app
@@ -116,6 +117,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
 
     set_request_state(request_id, "in_progress", "Fetching gomod dependencies")
 
+    set_cachi2_config(get_worker_config())
     cachi2_adapter = Cachi2Adapter(
         request_json=get_request(request_id),
         request_bundle=bundle_dir,

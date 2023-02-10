@@ -21,6 +21,7 @@ class Config(object):
     broker_transport_options = {"max_retries": 10}
     # Refer to README.md for information on all the Cachito configuration options
     cachito_api_timeout = 60
+    cachito_athens_url: str
     cachito_auth_type: Optional[str] = None
     cachito_default_environment_variables = {
         "gomod": {"GOSUMDB": {"value": "off", "kind": "literal"}},

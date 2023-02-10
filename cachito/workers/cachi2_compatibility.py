@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Literal, Optional
 
 import pydantic
+from cachi2.core import config as cachi2_config
 from cachi2.core import errors as cachi2_errors
 from cachi2.core.models.input import Request as Cachi2Request
 from cachi2.core.models.output import Dependency, Package, PipDependency, RequestOutput
@@ -19,7 +20,9 @@ from cachito.errors import (
     ServerError,
     UnsupportedFeature,
     ValidationError,
+    WorkerConfigError,
 )
+from cachito.workers.config import Config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import update_request_env_vars
 
@@ -28,6 +31,24 @@ __all__ = ["Cachi2Adapter"]
 log = logging.getLogger(__name__)
 
 JSONObject = dict[str, Any]
+
+
+def set_cachi2_config(worker_config) -> None:
+    # it's not actually a Config object, but close enough
+    cachito_config: Config = worker_config
+    try:
+        config = cachi2_config.Config(
+            default_environment_variables=cachito_config.cachito_default_environment_variables,
+            gomod_download_max_tries=cachito_config.cachito_gomod_download_max_tries,
+            gomod_strict_vendor=cachito_config.cachito_gomod_strict_vendor,
+            goproxy_url=cachito_config.cachito_athens_url,
+            subprocess_timeout=cachito_config.cachito_subprocess_timeout,
+        )
+    except pydantic.ValidationError:
+        log.exception("Failed to set configuration for the Cachi2 backend")
+        raise WorkerConfigError("Failed to set configuration for the Cachi2 backend")
+
+    cachi2_config.set_config(config)
 
 
 class Cachi2Adapter:
@@ -40,8 +61,6 @@ class Cachi2Adapter:
         self.request_json = request_json
         self.request_bundle = request_bundle
         self.package_manager = package_manager
-        # TODO: set config
-        # TODO: config is global in cachi2
 
     def run_package_manager(
         self,
