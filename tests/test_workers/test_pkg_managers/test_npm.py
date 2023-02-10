@@ -14,6 +14,37 @@ from cachito.workers.pkg_managers import general_js, npm
 
 
 @pytest.fixture()
+def workspace_versions():
+    return [
+        {
+            "version": "file:packages/a",
+            "workspaces": ["a", "b"],
+            "expected": False,
+        },
+        {
+            "version": "file:c",
+            "workspaces": ["a", "b"],
+            "expected": False,
+        },
+        {
+            "version": "file:a",
+            "workspaces": ["a", "b"],
+            "expected": True,
+        },
+        {
+            "version": "file:packages/a",
+            "workspaces": ["./packages/*", "b"],
+            "expected": True,
+        },
+        {
+            "version": "2.0.4",
+            "workspaces": ["./packages/*"],
+            "expected": False,
+        },
+    ]
+
+
+@pytest.fixture()
 def package_lock_deps():
     return {
         "@angular-devkit/architect": {
@@ -121,6 +152,14 @@ def package_and_deps():
         "package": package,
         "package.json": None,
     }
+
+
+def test_is_workspace_version(workspace_versions):
+    for workspace_version in workspace_versions:
+        assert workspace_version["expected"] == npm._is_workspace_version(
+            workspace_version["version"],
+            workspace_version["workspaces"],
+        )
 
 
 def test_get_deps(package_lock_deps):
