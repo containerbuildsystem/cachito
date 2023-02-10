@@ -133,4 +133,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     cachi2_adapter.update_request_env_vars(cachi2_output)
     packages_data = cachi2_adapter.update_request_packages(cachi2_output)
 
+    # TODO: local deps allowlist garbage
+    # or "oops we accidentally dropped it"
+
     _fail_if_parent_replacement_not_included(packages_data)
