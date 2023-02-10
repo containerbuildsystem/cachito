@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import itertools
 import logging
 import os
 from pathlib import Path
@@ -47,14 +48,17 @@ def _fail_if_parent_replacement_not_included(packages_json_data: PackagesData) -
     :raises RuntimeError: if there is no parent Go module for the package being processed
     :raises InvalidRequestData: if the module being replaced is not part of this request
     """
-    modules = [
-        package["name"] for package in packages_json_data.packages if package["type"] == "gomod"
+    go_modules = [package for package in packages_json_data.packages if package["type"] == "gomod"]
+    go_packages = [
+        package for package in packages_json_data.packages if package["type"] == "go-package"
     ]
 
-    for package in packages_json_data.packages:
+    module_names = [module["name"] for module in go_modules]
+
+    for package in itertools.chain(go_modules, go_packages):
         for dependency in package.get("dependencies", []):
             if dependency["version"] and ".." in Path(dependency["version"]).parts:
-                pkg_module_name = gomod.match_parent_module(package["name"], modules)
+                pkg_module_name = gomod.match_parent_module(package["name"], module_names)
                 if pkg_module_name is None:
                     # This should be impossible
                     raise RuntimeError(
@@ -64,7 +68,7 @@ def _fail_if_parent_replacement_not_included(packages_json_data: PackagesData) -
                 dep_normpath = os.path.normpath(
                     os.path.join(pkg_module_name, dependency["version"])
                 )
-                dep_module_name = gomod.match_parent_module(dep_normpath, modules)
+                dep_module_name = gomod.match_parent_module(dep_normpath, module_names)
                 if dep_module_name is None:
                     raise InvalidRequestData(
                         (
