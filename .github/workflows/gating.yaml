@@ -60,6 +60,7 @@ jobs:
   linters:
     name: Linters
     strategy:
+      fail-fast: false
       matrix:
         tox_env:
           - bandit
@@ -91,6 +92,7 @@ jobs:
     name: Hadolint
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         dockerfile:
           - Dockerfile-api
