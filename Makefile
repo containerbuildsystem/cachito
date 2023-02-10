@@ -28,7 +28,7 @@ UP_OPTS ?=
 all: venv run-start
 
 clean: run-down
-	rm -rf *.egg-info && rm -rf dist && rm -rf *.log* && rm -rf .tox && rm -rf tmp
+	rm -rf *.egg-info && rm -rf dist && rm -rf *.log* && rm -rf tmp
 
 .PHONY: venv
 venv:
