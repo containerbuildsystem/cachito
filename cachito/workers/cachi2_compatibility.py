@@ -6,7 +6,13 @@ import pydantic
 from cachi2.core import config as cachi2_config
 from cachi2.core import errors as cachi2_errors
 from cachi2.core.models.input import Request as Cachi2Request
-from cachi2.core.models.output import Dependency, Package, PipDependency, RequestOutput
+from cachi2.core.models.output import (
+    Dependency,
+    GomodDependency,
+    Package,
+    PipDependency,
+    RequestOutput,
+)
 from cachi2.core.package_managers import gomod, pip
 
 from cachito.common.packages_data import PackagesData
@@ -113,8 +119,21 @@ class Cachi2Adapter:
 
         def to_dependency_dict(dep: Dependency) -> JSONObject:
             attrs = {"type": dep.type, "name": dep.name, "version": dep.version}
+
+            if isinstance(dep, GomodDependency):
+                if dep.replaces is not None:
+                    replaces = {
+                        "type": dep.replaces.type,
+                        "name": dep.replaces.name,
+                        "version": dep.replaces.version,
+                    }
+                else:
+                    replaces = None
+                attrs["replaces"] = replaces
+
             if isinstance(dep, PipDependency):
                 attrs["dev"] = dep.dev
+
             return attrs
 
         for package in cachi2_output.packages:
@@ -146,6 +165,10 @@ class Cachi2Adapter:
             {"type": self.package_manager, **package}
             for package in package_configs_for_package_manager
         ]
+        dep_replacements = [
+            {"type": self.package_manager, **dep_replacement}
+            for dep_replacement in (dependency_replacements_for_package_manager or [])
+        ]
         try:
             cachi2_request = Cachi2Request.parse_obj(
                 {
@@ -153,7 +176,7 @@ class Cachi2Adapter:
                     "output_dir": self._cachi2_output_dir,
                     "packages": packages,
                     "flags": CACHI2_FLAGS.intersection(self.request_json["flags"]),
-                    "dep_replacements": dependency_replacements_for_package_manager,
+                    "dep_replacements": dep_replacements,
                 }
             )
         except pydantic.ValidationError:
