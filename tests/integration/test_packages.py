@@ -86,6 +86,7 @@ def test_packages(env_package, env_name, test_env, tmpdir):
 
     initial_response = client.create_new_request(payload=payload)
     completed_response = client.wait_for_complete_request(initial_response)
+    utils.assert_properly_completed_response(completed_response)
     response_data = completed_response.data
     expected_response_data = env_data["response_expectations"]
     utils.assert_elements_from_response(response_data, expected_response_data)
