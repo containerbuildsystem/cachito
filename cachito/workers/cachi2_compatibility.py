@@ -30,6 +30,8 @@ __all__ = ["Cachi2Adapter"]
 
 log = logging.getLogger(__name__)
 
+CACHI2_FLAGS = {"cgo-disable", "force-gomod-tidy", "gomod-vendor", "gomod-vendor-check"}
+
 JSONObject = dict[str, Any]
 
 
@@ -150,7 +152,7 @@ class Cachi2Adapter:
                     "source_dir": self._cachi2_source_dir,
                     "output_dir": self._cachi2_output_dir,
                     "packages": packages,
-                    "flags": self.request_json["flags"],
+                    "flags": CACHI2_FLAGS.intersection(self.request_json["flags"]),
                     "dep_replacements": dependency_replacements_for_package_manager,
                 }
             )
