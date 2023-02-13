@@ -95,7 +95,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     version_output = run_cmd(["go", "version"], {})
     log.info(f"Go version: {version_output.strip()}")
 
-    # config = get_worker_config()
+    config = get_worker_config()
     if not package_configs:
         package_configs = [{"path": "."}]
 
@@ -109,11 +109,13 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     # TODO: this is supposed to be in cachi2 of course
     _fail_if_bundle_dir_has_workspaces(bundle_dir, subpaths)
 
-    # TODO: this garbage
-    # missing gomod files is supported if there is only one path referenced
-    # if config.cachito_gomod_ignore_missing_gomod_file and len(subpaths) == 1:
-    #     log.warning("go.mod file missing for request at %s", invalid_files_print)
-    #     return
+    if (
+        len(subpaths) == 1
+        and config.cachito_gomod_ignore_missing_gomod_file
+        and not bundle_dir.app_subpath(subpaths[0]).go_mod_file.exists()
+    ):
+        log.warning("go.mod file missing at %s, skipping", subpaths[0])
+        return
 
     set_request_state(request_id, "in_progress", "Fetching gomod dependencies")
 
