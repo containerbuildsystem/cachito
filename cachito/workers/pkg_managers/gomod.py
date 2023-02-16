@@ -208,8 +208,13 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         if "force-gomod-tidy" in flags or dep_replacements:
             run_gomod_cmd(("go", "mod", "tidy"), run_params)
 
+        go_list = ["go", "list", "-e"]
+        if not should_vendor:
+            # Make Go ignore the vendor dir even if there is one
+            go_list.extend(["-mod", "readonly"])
+
         # main module
-        module_name = run_gomod_cmd(["go", "list", "-m"], run_params).rstrip()
+        module_name = run_gomod_cmd([*go_list, "-m"], run_params).rstrip()
 
         # module level dependencies
         if should_vendor:
@@ -219,7 +224,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             #   where <replace> is <name> <version> or <path>
             output_format = "{{ if not .Main }}{{ .String }}{{ end }}"
             go_list_output = run_gomod_cmd(
-                ("go", "list", "-mod", "readonly", "-m", "-f", output_format, "all"), run_params
+                (*go_list, "-m", "-f", output_format, "all"),
+                run_params,
             )
             module_lines = go_list_output.splitlines()
 
@@ -300,18 +306,12 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             )
             _merge_bundle_dirs(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
-        if not should_vendor:
-            # Make Go ignore the vendor dir even if there is one
-            go_list = ["go", "list", "-mod", "readonly"]
-        else:
-            go_list = ["go", "list"]
-
         log.info("Retrieving the list of packages")
         package_list = run_gomod_cmd([*go_list, "-find", "./..."], run_params).splitlines()
 
         log.info("Retrieving the list of package level dependencies")
         package_info = _load_list_deps(
-            run_gomod_cmd([*go_list, "-e", "-deps", "-json", "./..."], run_params)
+            run_gomod_cmd([*go_list, "-deps", "-json", "./..."], run_params)
         )
 
         packages = []
