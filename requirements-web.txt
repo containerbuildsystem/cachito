@@ -160,9 +160,9 @@ prometheus-client==0.14.1 \
     --hash=sha256:522fded625282822a89e2773452f42df14b5a8e84a86433e3f8a189c1d54dc01 \
     --hash=sha256:5459c427624961076277fdc6dc50540e2bacb98eebde99886e59ec55ed92093a
     # via prometheus-flask-exporter
-prometheus-flask-exporter==0.21.0 \
-    --hash=sha256:6dc4a010c299d1ed94b6151d91f129c4513fb8aa04310db00be4ccb0006de400 \
-    --hash=sha256:ebbc016c1e3d16e7cd39fe651a6c52ac68779858b2d5d1be6ddbc9e66f7fc29f
+prometheus-flask-exporter==0.22.0 \
+    --hash=sha256:03c0682bd343e0ab1961acf7348f69488a8a101fd5c5c35cd10a508c51d3ff83 \
+    --hash=sha256:21044ce2a55667d17a6937c527bb96921698682f9ef084f58260bc4fad0232f7
     # via -r requirements-web.in
 psycopg2-binary==2.9.5 \
     --hash=sha256:00475004e5ed3e3bf5e056d66e5dcdf41a0dc62efcd57997acd9135c40a08a50 \
