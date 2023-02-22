@@ -436,40 +436,108 @@ git_submodule:
 # content_manifest: PURLs for image contents part
 workspaces:
   repo: https://github.com/cachito-testing/cachito-npm-workspaces.git
-  ref: 7a83936be7177246a549acf66ab8074ea4c0d6f5 
+  ref: b4ec59868cb5667deb62930859762b107f23598c
   pkg_managers: ["npm"]
   expected_files:
-    app: https://github.com/cachito-testing/cachito-npm-workspaces/tarball/7a83936be7177246a549acf66ab8074ea4c0d6f5
-    deps/npm/abbrev/abbrev-1.1.1.tgz: https://registry.npmjs.com/abbrev/-/abbrev-1.1.1.tgz
+    app: https://github.com/cachito-testing/cachito-npm-workspaces/tarball/b4ec59868cb5667deb62930859762b107f23598c
+    deps/npm/abbrev/abbrev-2.0.0.tgz: https://registry.npmjs.com/abbrev/-/abbrev-2.0.0.tgz
+    deps/npm/classnames/classnames-2.3.2.tgz: https://registry.npmjs.com/classnames/-/classnames-2.3.2.tgz
+    deps/npm/colors/colors-1.4.0.tgz: https://registry.npmjs.com/colors/-/colors-1.4.0.tgz
+    deps/npm/dateformat/dateformat-5.0.3.tgz: https://registry.npmjs.com/dateformat/-/dateformat-5.0.3.tgz
+    deps/npm/uuid/uuid-9.0.0.tgz: https://registry.npmjs.com/uuid/-/uuid-9.0.0.tgz
   response_expectations:
     dependencies:
       - dev: false
         name: abbrev
         replaces: null
         type: npm
-        version: 1.1.1
+        version: 2.0.0
+      - dev: false
+        name: classnames
+        replaces: null
+        type: npm
+        version: 2.3.2
+      - dev: false
+        name: colors
+        replaces: null
+        type: npm
+        version: 1.4.0
+      - dev: false
+        name: dateformat
+        replaces: null
+        type: npm
+        version: 5.0.3
+      - dev: false
+        name: uuid
+        replaces: null
+        type: npm
+        version: 9.0.0
     packages:
       - dependencies:
         - dev: false
           name: abbrev
           replaces: null
           type: npm
-          version: 1.1.1
+          version: 2.0.0
+        - dev: false
+          name: classnames
+          replaces: null
+          type: npm
+          version: 2.3.2
+        - dev: false
+          name: colors
+          replaces: null
+          type: npm
+          version: 1.4.0
+        - dev: false
+          name: dateformat
+          replaces: null
+          type: npm
+          version: 5.0.3
+        - dev: false
+          name: uuid
+          replaces: null
+          type: npm
+          version: 9.0.0
         name: "npm_test"
         type: "npm"
-        version: "1.0.0"
+        version: "1.1.0"
   content_manifest:
-  - purl: "pkg:github/cachito-testing/cachito-npm-workspaces@7a83936be7177246a549acf66ab8074ea4c0d6f5"
+  - purl: "pkg:github/cachito-testing/cachito-npm-workspaces@b4ec59868cb5667deb62930859762b107f23598c"
     dep_purls:
-      - "pkg:npm/abbrev@1.1.1"
+      - "pkg:npm/abbrev@2.0.0"
+      - "pkg:npm/classnames@2.3.2"
+      - "pkg:npm/colors@1.4.0"
+      - "pkg:npm/dateformat@5.0.3"
+      - "pkg:npm/uuid@9.0.0"
     source_purls:
-      - "pkg:npm/abbrev@1.1.1"
+      - "pkg:npm/abbrev@2.0.0"
+      - "pkg:npm/classnames@2.3.2"
+      - "pkg:npm/colors@1.4.0"
+      - "pkg:npm/dateformat@5.0.3"
+      - "pkg:npm/uuid@9.0.0"
   sbom:
   - name: npm_test
     type: library
-    version: 1.0.0
-    purl: pkg:github/cachito-testing/cachito-npm-workspaces@7a83936be7177246a549acf66ab8074ea4c0d6f5
+    version: 1.1.0
+    purl: pkg:github/cachito-testing/cachito-npm-workspaces@b4ec59868cb5667deb62930859762b107f23598c
   - name: abbrev
     type: library
-    version: 1.1.1
-    purl: pkg:npm/abbrev@1.1.1
+    version: 2.0.0
+    purl: pkg:npm/abbrev@2.0.0
+  - name: classnames
+    type: library
+    version: 2.3.2
+    purl: pkg:npm/classnames@2.3.2
+  - name: colors
+    type: library
+    version: 1.4.0
+    purl: pkg:npm/colors@1.4.0
+  - name: dateformat
+    type: library
+    version: 5.0.3
+    purl: pkg:npm/dateformat@5.0.3
+  - name: uuid
+    type: library
+    version: 9.0.0
+    purl: pkg:npm/uuid@9.0.0
