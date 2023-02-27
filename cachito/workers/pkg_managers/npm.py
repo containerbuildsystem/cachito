@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import pathlib
+from typing import Any
 
 from cachito.errors import FileAccessError, ValidationError
 from cachito.workers.config import get_worker_config
@@ -43,7 +44,12 @@ def _is_workspace_version(version: str, workspaces: list[str]) -> bool:
     return False
 
 
-def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspaces=None):
+def _get_deps(
+    package_lock_deps: dict[str, Any],
+    file_deps_allowlist: set[str],
+    name_to_deps: dict[str, Any] | None = None,
+    workspaces: list[str] | None = None,
+) -> tuple[dict[str, Any], list[tuple[str, str]]]:
     """
     Get a mapping of dependencies to all versions of the dependency.
 
@@ -61,24 +67,23 @@ def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspa
     the input ``package_lock_deps`` will be modifed to use a reference to Nexus instead for that
     dependency.
 
-    :param dict package_lock_deps: the value of a "dependencies" key in a package-lock.json file
-    :param set file_deps_allowlist: an allow list of dependencies that are allowed to be "file"
+    :param package_lock_deps: the value of a "dependencies" key in a package-lock.json file
+    :param file_deps_allowlist: an allow list of dependencies that are allowed to be "file"
         dependencies and should be ignored since they are implementation details
-    :param dict name_to_deps: the current mapping of dependencies; this is not meant to be set
+    :param name_to_deps: the current mapping of dependencies; this is not meant to be set
         by the caller
-    :param list workspaces: package workspaces defined in package-lock.json
+    :param workspaces: package workspaces defined in package-lock.json
     :return: a tuple with the first item as the mapping of dependencies where each key is a
         dependecy name and the values are dictionaries describing the dependency versions; the
         second item is a list of tuples for non-registry dependency replacements, where the first
         item is the dependency name and the second item is the version of the dependency in Nexus
-    :rtype: (dict, list)
     :raise InvalidFileFormat: if the dependency has an unexpected format
     :raise UnsupportedFeature: if the dependency is from an unsupported location
     :raise FileAccessError: if the dependency cannot be accessed
     """
     if name_to_deps is None:
         name_to_deps = {}
-    elif workspaces is None:
+    if workspaces is None:
         workspaces = []
 
     nexus_replacements = []
