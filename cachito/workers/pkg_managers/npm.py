@@ -95,7 +95,6 @@ def _get_deps(package_lock_deps, file_deps_allowlist, name_to_deps=None, workspa
         # If there is npm workspace entry in dependencies of package-lock.json, skip it.
         elif version.startswith("file:") and _is_workspace_version(version, workspaces):
             log.info(f"The dependency '{name}' is npm workspace, skipping.")
-            continue
         # Note that a bundled dependency will not have the "resolved" key, but those are supported
         # since they are properly cached in the parent dependency in Nexus
         elif not info.get("bundled", False) and "resolved" not in info:

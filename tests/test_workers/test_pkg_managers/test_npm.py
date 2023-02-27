@@ -381,14 +381,25 @@ def test_get_deps_allowlisted_file_dep():
 
 
 @pytest.mark.parametrize(
-    "package_lock_deps,workspaces,replacement,result",
+    "package_lock_deps,workspaces,allowlist,result",
     [
         ({}, [], set(), {}),
         (
             {"a": {"version": "file:a"}},
             ["a"],
             set(),
-            {},
+            {
+                "a": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "a",
+                        "version": "file:a",
+                        "version_in_nexus": None,
+                    },
+                ],
+            },
         ),
         (
             {
@@ -410,10 +421,46 @@ def test_get_deps_allowlisted_file_dep():
                         "version": "1.11.1",
                         "version_in_nexus": None,
                     },
-                ]
+                ],
+                "a": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "a",
+                        "version": "file:a",
+                        "version_in_nexus": None,
+                    },
+                ],
             },
         ),
-        ({"a": {"version": "file:a"}, "b": {"version": "file:b"}}, ["a", "b"], set(), {}),
+        (
+            {"a": {"version": "file:a"}, "b": {"version": "file:b"}},
+            ["a", "b"],
+            set(),
+            {
+                "a": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "a",
+                        "version": "file:a",
+                        "version_in_nexus": None,
+                    },
+                ],
+                "b": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "b",
+                        "version": "file:b",
+                        "version_in_nexus": None,
+                    },
+                ],
+            },
+        ),
         (
             {
                 "tslib": {
@@ -435,14 +482,17 @@ def test_get_deps_allowlisted_file_dep():
                         "version": "1.11.1",
                         "version_in_nexus": None,
                     },
-                ]
-            },
-        ),
-        (
-            {"a": {"version": "file:a"}, "b": {"version": "file:b"}},
-            ["a"],
-            {"b"},
-            {
+                ],
+                "a": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "a",
+                        "version": "file:a",
+                        "version_in_nexus": None,
+                    },
+                ],
                 "b": [
                     {
                         "bundled": False,
@@ -452,15 +502,40 @@ def test_get_deps_allowlisted_file_dep():
                         "version": "file:b",
                         "version_in_nexus": None,
                     },
-                ]
+                ],
+            },
+        ),
+        (
+            {"a": {"version": "file:a"}, "b": {"version": "file:b"}},
+            ["a"],
+            {"b"},
+            {
+                "a": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "a",
+                        "version": "file:a",
+                        "version_in_nexus": None,
+                    },
+                ],
+                "b": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "type": "npm",
+                        "name": "b",
+                        "version": "file:b",
+                        "version_in_nexus": None,
+                    },
+                ],
             },
         ),
     ],
 )
-def test_get_deps_worspaces(package_lock_deps, workspaces, replacement, result):
-    name_to_deps, replacements = npm._get_deps(
-        package_lock_deps, replacement, workspaces=workspaces
-    )
+def test_get_deps_worspaces(package_lock_deps, workspaces, allowlist, result):
+    name_to_deps, replacements = npm._get_deps(package_lock_deps, allowlist, workspaces=workspaces)
     assert name_to_deps == result
     assert replacements == []
 
