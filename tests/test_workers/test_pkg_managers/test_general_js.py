@@ -6,11 +6,18 @@ import os.path
 import tarfile
 import textwrap
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
 
-from cachito.errors import FileAccessError, InvalidFileFormat, NexusError, UnsupportedFeature
+from cachito.errors import (
+    FileAccessError,
+    InvalidFileFormat,
+    InvalidRepoStructure,
+    NexusError,
+    UnsupportedFeature,
+)
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
@@ -792,6 +799,88 @@ def test_process_non_registry_dependency_github_not_in_nexus(mock_unrd, mock_gnc
     )
     with pytest.raises(FileAccessError, match=expected):
         general_js.process_non_registry_dependency(dep)
+
+
+@pytest.mark.parametrize(
+    "test_input",
+    [
+        {
+            "version": "file:packages/a",
+            "workspaces": ["a", "b"],
+            "is_allowed": False,
+        },
+        {
+            "version": "file:c",
+            "workspaces": ["a", "b"],
+            "is_allowed": False,
+        },
+        {
+            "version": "file:a",
+            "workspaces": ["a", "b"],
+            "is_allowed": True,
+        },
+        {
+            "version": "file:packages/a",
+            "workspaces": ["./packages/a"],
+            "is_allowed": True,
+        },
+        {
+            "version": "file:packages/a",
+            "workspaces": ["./packages/*"],
+            "is_allowed": True,
+        },
+        {
+            "version": "git+https://...",
+            "workspaces": [],
+            "is_allowed": True,
+        },
+    ],
+)
+def test_vet_file_dependency_workspaces(test_input: dict[str, Any]) -> None:
+    js_dep = general_js.JSDependency(name="name", source=test_input["version"])
+
+    if test_input["is_allowed"]:
+        general_js.vet_file_dependency(js_dep, test_input["workspaces"], allowlist=[])
+    else:
+        with pytest.raises(
+            InvalidRepoStructure,
+            match=r"name@file:.* is a 'file:' dependency. File dependencies are allowed if: .*",
+        ):
+            general_js.vet_file_dependency(js_dep, test_input["workspaces"], allowlist=[])
+
+
+@pytest.mark.parametrize(
+    "test_input",
+    [
+        {
+            "name": "allowed_dependency",
+            "version": "file:packages/allowed_dependency",
+            "is_allowed": True,
+        },
+        {
+            "name": "disallowed_dependency",
+            "version": "file:packages/disallowed_dependency",
+            "is_allowed": False,
+        },
+        {
+            "name": "not_a_file_dependency",
+            "version": "git+https://...",
+            "is_allowed": True,
+        },
+    ],
+)
+def test_vet_file_dependency_allowlist(test_input: dict[str, Any]) -> None:
+    allowlist = {"allowed_dependency"}
+    js_dep = general_js.JSDependency(name=test_input["name"], source=test_input["version"])
+
+    if test_input["is_allowed"]:
+        general_js.vet_file_dependency(js_dep, workspaces=[], allowlist=allowlist)
+    else:
+        with pytest.raises(
+            InvalidRepoStructure,
+            match=r".*@file:.* is a 'file:' dependency. File dependencies are allowed if: .*",
+        ):
+            general_js.vet_file_dependency(js_dep, workspaces=[], allowlist=[])
 
 
 @pytest.mark.parametrize(

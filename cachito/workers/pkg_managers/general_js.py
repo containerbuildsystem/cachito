@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import asyncio
 import base64
+import fnmatch
 import io
 import json
 import logging
@@ -14,7 +15,7 @@ import tempfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Collection, Dict, List, Optional, Set, Union
 
 import aiohttp
 from aiohttp_retry import JitterRetry, RetryClient
@@ -23,6 +24,7 @@ from cachito.errors import (
     FileAccessError,
     InvalidChecksum,
     InvalidFileFormat,
+    InvalidRepoStructure,
     NetworkError,
     NexusError,
     UnsupportedFeature,
@@ -641,6 +643,42 @@ class JSDependency:
         Used primarily as user-facing representation of non-registry dependencies.
         """
         return f"{self.name}@{self.source}"
+
+
+def vet_file_dependency(
+    js_dep: JSDependency, workspaces: Collection[str], allowlist: Collection[str]
+) -> None:
+    """Check if a JavaScript 'file:' dependency should be allowed.
+
+    :param: js_dep: the dependency to check
+    :param workspaces: package workspaces defined in package[-lock].json
+    :param allowlist: explicitly allowed *names* of 'file:' dependencies for the top-level package
+    :raise InvalidRepoStructure: if the dependency isn't a workspace and isn't in the allowlist
+    """
+    if not js_dep.source.startswith("file:"):
+        return
+    elif _is_workspace_path(js_dep.source, workspaces):
+        log.info("The dependency %s is a workspace", js_dep.qualified_name)
+    elif js_dep.name in allowlist:
+        log.info("The dependency %s is an allow-listed file dependency", js_dep.qualified_name)
+    else:
+        raise InvalidRepoStructure(
+            f"{js_dep.qualified_name} is a 'file:' dependency. File dependencies are allowed if: "
+            "a) the dependency is declared as a workspace in package.json or "
+            "b) the dependency is present in the server-side allowlist."
+        )
+
+
+def _is_workspace_path(dep_source: str, workspaces: Collection[str]) -> bool:
+    """Test if the 'file:' path of a dependency matches one of the workspace patterns.
+
+    :param dep_source: a file: version string to match with a workspace glob pattern
+    :param workspaces: package workspaces defined in package[-lock].json
+    :return: true if path matches one of the workspaces
+    :rtype: boolean
+    """
+    dep_path = Path(dep_source.removeprefix("file:")).as_posix()
+    return any(fnmatch.fnmatch(dep_path, Path(workspace).as_posix()) for workspace in workspaces)
 
 
 def process_non_registry_dependency(js_dep):

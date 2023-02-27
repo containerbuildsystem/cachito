@@ -1,10 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
-import fnmatch
 import json
 import logging
 import os
-import pathlib
 from typing import Any
 
 from cachito.errors import FileAccessError, ValidationError
@@ -14,6 +12,7 @@ from cachito.workers.pkg_managers.general_js import (
     JSDependency,
     download_dependencies,
     process_non_registry_dependency,
+    vet_file_dependency,
 )
 
 __all__ = [
@@ -26,22 +25,6 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
-
-
-def _is_workspace_version(version: str, workspaces: list[str]) -> bool:
-    """
-    Test if a version file path match one of the workspaces pattern string.
-
-    :param version a file: version string to match with a workspace glob pattern
-    :param list workspaces: package workspaces defined in package-lock.json
-    :return: true if path matches one of the workspaces
-    :rtype: boolean
-    """
-    path = version.removeprefix("file:")
-    for workspace in workspaces:
-        if fnmatch.fnmatch(path, pathlib.Path(workspace).as_posix()):
-            return True
-    return False
 
 
 def _get_deps(
@@ -92,14 +75,9 @@ def _get_deps(
         version_in_nexus = None
         version = info["version"]
 
-        # If the file dependency is in the allow list, then it'll be allowed since
-        # convert_to_nexus_hosted won't run which would cause an exception. The code that uses the
-        # output of this function to download the dependencies will ignore this dependency.
-        if version.startswith("file:") and name in file_deps_allowlist:
-            log.info("The dependency %r is an allowed exception", info)
-        # If there is npm workspace entry in dependencies of package-lock.json, skip it.
-        elif version.startswith("file:") and _is_workspace_version(version, workspaces):
-            log.info(f"The dependency '{name}' is npm workspace, skipping.")
+        if version.startswith("file:"):
+            js_dep = JSDependency(name=name, source=version)
+            vet_file_dependency(js_dep, workspaces, file_deps_allowlist)
         # Note that a bundled dependency will not have the "resolved" key, but those are supported
         # since they are properly cached in the parent dependency in Nexus
         elif not info.get("bundled", False) and "resolved" not in info:
