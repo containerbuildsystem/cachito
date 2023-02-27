@@ -8,40 +8,9 @@ from unittest import mock
 
 import pytest
 
-from cachito.errors import FileAccessError, UnsupportedFeature, ValidationError
+from cachito.errors import FileAccessError, InvalidRepoStructure, ValidationError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import general_js, npm
-
-
-@pytest.fixture()
-def workspace_versions():
-    return [
-        {
-            "version": "file:packages/a",
-            "workspaces": ["a", "b"],
-            "expected": False,
-        },
-        {
-            "version": "file:c",
-            "workspaces": ["a", "b"],
-            "expected": False,
-        },
-        {
-            "version": "file:a",
-            "workspaces": ["a", "b"],
-            "expected": True,
-        },
-        {
-            "version": "file:packages/a",
-            "workspaces": ["./packages/*", "b"],
-            "expected": True,
-        },
-        {
-            "version": "2.0.4",
-            "workspaces": ["./packages/*"],
-            "expected": False,
-        },
-    ]
 
 
 @pytest.fixture()
@@ -152,14 +121,6 @@ def package_and_deps():
         "package": package,
         "package.json": None,
     }
-
-
-def test_is_workspace_version(workspace_versions):
-    for workspace_version in workspace_versions:
-        assert workspace_version["expected"] == npm._is_workspace_version(
-            workspace_version["version"],
-            workspace_version["workspaces"],
-        )
 
 
 def test_get_deps(package_lock_deps):
@@ -580,8 +541,12 @@ def test_get_deps_unsupported_non_registry_dep():
             ),
         },
     }
-    expected = "The dependency tslib@file:tslib.tar.gz is hosted in an unsupported location"
-    with pytest.raises(UnsupportedFeature, match=expected):
+    expected = re.escape(
+        "tslib@file:tslib.tar.gz is a 'file:' dependency. File dependencies are allowed if: "
+        "a) the dependency is declared as a workspace in package.json or "
+        "b) the dependency is present in the server-side allowlist."
+    )
+    with pytest.raises(InvalidRepoStructure, match=expected):
         npm._get_deps(package_lock_deps, set(), name_to_deps={})
 
 
