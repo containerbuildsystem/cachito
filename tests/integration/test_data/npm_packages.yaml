@@ -453,6 +453,11 @@ workspaces:
         type: npm
         version: 2.0.0
       - dev: false
+        name: bar
+        replaces: null
+        type: npm
+        version: file:bar
+      - dev: false
         name: classnames
         replaces: null
         type: npm
@@ -468,6 +473,26 @@ workspaces:
         type: npm
         version: 5.0.3
       - dev: false
+        name: eggs
+        replaces: null
+        type: npm
+        version: file:eggs-packages/eggs
+      - dev: false
+        name: foo
+        replaces: null
+        type: npm
+        version: file:foo
+      - dev: false
+        name: not-baz
+        replaces: null
+        type: npm
+        version: file:baz
+      - dev: false
+        name: spam
+        replaces: null
+        type: npm
+        version: file:spam-packages/spam
+      - dev: false
         name: uuid
         replaces: null
         type: npm
@@ -479,6 +504,11 @@ workspaces:
           replaces: null
           type: npm
           version: 2.0.0
+        - dev: false
+          name: bar
+          replaces: null
+          type: npm
+          version: file:bar
         - dev: false
           name: classnames
           replaces: null
@@ -495,6 +525,26 @@ workspaces:
           type: npm
           version: 5.0.3
         - dev: false
+          name: eggs
+          replaces: null
+          type: npm
+          version: file:eggs-packages/eggs
+        - dev: false
+          name: foo
+          replaces: null
+          type: npm
+          version: file:foo
+        - dev: false
+          name: not-baz
+          replaces: null
+          type: npm
+          version: file:baz
+        - dev: false
+          name: spam
+          replaces: null
+          type: npm
+          version: file:spam-packages/spam
+        - dev: false
           name: uuid
           replaces: null
           type: npm
@@ -505,18 +555,48 @@ workspaces:
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-npm-workspaces@b4ec59868cb5667deb62930859762b107f23598c"
     dep_purls:
+      - "generic/bar?file%3Abar"
+      - "generic/eggs?file%3Aeggs-packages%2Feggs"
+      - "generic/foo?file%3Afoo"
+      - "generic/not-baz?file%3Abaz"
+      - "generic/spam?file%3Aspam-packages%2Fspam"
       - "pkg:npm/abbrev@2.0.0"
       - "pkg:npm/classnames@2.3.2"
       - "pkg:npm/colors@1.4.0"
       - "pkg:npm/dateformat@5.0.3"
       - "pkg:npm/uuid@9.0.0"
     source_purls:
+      - "generic/bar?file%3Abar"
+      - "generic/eggs?file%3Aeggs-packages%2Feggs"
+      - "generic/foo?file%3Afoo"
+      - "generic/not-baz?file%3Abaz"
+      - "generic/spam?file%3Aspam-packages%2Fspam"
       - "pkg:npm/abbrev@2.0.0"
       - "pkg:npm/classnames@2.3.2"
       - "pkg:npm/colors@1.4.0"
       - "pkg:npm/dateformat@5.0.3"
       - "pkg:npm/uuid@9.0.0"
   sbom:
+  - name: bar
+    type: library
+    version: file:bar
+    purl: generic/bar?file%3Abar
+  - name: eggs
+    type: library
+    version: file:eggs-packages/eggs
+    purl: generic/eggs?file%3Aeggs-packages%2Feggs
+  - name: foo
+    type: library
+    version: file:foo
+    purl: generic/foo?file%3Afoo
+  - name: not-baz
+    type: library
+    version: file:baz
+    purl: generic/not-baz?file%3Abaz
+  - name: spam
+    type: library
+    version: file:spam-packages/spam
+    purl: generic/spam?file%3Aspam-packages%2Fspam
   - name: npm_test
     type: library
     version: 1.1.0
