@@ -128,6 +128,7 @@ def _get_deps(
     deps = []
     nexus_replacements = {}
     non_dev_deps: set[str] = set()
+    workspaces = _get_yarn_workspaces(package_json)
 
     for dep_type in ["dependencies", "peerDependencies", "optionalDependencies"]:
         if dep_type not in package_json:
@@ -160,7 +161,8 @@ def _get_deps(
         non_registry = not package.url or not _is_from_npm_registry(package.url)
         if non_registry:
             if source.startswith("file:"):
-                vet_file_dependency(JSDependency(package.name, source), [], file_deps_allowlist)
+                js_dep = JSDependency(package.name, source)
+                vet_file_dependency(js_dep, workspaces, file_deps_allowlist)
             else:
                 log.info(
                     "The dependency %s is not from the npm registry", f"{package.name}@{source}"
@@ -181,6 +183,20 @@ def _get_deps(
             nexus_replacements[dep_identifier] = nexus_replacement
 
     return deps, nexus_replacements
+
+
+def _get_yarn_workspaces(package_json: dict[str, Any]) -> list[str]:
+    workspaces = package_json.get("workspaces", [])
+    if isinstance(workspaces, list):
+        # "workspaces": ["packages/*"]
+        return workspaces
+    else:
+        # "workspaces": {
+        #   "packages": ["packages/*"],
+        #   "nohoist": ["**/react-native", "**/react-native/**"]
+        # }
+        # https://classic.yarnpkg.com/blog/2018/02/15/nohoist/
+        return workspaces.get("packages", [])
 
 
 def _is_from_npm_registry(pkg_url):
