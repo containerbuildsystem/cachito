@@ -323,6 +323,64 @@ def test_convert_to_nexus_hosted(
             # expected_convert_calls
             [],
         ),
+        # file dependency from a workspace
+        (
+            # package_json
+            {
+                "workspaces": ["subpath"],
+                "dependencies": {"subpackage": "file:./subpath"},
+            },
+            # yarn_lock
+            {
+                "subpackage@file:./subpath": {"version": "4.0.0"},
+            },
+            # allowlist
+            {},
+            # expected_deps
+            [
+                {
+                    "dev": False,
+                    "name": "subpackage",
+                    "version": "file:./subpath",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+            # expected_replaced
+            [],
+            # expected_convert_calls
+            [],
+        ),
+        # file dependency from a workspace, different workspaces format
+        (
+            # package_json
+            {
+                "workspaces": {"packages": ["subpath"]},
+                "dependencies": {"subpackage": "file:./subpath"},
+            },
+            # yarn_lock
+            {
+                "subpackage@file:./subpath": {"version": "4.0.0"},
+            },
+            # allowlist
+            {},
+            # expected_deps
+            [
+                {
+                    "dev": False,
+                    "name": "subpackage",
+                    "version": "file:./subpath",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+            # expected_replaced
+            [],
+            # expected_convert_calls
+            [],
+        ),
         # one http and one git dependency
         (
             # package_json
