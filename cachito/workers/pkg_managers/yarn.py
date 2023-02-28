@@ -4,7 +4,7 @@ import logging
 from collections import deque
 from os.path import normpath
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import pyarn.lockfile
@@ -104,7 +104,9 @@ def _split_yarn_lock_key(dep_identifer):
     return dep_identifer.replace('"', "").split(", ")
 
 
-def _get_deps(package_json, yarn_lock, file_deps_allowlist):
+def _get_deps(
+    package_json: dict[str, Any], yarn_lock: dict[str, Any], file_deps_allowlist: set[str]
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """
     Process the dependencies in a yarn.lock file and return relevant information.
 
@@ -116,24 +118,24 @@ def _get_deps(package_json, yarn_lock, file_deps_allowlist):
     The list of dependencies returned by this function is in a format that can be used directly
     as input to the general_js.download_dependencies function.
 
-    :param dict yarn_lock: parsed yarn.lock data
-    :param set file_deps_allowlist: an allow list of dependencies that are allowed to be "file"
+    :param package_json: parsed package.json data
+    :param yarn_lock: parsed yarn.lock data
+    :param file_deps_allowlist: an allow list of dependencies that are allowed to be "file"
         dependencies and should be ignored since they are implementation details
     :return: information about preprocessed dependencies and Nexus replacements
-    :rtype: (list[dict], dict)
     :raise InvalidRequestData: if the lock file contains a dependency from an unsupported location
     """
     deps = []
     nexus_replacements = {}
-    non_dev_deps = set()
+    non_dev_deps: set[str] = set()
 
     for dep_type in ["dependencies", "peerDependencies", "optionalDependencies"]:
         if dep_type not in package_json:
             continue
         for name, version in package_json[dep_type].items():
-            dep = f"{name}@{version}"
-            if dep not in non_dev_deps:
-                _find_reachable_deps(non_dev_deps, dep, yarn_lock)
+            dep_id = f"{name}@{version}"
+            if dep_id not in non_dev_deps:
+                _find_reachable_deps(non_dev_deps, dep_id, yarn_lock)
 
     for dep_identifier, dep_data in yarn_lock.items():
         package = pyarn.lockfile.Package.from_dict(dep_identifier, dep_data)
