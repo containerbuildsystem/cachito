@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from cachito.errors import NexusError, UnsupportedFeature
+from cachito.errors import InvalidRepoStructure, NexusError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import yarn
 from cachito.workers.pkg_managers.general_js import JSDependency
@@ -298,7 +298,7 @@ def test_convert_to_nexus_hosted(
                 "subpackage@file:./subpath": {"version": "4.0.0"},
             },
             # allowlist
-            {"subpath"},
+            {"subpackage"},
             # expected_deps
             [
                 {
@@ -422,18 +422,16 @@ def test_get_deps(
     )
 
 
-@mock.patch("cachito.workers.pkg_managers.yarn._convert_to_nexus_hosted")
-def test_get_deps_disallowed_file_dep(mock_convert_hosted):
+def test_get_deps_disallowed_file_dep() -> None:
     package_json = {}
     yarn_lock = {
         "subpackage@file:./subpath": {"version": "1.0.0"},
     }
     allowlist = set()
 
-    err_msg = "The dependency ./subpath is hosted in an unsupported location"
-    mock_convert_hosted.side_effect = [UnsupportedFeature(err_msg)]
+    err_msg = "subpackage@file:./subpath is a 'file:' dependency."
 
-    with pytest.raises(UnsupportedFeature, match=err_msg):
+    with pytest.raises(InvalidRepoStructure, match=err_msg):
         yarn._get_deps(package_json, yarn_lock, allowlist)
 
 
