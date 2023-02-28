@@ -42,6 +42,7 @@ from . import utils
         ("yarn_packages", "without_deps"),
         ("yarn_packages", "with_deps"),
         ("yarn_packages", "git_submodule"),
+        ("yarn_packages", "workspaces"),
         ("rubygems_packages", "without_deps"),
         ("rubygems_packages", "with_deps"),
         ("rubygems_packages", "multiple"),

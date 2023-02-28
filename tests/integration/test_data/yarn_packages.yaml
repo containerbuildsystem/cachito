@@ -429,3 +429,196 @@ git_submodule:
     type: library
     version: 4.0.8
     purl: pkg:npm/type-detect@4.0.8
+# yarn package for testing workspaces
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+workspaces:
+  repo: https://github.com/cachito-testing/cachito-yarn-workspaces.git
+  ref: 85e43d6b682d0e6420a6e4bcaf3072798d5254de
+  pkg_managers: ["yarn"]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-yarn-workspaces/tarball/85e43d6b682d0e6420a6e4bcaf3072798d5254de
+    deps/yarn/abbrev/abbrev-2.0.0.tgz: https://registry.npmjs.com/abbrev/-/abbrev-2.0.0.tgz
+    deps/yarn/classnames/classnames-2.3.2.tgz: https://registry.npmjs.com/classnames/-/classnames-2.3.2.tgz
+    deps/yarn/colors/colors-1.4.0.tgz: https://registry.npmjs.com/colors/-/colors-1.4.0.tgz
+    deps/yarn/dateformat/dateformat-5.0.3.tgz: https://registry.npmjs.com/dateformat/-/dateformat-5.0.3.tgz
+    deps/yarn/uuid/uuid-9.0.0.tgz: https://registry.npmjs.com/uuid/-/uuid-9.0.0.tgz
+  response_expectations:
+    dependencies:
+      - dev: false
+        name: abbrev
+        replaces: null
+        type: yarn
+        version: 2.0.0
+      - dev: false
+        name: bar
+        replaces: null
+        type: yarn
+        version: file:bar
+      - dev: false
+        name: classnames
+        replaces: null
+        type: yarn
+        version: 2.3.2
+      - dev: false
+        name: colors
+        replaces: null
+        type: yarn
+        version: 1.4.0
+      - dev: false
+        name: dateformat
+        replaces: null
+        type: yarn
+        version: 5.0.3
+      - dev: false
+        name: eggs
+        replaces: null
+        type: yarn
+        version: file:eggs-packages/eggs
+      - dev: false
+        name: foo
+        replaces: null
+        type: yarn
+        version: file:foo
+      - dev: false
+        name: not-baz
+        replaces: null
+        type: yarn
+        version: file:baz
+      - dev: false
+        name: spam
+        replaces: null
+        type: yarn
+        version: file:spam-packages/spam
+      - dev: false
+        name: uuid
+        replaces: null
+        type: yarn
+        version: 9.0.0
+    packages:
+      - dependencies:
+        - dev: false
+          name: abbrev
+          replaces: null
+          type: yarn
+          version: 2.0.0
+        - dev: false
+          name: bar
+          replaces: null
+          type: yarn
+          version: file:bar
+        - dev: false
+          name: classnames
+          replaces: null
+          type: yarn
+          version: 2.3.2
+        - dev: false
+          name: colors
+          replaces: null
+          type: yarn
+          version: 1.4.0
+        - dev: false
+          name: dateformat
+          replaces: null
+          type: yarn
+          version: 5.0.3
+        - dev: false
+          name: eggs
+          replaces: null
+          type: yarn
+          version: file:eggs-packages/eggs
+        - dev: false
+          name: foo
+          replaces: null
+          type: yarn
+          version: file:foo
+        - dev: false
+          name: not-baz
+          replaces: null
+          type: yarn
+          version: file:baz
+        - dev: false
+          name: spam
+          replaces: null
+          type: yarn
+          version: file:spam-packages/spam
+        - dev: false
+          name: uuid
+          replaces: null
+          type: yarn
+          version: 9.0.0
+        name: "npm_test"
+        type: "yarn"
+        version: "1.1.0"
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-yarn-workspaces@85e43d6b682d0e6420a6e4bcaf3072798d5254de"
+    dep_purls:
+      - "generic/bar?file%3Abar"
+      - "generic/eggs?file%3Aeggs-packages%2Feggs"
+      - "generic/foo?file%3Afoo"
+      - "generic/not-baz?file%3Abaz"
+      - "generic/spam?file%3Aspam-packages%2Fspam"
+      - "pkg:npm/abbrev@2.0.0"
+      - "pkg:npm/classnames@2.3.2"
+      - "pkg:npm/colors@1.4.0"
+      - "pkg:npm/dateformat@5.0.3"
+      - "pkg:npm/uuid@9.0.0"
+    source_purls:
+      - "generic/bar?file%3Abar"
+      - "generic/eggs?file%3Aeggs-packages%2Feggs"
+      - "generic/foo?file%3Afoo"
+      - "generic/not-baz?file%3Abaz"
+      - "generic/spam?file%3Aspam-packages%2Fspam"
+      - "pkg:npm/abbrev@2.0.0"
+      - "pkg:npm/classnames@2.3.2"
+      - "pkg:npm/colors@1.4.0"
+      - "pkg:npm/dateformat@5.0.3"
+      - "pkg:npm/uuid@9.0.0"
+  sbom:
+  - name: bar
+    type: library
+    version: file:bar
+    purl: generic/bar?file%3Abar
+  - name: eggs
+    type: library
+    version: file:eggs-packages/eggs
+    purl: generic/eggs?file%3Aeggs-packages%2Feggs
+  - name: foo
+    type: library
+    version: file:foo
+    purl: generic/foo?file%3Afoo
+  - name: not-baz
+    type: library
+    version: file:baz
+    purl: generic/not-baz?file%3Abaz
+  - name: spam
+    type: library
+    version: file:spam-packages/spam
+    purl: generic/spam?file%3Aspam-packages%2Fspam
+  - name: npm_test
+    type: library
+    version: 1.1.0
+    purl: pkg:github/cachito-testing/cachito-yarn-workspaces@85e43d6b682d0e6420a6e4bcaf3072798d5254de
+  - name: abbrev
+    type: library
+    version: 2.0.0
+    purl: pkg:npm/abbrev@2.0.0
+  - name: classnames
+    type: library
+    version: 2.3.2
+    purl: pkg:npm/classnames@2.3.2
+  - name: colors
+    type: library
+    version: 1.4.0
+    purl: pkg:npm/colors@1.4.0
+  - name: dateformat
+    type: library
+    version: 5.0.3
+    purl: pkg:npm/dateformat@5.0.3
+  - name: uuid
+    type: library
+    version: 9.0.0
+    purl: pkg:npm/uuid@9.0.0
