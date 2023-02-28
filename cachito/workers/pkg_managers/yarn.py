@@ -2,7 +2,6 @@ import copy
 import json
 import logging
 from collections import deque
-from os.path import normpath
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
@@ -18,6 +17,7 @@ from cachito.workers.pkg_managers.general_js import (
     download_dependencies,
     get_yarn_component_info_from_non_hosted_nexus,
     process_non_registry_dependency,
+    vet_file_dependency,
 )
 
 __all__ = [
@@ -159,13 +159,12 @@ def _get_deps(
 
         non_registry = not package.url or not _is_from_npm_registry(package.url)
         if non_registry:
-            log.info("The dependency %r is not from the npm registry", f"{package.name}@{source}")
-            # If the file dependency is in the allowlist, do not convert it to a Nexus
-            # dependency, simply ignore it (it will also be ignored by the code that downloads
-            # dependencies later)
-            if package.relpath and normpath(package.relpath) in file_deps_allowlist:
-                log.info("The dependency %r is an allowed exception", package.name)
+            if source.startswith("file:"):
+                vet_file_dependency(JSDependency(package.name, source), [], file_deps_allowlist)
             else:
+                log.info(
+                    "The dependency %s is not from the npm registry", f"{package.name}@{source}"
+                )
                 nexus_replacement = _convert_to_nexus_hosted(package.name, source, dep_data)
 
         dep = {
