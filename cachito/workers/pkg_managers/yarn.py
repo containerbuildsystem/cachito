@@ -3,12 +3,12 @@ import json
 import logging
 from collections import deque
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NamedTuple, Optional
 from urllib.parse import urlparse
 
 import pyarn.lockfile
 
-from cachito.errors import InvalidRequestData, NexusError
+from cachito.errors import InvalidRepoStructure, InvalidRequestData, NexusError
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general_js import (
@@ -70,26 +70,126 @@ def get_yarn_proxy_repo_username(request_id):
     return f"cachito-yarn-{request_id}"
 
 
-def _find_reachable_deps(visited_deps, dep, yarn_lock):
-    """
-    Get a set of all dependencies reachable by a top-level dependency using BFS.
+class Workspace(NamedTuple):
+    """Info about a workspace.
 
-    :param yarn_lock: yarn.lock file as a dictionary
-    :param dep: top-level dependency in package.json
-    :param reachable_deps: set of already visited non-dev dependencies
+    path: the relative path to this workspace (from the package that contains it)
+    glob: the pattern that matched this workspace path
+    package_json: the parsed package.json for this workspace
     """
-    yarn_lock_parsed = _expand_yarn_lock_keys(yarn_lock)
-    visited_deps.add(dep)
-    bfs_queue = deque([dep])
+
+    path: Path
+    glob: str
+    package_json: dict[str, Any]
+
+    @property
+    def name(self) -> str:
+        return self.package_json["name"]
+
+    @property
+    def file_version(self) -> str:
+        return f"file:{self.path.as_posix()}"
+
+
+def _get_yarn_workspaces(package_path: Path, package_json: dict[str, Any]) -> list[Workspace]:
+    workspaces_attr = package_json.get("workspaces", [])
+    if isinstance(workspaces_attr, list):
+        # "workspaces": ["packages/*"]
+        workspace_globs = workspaces_attr
+    else:
+        # "workspaces": {
+        #   "packages": ["packages/*"],
+        #   "nohoist": ["**/react-native", "**/react-native/**"]
+        # }
+        # https://classic.yarnpkg.com/blog/2018/02/15/nohoist/
+        workspace_globs = workspaces_attr.get("packages", [])
+
+    def relpath(abspath: Path) -> Path:
+        return abspath.relative_to(package_path)
+
+    workspaces = []
+
+    for workspace_glob in workspace_globs:
+        for workspace_path in sorted(package_path.glob(workspace_glob)):
+            workspace_json = workspace_path / "package.json"
+            if not workspace_json.exists():
+                continue
+
+            # https://classic.yarnpkg.com/lang/en/docs/workspaces/#toc-limitations-caveats
+            #   "Workspaces must be descendants of the workspace root"
+            #   (we re-check to protect against package.jsons outside the user's repository)
+            if not workspace_json.resolve().is_relative_to(package_path):
+                raise InvalidRepoStructure(
+                    f"Workspace path leads outside the package root: {relpath(workspace_json)}"
+                )
+
+            log.debug("Found a yarn workspace at %s", relpath(workspace_json))
+            workspaces.append(
+                Workspace(
+                    path=relpath(workspace_path),
+                    glob=workspace_glob,
+                    package_json=json.loads(workspace_json.read_text()),
+                )
+            )
+
+    return workspaces
+
+
+def _find_non_dev_deps(
+    main_package_json: dict[str, Any], yarn_lock: dict[str, Any], workspaces: list[Workspace]
+) -> set[str]:
+    """Find all the non-dev dependencies of a package.
+
+    A dependency is non-dev if:
+        * it's in `dependencies`, `peerDependencies` or `optionalDependencies`
+          (in the main package.json or the package.json of any workspace)
+        * it's the dependency of a non-dev dependency
+    """
+    non_dev_deps: set[str] = set()
+
+    all_package_jsons = (main_package_json, *(ws.package_json for ws in workspaces))
+    root_dep_ids = [
+        f"{name}@{version}"
+        for dep_type in ["dependencies", "peerDependencies", "optionalDependencies"]
+        for package_json in all_package_jsons
+        for name, version in package_json.get(dep_type, {}).items()
+    ]
+
+    expanded_yarn_lock = _expand_yarn_lock_keys(yarn_lock)
+
+    for dep_id in root_dep_ids:
+        if dep_id not in non_dev_deps:
+            _add_reachable_deps(dep_id, expanded_yarn_lock, non_dev_deps)
+
+    return non_dev_deps
+
+
+def _add_reachable_deps(
+    dep_id: str, expanded_yarn_lock: dict[str, Any], visited_deps: set[str]
+) -> None:
+    """
+    Add all dependencies reachable from a top-level dependency to the set of visited dependencies.
+
+    :param dep_id: the name@version ID of a top-level dependency in package.json
+    :param expanded_yarn_lock: parsed yarn.lock file with expanded keys (see _expand_yarn_lock_keys)
+    :param visited_deps: set of already visited non-dev dependencies
+    """
+    bfs_queue = deque([dep_id])
+
     while bfs_queue:
         current_dep = bfs_queue.popleft()
-        package = pyarn.lockfile.Package.from_dict(current_dep, yarn_lock_parsed[current_dep])
-        bfs_queue.extend(
-            f"{name}@{version}"
-            for name, version in package.dependencies.items()
-            if f"{name}@{version}" not in visited_deps
-        )
         visited_deps.add(current_dep)
+
+        # Note: yarn.lock does not include all dependencies!
+        #   Specifically, dependencies that resolve to a workspace may not show up at all.
+        #   When we encounter such a dependency, we stop searching the dependency tree.
+        if dep_info := expanded_yarn_lock.get(current_dep):
+            package = pyarn.lockfile.Package.from_dict(current_dep, dep_info)
+            bfs_queue.extend(
+                f"{name}@{version}"
+                for name, version in package.dependencies.items()
+                if f"{name}@{version}" not in visited_deps
+            )
 
 
 def _split_yarn_lock_key(dep_identifer):
@@ -105,7 +205,10 @@ def _split_yarn_lock_key(dep_identifer):
 
 
 def _get_deps(
-    package_json: dict[str, Any], yarn_lock: dict[str, Any], file_deps_allowlist: set[str]
+    package_json: dict[str, Any],
+    yarn_lock: dict[str, Any],
+    file_deps_allowlist: set[str],
+    workspaces: list[Workspace],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """
     Process the dependencies in a yarn.lock file and return relevant information.
@@ -125,32 +228,16 @@ def _get_deps(
     :return: information about preprocessed dependencies and Nexus replacements
     :raise InvalidRequestData: if the lock file contains a dependency from an unsupported location
     """
-    deps = []
+    deps_by_id = {}
     nexus_replacements = {}
-    non_dev_deps: set[str] = set()
-    workspaces = _get_yarn_workspaces(package_json)
+    non_dev_deps = _find_non_dev_deps(package_json, yarn_lock, workspaces)
 
-    for dep_type in ["dependencies", "peerDependencies", "optionalDependencies"]:
-        if dep_type not in package_json:
-            continue
-        for name, version in package_json[dep_type].items():
-            dep_id = f"{name}@{version}"
-            if dep_id not in non_dev_deps:
-                _find_reachable_deps(non_dev_deps, dep_id, yarn_lock)
-
-    for dep_identifier, dep_data in yarn_lock.items():
-        package = pyarn.lockfile.Package.from_dict(dep_identifier, dep_data)
-
-        dev = True
-        for dep_id in _split_yarn_lock_key(dep_identifier):
-            if dep_id in non_dev_deps:
-                dev = False
-                break
-
+    for dep_key, dep_data in yarn_lock.items():
+        package = pyarn.lockfile.Package.from_dict(dep_key, dep_data)
         if package.url:
             source = package.url
         elif package.relpath:
-            source = f"file:{package.relpath}"
+            source = f"file:{Path(package.relpath).as_posix()}"
         else:
             raise InvalidRequestData(
                 f"The dependency {package.name}@{package.version} has no source"
@@ -162,41 +249,41 @@ def _get_deps(
         if non_registry:
             if source.startswith("file:"):
                 js_dep = JSDependency(package.name, source)
-                vet_file_dependency(js_dep, workspaces, file_deps_allowlist)
+                vet_file_dependency(js_dep, [ws.glob for ws in workspaces], file_deps_allowlist)
             else:
                 log.info(
                     "The dependency %s is not from the npm registry", f"{package.name}@{source}"
                 )
                 nexus_replacement = _convert_to_nexus_hosted(package.name, source, dep_data)
 
-        dep = {
+        version = package.version if not non_registry else source
+        canonical_dep_id = f"{package.name}@{version}"
+
+        deps_by_id[canonical_dep_id] = {
             "bundled": False,  # yarn.lock does not seem to contain bundled deps at all
-            "dev": dev,
+            "dev": not any(dep_id in non_dev_deps for dep_id in _split_yarn_lock_key(dep_key)),
             "name": package.name,
             "version_in_nexus": nexus_replacement["version"] if nexus_replacement else None,
             "type": "yarn",
-            "version": package.version if not non_registry else source,
+            "version": version,
         }
-        deps.append(dep)
 
         if nexus_replacement:
-            nexus_replacements[dep_identifier] = nexus_replacement
+            nexus_replacements[dep_key] = nexus_replacement
 
-    return deps, nexus_replacements
+    # make sure workspaces are reported regardless of whether they were present in yarn.lock
+    for ws in workspaces:
+        ws_id = f"{ws.name}@{ws.file_version}"
+        deps_by_id[ws_id] = {
+            "bundled": False,
+            "dev": False,
+            "name": ws.name,
+            "version_in_nexus": None,
+            "type": "yarn",
+            "version": ws.file_version,
+        }
 
-
-def _get_yarn_workspaces(package_json: dict[str, Any]) -> list[str]:
-    workspaces = package_json.get("workspaces", [])
-    if isinstance(workspaces, list):
-        # "workspaces": ["packages/*"]
-        return workspaces
-    else:
-        # "workspaces": {
-        #   "packages": ["packages/*"],
-        #   "nohoist": ["**/react-native", "**/react-native/**"]
-        # }
-        # https://classic.yarnpkg.com/blog/2018/02/15/nohoist/
-        return workspaces.get("packages", [])
+    return list(deps_by_id.values()), nexus_replacements
 
 
 def _is_from_npm_registry(pkg_url):
@@ -269,28 +356,28 @@ def _convert_to_nexus_hosted(dep_name, dep_source, dep_info):
     }
 
 
-def _get_package_and_deps(package_json_path, yarn_lock_path):
+def _get_package_and_deps(package_path: Path) -> dict[str, Any]:
     """
     Get the main package and dependencies based on the lock file.
 
     If the lockfile contains non-registry dependencies, the lock file will be modified to use ones
     in Nexus. Non-registry dependencies will have the "version_in_nexus" key set.
 
-    :param (str | Path) package_json_path: the path to the package.json file
-    :param (str | Path) yarn_lock_path: the path to the lock file
+    :param package_path: the path to the package directory
     :return: a dictionary that has the following keys:
         "package": the dictionary describing the main package
         "deps": the list of dependencies
         "package.json": the parsed package.json file (as a dict)
         "lock_file": the parsed yarn.lock file (as a dict)
         "nexus_replacements": dict of replaced external dependencies
-    :rtype: dict
-    :raises InvalidRequestData: if file is missing from required data
+    :raises InvalidRequestData: if the package.json file is missing required data
     """
-    with open(package_json_path) as f:
+    with package_path.joinpath("package.json").open() as f:
         package_json = json.load(f)
 
-    yarn_lock = pyarn.lockfile.Lockfile.from_file(str(yarn_lock_path)).data
+    yarn_lock = pyarn.lockfile.Lockfile.from_file(str(package_path / "yarn.lock")).data
+
+    workspaces = _get_yarn_workspaces(package_path, package_json)
 
     try:
         package = {
@@ -305,7 +392,7 @@ def _get_package_and_deps(package_json_path, yarn_lock_path):
         get_worker_config().cachito_yarn_file_deps_allowlist.get(package["name"], [])
     )
 
-    deps, nexus_replacements = _get_deps(package_json, yarn_lock, file_deps_allowlist)
+    deps, nexus_replacements = _get_deps(package_json, yarn_lock, file_deps_allowlist, workspaces)
     return {
         "package": package,
         "deps": deps,
@@ -485,10 +572,7 @@ def resolve_yarn(app_source_path, request, skip_deps=None):
     :raises NexusError: if fetching the dependencies fails or required files are missing
     """
     app_source_path = Path(app_source_path)
-
-    package_json_path = app_source_path / "package.json"
-    yarn_lock_path = app_source_path / "yarn.lock"
-    package_and_deps_info = _get_package_and_deps(package_json_path, yarn_lock_path)
+    package_and_deps_info = _get_package_and_deps(app_source_path)
 
     # By downloading the dependencies, it stores the tarballs in the bundle and also stages the
     # content in the yarn repository for the request
