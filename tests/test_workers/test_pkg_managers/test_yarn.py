@@ -1,5 +1,7 @@
 import copy
+import json
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -8,6 +10,7 @@ from cachito.errors import InvalidRepoStructure, NexusError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import yarn
 from cachito.workers.pkg_managers.general_js import JSDependency
+from tests.helper_utils import Symlink, write_file_tree
 
 REGISTRY_DEP_URL = "https://registry.yarnpkg.com/chai/-/chai-4.2.0.tgz"
 
@@ -27,9 +30,10 @@ MOCK_NEXUS_VERSION = "1.0.0-external"
 OPTIONAL_DEP_URL = "git+https://github.com/example/pathval.git"
 PEER_DEP_URL = "git+https://github.com/example/deep-eql.git"
 
+MINIMAL_PACKAGE_JSON = {"name": "hitchhikers-guide", "version": "42.0.0"}
+
 EXAMPLE_PACKAGE_JSON = {
-    "name": "foo",
-    "version": "1.0.0",
+    **MINIMAL_PACKAGE_JSON,
     "dependencies": {"chai": "^4.2.0", "fecha": HTTP_DEP_URL},
     "devDependencies": {"leftpad": GIT_DEP_URL},
     "optionalDependencies": {"pathval": OPTIONAL_DEP_URL},
@@ -47,6 +51,11 @@ def replaced_example_packjson(replacements):
     for dep_type, dep_name, new_version in replacements:
         packjson[dep_type][dep_name] = new_version
     return packjson
+
+
+def yarn_lock_to_str(yarn_lock_data: dict[str, Any]) -> str:
+    lockfile = yarn.pyarn.lockfile.Lockfile("1", yarn_lock_data)
+    return lockfile.to_str()
 
 
 def test_get_npm_proxy_repo_name():
@@ -156,14 +165,15 @@ def test_convert_to_nexus_hosted(
 
 
 @mock.patch("cachito.workers.pkg_managers.yarn._convert_to_nexus_hosted")
+@mock.patch("cachito.workers.pkg_managers.yarn.get_worker_config")
 @pytest.mark.parametrize(
     "package_json, yarn_lock, allowlist, expected_deps, expected_replaced, expected_convert_calls",
     [
         # registry dependency
         (
-            # package_json
-            {"dependencies": {"chai": "^1.0.0"}},
-            # yarn_lock
+            # package.json
+            {**MINIMAL_PACKAGE_JSON, "dependencies": {"chai": "^1.0.0"}},
+            # yarn.lock
             {
                 "chai@^1.0.0": {
                     "version": "1.0.1",
@@ -191,9 +201,13 @@ def test_convert_to_nexus_hosted(
         ),
         # http dependency
         (
-            # package_json
-            {"peerDependencies": {"fecha": HTTP_DEP_URL}, "devDependencies": {"chai": "^1.0.0"}},
-            # yarn_lock
+            # package.json
+            {
+                **MINIMAL_PACKAGE_JSON,
+                "peerDependencies": {"fecha": HTTP_DEP_URL},
+                "devDependencies": {"chai": "^1.0.0"},
+            },
+            # yarn.lock
             {
                 f"fecha@{HTTP_DEP_URL}": {
                     "version": "2.0.0",
@@ -239,9 +253,9 @@ def test_convert_to_nexus_hosted(
         ),
         # git dependency
         (
-            # package_json
-            {"devDependencies": {"chai": "^1.0.0"}},
-            # yarn_lock
+            # package.json
+            {**MINIMAL_PACKAGE_JSON, "devDependencies": {"chai": "^1.0.0"}},
+            # yarn.lock
             {
                 "chai@^1.0.0": {
                     "version": "1.0.1",
@@ -249,7 +263,10 @@ def test_convert_to_nexus_hosted(
                     "integrity": MOCK_INTEGRITY,
                     "dependencies": {"leftpad": GIT_DEP_URL},
                 },
-                f"leftpad@{GIT_DEP_URL}": {"version": "3.0.0", "resolved": GIT_DEP_URL_WITH_REF},
+                f"leftpad@{GIT_DEP_URL}": {
+                    "version": "3.0.0",
+                    "resolved": GIT_DEP_URL_WITH_REF,
+                },
             },
             # allowlist
             set(),
@@ -285,9 +302,9 @@ def test_convert_to_nexus_hosted(
         ),
         # allowlisted file dependency
         (
-            # package_json
-            {"devDependencies": {"chai": "^1.0.0"}},
-            # yarn_lock
+            # package.json
+            {**MINIMAL_PACKAGE_JSON, "devDependencies": {"chai": "^1.0.0"}},
+            # yarn.lock
             {
                 "chai@^1.0.0": {
                     "version": "1.0.1",
@@ -312,65 +329,7 @@ def test_convert_to_nexus_hosted(
                 {
                     "dev": True,
                     "name": "subpackage",
-                    "version": "file:./subpath",
-                    "version_in_nexus": None,
-                    "bundled": False,
-                    "type": "yarn",
-                },
-            ],
-            # expected_replaced
-            [],
-            # expected_convert_calls
-            [],
-        ),
-        # file dependency from a workspace
-        (
-            # package_json
-            {
-                "workspaces": ["subpath"],
-                "dependencies": {"subpackage": "file:./subpath"},
-            },
-            # yarn_lock
-            {
-                "subpackage@file:./subpath": {"version": "4.0.0"},
-            },
-            # allowlist
-            {},
-            # expected_deps
-            [
-                {
-                    "dev": False,
-                    "name": "subpackage",
-                    "version": "file:./subpath",
-                    "version_in_nexus": None,
-                    "bundled": False,
-                    "type": "yarn",
-                },
-            ],
-            # expected_replaced
-            [],
-            # expected_convert_calls
-            [],
-        ),
-        # file dependency from a workspace, different workspaces format
-        (
-            # package_json
-            {
-                "workspaces": {"packages": ["subpath"]},
-                "dependencies": {"subpackage": "file:./subpath"},
-            },
-            # yarn_lock
-            {
-                "subpackage@file:./subpath": {"version": "4.0.0"},
-            },
-            # allowlist
-            {},
-            # expected_deps
-            [
-                {
-                    "dev": False,
-                    "name": "subpackage",
-                    "version": "file:./subpath",
+                    "version": "file:subpath",
                     "version_in_nexus": None,
                     "bundled": False,
                     "type": "yarn",
@@ -383,12 +342,13 @@ def test_convert_to_nexus_hosted(
         ),
         # one http and one git dependency
         (
-            # package_json
+            # package.json
             {
+                **MINIMAL_PACKAGE_JSON,
                 "optionalDependencies": {"chai": "^1.0.0"},
                 "devDependencies": {"fecha": HTTP_DEP_URL, "leftpad": GIT_DEP_URL},
             },
-            # yarn_lock
+            # yarn.lock
             {
                 "chai@^1.0.0": {
                     "version": "1.0.1",
@@ -400,7 +360,10 @@ def test_convert_to_nexus_hosted(
                     "version": "2.0.0",
                     "resolved": HTTP_DEP_URL_WITH_CHECKSUM,
                 },
-                f"leftpad@{GIT_DEP_URL}": {"version": "3.0.0", "resolved": GIT_DEP_URL_WITH_REF},
+                f"leftpad@{GIT_DEP_URL}": {
+                    "version": "3.0.0",
+                    "resolved": GIT_DEP_URL_WITH_REF,
+                },
             },
             # allowlist
             set(),
@@ -449,29 +412,40 @@ def test_convert_to_nexus_hosted(
         ),
     ],
 )
-def test_get_deps(
-    mock_convert_hosted,
-    package_json,
-    yarn_lock,
-    allowlist,
-    expected_deps,
-    expected_replaced,
-    expected_convert_calls,
-):
+def test_get_package_and_deps(
+    mock_get_config: mock.Mock,
+    mock_convert_hosted: mock.Mock,
+    package_json: dict[str, Any],
+    yarn_lock: dict[str, Any],
+    allowlist: set[str],
+    expected_deps: list[dict[str, Any]],
+    expected_replaced: list[str],
+    expected_convert_calls: list[tuple[Any, ...]],
+    tmp_path: Path,
+) -> None:
+    tmp_path.joinpath("package.json").write_text(json.dumps(package_json))
+    tmp_path.joinpath("yarn.lock").write_text(yarn_lock_to_str(yarn_lock))
+
     def mock_nexus_replacement_getitem(key):
         assert key == "version"
         return MOCK_NEXUS_VERSION
 
     mock_convert_hosted.return_value.__getitem__.side_effect = mock_nexus_replacement_getitem
+    mock_get_config.return_value.cachito_yarn_file_deps_allowlist = {
+        "hitchhikers-guide": list(allowlist)
+    }
 
-    deps, replacements = yarn._get_deps(package_json, yarn_lock, allowlist)
+    info = yarn._get_package_and_deps(tmp_path)
 
-    assert deps == expected_deps
+    assert info["package"] == {"name": "hitchhikers-guide", "version": "42.0.0", "type": "yarn"}
+    assert info["deps"] == expected_deps
+    assert info["package.json"] == package_json
+    assert info["lock_file"] == yarn_lock
 
     for dep_identifier in expected_replaced:
-        assert dep_identifier in replacements
-        assert replacements[dep_identifier] == mock_convert_hosted.return_value
-    assert len(replacements) == len(expected_replaced)
+        assert dep_identifier in info["nexus_replacements"]
+        assert info["nexus_replacements"][dep_identifier] == mock_convert_hosted.return_value
+    assert len(info["nexus_replacements"]) == len(expected_replaced)
 
     mock_convert_hosted.assert_has_calls(
         [mock.call(*call) for call in expected_convert_calls],
@@ -480,53 +454,321 @@ def test_get_deps(
     )
 
 
-def test_get_deps_disallowed_file_dep() -> None:
-    package_json = {}
-    yarn_lock = {
-        "subpackage@file:./subpath": {"version": "1.0.0"},
-    }
-    allowlist = set()
+@pytest.mark.parametrize(
+    "file_tree, expected_deps",
+    [
+        # workspace not included in package.json dependencies
+        (
+            {
+                "package.json": json.dumps(
+                    {
+                        **MINIMAL_PACKAGE_JSON,
+                        "workspaces": ["subpath"],
+                    }
+                ),
+                # yarn.lock does not include workspaces if they're not declared as dependencies
+                "yarn.lock": yarn_lock_to_str({}),
+                "subpath": {
+                    "package.json": json.dumps({"name": "subpackage", "version": "4.0.0"}),
+                },
+            },
+            [
+                {
+                    "dev": False,
+                    "name": "subpackage",
+                    "version": "file:subpath",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+        ),
+        # workspace included in package.json dependencies, but as a version
+        (
+            {
+                "package.json": json.dumps(
+                    {
+                        **MINIMAL_PACKAGE_JSON,
+                        "workspaces": ["subpath"],
+                        "dependencies": {"subpackage": "^4.0.0"},
+                    }
+                ),
+                # yarn.lock does not include workspaces if they're specified as versions
+                "yarn.lock": yarn_lock_to_str({}),
+                "subpath": {
+                    "package.json": json.dumps({"name": "subpackage", "version": "4.0.0"}),
+                },
+            },
+            [
+                {
+                    "dev": False,
+                    "name": "subpackage",
+                    "version": "file:subpath",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+        ),
+        # workspace included in package.json as a file: dependency
+        (
+            {
+                "package.json": json.dumps(
+                    {
+                        **MINIMAL_PACKAGE_JSON,
+                        "workspaces": ["subpath"],
+                        "dependencies": {"subpackage": "file:./subpath"},
+                    }
+                ),
+                "yarn.lock": yarn_lock_to_str(
+                    {
+                        "subpackage@file:./subpath": {"version": "4.0.0"},
+                    },
+                ),
+                "subpath": {
+                    "package.json": json.dumps({"name": "subpackage", "version": "4.0.0"}),
+                },
+            },
+            [
+                {
+                    "dev": False,
+                    "name": "subpackage",
+                    "version": "file:subpath",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+        ),
+        # workspace included in package.json as a file: dependency (alt. workspaces format)
+        (
+            {
+                "package.json": json.dumps(
+                    {
+                        **MINIMAL_PACKAGE_JSON,
+                        "workspaces": {
+                            "packages": ["subpath"],
+                        },
+                        "dependencies": {"subpackage": "file:./subpath"},
+                    }
+                ),
+                "yarn.lock": yarn_lock_to_str(
+                    {
+                        "subpackage@file:./subpath": {"version": "4.0.0"},
+                    },
+                ),
+                "subpath": {
+                    "package.json": json.dumps({"name": "subpackage", "version": "4.0.0"}),
+                },
+            },
+            [
+                {
+                    "dev": False,
+                    "name": "subpackage",
+                    "version": "file:subpath",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+        ),
+        # multiple workspaces specified via glob pattern
+        (
+            {
+                "package.json": json.dumps(
+                    {
+                        **MINIMAL_PACKAGE_JSON,
+                        "workspaces": ["packages/*"],
+                    }
+                ),
+                "yarn.lock": yarn_lock_to_str({}),
+                "packages": {
+                    "eggs": {
+                        "package.json": json.dumps({"name": "eggs", "version": "1.2.3"}),
+                    },
+                    "spam": {
+                        "package.json": json.dumps({"name": "spam", "version": "4.5.6"}),
+                    },
+                    "not_a_workspace": {},
+                },
+            },
+            [
+                {
+                    "dev": False,
+                    "name": "eggs",
+                    "version": "file:packages/eggs",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    "dev": False,
+                    "name": "spam",
+                    "version": "file:packages/spam",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+        ),
+        # dev-dependency identification when workspaces are involved (and not declared as deps)
+        (
+            {
+                "package.json": json.dumps(
+                    {
+                        **MINIMAL_PACKAGE_JSON,
+                        "workspaces": ["packages/*"],
+                    }
+                ),
+                "yarn.lock": yarn_lock_to_str(
+                    {
+                        "chai@^1.0.0": {
+                            "version": "1.0.1",
+                            "resolved": REGISTRY_DEP_URL,
+                            "integrity": MOCK_INTEGRITY,
+                            "dependencies": {"leftpad": "^3.0.0"},
+                        },
+                        "fecha@^2.0.0": {
+                            "version": "2.0.2",
+                            "resolved": "https://registry.yarnpkg.com/fecha/-/fecha-2.0.2.tgz",
+                            "integrity": MOCK_INTEGRITY,
+                        },
+                        "leftpad@^3.0.0": {
+                            "version": "3.0.3",
+                            "resolved": "https://registry.yarnpkg.com/leftpad/-/leftpad-3.0.3.tgz",
+                            "integrity": MOCK_INTEGRITY,
+                        },
+                    },
+                ),
+                "packages": {
+                    "eggs": {
+                        "package.json": json.dumps(
+                            {
+                                "name": "eggs",
+                                "version": "1.2.3",
+                                "dependencies": {
+                                    "chai": "^1.0.0",
+                                    "spam": "^4.0.0",  # this is the other workspace
+                                },
+                            }
+                        ),
+                    },
+                    "spam": {
+                        "package.json": json.dumps(
+                            {
+                                "name": "spam",
+                                "version": "4.5.6",
+                                "devDependencies": {
+                                    "chai": "^1.0.0",
+                                    "fecha": "^2.0.0",
+                                },
+                            }
+                        ),
+                    },
+                },
+            },
+            [
+                {
+                    # is non-dev in at least one workspace
+                    "dev": False,
+                    "name": "chai",
+                    "version": "1.0.1",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    # is not non-dev in any workspace
+                    "dev": True,
+                    "name": "fecha",
+                    "version": "2.0.2",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    # is a dependency of chai (which is non-dev)
+                    "dev": False,
+                    "name": "leftpad",
+                    "version": "3.0.3",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    "dev": False,
+                    "name": "eggs",
+                    "version": "file:packages/eggs",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+                {
+                    "dev": False,
+                    "name": "spam",
+                    "version": "file:packages/spam",
+                    "version_in_nexus": None,
+                    "bundled": False,
+                    "type": "yarn",
+                },
+            ],
+        ),
+    ],
+)
+def test_get_package_and_deps_with_workspaces(
+    file_tree: dict[str, Any], expected_deps: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    write_file_tree(file_tree, tmp_path)
+    info = yarn._get_package_and_deps(tmp_path)
+    assert info["deps"] == expected_deps
 
-    err_msg = "subpackage@file:./subpath is a 'file:' dependency."
+
+def test_get_package_and_deps_disallowed_file_dep(tmp_path: Path) -> None:
+    tmp_path.joinpath("package.json").write_text(json.dumps(MINIMAL_PACKAGE_JSON))
+    tmp_path.joinpath("yarn.lock").write_text(
+        yarn_lock_to_str({"subpackage@file:./subpath": {"version": "1.0.0"}})
+    )
+
+    err_msg = "subpackage@file:subpath is a 'file:' dependency."
 
     with pytest.raises(InvalidRepoStructure, match=err_msg):
-        yarn._get_deps(package_json, yarn_lock, allowlist)
+        yarn._get_package_and_deps(tmp_path)
 
 
-@mock.patch.object(yarn.pyarn.lockfile.Lockfile, "from_file")
-@mock.patch("cachito.workers.pkg_managers.yarn.get_worker_config")
-@mock.patch("cachito.workers.pkg_managers.yarn._get_deps")
-def test_get_package_and_deps(
-    mock_get_deps,
-    mock_get_config,
-    mock_lockfile_fromfile,
-    tmp_path,
-):
-    packjson_path = tmp_path / "package-lock.json"
-    packjson_path.write_text('{"name": "foo", "version": "1.0.0"}')
+@pytest.mark.parametrize(
+    "file_tree, expected_err_msg",
+    [
+        (
+            {
+                "package.json": json.dumps({**MINIMAL_PACKAGE_JSON, "workspaces": ["../sibling"]}),
+                "yarn.lock": yarn_lock_to_str({}),
+                "..": {
+                    "sibling": {
+                        "package.json": json.dumps({"name": "sibling", "version": "1.0.0"}),
+                    },
+                },
+            },
+            "Workspace path leads outside the package root: ../sibling/package.json",
+        ),
+        (
+            {
+                "package.json": json.dumps({**MINIMAL_PACKAGE_JSON, "workspaces": ["child"]}),
+                "yarn.lock": yarn_lock_to_str({}),
+                "child": {"package.json": Symlink("../..")},
+            },
+            "Workspace path leads outside the package root: child/package.json",
+        ),
+    ],
+)
+def test_get_package_and_deps_nonlocal_workspace(
+    file_tree: dict[str, Any], expected_err_msg: str, tmp_path: Path
+) -> None:
+    package_path = tmp_path / "package"
+    package_path.mkdir()
+    write_file_tree(file_tree, package_path, exist_ok=True)
 
-    yarnlock_path = tmp_path / "yarn.lock"
-
-    mock_get_config.return_value.cachito_yarn_file_deps_allowlist = {"foo": ["bar"]}
-
-    mock_deps = mock.Mock()
-    mock_replacements = {"some-dep@^1.0.0": mock.Mock()}
-
-    mock_get_deps.return_value = (mock_deps, mock_replacements)
-
-    rv = yarn._get_package_and_deps(packjson_path, yarnlock_path)
-    assert rv == {
-        "package": {"name": "foo", "version": "1.0.0", "type": "yarn"},
-        "deps": mock_deps,
-        "package.json": {"name": "foo", "version": "1.0.0"},
-        "lock_file": mock_lockfile_fromfile.return_value.data,
-        "nexus_replacements": mock_replacements,
-    }
-
-    mock_lockfile_fromfile.assert_called_once_with(str(yarnlock_path))
-    mock_get_config.asssert_called_once()
-    expected_lockfile = mock_lockfile_fromfile.return_value.data
-    mock_get_deps.assert_called_once_with(rv["package.json"], expected_lockfile, {"bar"})
+    with pytest.raises(InvalidRepoStructure, match=expected_err_msg):
+        yarn._get_package_and_deps(package_path)
 
 
 @pytest.mark.parametrize("components_exist", [True, False])
@@ -807,9 +1049,7 @@ def test_resolve_yarn(
         "lock_file": expect_yarn_lock,
     }
 
-    mock_get_package_and_deps.assert_called_once_with(
-        Path("/some/path/package.json"), Path("/some/path/yarn.lock")
-    )
+    mock_get_package_and_deps.assert_called_once_with(Path("/some/path"))
     mock_get_repo_url.assert_called_once_with(1)
     mock_download_deps.assert_called_once_with(
         RequestBundleDir(1).yarn_deps_dir,
