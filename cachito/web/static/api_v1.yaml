@@ -675,6 +675,7 @@ paths:
                     example: "Request 1 is in state in_progress, not complete or stale."
   "/sbom":
     get:
+      operationId: cachito.web.api_v1.get_sbom_by_requests
       summary: Get the sbom of multiple requests
       description: Return the sbom of the specified Cachito requests
       parameters:
