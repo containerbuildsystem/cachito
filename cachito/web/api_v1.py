@@ -791,7 +791,6 @@ def _check_requests_state(requests: List[Request], valid_states: Set[str]) -> No
         raise BadRequest(error_msg)
 
 
-@api_v1.route("/content-manifest", methods=["GET"])
 def get_content_manifest_by_requests():
     """
     Retrieve the content manifest associated with the given requests.
@@ -821,7 +820,6 @@ def get_content_manifest_by_requests():
     return send_json_file_back(assembled_icm)
 
 
-@api_v1.route("/sbom", methods=["GET"])
 def get_sbom_by_requests() -> flask.Response:
     """
     Retrieve the content manifest sbom associated with the given requests.
