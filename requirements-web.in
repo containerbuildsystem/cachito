@@ -6,6 +6,6 @@ Flask-SQLAlchemy
 greenlet>=1.1.0
 psycopg2-binary
 pydantic
-SQLAlchemy<1.5
+SQLAlchemy<2.1
 swagger-ui-bundle
 prometheus-flask-exporter
