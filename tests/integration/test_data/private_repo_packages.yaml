@@ -1,11 +1,10 @@
 # Test data for the private repos test
 # The test will only be performed if $JOB_NAME includes one of the following
+
 private_repo_test_envs:
   - cachito-prod
   - cachito-stage
 private_repo_https:
   repo: https://github.com/cachito-testing/cachito-no-package-manager-private.git
-  ref: 31e242befe367f940f878f27158d9cd036ba3b23
 private_repo_ssh:
   repo: git@github.com:cachito-testing/cachito-no-package-manager-private.git
-  ref: 31e242befe367f940f878f27158d9cd036ba3b23
