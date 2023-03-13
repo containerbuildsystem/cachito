@@ -4,6 +4,9 @@ from setuptools import find_packages, setup
 GEMLOCK_PARSER_REPO_URL = "https://github.com/containerbuildsystem/gemlock-parser.git"
 GEMLOCK_PARSER_PIP_REF = f"git+{GEMLOCK_PARSER_REPO_URL}@master#egg=gemlock_parser"
 
+PYARN_REPO_URL = "https://github.com/chmeliik/pyarn.git"
+PYARN_PIP_REF = f"git+{PYARN_REPO_URL}@aliases"
+
 setup(
     name="cachito",
     long_description=__doc__,
@@ -17,7 +20,7 @@ setup(
         "gitpython",
         "kombu>=5",  # A celery dependency but it's directly imported
         "packaging",
-        "pyarn",
+        f"pyarn @ {PYARN_PIP_REF}",
         "requests_kerberos",
         "requests",
         "semver",
