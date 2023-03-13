@@ -86,6 +86,26 @@ def _yarn_lock_to_str(yarn_lock_data: dict) -> str:
     return lockfile.to_str()
 
 
+def _generate_yarnrc_config_files(subpaths: list[str]) -> list[dict]:
+    """
+    Generate one .yarnrc config file for each subpath in the request.
+
+    Each .yarnrc file is configured with an extended network-timeout
+    option to handle https://github.com/yarnpkg/yarn/issues/8242
+
+    :param list[str] subpaths: list of package subpaths in request
+    :return: list of config files to be added to the request
+    """
+    config_files = []
+
+    for subpath in subpaths:
+        yarnrc = 'network-timeout "600000"'
+        yarnrc_path = os.path.normpath(os.path.join("app", subpath, ".yarnrc"))
+        config_files.append(make_base64_config_file(yarnrc, yarnrc_path))
+
+    return config_files
+
+
 @app.task
 @runs_if_request_in_progress
 def fetch_yarn_source(request_id: int, package_configs: Optional[List[dict]] = None):
@@ -183,9 +203,7 @@ def fetch_yarn_source(request_id: int, package_configs: Optional[List[dict]] = N
         generate_npmrc_config_files(proxy_repo_url, username, password, subpaths)
     )
 
-    log.info("Adding empty .yarnrc file(s)")
-    for subpath in subpaths:
-        yarnrc_path = os.path.normpath(os.path.join("app", subpath, ".yarnrc"))
-        yarn_config_files.append(make_base64_config_file("", yarnrc_path))
+    log.info("Generating the .yarnrc file(s)")
+    yarn_config_files.extend(_generate_yarnrc_config_files(subpaths))
 
     update_request_with_config_files(request_id, yarn_config_files)

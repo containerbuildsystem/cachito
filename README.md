@@ -956,9 +956,10 @@ After parsing, Cachito creates a yarn registry in an instance of Nexus it manage
 the dependencies discovered in the lock file. The registry is locked down so that no other
 dependencies can be added. The connection information is stored in an
 [.npmrc](https://docs.npmjs.com/configuring-npm/npmrc.html) file accessible at the
-`/api/v1/requests/<id>/configuration-files` API endpoint. There will be an empty
-[.yarnrc](https://classic.yarnpkg.com/en/docs/yarnrc) file in the same directory with the
-[.npmrc](https://docs.npmjs.com/configuring-npm/npmrc.html) file.
+`/api/v1/requests/<id>/configuration-files` API endpoint. Cachito also generates a
+[.yarnrc](https://classic.yarnpkg.com/en/docs/yarnrc) file in the same directory as the
+[.npmrc](https://docs.npmjs.com/configuring-npm/npmrc.html) file, overwriting any existing
+.yarnrc files if they exist.
 
 Cachito will produce a bundle that is downloadable at `/api/v1/requests/<id>/download`. This
 bundle will contain the application source code in the `app` directory and individual tarballs
