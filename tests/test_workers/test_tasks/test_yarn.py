@@ -143,9 +143,11 @@ def test_yarn_lock_to_str(mock_lockfile):
 @mock.patch("cachito.workers.tasks.yarn.finalize_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_url")
 @mock.patch("cachito.workers.tasks.yarn.generate_npmrc_config_files")
+@mock.patch("cachito.workers.tasks.yarn._generate_yarnrc_config_files")
 @mock.patch("cachito.workers.tasks.yarn.update_request_with_config_files")
 def test_fetch_yarn(
     mock_update_config_files,
+    mock_generate_yarnrc,
     mock_generate_npmrc,
     mock_get_yarn_repo_url,
     mock_finalize_nexus,
@@ -218,13 +220,15 @@ def test_fetch_yarn(
 
     packjson_cfg = mock.Mock()
     yarnlock_cfg = mock.Mock()
-    yarnrc_1_cfg = mock.Mock()
-    yarnrc_2_cfg = mock.Mock()
-    mock_b64_config_file.side_effect = [packjson_cfg, yarnlock_cfg, yarnrc_1_cfg, yarnrc_2_cfg]
+    mock_b64_config_file.side_effect = [packjson_cfg, yarnlock_cfg]
 
     npmrc_1_cfg = mock.Mock()
     npmrc_2_cfg = mock.Mock()
     mock_generate_npmrc.return_value = [npmrc_1_cfg, npmrc_2_cfg]
+
+    yarnrc_1_cfg = mock.Mock()
+    yarnrc_2_cfg = mock.Mock()
+    mock_generate_yarnrc.return_value = [yarnrc_1_cfg, yarnrc_2_cfg]
     # /SETUP
 
     yarn.fetch_yarn_source(1, [{"path": "."}, {"path": "sub"}])
@@ -262,12 +266,11 @@ def test_fetch_yarn(
         mock_finalize_nexus.return_value,  # password
         [".", "sub"],
     )
+    mock_generate_yarnrc.assert_called_once_with([".", "sub"])
     mock_b64_config_file.assert_has_calls(
         [
             mock.call(packjson_str, "app/sub/package.json"),
             mock.call(yarnlock_str, "app/sub/yarn.lock"),
-            mock.call("", "app/.yarnrc"),
-            mock.call("", "app/sub/.yarnrc"),
         ]
     )
     mock_update_config_files.assert_called_once_with(
@@ -306,9 +309,11 @@ def test_fetch_yarn(
 @mock.patch("cachito.workers.tasks.yarn.finalize_nexus_for_js_request")
 @mock.patch("cachito.workers.tasks.yarn.get_yarn_proxy_repo_url")
 @mock.patch("cachito.workers.tasks.yarn.generate_npmrc_config_files")
+@mock.patch("cachito.workers.tasks.yarn._generate_yarnrc_config_files")
 @mock.patch("cachito.workers.tasks.yarn.update_request_with_config_files")
 def test_fetch_yarn_no_configs(
     mock_update_config_files,
+    mock_generate_yarnrc,
     mock_generate_npmrc,
     mock_get_yarn_repo_url,
     mock_finalize_nexus,
@@ -355,7 +360,7 @@ def test_fetch_yarn_no_configs(
         mock_finalize_nexus.return_value,  # password
         ["."],
     )
-    mock_b64_config_file.assert_called_once_with("", "app/.yarnrc")
+    mock_generate_yarnrc.assert_called_once_with(["."])
 
 
 @mock.patch("cachito.workers.tasks.yarn.RequestBundleDir")
@@ -384,3 +389,23 @@ def test_fetch_yarn_resolve_fails(
 
     with pytest.raises(InvalidRequestData, match="oops"):
         yarn.fetch_yarn_source(1)
+
+
+@mock.patch("cachito.workers.tasks.yarn.make_base64_config_file")
+def test_generate_yarnrc_config_files(mock_make_config_file):
+    subpaths = [".", "foo", "foo/bar"]
+    yarnrc = 'network-timeout "600000"'
+
+    expected_configs = [mock.Mock(), mock.Mock(), mock.Mock()]
+    expected_make_cfg_calls = [
+        mock.call(yarnrc, "app/.yarnrc"),
+        mock.call(yarnrc, "app/foo/.yarnrc"),
+        mock.call(yarnrc, "app/foo/bar/.yarnrc"),
+    ]
+
+    mock_make_config_file.side_effect = expected_configs
+
+    rv = yarn._generate_yarnrc_config_files(subpaths)
+    assert rv == expected_configs
+
+    mock_make_config_file.assert_has_calls(expected_make_cfg_calls)
