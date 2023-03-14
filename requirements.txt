@@ -497,9 +497,9 @@ prompt-toolkit==3.0.30 \
     --hash=sha256:859b283c50bde45f5f97829f77a4674d1c1fcd88539364f1b28a37805cfd89c0 \
     --hash=sha256:d8916d3f62a7b67ab353a952ce4ced6a1d2587dfe9ef8ebc30dd7c386751f289
     # via click-repl
-pyarn==0.1.3 \
-    --hash=sha256:34a0728f25c282ce22d5af9509e40525c8c3fce0beef6a910a9b501a256efd4e \
-    --hash=sha256:8af4433ca3bb9df17a11674ee074d33b513b844eada5a43222f4c1c00b80ed75
+pyarn==0.2.0 \
+    --hash=sha256:542ff739af2b81a1200776eff2b4d2566a330846decbd0f815999b196d7b067d \
+    --hash=sha256:d06e8b79bb830f142187b57ee664dc0104f658efdb2b2bae7ed99eaf7746eb1a
     # via -r requirements.in
 pycparser==2.21 \
     --hash=sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9 \
