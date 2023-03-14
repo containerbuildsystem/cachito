@@ -37,7 +37,7 @@ without_deps:
 # content_manifest: PURLs for image contents part
 with_deps:
   repo: https://github.com/cachito-testing/cachito-yarn-with-deps.git
-  ref: e1cc10b76c580cdd6cbdfc83bf1692503385447e
+  ref: dd651df74599872e38bd719a554bb4638631e135
   pkg_managers: ["yarn"]
   response_expectations:
     dependencies:
@@ -81,6 +81,11 @@ with_deps:
         replaces: null
         type: yarn
         version: 3.1.0
+      - dev: false
+        name: leftpad
+        replaces: null
+        type: yarn
+        version: 0.0.1
       - dev: false
         name: pathval
         replaces: null
@@ -134,6 +139,11 @@ with_deps:
           type: yarn
           version: 3.1.0
         - dev: false
+          name: leftpad
+          replaces: null
+          type: yarn
+          version: 0.0.1
+        - dev: false
           name: pathval
           replaces: null
           type: yarn
@@ -147,17 +157,18 @@ with_deps:
         type: yarn
         version: 1.0.0
   expected_files:
-    app: https://github.com/cachito-testing/cachito-yarn-with-deps/tarball/e1cc10b76c580cdd6cbdfc83bf1692503385447e
+    app: https://github.com/cachito-testing/cachito-yarn-with-deps/tarball/dd651df74599872e38bd719a554bb4638631e135
     deps/yarn/assertion-error/assertion-error-1.1.0.tgz: https://registry.npmjs.org/assertion-error/-/assertion-error-1.1.0.tgz
     deps/yarn/chai/chai-4.2.0.tgz: https://registry.npmjs.org/chai/-/chai-4.2.0.tgz
     deps/yarn/check-error/check-error-1.0.2.tgz: https://registry.npmjs.org/check-error/-/check-error-1.0.2.tgz
     deps/yarn/deep-eql/deep-eql-3.0.1.tgz: https://registry.npmjs.org/deep-eql/-/deep-eql-3.0.1.tgz
     deps/yarn/external-fecha/fecha-4.2.0-external-sha1-f09ea0b8115b9733dddc88227086c73ba4ddc926.tgz: https://github.com/cachito-testing/test_files/raw/master/fecha-91680e4db1415fea33eac878cfd889c80a7b55c7.tgz
     deps/yarn/get-func-name/get-func-name-2.0.0.tgz: https://registry.npmjs.org/get-func-name/-/get-func-name-2.0.0.tgz
+    deps/yarn/leftpad/leftpad-0.0.1.tgz: https://registry.npmjs.org/leftpad/-/leftpad-0.0.1.tgz
     deps/yarn/pathval/pathval-1.1.1.tgz: https://registry.npmjs.org/pathval/-/pathval-1.1.1.tgz
     deps/yarn/type-detect/type-detect-4.0.8.tgz: https://registry.npmjs.org/type-detect/-/type-detect-4.0.8.tgz
   content_manifest:
-  - purl: "pkg:github/cachito-testing/cachito-yarn-with-deps@e1cc10b76c580cdd6cbdfc83bf1692503385447e"
+  - purl: "pkg:github/cachito-testing/cachito-yarn-with-deps@dd651df74599872e38bd719a554bb4638631e135"
     dep_purls:
     - "pkg:generic/cachito-yarn-without-deps?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcachito-testing%2Fcachito-yarn-without-deps.git%23da0a2888aa7aab37fec34c0b36d9e44560d2cf3e"
     - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz%23f09ea0b8115b9733dddc88227086c73ba4ddc926"
@@ -167,6 +178,7 @@ with_deps:
     - "pkg:npm/deep-eql@3.0.1"
     - "pkg:npm/get-func-name@2.0.0"
     - "pkg:npm/is-positive@3.1.0"
+    - "pkg:npm/leftpad@0.0.1"
     - "pkg:npm/pathval@1.1.1"
     - "pkg:npm/type-detect@4.0.8"
     source_purls:
@@ -178,6 +190,7 @@ with_deps:
     - "pkg:npm/deep-eql@3.0.1"
     - "pkg:npm/get-func-name@2.0.0"
     - "pkg:npm/is-positive@3.1.0"
+    - "pkg:npm/leftpad@0.0.1"
     - "pkg:npm/pathval@1.1.1"
     - "pkg:npm/type-detect@4.0.8"
   sbom:
@@ -192,7 +205,7 @@ with_deps:
   - name: cachito-yarn-with-deps
     type: library
     version: 1.0.0
-    purl: pkg:github/cachito-testing/cachito-yarn-with-deps@e1cc10b76c580cdd6cbdfc83bf1692503385447e
+    purl: pkg:github/cachito-testing/cachito-yarn-with-deps@dd651df74599872e38bd719a554bb4638631e135
   - name: assertion-error
     type: library
     version: 1.1.0
@@ -217,6 +230,10 @@ with_deps:
     type: library
     version: 3.1.0
     purl: pkg:npm/is-positive@3.1.0
+  - name: leftpad
+    type: library
+    version: 0.0.1
+    purl: pkg:npm/leftpad@0.0.1
   - name: pathval
     type: library
     version: 1.1.1
