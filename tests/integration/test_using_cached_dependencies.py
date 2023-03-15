@@ -277,15 +277,7 @@ def assert_successful_cached_request(response, env_data, tmpdir, client):
     expected_files = env_data["expected_files"]
     utils.assert_expected_files(source_path, expected_files, tmpdir)
 
-    purl = env_data["content_manifest"]["purl"]
-    deps_purls = []
-    source_purls = []
-    if "dep_purls" in env_data["content_manifest"]:
-        deps_purls = [{"purl": x} for x in env_data["content_manifest"]["dep_purls"]]
-    if "source_purls" in env_data["content_manifest"]:
-        source_purls = [{"purl": x} for x in env_data["content_manifest"]["source_purls"]]
-
-    image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": source_purls}]
+    image_contents = utils.parse_image_contents(env_data.get("content_manifest"))
     utils.assert_content_manifest(client, response.id, image_contents)
 
 

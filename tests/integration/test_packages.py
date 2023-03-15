@@ -96,19 +96,7 @@ def test_packages(env_package, env_name, test_env, tmpdir):
     expected_files = env_data["expected_files"]
     utils.assert_expected_files(source_path, expected_files, tmpdir)
 
-    image_contents = []
-    for pkg in env_data.get("content_manifest"):
-        purl = pkg.get("purl", "")
-        dep_purls = []
-        source_purls = []
-        if "dep_purls" in pkg:
-            dep_purls = [{"purl": x} for x in pkg["dep_purls"]]
-        if "source_purls" in pkg:
-            source_purls = [{"purl": x} for x in pkg["source_purls"]]
-        if purl:
-            image_contents.append(
-                {"dependencies": dep_purls, "purl": purl, "sources": source_purls}
-            )
+    image_contents = utils.parse_image_contents(env_data.get("content_manifest"))
     utils.assert_content_manifest(client, completed_response.id, image_contents)
 
     sbom_components = env_data.get("sbom")
