@@ -495,3 +495,27 @@ def assert_properly_completed_response(completed_response):
         f"#{completed_response.id}: response state_reason is "
         f"{completed_response.data['state_reason']}"
     )
+
+
+def parse_image_contents(content_manifest_data):
+    """
+    Parse expected content manifest data.
+
+    :param content_manifest_data: dictionary containing purl, dep_purls and source_purls
+    :return: list of dicts with dependencies, purl and sources
+    """
+    image_contents = []
+    for pkg in content_manifest_data:
+        purl = pkg.get("purl", "")
+        dep_purls = []
+        source_purls = []
+        if "dep_purls" in pkg:
+            dep_purls = [{"purl": x} for x in pkg["dep_purls"]]
+        if "source_purls" in pkg:
+            source_purls = [{"purl": x} for x in pkg["source_purls"]]
+        if purl:
+            image_contents.append(
+                {"dependencies": dep_purls, "purl": purl, "sources": source_purls}
+            )
+
+    return image_contents
