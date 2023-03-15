@@ -12,10 +12,6 @@ cached_package:
     ssh_url: "./tmp/cachito-archives/integration-tests-git-repo.git"
     # The URL of the repository
     https_url: "./tmp/cachito-archives/integration-tests-git-repo.git"
-    # test repo user
-    git_user: "Arthur Dent"
-    # test repo user email
-    git_email: "dent42@cachito.rocks"
     # Package managers
     pkg_managers: ["gomod"]
 # Test pip with cached dependencies
@@ -23,10 +19,6 @@ pip_cached_deps:
   # Use local version of repos.
   # <use_local: True> is not supported in local environment and will be skipped.
   use_local: True
-  # test repo user
-  git_user: "Arthur Dent"
-  # test repo user email
-  git_email: "dent42@cachito.rocks"
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-pip-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-pip-without-deps.git
@@ -123,10 +115,6 @@ gomod_cached_deps:
   # Use local version of repos.
   # <use_local: True> is not supported in local environment and will be skipped.
   use_local: True
-  # test repo user
-  git_user: "Arthur Dent"
-  # test repo user email
-  git_email: "dent42@cachito.rocks"
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
@@ -607,10 +595,6 @@ npm_cached_deps:
   # Use local version of repos.
   # <use_local: True> is not supported in local environment and will be skipped.
   use_local: True
-  # test repo user
-  git_user: "Arthur Dent"
-  # test repo user email
-  git_email: "dent42@cachito.rocks"
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-npm-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-npm-without-deps.git
@@ -769,10 +753,6 @@ yarn_cached_deps:
   # Use local version of repos.
   # <use_local: True> is not supported in local environment and will be skipped.
   use_local: True
-  # test repo user
-  git_user: "Arthur Dent"
-  # test repo user email
-  git_email: "dent42@cachito.rocks"
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-yarn-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-yarn-without-deps.git
@@ -940,10 +920,6 @@ rubygems_cached_deps:
   # Use local version of repos.
   # <use_local: True> is not supported in local environment and will be skipped.
   use_local: True
-  # test repo user
-  git_user: "Arthur Dent"
-  # test repo user email
-  git_email: "dent42@cachito.rocks"
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-rubygems-with-dependencies.git
   https_dep_repo: https://github.com/cachito-testing/cachito-rubygems-without-deps.git

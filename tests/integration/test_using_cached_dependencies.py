@@ -20,8 +20,8 @@ class TestCachedPackage:
         """Create bare git repo and a pool for removing shared directories."""
         self.directories = []
         self.env_data = utils.load_test_data("cached_dependencies.yaml")["cached_package"]
-        self.git_user = self.env_data["test_repo"].get("git_user")
-        self.git_email = self.env_data["test_repo"].get("git_email")
+        self.git_user = test_env["git_user"]
+        self.git_email = test_env["git_email"]
         if self.env_data["test_repo"].get("use_local"):
             repo_path = create_local_repository(self.env_data["test_repo"]["ssh_url"])
             self.env_data["test_repo"]["ssh_url"] = repo_path
@@ -166,8 +166,8 @@ class TestCachedDependencies:
         if self.use_local:
             pytest.skip("The local repos are not supported for the test")
 
-        self.git_user = env_data.get("git_user")
-        self.git_email = env_data.get("git_email")
+        self.git_user = test_env["git_user"]
+        self.git_email = test_env["git_email"]
 
         # Download dependency repo into a new directory
         dep_repo_dir = os.path.join(tmpdir, "dep")
