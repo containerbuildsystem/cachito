@@ -87,9 +87,11 @@ def test_athens_ok(mock_service_ok):
         ),
     ],
 )
+@mock.patch("cachito.web.status.text")
 @mock.patch.object(status.db, "session")
-def test_database_ok(mock_db_session, error, expect_reason):
+def test_database_ok(mock_db_session, mock_sql_text, error, expect_reason):
     session = mock_db_session.return_value
+    sql_text = mock_sql_text.return_value
     if error is not None:
         session.execute.side_effect = [error]
 
@@ -98,7 +100,8 @@ def test_database_ok(mock_db_session, error, expect_reason):
     assert ok == (error is None)
     assert reason == expect_reason
 
-    session.execute.assert_called_once_with("SELECT 1")
+    mock_sql_text.assert_called_once_with("SELECT 1")
+    session.execute.assert_called_once_with(sql_text)
     session.close.assert_called_once()
 
 
