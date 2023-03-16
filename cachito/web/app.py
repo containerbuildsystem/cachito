@@ -82,7 +82,7 @@ def create_app(config_obj=None):
     :return: a Flask application object
     :rtype: flask.Flask
     """
-    connexion_app = connexion.FlaskApp(__name__)
+    connexion_app = connexion.FlaskApp(__name__, options={"swagger_ui": False})
     app = connexion_app.app
 
     if config_obj:
