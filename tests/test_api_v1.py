@@ -1257,7 +1257,7 @@ def test_create_request_connection_error(mock_chain, app, auth_env, client, db):
     engine = db.create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
     connection = engine.connect()
     request_state = db.Table("request_state", db.MetaData(), autoload_with=engine)
-    query = db.select([request_state]).where(request_state.columns.request_id == 1)
+    query = db.select(request_state).where(request_state.columns.request_id == 1)
 
     state_reasons = []
     for res in connection.execute(query):
