@@ -761,7 +761,7 @@ def _get_valid_request_ids(all_request_ids: str) -> List[int]:
 def _get_all_requests(request_ids: List[int]) -> list[Request]:
     requests = (
         Request.query.filter(Request.id.in_(request_ids))
-        .options(load_only("id"), joinedload(Request.state))
+        .options(load_only(Request.id), joinedload(Request.state))  # type: ignore[arg-type]
         .all()
     )
 
