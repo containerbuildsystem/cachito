@@ -410,8 +410,7 @@ Run `cachito db upgrade --help` to get more info about additional arguments cons
 The documentation is generated from the [API specification](cachito/web/static/api_v1.yaml)
 written in the OpenAPI 3.0 format.
 
-It is available on [GitHub Pages](https://release-engineering.github.io/cachito) or Cachito's root
-URL.
+It is available on Cachito's root URL.
 
 ## Configuring Workers
 
