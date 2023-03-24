@@ -3,6 +3,7 @@ import os
 import random
 import shutil
 import string
+from contextlib import ExitStack
 from pathlib import Path
 from textwrap import dedent
 
@@ -116,13 +117,6 @@ class TestCachedPackage:
 class TestCachedDependencies:
     """Test class for cached dependencies."""
 
-    def teardown_method(self, method):
-        """Delete branch with commit in the main repo."""
-        if (not self.use_local) and self.cloned_main_repo:
-            delete_branch_and_check(
-                self.branch, self.cloned_main_repo, self.main_repo_origin, [self.main_repo_commit]
-            )
-
     @pytest.mark.parametrize(
         "env_name",
         [
@@ -161,10 +155,15 @@ class TestCachedDependencies:
         under deps/<pkg_manager> directory.
         * The content manifest is successfully generated and contains correct content.
         """
+        cached_deps_test_envs = utils.load_test_data("cached_dependencies.yaml")[
+            "cached_deps_test_envs"
+        ]
+        job_name = str(os.environ.get("JOB_NAME"))
+        is_supported_env = any(x in job_name for x in cached_deps_test_envs)
+        if not is_supported_env:
+            pytest.skip("The local repos are not supported for the test.")
+
         env_data = utils.load_test_data("cached_dependencies.yaml")[env_name]
-        self.use_local = env_data["use_local"]
-        if self.use_local:
-            pytest.skip("The local repos are not supported for the test")
 
         self.git_user = test_env["git_user"]
         self.git_email = test_env["git_email"]
@@ -231,14 +230,24 @@ class TestCachedDependencies:
             "ref": self.main_repo_commit,
             "pkg_managers": env_data["pkg_managers"],
         }
-        try:
+
+        with ExitStack() as defer:
+            defer.callback(
+                delete_branch_and_check,
+                self.branch,
+                self.cloned_dep_repo,
+                self.dep_repo_origin,
+                new_dep_commits,
+            )
+            defer.callback(
+                delete_branch_and_check,
+                self.branch,
+                self.cloned_main_repo,
+                self.main_repo_origin,
+                [self.main_repo_commit],
+            )
             initial_response = client.create_new_request(payload=payload)
             completed_response = client.wait_for_complete_request(initial_response)
-        finally:
-            # Delete the dependency branch
-            delete_branch_and_check(
-                self.branch, self.cloned_dep_repo, self.dep_repo_origin, new_dep_commits
-            )
 
         assert_successful_cached_request(completed_response, env_data, tmpdir, client)
         # Create new Cachito request to test cached deps
