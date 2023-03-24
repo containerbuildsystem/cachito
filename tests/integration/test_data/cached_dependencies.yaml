@@ -14,11 +14,13 @@ cached_package:
     https_url: "./tmp/cachito-archives/integration-tests-git-repo.git"
     # Package managers
     pkg_managers: ["gomod"]
+# Following tests will only be performed if $JOB_NAME includes one of the following
+cached_deps_test_envs:
+  - cachito-prod
+  - cachito-stage
+  - cachito-test
 # Test pip with cached dependencies
 pip_cached_deps:
-  # Use local version of repos.
-  # <use_local: True> is not supported in local environment and will be skipped.
-  use_local: True
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-pip-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-pip-without-deps.git
@@ -112,9 +114,6 @@ pip_cached_deps:
     - "pkg:pypi/aiowsgi@0.7"
 # Test gomod with cached dependencies
 gomod_cached_deps:
-  # Use local version of repos.
-  # <use_local: True> is not supported in local environment and will be skipped.
-  use_local: True
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-gomod-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-gomod-without-deps.git
@@ -592,9 +591,6 @@ gomod_cached_deps:
     - "pkg:golang/rsc.io%2Fsampler@v1.3.0"
 # Test npm with cached dependencies
 npm_cached_deps:
-  # Use local version of repos.
-  # <use_local: True> is not supported in local environment and will be skipped.
-  use_local: True
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-npm-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-npm-without-deps.git
@@ -750,9 +746,6 @@ npm_cached_deps:
     - "pkg:npm/type-detect@4.0.8"
 # Test yarn with cached dependencies
 yarn_cached_deps:
-  # Use local version of repos.
-  # <use_local: True> is not supported in local environment and will be skipped.
-  use_local: True
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-yarn-with-deps.git
   https_dep_repo: https://github.com/cachito-testing/cachito-yarn-without-deps.git
@@ -917,9 +910,6 @@ yarn_cached_deps:
     - "pkg:npm/pathval@1.1.1"
     - "pkg:npm/type-detect@4.0.8"
 rubygems_cached_deps:
-  # Use local version of repos.
-  # <use_local: True> is not supported in local environment and will be skipped.
-  use_local: True
   # HTTPS and SSH links to main and dependency repos respectively
   https_main_repo: https://github.com/cachito-testing/cachito-rubygems-with-dependencies.git
   https_dep_repo: https://github.com/cachito-testing/cachito-rubygems-without-deps.git
