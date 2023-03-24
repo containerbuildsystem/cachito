@@ -567,7 +567,7 @@ def update_expected_data(env_data, replace_rules):
         {<ORIG_PART>: <NEW_PART>}
     """
     new_expected_files = {}
-    if env_data["expected_files"]:
+    if env_data.get("expected_files"):
         for file, url in env_data["expected_files"].items():
             new_expected_files[replace_by_rules(file, replace_rules)] = replace_by_rules(
                 url, replace_rules
@@ -587,10 +587,23 @@ def update_expected_data(env_data, replace_rules):
             dep["version"], replace_rules
         )
 
-    env_data["content_manifest"]["purl"] = replace_by_rules(
-        env_data["content_manifest"]["purl"], replace_rules
-    )
-    for i, p in enumerate(env_data["content_manifest"]["dep_purls"]):
-        env_data["content_manifest"]["dep_purls"][i] = replace_by_rules(p, replace_rules)
-    for i, p in enumerate(env_data["content_manifest"]["source_purls"]):
-        env_data["content_manifest"]["source_purls"][i] = replace_by_rules(p, replace_rules)
+    for i, pkg in enumerate(env_data["content_manifest"]):
+        purl = pkg.get("purl", "")
+        env_data["content_manifest"][i]["purl"] = replace_by_rules(purl, replace_rules)
+
+        dep_purls = pkg.get("dep_purls", "")
+        for j, purl in enumerate(dep_purls):
+            env_data["content_manifest"][i]["dep_purls"][j] = replace_by_rules(purl, replace_rules)
+
+        source_purls = pkg.get("source_purls", "")
+        for j, purl in enumerate(source_purls):
+            env_data["content_manifest"][i]["source_purls"][j] = replace_by_rules(
+                purl, replace_rules
+            )
+
+    if env_data.get("sbom", False):
+        for i, pkg in enumerate(env_data["sbom"]):
+            if env_data["sbom"][i].get("version", False):
+                env_data["sbom"][i]["version"] = replace_by_rules(pkg["version"], replace_rules)
+            if env_data["sbom"][i].get("purl", False):
+                env_data["sbom"][i]["purl"] = replace_by_rules(pkg["purl"], replace_rules)
