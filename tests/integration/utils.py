@@ -519,3 +519,78 @@ def parse_image_contents(content_manifest_data):
             )
 
     return image_contents
+
+
+def get_pseudo_version(repo, commit):
+    """
+    Get go pseudo version.
+
+    Go pseudo version based on commit and commit time.
+    :param repo: git repo with go project
+    :param str commit: git commit
+    :return: string with pseudo version
+    :rtype: str
+    """
+    commit_time = repo.git.show("-s", "--format=%cd", "--date=format:%Y%m%d%H%M%S", commit)
+    return f"v0.0.0-{commit_time}-{commit[:12]}"
+
+
+def replace_by_rules(orig_str, replace_rules):
+    """
+    Replace elements in string according to replace rules.
+
+    :param str orig_str: original string
+    :param dict replace_rules: replace rules as a dictionary:
+        {<ORIG_PART>: <NEW_PART>}
+    :return: string with replaced values
+    :rtype: str
+    """
+    if orig_str is None:
+        return None
+    res_string = orig_str
+    for s, r in replace_rules.items():
+        if s in res_string:
+            res_string = res_string.replace(s, r)
+    return res_string
+
+
+def update_expected_data(env_data, replace_rules):
+    """
+    Update expected data for the test in place.
+
+    Change commits and hashes in:
+    * expected_files
+    * response_expectations
+    * all purls in env_data
+    :param dict env_data: the test data
+    :param dict replace_rules: replace rules as a dictionary:
+        {<ORIG_PART>: <NEW_PART>}
+    """
+    new_expected_files = {}
+    if env_data["expected_files"]:
+        for file, url in env_data["expected_files"].items():
+            new_expected_files[replace_by_rules(file, replace_rules)] = replace_by_rules(
+                url, replace_rules
+            )
+    env_data["expected_files"] = new_expected_files
+    for pkg_idx in range(len(env_data["response_expectations"]["packages"])):
+        env_data["response_expectations"]["packages"][pkg_idx]["version"] = replace_by_rules(
+            env_data["response_expectations"]["packages"][pkg_idx]["version"], replace_rules
+        )
+
+        deps = env_data["response_expectations"]["packages"][pkg_idx]["dependencies"]
+        for dep_idx, dep in enumerate(deps):
+            deps[dep_idx]["version"] = replace_by_rules(dep["version"], replace_rules)
+
+    for i, dep in enumerate(env_data["response_expectations"]["dependencies"]):
+        env_data["response_expectations"]["dependencies"][i]["version"] = replace_by_rules(
+            dep["version"], replace_rules
+        )
+
+    env_data["content_manifest"]["purl"] = replace_by_rules(
+        env_data["content_manifest"]["purl"], replace_rules
+    )
+    for i, p in enumerate(env_data["content_manifest"]["dep_purls"]):
+        env_data["content_manifest"]["dep_purls"][i] = replace_by_rules(p, replace_rules)
+    for i, p in enumerate(env_data["content_manifest"]["source_purls"]):
+        env_data["content_manifest"]["source_purls"][i] = replace_by_rules(p, replace_rules)
