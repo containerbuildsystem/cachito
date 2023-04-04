@@ -186,16 +186,7 @@ class TestCachedDependencies:
                 "user", "email", self.git_email
             ).release()
 
-        # Make changes in dependency repo
-        # We need 2 commits:
-        # 1st for remote source archive dependency
-        # 2nd for VCS dependency
-        new_dep_commits = []
-        for _ in range(2):
-            self.cloned_dep_repo.git.commit(
-                "--allow-empty", m="Commit created in integration test for Cachito"
-            )
-            new_dep_commits.append(self.cloned_dep_repo.head.object.hexsha)
+        new_dep_commits = create_commits(self.cloned_dep_repo)
 
         # Push changes
         self.dep_repo_origin = self.cloned_dep_repo.remote(name="origin")
@@ -446,3 +437,22 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
             "FIRST_DEP_COMMIT": new_dep_commits[0],
         }
     return None
+
+
+def create_commits(repo):
+    """
+    Add 2 new commits in repo.
+
+    * 1st for remote source archive dependency
+    * 2nd for VCS dependency
+
+    :param repo: repository
+    :return: list of 2 commits
+    :rtype: list
+    """
+    new_dep_commits = []
+    for _ in range(2):
+        repo.git.commit("--allow-empty", m="Commit created in integration test for Cachito")
+        new_dep_commits.append(repo.head.object.hexsha)
+
+    return new_dep_commits
