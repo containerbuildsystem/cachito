@@ -156,6 +156,7 @@ class TestCachedDependencies:
         * The source tarball includes the dependencies and dev dependencies source code
         under deps/<pkg_manager> directory.
         * The content manifest is successfully generated and contains correct content.
+        * Sbom is successfully generated and contains correct content.
         """
         if private:
             test_data = utils.load_test_data("private_repo_packages.yaml")
@@ -293,6 +294,9 @@ def assert_successful_cached_request(response, env_data, tmpdir, client, private
 
     image_contents = utils.parse_image_contents(env_data.get("content_manifest"))
     utils.assert_content_manifest(client, response.id, image_contents)
+
+    sbom_components = env_data.get("sbom", [])
+    utils.assert_sbom(client, response.id, sbom_components)
 
 
 def clone_repo_in_new_dir(ssh_repo, branch, repo_dir):
