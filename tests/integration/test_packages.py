@@ -65,6 +65,7 @@ def test_packages(env_package, env_name, test_env, tmpdir):
     * Check that the source tarball includes the application source code
     * Check that the source tarball includes expected deps directory
     * Check: The content manifest is successfully generated and contains correct content
+    * Check that sbom is successfully generated and contains correct content.
     """
     env_data = utils.load_test_data(f"{env_package}.yaml")[env_name]
     client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
