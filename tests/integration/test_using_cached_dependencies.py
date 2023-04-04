@@ -3,6 +3,7 @@ import os
 import random
 import shutil
 import string
+import subprocess
 from contextlib import ExitStack
 from pathlib import Path
 from textwrap import dedent
@@ -118,16 +119,17 @@ class TestCachedDependencies:
     """Test class for cached dependencies."""
 
     @pytest.mark.parametrize(
-        "env_name",
+        "env_name,private",
         [
-            "pip_cached_deps",
-            "gomod_cached_deps",
-            "npm_cached_deps",
-            "yarn_cached_deps",
-            "rubygems_cached_deps",
+            ("pip_cached_deps", False),
+            ("gomod_cached_deps", False),
+            ("npm_cached_deps", False),
+            ("yarn_cached_deps", False),
+            ("rubygems_cached_deps", False),
+            ("private_repo_gomod", True),
         ],
     )
-    def test_package_with_cached_deps(self, test_env, tmpdir, env_name):
+    def test_package_with_cached_deps(self, test_env, tmpdir, env_name: str, private: bool):
         """
         Test a package with cached dependency.
 
@@ -155,15 +157,24 @@ class TestCachedDependencies:
         under deps/<pkg_manager> directory.
         * The content manifest is successfully generated and contains correct content.
         """
-        cached_deps_test_envs = utils.load_test_data("cached_dependencies.yaml")[
-            "cached_deps_test_envs"
-        ]
+        if private:
+            test_data = utils.load_test_data("private_repo_packages.yaml")
+            deps_test_envs = test_data["private_repo_test_envs"]
+        else:
+            test_data = utils.load_test_data("cached_dependencies.yaml")
+            deps_test_envs = test_data["cached_deps_test_envs"]
         job_name = str(os.environ.get("JOB_NAME"))
-        is_supported_env = any(x in job_name for x in cached_deps_test_envs)
+        is_supported_env = any(x in job_name for x in deps_test_envs)
         if not is_supported_env:
-            pytest.skip("The local repos are not supported for the test.")
+            pytest.skip(
+                (
+                    "This test is only executed in environments that"
+                    "have been configured with the credentials needed"
+                    "for write access to repositories."
+                )
+            )
 
-        env_data = utils.load_test_data("cached_dependencies.yaml")[env_name]
+        env_data = test_data[env_name]
 
         self.git_user = test_env["git_user"]
         self.git_email = test_env["git_email"]
@@ -204,7 +215,7 @@ class TestCachedDependencies:
             ).release()
 
         replace_rules = update_main_repo(
-            env_data, main_repo_dir, tmpdir, new_dep_commits, self.cloned_dep_repo
+            env_data, main_repo_dir, tmpdir, new_dep_commits, self.cloned_dep_repo, private
         )
 
         diff_files = self.cloned_main_repo.git.diff(None, name_only=True)
@@ -249,15 +260,15 @@ class TestCachedDependencies:
             initial_response = client.create_new_request(payload=payload)
             completed_response = client.wait_for_complete_request(initial_response)
 
-        assert_successful_cached_request(completed_response, env_data, tmpdir, client)
+        assert_successful_cached_request(completed_response, env_data, tmpdir, client, private)
         # Create new Cachito request to test cached deps
         initial_response = client.create_new_request(payload=payload)
         completed_response = client.wait_for_complete_request(initial_response)
 
-        assert_successful_cached_request(completed_response, env_data, tmpdir, client)
+        assert_successful_cached_request(completed_response, env_data, tmpdir, client, private)
 
 
-def assert_successful_cached_request(response, env_data, tmpdir, client):
+def assert_successful_cached_request(response, env_data, tmpdir, client, private=False):
     """
     Provide all verifications for Cachito request with cached dependencies.
 
@@ -265,6 +276,7 @@ def assert_successful_cached_request(response, env_data, tmpdir, client):
     :param dict env_data: the test data
     :param tmpdir: the path to directory with testing files
     :param Client client: the Cachito client to make requests
+    :param bool private: a boolean that denotes if the test is using private repo
     """
     utils.assert_properly_completed_response(response)
 
@@ -273,9 +285,11 @@ def assert_successful_cached_request(response, env_data, tmpdir, client):
     utils.assert_elements_from_response(response_data, expected_response_data)
 
     client.download_and_extract_archive(response.id, tmpdir)
-    source_path = tmpdir.join(f"download_{str(response.id)}")
-    expected_files = env_data["expected_files"]
-    utils.assert_expected_files(source_path, expected_files, tmpdir)
+    source_path = tmpdir / f"download_{str(response.id)}"
+
+    if not private:
+        expected_files = env_data["expected_files"]
+        utils.assert_expected_files(source_path, expected_files, tmpdir)
 
     image_contents = utils.parse_image_contents(env_data.get("content_manifest"))
     utils.assert_content_manifest(client, response.id, image_contents)
@@ -331,7 +345,7 @@ def delete_branch_and_check(branch, repo, remote, commits):
         ), f"Commit {commit} is still in a branch (it shouldn't be there at this point)."
 
 
-def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
+def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo, private):
     """
     Update main repo with new dependencies and return replacement rules.
 
@@ -360,6 +374,7 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
     :param tmpdir: temporary test directory
     :param list new_dep_commits: list of 2 dep commits
     :param dep_repo: Dependency git repository
+    :param bool private: a boolean that denotes if the test is using private repo
     :return: replacement rules
     :rtype: dict
     """
@@ -394,6 +409,12 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
             if go_dep.endswith(".git"):
                 go_dep = go_dep[: -len(".git")]
             f.write(f"require {go_dep} {dep_version} \n")
+
+        result_tidy = subprocess.run(
+            ["go", "get", f"{go_dep}@{dep_version}"], cwd=repo_dir, text=True, capture_output=True
+        )
+        assert result_tidy.returncode == 0, f"The command failed with: {result_tidy.stderr}"
+
         return {
             "FIRST_DEP_COMMIT": new_dep_commits[0],
             "DEP_VERSION": dep_version,
