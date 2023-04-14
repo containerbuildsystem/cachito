@@ -121,11 +121,16 @@ def test_gomod_with_local_replacements_in_parent_dir_missing(test_env):
     completed_response = client.wait_for_complete_request(initial_response)
     assert completed_response.status == 200
     assert completed_response.data["state"] == "failed"
+    dependency = {
+        "type": "gomod",
+        "name": "github.com/cachito-testing/cachito-gomod-local-parent-deps",
+        "version": "../",
+        "replaces": None,
+    }
     error_msg = (
         "Could not find a Go module in this request containing "
         "github.com/cachito-testing/cachito-gomod-local-parent-deps while processing "
-        "dependency {'name': 'github.com/cachito-testing/cachito-gomod-local-parent-deps', "
-        "'replaces': None, 'type': 'gomod', 'version': '../'} of package "
+        f"dependency {dependency} of package "
         "github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module. Please tell "
         "Cachito to process the module which contains the dependency. Perhaps the parent "
         "module of github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module?"
