@@ -17,13 +17,7 @@ from . import utils
         ("go_generate_packages", "go_generate_imported"),
         ("go_generate_packages", "go_generate_imported_generated"),
         ("gomod_packages", "without_deps"),
-        pytest.param(
-            "gomod_packages",
-            "without_deps_vendor_check",
-            marks=pytest.mark.xfail(
-                reason="Cachito currently cannot handle vendoring when there is nothing to vendor"
-            ),
-        ),
+        ("gomod_packages", "without_deps_vendor_check"),
         ("gomod_packages", "with_deps"),
         ("gomod_packages", "vendored_with_flag"),
         ("gomod_packages", "implicit_gomod"),
