@@ -10,6 +10,7 @@ from flask import current_app
 from flask.logging import default_handler
 from flask_login import LoginManager
 from flask_migrate import Migrate
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
@@ -42,7 +43,7 @@ def healthcheck():
     try:
         start_time = timer()
 
-        db.session.execute("SELECT 1 FROM request LIMIT 0").fetchall()
+        db.session.execute(text("SELECT 1 FROM request LIMIT 0")).fetchall()
 
         end_time = timer() - start_time
         current_app.logger.info("The healthcheck database query took %f seconds", end_time)
