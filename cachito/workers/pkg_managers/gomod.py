@@ -278,8 +278,6 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             else app_source_path.replace(f"{git_dir_path}/", "")
         )
 
-        # NOTE: If there are multiple go modules in a single git repo, they will
-        #   all be versioned identically.
         module_version = get_golang_version(
             module_name, git_dir_path, request["ref"], update_tags=True, subpath=subpath
         )
