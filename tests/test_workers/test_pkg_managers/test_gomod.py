@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import json
 import os
 import re
 import tarfile
@@ -6,24 +7,19 @@ from contextlib import nullcontext
 from pathlib import Path
 from tempfile import TemporaryDirectory as tempDir
 from textwrap import dedent
+from typing import Any, Optional, Union
 from unittest import mock
 
 import git
 import pytest
 
-from cachito.common.packages_data import _package_sort_key
-from cachito.errors import (
-    FileAccessError,
-    GoModError,
-    InvalidFileFormat,
-    UnsupportedFeature,
-    ValidationError,
-)
+from cachito.errors import GoModError, InvalidFileFormat, UnsupportedFeature, ValidationError
 from cachito.workers import safe_extract
 from cachito.workers.errors import CachitoCalledProcessError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
 from cachito.workers.pkg_managers.gomod import (
+    GoModule,
     _fail_unless_allowed,
     _get_allowed_local_deps,
     _merge_bundle_dirs,
@@ -46,195 +42,30 @@ def setup_module():
     gomod.log.setLevel("DEBUG")
 
 
-url = "https://github.com/release-engineering/retrodep.git"
-ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
-archive_path = f"/tmp/cachito-archives/release-engineering/retrodep/{ref}.tar.gz"
-
-mock_pkg_list = dedent(
-    """\
-    github.com/release-engineering/retrodep/v2
-    github.com/release-engineering/retrodep/v2/retrodep
-    github.com/release-engineering/retrodep/v2/retrodep/glide
-    """
-)
-mock_pkg_deps = dedent(
-    # Output of go list -deps -json ./...
-    """
-    {
-        "ImportPath": "github.com/op/go-logging",
-        "Module": {
-            "Path": "github.com/op/go-logging",
-            "Version": "v0.0.0-20160315200505-970db520ece7"
-        }
-    }
-    {
-        "ImportPath": "github.com/Masterminds/semver",
-        "Module": {
-            "Path": "github.com/Masterminds/semver",
-            "Version": "v1.4.2"
-        }
-    }
-    {
-        "ImportPath": "github.com/pkg/errors",
-        "Module": {
-            "Path": "github.com/pkg/errors",
-            "Version": "v0.8.1"
-        }
-    }
-    {
-        "ImportPath": "gopkg.in/yaml.v2",
-        "Module": {
-            "Path": "gopkg.in/yaml.v2",
-            "Version": "v2.2.2"
-        }
-    }
-    {
-        "ImportPath": "github.com/release-engineering/retrodep/v2/retrodep/glide",
-        "Module": {
-            "Path": "github.com/release-engineering/retrodep/v2",
-            "Main": true
-        }
-    }
-    {
-        "ImportPath": "golang.org/x/tools/go/vcs",
-        "Module": {
-            "Path": "golang.org/x/tools",
-            "Version": "v0.0.0-20190325161752-5a8dccf5b48a"
-        }
-    }
-    {
-        "ImportPath": "github.com/release-engineering/retrodep/v2/retrodep",
-        "Module": {
-            "Path": "github.com/release-engineering/retrodep/v2",
-            "Main": true
-        }
-    }
-    {
-        "ImportPath": "github.com/release-engineering/retrodep/v2",
-        "Module": {
-            "Path": "github.com/release-engineering/retrodep/v2",
-            "Main": true
-        },
-        "Deps": [
-            "fmt",
-            "github.com/op/go-logging",
-            "github.com/Masterminds/semver",
-            "github.com/pkg/errors",
-            "gopkg.in/yaml.v2",
-            "github.com/release-engineering/retrodep/v2/retrodep/glide",
-            "golang.org/x/tools/go/vcs",
-            "github.com/release-engineering/retrodep/v2/retrodep"
-        ]
-    }
-    {
-        "ImportPath": "github.com/markbates/inflect",
-        "Module": {
-            "Path": "github.com/markbates/inflect",
-            "Version": "v1.0.0",
-            "Replace": {
-                "Path": "github.com/markbates/inflect",
-                "Version": "v1.0.1"
-            }
-        }
-    }
-    {
-        "ImportPath": "fmt",
-        "Standard": true,
-        "Deps": [
-          "errors",
-          "internal/bytealg",
-          "internal/cpu",
-          "internal/fmtsort",
-          "internal/oserror",
-          "internal/poll",
-          "internal/race",
-          "internal/reflectlite",
-          "internal/syscall/execenv",
-          "internal/syscall/unix",
-          "internal/testlog",
-          "internal/unsafeheader",
-          "io",
-          "io/fs",
-          "math",
-          "math/bits",
-          "os",
-          "path",
-          "reflect",
-          "runtime",
-          "runtime/internal/atomic",
-          "runtime/internal/math",
-          "runtime/internal/sys",
-          "sort",
-          "strconv",
-          "sync",
-          "sync/atomic",
-          "syscall",
-          "time",
-          "unicode",
-          "unicode/utf8",
-          "unsafe"
-        ]
-    }
-    """
-)
-
-mock_pkg_deps_no_deps = dedent(
-    """
-    {
-        "ImportPath": "github.com/release-engineering/retrodep/v2",
-        "Module": {
-            "Path": "github.com/release-engineering/retrodep/v2",
-            "Main": true
-        }
-    }
-    """
-)
+def get_mocked_data(filepath: Union[str, Path]) -> str:
+    gomod_mocks = Path(__file__).parent / "data" / "gomod-mocks"
+    return gomod_mocks.joinpath(filepath).read_text()
 
 
-def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
-    """
-    Generate mocked output of the following command.
-
-    go list -m -f '{{ if not .Main }}{{ .String }}{{ end }}' all
-    """
-    return dedent(
-        f"""\
-        github.com/Masterminds/semver v1.4.2
-        github.com/kr/pretty v0.1.0
-        github.com/kr/pty v1.1.1
-        github.com/kr/text v0.1.0
-        github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-        {error_pkg}
-        golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
-        golang.org/x/net v0.0.0-20190311183353-d8887717615a
-        golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
-        golang.org/x/text v0.3.0
-        golang.org/x/tools v0.0.0-20190325161752-5a8dccf5b48a
-        gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
-        gopkg.in/yaml.v2 v2.2.2
-        k8s.io/metrics v0.0.0 => ./staging/src/k8s.io/metrics
-    """
-    )
+RETRODEP_PRE_REPLACE = "github.com/release-engineering/retrodep/v2"
+RETRODEP_POST_REPLACE = "github.com/cachito-testing/retrodep/v2"
 
 
 @pytest.mark.parametrize(
-    "dep_replacement, go_list_error_pkg, expected_replace",
+    "dep_replacement, expected_replace",
     (
-        (None, "github.com/pkg/errors v1.0.0", None),
+        (None, None),
         (
-            {"name": "github.com/pkg/errors", "type": "gomod", "version": "v1.0.0"},
-            "github.com/pkg/errors v0.9.0 => github.com/pkg/errors v1.0.0",
-            "github.com/pkg/errors=github.com/pkg/errors@v1.0.0",
-        ),
-        (
+            # note: this replacement is already mocked in the gomod-mocks data
+            # by setting the same replacement in dep_replacements, the only difference
+            # should be that Cachito will report the replaced module
             {
-                "name": "github.com/pkg/errors",
-                "new_name": "github.com/pkg/new_errors",
+                "name": RETRODEP_PRE_REPLACE,
+                "new_name": RETRODEP_POST_REPLACE,
                 "type": "gomod",
-                "version": "v1.0.0",
+                "version": "v2.1.1",
             },
-            "github.com/pkg/errors v0.9.0 => github.com/pkg/new_errors v1.0.0",
-            "github.com/pkg/errors=github.com/pkg/new_errors@v1.0.0",
+            f"{RETRODEP_PRE_REPLACE}={RETRODEP_POST_REPLACE}@v2.1.1",
         ),
     ),
 )
@@ -246,68 +77,74 @@ def _generate_mock_cmd_output(error_pkg="github.com/pkg/errors v1.0.0"):
 @mock.patch("cachito.workers.pkg_managers.gomod._get_allowed_local_deps")
 @mock.patch("cachito.workers.pkg_managers.gomod._vet_local_deps")
 @mock.patch("cachito.workers.pkg_managers.gomod._set_full_local_dep_relpaths")
-@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 @mock.patch("subprocess.run")
 def test_resolve_gomod(
-    mock_run,
-    mock_get_worker_config,
-    mock_set_full_relpaths,
-    mock_vet_local_deps,
-    mock_get_allowed_local_deps,
-    mock_merge_tree,
-    mock_temp_dir,
-    mock_golang_version,
-    dep_replacement,
-    go_list_error_pkg,
-    expected_replace,
-    cgo_disable,
-    force_gomod_tidy,
-    tmpdir,
-    sample_deps,
-    sample_deps_replace,
-    sample_deps_replace_new_name,
-    sample_package,
-    sample_pkg_deps_without_replace,
+    mock_run: mock.Mock,
+    mock_set_full_relpaths: mock.Mock,
+    mock_vet_local_deps: mock.Mock,
+    mock_get_allowed_local_deps: mock.Mock,
+    mock_merge_tree: mock.Mock,
+    mock_temp_dir: mock.Mock,
+    mock_golang_version: mock.Mock,
+    dep_replacement: Optional[dict[str, Any]],
+    expected_replace: Optional[str],
+    cgo_disable: bool,
+    force_gomod_tidy: bool,
+    tmp_path: Path,
 ):
-    mock_cmd_output = _generate_mock_cmd_output(go_list_error_pkg)
     # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+    mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
 
     # Mock the "subprocess.run" calls
     run_side_effects = []
     if dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod edit -replace
-    run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
+    run_side_effects.append(
+        # go mod download -json
+        mock.Mock(returncode=0, stdout=get_mocked_data("non-vendored/go_mod_download.json"))
+    )
     if force_gomod_tidy or dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+        # go list -m
+        mock.Mock(returncode=0, stdout="github.com/cachito-testing/gomod-pandemonium")
     )
-    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_cmd_output))  # go list -m all
-    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_list))  # go list -find ./...
-    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_pkg_deps))  # go list -deps -json
+    run_side_effects.append(
+        # go list -deps -json all
+        mock.Mock(returncode=0, stdout=get_mocked_data("non-vendored/go_list_deps_all.json"))
+    )
+    run_side_effects.append(
+        # go list -deps -json ./...
+        mock.Mock(returncode=0, stdout=get_mocked_data("non-vendored/go_list_deps_threedot.json"))
+    )
     mock_run.side_effect = run_side_effects
 
-    mock_golang_version.return_value = "v2.1.1"
+    mock_golang_version.return_value = "v0.1.0"
 
     mock_get_allowed_local_deps.return_value = ["*"]
 
-    archive_path = "/this/is/path/to/archive.tar.gz"
+    module_dir = str(tmp_path / "path/to/module")
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848", "flags": []}
     if cgo_disable:
         request["flags"].append("cgo-disable")
     if force_gomod_tidy:
         request["flags"].append("force-gomod-tidy")
 
+    expect_gomod = json.loads(get_mocked_data("expected-results/resolve_gomod.json"))
     if dep_replacement is None:
-        gomod = resolve_gomod(archive_path, request)
-        expected_deps = sample_deps
+        gomod = resolve_gomod(module_dir, request)
     else:
-        gomod = resolve_gomod(archive_path, request, [dep_replacement])
-        if dep_replacement.get("new_name"):
-            expected_deps = sample_deps_replace_new_name
-        else:
-            expected_deps = sample_deps_replace
+        gomod = resolve_gomod(module_dir, request, [dep_replacement])
+        # modify the expected data (Cachito should report the replaced module)
+        for mod in expect_gomod["module_deps"]:
+            if mod["name"] == RETRODEP_POST_REPLACE:
+                mod["replaces"] = {
+                    "name": RETRODEP_PRE_REPLACE,
+                    "version": "v2.1.0",
+                    "type": "gomod",
+                }
+
+    assert gomod == expect_gomod
 
     if expected_replace:
         assert mock_run.call_args_list[0][0][0] == (
@@ -317,19 +154,22 @@ def test_resolve_gomod(
             "-replace",
             expected_replace,
         )
-        if force_gomod_tidy or dep_replacement:
-            assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
+        assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
+    elif force_gomod_tidy:
+        assert mock_run.call_args_list[1][0][0] == ("go", "mod", "tidy")
 
     # when not vendoring, go list should be called with -mod readonly
-    assert mock_run.call_args_list[-2][0][0] == [
+    listdeps_cmd = [
         "go",
         "list",
         "-e",
         "-mod",
         "readonly",
-        "-find",
-        "./...",
+        "-deps",
+        "-json=ImportPath,Module,Standard,Deps",
     ]
+    assert mock_run.call_args_list[-2][0][0] == [*listdeps_cmd, "all"]
+    assert mock_run.call_args_list[-1][0][0] == [*listdeps_cmd, "./..."]
 
     for call in mock_run.call_args_list:
         env = call.kwargs["env"]
@@ -338,34 +178,29 @@ def test_resolve_gomod(
         else:
             assert "CGO_ENABLED" not in env
 
-    assert gomod["module"] == sample_package
-    assert gomod["module_deps"] == expected_deps
-    assert len(gomod["packages"]) == 1
-    if dep_replacement is None:
-        assert (
-            sorted(gomod["packages"][0]["pkg_deps"], key=_package_sort_key)
-            == sample_pkg_deps_without_replace
-        )
-
     mock_merge_tree.assert_called_once_with(
-        os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
+        str(tmp_path / RequestBundleDir.go_mod_cache_download_part),
         str(RequestBundleDir(request["id"]).gomod_download_dir),
     )
-    expect_module_name = sample_package["name"]
+
+    expect_module_name = expect_gomod["module"]["name"]
+    expect_module_deps = expect_gomod["module_deps"]
+    expect_pkg_deps = expect_gomod["packages"][0]["pkg_deps"]
+
     mock_get_allowed_local_deps.assert_called_once_with(expect_module_name)
     mock_vet_local_deps.assert_has_calls(
         [
-            mock.call(expected_deps, expect_module_name, ["*"], archive_path, archive_path),
+            mock.call(expect_module_deps, expect_module_name, ["*"], module_dir, module_dir),
             mock.call(
-                gomod["packages"][0]["pkg_deps"],
+                expect_pkg_deps,
                 expect_module_name,
                 ["*"],
-                archive_path,
-                archive_path,
+                module_dir,
+                module_dir,
             ),
         ],
     )
-    mock_set_full_relpaths.assert_called_once_with(gomod["packages"][0]["pkg_deps"], expected_deps)
+    mock_set_full_relpaths.assert_called_once_with(expect_pkg_deps, expect_module_deps)
 
 
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
@@ -373,19 +208,16 @@ def test_resolve_gomod(
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
-@mock.patch("cachito.workers.pkg_managers.gomod._module_lines_from_modules_txt")
 def test_resolve_gomod_vendor_dependencies(
-    mock_module_lines,
-    mock_bundle_dir,
-    mock_run,
-    mock_temp_dir,
-    mock_golang_version,
-    force_gomod_tidy,
-    tmpdir,
-    sample_package,
-):
+    mock_bundle_dir: mock.Mock,
+    mock_run: mock.Mock,
+    mock_temp_dir: mock.Mock,
+    mock_golang_version: mock.Mock,
+    force_gomod_tidy: bool,
+    tmp_path: Path,
+) -> None:
     # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+    mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
 
     # Mock the "subprocess.run" calls
     run_side_effects = []
@@ -393,19 +225,25 @@ def test_resolve_gomod_vendor_dependencies(
     if force_gomod_tidy:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
+        # go list -m
+        mock.Mock(returncode=0, stdout="github.com/cachito-testing/gomod-pandemonium")
     )
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")
-    )  # go list -find ./...
+        # go list -deps -json all
+        mock.Mock(returncode=0, stdout=get_mocked_data("vendored/go_list_deps_all.json"))
+    )
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps)
-    )  # go list -deps -json
+        # go list -deps -json ./...
+        mock.Mock(returncode=0, stdout=get_mocked_data("vendored/go_list_deps_threedot.json"))
+    )
     mock_run.side_effect = run_side_effects
-    mock_module_lines.return_value = []
-    mock_golang_version.return_value = "v2.1.1"
 
-    archive_path = "/this/is/path/to/archive.tar.gz"
+    mock_golang_version.return_value = "v0.1.0"
+
+    module_dir = tmp_path / "path/to/module"
+    module_dir.joinpath("vendor").mkdir(parents=True)
+    module_dir.joinpath("vendor/modules.txt").write_text(get_mocked_data("vendored/modules.txt"))
+
     request = {
         "id": 3,
         "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
@@ -413,68 +251,68 @@ def test_resolve_gomod_vendor_dependencies(
     }
     if force_gomod_tidy:
         request["flags"].append("force-gomod-tidy")
-    gomod = resolve_gomod(archive_path, request)
+
+    gomod = resolve_gomod(str(module_dir), request)
 
     assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
     # when vendoring, go list should be called without -mod readonly
-    assert mock_run.call_args_list[-2][0][0] == ["go", "list", "-e", "-find", "./..."]
-    assert gomod["module"] == sample_package
-    assert not gomod["module_deps"]
+    assert mock_run.call_args_list[-2][0][0] == [
+        "go",
+        "list",
+        "-e",
+        "-deps",
+        "-json=ImportPath,Module,Standard,Deps",
+        "all",
+    ]
+
+    assert gomod == json.loads(get_mocked_data("expected-results/resolve_gomod_vendored.json"))
 
     # Ensure an empty directory is created at bundle_dir.gomod_download_dir
     mock_bundle_dir.return_value.gomod_download_dir.mkdir.assert_called_once_with(
         exist_ok=True, parents=True
     )
-    mock_module_lines.assert_called_once_with(archive_path)
 
 
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
-@mock.patch("pathlib.Path.is_dir")
 @pytest.mark.parametrize("strict_vendor", [True, False])
 def test_resolve_gomod_strict_mode_raise_error(
-    mock_isdir,
-    mock_gwc,
-    mock_golang_version,
-    mock_run,
-    mock_temp_dir,
-    tmpdir,
-    strict_vendor,
-):
-    mock_isdir.return_value = True
+    mock_gwc: mock.Mock,
+    mock_golang_version: mock.Mock,
+    mock_run: mock.Mock,
+    mock_temp_dir: mock.Mock,
+    tmp_path: Path,
+    strict_vendor: bool,
+) -> None:
     # Mock the get_worker_config
     mock_config = mock.Mock()
-    if strict_vendor != "default":
-        mock_config.cachito_gomod_strict_vendor = strict_vendor
+    mock_config.cachito_gomod_strict_vendor = strict_vendor
     mock_config.cachito_athens_url = "http://athens:3000"
     mock_gwc.return_value = mock_config
     # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+    mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
     mock_golang_version.return_value = "v2.1.1"
 
-    # Mock the "subprocess.run" call
+    # Mock the "subprocess.run" calls
     mock_run.side_effect = [
-        mock.Mock(returncode=0, stdout=""),  # go mod edit -replace
         mock.Mock(returncode=0, stdout=""),  # go mod download
-        mock.Mock(returncode=0, stdout=""),  # go mod tidy
         mock.Mock(returncode=0, stdout="pizza"),  # go list -m
-        mock.Mock(returncode=0, stdout="pizza v1.0.0 => pizza v1.0.1\n"),  # go list -mod readonly
-        mock.Mock(returncode=0, stdout=""),  # go list -find
-        mock.Mock(returncode=0, stdout=""),  # go list -deps -json
+        mock.Mock(returncode=0, stdout=""),  # go list -deps -json all
+        mock.Mock(returncode=0, stdout=""),  # go list -deps -json ./...
     ]
 
-    archive_path = "/this/is/path/to/archive.tar.gz"
+    module_dir = str(tmp_path)
+    tmp_path.joinpath("vendor").mkdir()
+
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
     expected_error = (
         'The "gomod-vendor" or "gomod-vendor-check" flag must be set when your repository has '
         "vendored dependencies."
     )
     with strict_vendor and pytest.raises(ValidationError, match=expected_error) or nullcontext():
-        resolve_gomod(
-            archive_path, request, [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}]
-        )
+        resolve_gomod(module_dir, request)
 
 
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
@@ -483,64 +321,80 @@ def test_resolve_gomod_strict_mode_raise_error(
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
 @mock.patch("subprocess.run")
 @mock.patch("os.makedirs")
-@mock.patch("os.path.exists")
 def test_resolve_gomod_no_deps(
-    mock_exists,
-    mock_makedirs,
-    mock_run,
-    mock_merge_tree,
-    mock_temp_dir,
-    mock_golang_version,
-    force_gomod_tidy,
-    tmpdir,
-    sample_package,
-    sample_pkg_lvl_pkg,
-):
-    # Ensure to create the gomod download cache directory
-    mock_exists.return_value = False
+    mock_makedirs: mock.Mock,
+    mock_run: mock.Mock,
+    mock_merge_tree: mock.Mock,
+    mock_temp_dir: mock.Mock,
+    mock_golang_version: mock.Mock,
+    force_gomod_tidy: bool,
+    tmp_path: Path,
+) -> None:
+    mock_pkg_deps_no_deps = dedent(
+        """
+        {
+            "ImportPath": "github.com/release-engineering/retrodep/v2",
+            "Module": {
+                "Path": "github.com/release-engineering/retrodep/v2",
+                "Main": true
+            }
+        }
+        """
+    )
 
     # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+    mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
 
     # Mock the "subprocess.run" calls
     run_side_effects = []
-    run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod download
+    run_side_effects.append(mock.Mock(returncode=0, stdout=""))  # go mod download -json
     if force_gomod_tidy:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
         mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
     )
-    run_side_effects.append(mock.Mock(returncode=0, stdout=""))  # go list -m all
     run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")
-    )  # go list -find ./...
-    run_side_effects.append(
+        # go list -deps -json all
         mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps)
-    )  # go list -deps -json
+    )
+    run_side_effects.append(
+        # go list -deps -json ./...
+        mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps)
+    )
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v2.1.1"
 
-    archive_path = "/this/is/path/to/archive.tar.gz"
+    module_dir = str(tmp_path / "/path/to/module")
+
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
     if force_gomod_tidy:
         request["flags"] = ["force-gomod-tidy"]
-    gomod = resolve_gomod(archive_path, request)
 
-    assert gomod["module"] == sample_package
+    gomod = resolve_gomod(module_dir, request)
+
+    assert gomod["module"] == {
+        "type": "gomod",
+        "name": "github.com/release-engineering/retrodep/v2",
+        "version": "v2.1.1",
+    }
     assert not gomod["module_deps"]
     assert len(gomod["packages"]) == 1
-    assert gomod["packages"][0]["pkg"] == sample_pkg_lvl_pkg
+    assert gomod["packages"][0]["pkg"] == {
+        "type": "go-package",
+        "name": "github.com/release-engineering/retrodep/v2",
+        "version": "v2.1.1",
+    }
     assert not gomod["packages"][0]["pkg_deps"]
 
     # The second one ensures the source cache directory exists
     mock_makedirs.assert_called_once_with(
-        os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part), exist_ok=True
+        str(tmp_path / RequestBundleDir.go_mod_cache_download_part), exist_ok=True
     )
 
     bundle_dir = RequestBundleDir(request["id"])
     mock_merge_tree.assert_called_once_with(
-        os.path.join(tmpdir, RequestBundleDir.go_mod_cache_download_part),
+        str(tmp_path / RequestBundleDir.go_mod_cache_download_part),
         str(bundle_dir.gomod_download_dir),
     )
 
@@ -550,25 +404,30 @@ def test_resolve_gomod_no_deps(
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 @mock.patch("subprocess.run")
 def test_go_list_cmd_failure(
-    mock_run, mock_worker_config, mock_temp_dir, tmpdir, go_mod_rc, go_list_rc
-):
-    archive_path = "/this/is/path/to/archive.tar.gz"
+    mock_run: mock.Mock,
+    mock_worker_config: mock.Mock,
+    mock_temp_dir: mock.Mock,
+    tmp_path: Path,
+    go_mod_rc: int,
+    go_list_rc: int,
+) -> None:
+    module_dir = "/path/to/module"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
 
     # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
+    mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
     mock_worker_config.return_value.cachito_gomod_download_max_tries = 1
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
-        mock.Mock(returncode=go_mod_rc, stdout=None),  # go mod download
-        mock.Mock(returncode=go_list_rc, stdout=_generate_mock_cmd_output()),  # go list -m all
+        mock.Mock(returncode=go_mod_rc, stdout=""),  # go mod download -json
+        mock.Mock(returncode=go_list_rc, stdout=""),  # go list -m
     ]
 
     with pytest.raises(
         (CachitoCalledProcessError, GoModError), match="Processing gomod dependencies failed"
     ):
-        resolve_gomod(archive_path, request)
+        resolve_gomod(module_dir, request)
 
 
 @pytest.mark.parametrize(
@@ -1195,6 +1054,73 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
         mock_vendor_changed.assert_called_once_with(git_dir, app_dir)
 
 
+def test_parse_vendor(tmp_path: Path) -> None:
+    modules_txt = tmp_path / "vendor/modules.txt"
+    modules_txt.parent.mkdir(parents=True)
+    modules_txt.write_text(get_mocked_data("vendored/modules.txt"))
+    expect_modules = [
+        GoModule(path="github.com/Azure/go-ansiterm", version="v0.0.0-20210617225240-d185dfc1b5a1"),
+        GoModule(path="github.com/Masterminds/semver", version="v1.4.2"),
+        GoModule(path="github.com/Microsoft/go-winio", version="v0.6.0"),
+        GoModule(
+            path="github.com/cachito-testing/gomod-pandemonium/terminaltor",
+            version="v0.0.0",
+            replace=GoModule(path="./terminaltor"),
+        ),
+        GoModule(
+            path="github.com/cachito-testing/gomod-pandemonium/weird",
+            version="v0.0.0",
+            replace=GoModule(path="./weird"),
+        ),
+        GoModule(path="github.com/go-logr/logr", version="v1.2.3"),
+        GoModule(
+            path="github.com/go-task/slim-sprig", version="v0.0.0-20230315185526-52ccab3ef572"
+        ),
+        GoModule(path="github.com/google/go-cmp", version="v0.5.9"),
+        GoModule(path="github.com/google/pprof", version="v0.0.0-20210407192527-94a9f03dee38"),
+        GoModule(path="github.com/moby/term", version="v0.0.0-20221205130635-1aeaba878587"),
+        GoModule(path="github.com/onsi/ginkgo/v2", version="v2.9.2"),
+        GoModule(path="github.com/onsi/gomega", version="v1.27.4"),
+        GoModule(path="github.com/op/go-logging", version="v0.0.0-20160315200505-970db520ece7"),
+        GoModule(path="github.com/pkg/errors", version="v0.8.1"),
+        GoModule(
+            path="github.com/release-engineering/retrodep/v2",
+            version="v2.1.0",
+            replace=GoModule(path="github.com/cachito-testing/retrodep/v2", version="v2.1.1"),
+        ),
+        GoModule(path="golang.org/x/mod", version="v0.9.0"),
+        GoModule(path="golang.org/x/net", version="v0.8.0"),
+        GoModule(path="golang.org/x/sys", version="v0.6.0"),
+        GoModule(path="golang.org/x/text", version="v0.8.0"),
+        GoModule(path="golang.org/x/tools", version="v0.7.0"),
+        GoModule(path="gopkg.in/yaml.v2", version="v2.2.2"),
+        GoModule(path="gopkg.in/yaml.v3", version="v3.0.1"),
+    ]
+    assert gomod._parse_vendor(tmp_path) == expect_modules
+
+
+@pytest.mark.parametrize(
+    "file_content, expect_error_msg",
+    [
+        ("#invalid-line", "vendor/modules.txt: unexpected format: '#invalid-line'"),
+        ("# main-module", "vendor/modules.txt: unexpected module line format: '# main-module'"),
+        (
+            "github.com/x/package",
+            "vendor/modules.txt: package has no parent module: github.com/x/package",
+        ),
+    ],
+)
+def test_parse_vendor_unexpected_format(
+    file_content: str, expect_error_msg: str, tmp_path: Path
+) -> None:
+    modules_txt = tmp_path / "vendor/modules.txt"
+    modules_txt.parent.mkdir(parents=True)
+    modules_txt.write_text(file_content)
+
+    with pytest.raises(InvalidFileFormat, match=expect_error_msg):
+        gomod._parse_vendor(tmp_path)
+
+
 @pytest.mark.parametrize("subpath", ["", "some/app/"])
 @pytest.mark.parametrize(
     "vendor_before, vendor_changes, expected_change",
@@ -1284,142 +1210,6 @@ def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change,
 
     # The _vendor_changed function should reset the `git add` => added files should not be tracked
     assert not repo.git.diff("--diff-filter", "A")
-
-
-def test_module_lines_from_modules_txt(tmp_path):
-    vendor = tmp_path / "vendor"
-    vendor.mkdir()
-    vendor.joinpath("modules.txt").write_text(
-        dedent(
-            """\
-            # github.com/org/some-module v0.0.0 => ./example/src/some-module
-            ## explicit
-            github.com/org/some-module
-            # golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c
-            golang.org/x/text/internal/tag
-            golang.org/x/text/language
-            # rsc.io/quote v1.5.2 => rsc.io/quote v1.5.1
-            ## explicit
-            rsc.io/quote
-            # rsc.io/sampler v1.3.0
-            rsc.io/sampler
-            # github.com/org/some-module => ./example/src/some-module
-            # rsc.io/quote => rsc.io/quote v1.5.1
-            """
-        )
-    )
-    assert gomod._module_lines_from_modules_txt(str(tmp_path)) == [
-        "github.com/org/some-module v0.0.0 => ./example/src/some-module",
-        "golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c",
-        "rsc.io/quote v1.5.2 => rsc.io/quote v1.5.1",
-        "rsc.io/sampler v1.3.0",
-    ]
-
-
-@pytest.mark.parametrize(
-    "file_content, expect_error_msg",
-    [
-        ("#invalid-line", "vendor/modules.txt: unexpected format: '#invalid-line'"),
-        (
-            "github.com/x/package",
-            "vendor/modules.txt: package has no parent module: github.com/x/package",
-        ),
-    ],
-)
-def test_module_lines_from_modules_txt_invalid_format(file_content, expect_error_msg, tmp_path):
-    vendor = tmp_path / "vendor"
-    vendor.mkdir()
-    vendor.joinpath("modules.txt").write_text(file_content)
-
-    with pytest.raises((InvalidFileFormat, FileAccessError), match=expect_error_msg):
-        gomod._module_lines_from_modules_txt(str(tmp_path))
-
-
-def test_load_list_deps():
-    list_deps_output = dedent(
-        """
-        {
-            "ImportPath": "unsafe",
-            "Name": "unsafe",
-            "Standard": true
-        }
-        {
-            "ImportPath": "github.com/some-org/some-module",
-            "Name": "some-module",
-            "Module": {
-                "Path": "github.com/some-org/some-module",
-                "Version": "v1.0.0"
-            }
-        }
-        {
-            "ImportPath": "github.com/some-org/other-module",
-            "Name": "other-module",
-            "Module": {
-                "Path": "github.com/some-org/other-module",
-                "Version": "v1.0.0"
-            },
-            "Deps": [
-                "unsafe",
-                "github.com/some-org/some-module",
-                "github.com/some-org/other-module/generated/foo"
-            ]
-        }
-        {
-            "ImportPath": "github.com/some-org/other-module/generated/foo",
-            "Incomplete": true,
-            "Error": {
-                "Err": "cannot find module providing package"
-            }
-        }
-        """
-    )
-    assert gomod._load_list_deps(list_deps_output) == {
-        "github.com/some-org/some-module": {
-            "Module": {"Path": "github.com/some-org/some-module", "Version": "v1.0.0"},
-        },
-        "github.com/some-org/other-module": {
-            "Module": {"Path": "github.com/some-org/other-module", "Version": "v1.0.0"},
-            "Deps": [
-                "unsafe",
-                "github.com/some-org/some-module",
-                "github.com/some-org/other-module/generated/foo",
-            ],
-        },
-        "github.com/some-org/other-module/generated/foo": {},
-        "unsafe": {"Standard": True},
-    }
-
-
-@pytest.mark.parametrize(
-    "dep_info, expect_version",
-    [
-        ({}, None),
-        ({"Module": {"Path": "github.com/foo/bar", "Version": "v1.0.0"}}, "v1.0.0"),
-        ({"Module": {"Path": "github.com/foo/bar", "Main": True}}, None),
-        (
-            {
-                "Module": {
-                    "Path": "github.com/foo/bar",
-                    "Version": "v1.0.0",
-                    "Replace": {"Path": "github.com/xyz/bar", "Version": "v2.0.0"},
-                }
-            },
-            "v2.0.0",
-        ),
-        (
-            {
-                "Module": {
-                    "Path": "github.com/foo/bar",
-                    "Version": "v1.0.0",
-                    "Replace": {"Path": "./local/src/bar"},
-                }
-            },
-            "./local/src/bar",
-        ),
-    ],
-)
-def test_get_dep_version(dep_info, expect_version):
-    assert gomod._get_dep_version(dep_info) == expect_version
 
 
 @pytest.mark.parametrize("tries_needed", [1, 2, 3, 4, 5])
