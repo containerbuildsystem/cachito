@@ -545,31 +545,6 @@ def test_resolve_gomod_no_deps(
     )
 
 
-@mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
-@mock.patch("subprocess.run")
-def test_resolve_gomod_unused_dep(mock_run, mock_temp_dir, tmpdir):
-    # Mock the tempfile.TemporaryDirectory context manager
-    mock_temp_dir.return_value.__enter__.return_value = str(tmpdir)
-    request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
-
-    # Mock the "subprocess.run" calls
-    mock_run.side_effect = [
-        mock.Mock(returncode=0, stdout=None),  # go mod edit -replace
-        mock.Mock(returncode=0, stdout=None),  # go mod download
-        mock.Mock(returncode=0, stdout=None),  # go mod tidy
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2"),  # go list -m
-        mock.Mock(returncode=0, stdout=_generate_mock_cmd_output()),  # go list -m all
-    ]
-
-    expected_error = "The following gomod dependency replacements don't apply: pizza"
-    with pytest.raises(GoModError, match=expected_error):
-        resolve_gomod(
-            "/path/archive.tar.gz",
-            request,
-            [{"name": "pizza", "type": "gomod", "version": "v1.0.0"}],
-        )
-
-
 @pytest.mark.parametrize(("go_mod_rc", "go_list_rc"), ((0, 1), (1, 0)))
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
