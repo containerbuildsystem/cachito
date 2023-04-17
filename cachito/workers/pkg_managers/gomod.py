@@ -230,8 +230,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
         run_params = {"env": env, "cwd": app_source_path}
 
-        # Collect all the dependency names that are being replaced to later verify if they were
-        # all used
+        # Collect all the dependency names that are being replaced to later report which
+        # dependencies were replaced
         deps_to_replace = set()
         for dep_replacement in dep_replacements:
             name = dep_replacement["name"]
@@ -317,16 +317,6 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
         main_module_deps = _deduplicate_to_gomod_dicts(
             chain(package_modules, downloaded_modules), deps_to_replace
         )
-
-        used_dep_replacements = {
-            replaces["name"] for dep in main_module_deps if (replaces := dep.get("replaces"))
-        }
-        unused_dep_replacements = deps_to_replace - used_dep_replacements
-        if unused_dep_replacements:
-            raise GoModError(
-                "The following gomod dependency replacements don't apply: "
-                f'{", ".join(unused_dep_replacements)}'
-            )
 
         log.info("Retrieving the list of packages")
         main_packages: list[dict[str, Any]] = []
