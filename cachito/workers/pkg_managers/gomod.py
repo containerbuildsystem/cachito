@@ -600,7 +600,7 @@ def _vet_local_deps(
 
 def _validate_local_dependency_path(app_source_path: str, git_dir_path: str, dep_path: str) -> None:
     """
-    Validate that the local dependency path exists and is not outside the repository.
+    Validate that the local dependency path is not outside the repository.
 
     :param str app_source_path: the full path to the application source code
     :param str git_dir_path: the full path to the git repository
@@ -608,8 +608,8 @@ def _validate_local_dependency_path(app_source_path: str, git_dir_path: str, dep
     :raise ValidationError: if the local dependency path is invalid
     """
     try:
-        resolved_dep_path = Path(app_source_path, dep_path).resolve(strict=True)
-        resolved_dep_path.relative_to(Path(git_dir_path).resolve(strict=True))
+        resolved_dep_path = Path(app_source_path, dep_path).resolve()
+        resolved_dep_path.relative_to(Path(git_dir_path).resolve())
     except ValueError:
         raise ValidationError(f"The local dependency path {dep_path} is outside the repository")
 
