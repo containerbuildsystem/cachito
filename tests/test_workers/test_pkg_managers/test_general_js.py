@@ -355,7 +355,7 @@ def test_generate_npmrc_content(custom_ca_path):
         registry=http://nexus:8081/repository/cachito-npm-1/
         email=noreply@domain.local
         always-auth=true
-        _auth=YWRtaW46YWRtaW4xMjM=
+        //nexus:8081/repository/cachito-npm-1/:_auth=YWRtaW46YWRtaW4xMjM=
         fetch-retries=5
         fetch-retry-factor=2
         strict-ssl=true
