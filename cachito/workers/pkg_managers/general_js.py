@@ -16,6 +16,7 @@ import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Collection, Dict, List, Optional, Set, Union
+from urllib.parse import urlparse
 
 import aiohttp
 from aiohttp_retry import JitterRetry, RetryClient
@@ -364,12 +365,15 @@ def generate_npmrc_content(proxy_repo_url, username, password, custom_ca_path=No
     # Instead of getting the token from Nexus, use basic authentication as supported by Nexus:
     # https://help.sonatype.com/repomanager3/formats/npm-registry#npmRegistry-AuthenticationUsingBasicAuth
     token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("utf-8")
+    # Starting with npm v9, the _auth setting must be scoped to a specific repo
+    # https://docs.npmjs.com/cli/v9/configuring-npm/npmrc?v=true#auth-related-configuration
+    schemeless_proxy_repo_url = urlparse(proxy_repo_url)._replace(scheme="").geturl()
     npm_rc = textwrap.dedent(
         f"""\
         registry={proxy_repo_url}
         email=noreply@domain.local
         always-auth=true
-        _auth={token}
+        {schemeless_proxy_repo_url}:_auth={token}
         fetch-retries=5
         fetch-retry-factor=2
         strict-ssl=true
