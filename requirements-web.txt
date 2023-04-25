@@ -34,9 +34,9 @@ connexion==2.14.2 \
     --hash=sha256:a73b96a0e07b16979a42cde7c7e26afe8548099e352cf350f80c57185e0e0b36 \
     --hash=sha256:dbc06f52ebeebcf045c9904d570f24377e8bbd5a6521caef15a06f634cf85646
     # via -r requirements-web.in
-flask==2.2.3 \
-    --hash=sha256:7eb373984bf1c770023fce9db164ed0c3353cd0b53f130f4693da0ca756a2e6d \
-    --hash=sha256:c0bec9477df1cb867e5a67c9e1ab758de9cb4a3e52dd70681f59fa40a62b3f2d
+flask==2.2.4 \
+    --hash=sha256:13f6329ddbfff11340939cd11919daf150a01358ded4b7e81c03c055dfecb559 \
+    --hash=sha256:77504c4c097f56ac5f29b00f9009213010cf9d2923a288c0e0564a5db2bb53d6
     # via
     #   -r requirements-web.in
     #   connexion
