@@ -391,62 +391,6 @@ def name_to_deps_v3_replacements(name_to_deps: dict[str, list]) -> dict[str, lis
 
 
 @pytest.fixture()
-def package_lock_deps():
-    return {
-        "@angular-devkit/architect": {
-            "version": "0.803.26",
-            "resolved": (
-                "https://registry.npmjs.org/@angular-devkit/architect/-/architect-0.803.26.tgz"
-            ),
-            "integrity": (
-                "sha512-mCynDvhGLElmuiaK5I6hVleMuZ1Svn7o5NnMW1ItiDlVZu1v49JWOxPS1A7C/"
-                "ypGmhjl9jMorVtz2IumtLgCXw=="
-            ),
-            "dev": True,
-            "requires": {"@angular-devkit/core": "8.3.26", "rxjs": "6.4.0"},
-            "dependencies": {
-                "rxjs": {
-                    "version": "6.4.0",
-                    "resolved": "https://registry.npmjs.org/rxjs/-/rxjs-6.4.0.tgz",
-                    "integrity": (
-                        "sha512-Z9Yfa11F6B9Sg/BK9MnqnQ+aQYicPLtilXBp2yUtDt2JRCE0h26d33EnfO3ZxoNx"
-                        "G0T92OUucP3Ct7cpfkdFfw=="
-                    ),
-                    "dev": True,
-                    "requires": {"tslib": "^1.9.0"},
-                }
-            },
-        },
-        "@angular/animations": {
-            "version": "8.2.14",
-            "resolved": "https://registry.npmjs.org/@angular/animations/-/animations-8.2.14.tgz",
-            "integrity": (
-                "sha512-3Vc9TnNpKdtvKIXcWDFINSsnwgEMiDmLzjceWg1iYKwpeZGQahUXPoesLwQazBMmxJzQiA"
-                "4HOMj0TTXKZ+Jzkg=="
-            ),
-            "requires": {"tslib": "^1.9.0"},
-        },
-        "rxjs": {
-            "version": "6.5.5",
-            "resolved": "https://registry.npmjs.org/rxjs/-/rxjs-6.5.5.tgz",
-            "integrity": (
-                "sha512-WfQI+1gohdf0Dai/Bbmk5L5ItH5tYqm3ki2c5GdWhKjalzjg93N3avFjVStyZZz+A2Em+Z"
-                "xKH5bNghw9UeylGQ=="
-            ),
-            "requires": {"tslib": "^1.9.0"},
-        },
-        "tslib": {
-            "version": "1.11.1",
-            "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
-            "integrity": (
-                "sha512-aZW88SY8kQbU7gpV19lN24LtXh/yD4ZZg6qieAJDDg+YBsJcSmLGK9QpnUjAKVG/"
-                "xefmvJGd1WUmfpT/g6AJGA=="
-            ),
-        },
-    }
-
-
-@pytest.fixture()
 def package_and_deps():
     """Provide sample data for npm.get_package_and_deps."""
     package = {"name": "han_solo", "type": "npm", "version": "5.0.0"}
@@ -907,198 +851,310 @@ def test_get_parent_node_is_link(
     assert npm._get_parent_node(pkg_path, root_node, paths_to_nodes).path == expected_path
 
 
-def test_get_deps(package_lock_deps):
-    name_to_deps, replacements = npm._get_deps(package_lock_deps, set())
+@pytest.mark.parametrize(
+    "lockfile_fixture, packages_fixture, name_to_deps_fixture",
+    [
+        ("lockfile_v1", "get_packages_v1", "name_to_deps"),
+        ("lockfile_v3", "get_packages_v3", "name_to_deps"),
+    ],
+)
+def test_get_deps(
+    lockfile_fixture: str,
+    packages_fixture: str,
+    name_to_deps_fixture: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    lockfile = request.getfixturevalue(lockfile_fixture)
+    packages = request.getfixturevalue(packages_fixture)(lockfile)
+    expected_name_to_deps = request.getfixturevalue(name_to_deps_fixture)
 
-    assert name_to_deps == {
-        "@angular-devkit/architect": [
-            {
-                "bundled": False,
-                "dev": True,
-                "name": "@angular-devkit/architect",
-                "type": "npm",
-                "version": "0.803.26",
-                "version_in_nexus": None,
-            }
-        ],
-        "@angular/animations": [
-            {
-                "bundled": False,
-                "dev": False,
-                "name": "@angular/animations",
-                "type": "npm",
-                "version": "8.2.14",
-                "version_in_nexus": None,
-            }
-        ],
-        "rxjs": [
-            {
-                "bundled": False,
-                "dev": True,
-                "name": "rxjs",
-                "type": "npm",
-                "version": "6.4.0",
-                "version_in_nexus": None,
-            },
-            {
-                "bundled": False,
-                "dev": False,
-                "name": "rxjs",
-                "type": "npm",
-                "version": "6.5.5",
-                "version_in_nexus": None,
-            },
-        ],
-        "tslib": [
-            {
-                "bundled": False,
-                "dev": False,
-                "name": "tslib",
-                "type": "npm",
-                "version": "1.11.1",
-                "version_in_nexus": None,
-            }
-        ],
-    }
+    package_lock = mock.Mock()
+    package_lock.packages = packages
+    name_to_deps, replacements = npm._get_deps(package_lock, set())
+
+    assert name_to_deps == expected_name_to_deps
     assert replacements == []
 
 
-@mock.patch("cachito.workers.pkg_managers.npm.convert_to_nexus_hosted")
-def test_get_deps_non_registry_dep(mock_ctnh, package_lock_deps):
-    # Set the rxjs dependencies to be directly from GitHub
-    package_lock_deps["@angular-devkit/architect"]["dependencies"]["rxjs"] = {
-        "version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
-        "from": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
-        "requires": {"tslib": "^1.9.0"},
-    }
-    nexus_hosted_info = {
-        "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
-        "resolved": (
-            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-            "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+@pytest.mark.parametrize(
+    "lockfile_fixture, packages_fixture, name_to_deps_fixture",
+    [
+        ("lockfile_v1_replacements", "get_packages_v1", "name_to_deps_v1_replacements"),
+        ("lockfile_v3_replacements", "get_packages_v3", "name_to_deps_v3_replacements"),
+    ],
+)
+def test_get_deps_non_registry_dep(
+    lockfile_fixture: str,
+    packages_fixture: str,
+    name_to_deps_fixture: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    lockfile = request.getfixturevalue(lockfile_fixture)
+    packages = request.getfixturevalue(packages_fixture)(lockfile)
+    expected_name_to_deps = request.getfixturevalue(name_to_deps_fixture)
+
+    package_lock = mock.Mock()
+    package_lock.packages = packages
+
+    replacement_versions = {
+        "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b": (
+            "6.4.0-external-gitcommit-" "dfa239d41b97504312fa95e13f4d593d95b49c4b"
         ),
-        "integrity": (
-            "sha512-vvAdzoVTdbr5Lq7BI2+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8UX"
-            "1Vb45kbRQ=="
+        "git+ssh://git@github.com/ReactiveX/rxjs.git#dfa239d41b97504312fa95e13f4d593d95b49c4b": (
+            "6.4.0-external-gitcommit-" "dfa239d41b97504312fa95e13f4d593d95b49c4b"
         ),
-        "requires": {"tslib": "^1.9.0"},
+        "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5": (
+            "6.5.5-external-gitcommit-" "8cc6491771fcbf44984a419b7f26ff442a5d58f5"
+        ),
+        "git+ssh://git@github.com/ReactiveX/rxjs.git#8cc6491771fcbf44984a419b7f26ff442a5d58f5": (
+            "6.5.5-external-gitcommit-" "8cc6491771fcbf44984a419b7f26ff442a5d58f5"
+        ),
     }
 
-    package_lock_deps["rxjs"] = {
-        "version": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-        "from": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-        "requires": {"tslib": "^1.9.0"},
-    }
-    nexus_hosted_info_two = {
-        "version": "6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-        "resolved": (
-            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-            "rxjs-6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5.tgz"
-        ),
-        "integrity": (
-            "sha512-AvAdzoVTdVT5Lq7BI2+l5R3dM4Mw7305wNKLgij8rh7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8UX"
-            "1Vb45kbRP=="
-        ),
-        "requires": {"tslib": "^1.9.0"},
-    }
+    def _mock_convert_to_nexus_hosted(package: Package) -> None:
+        package.version = replacement_versions[package.resolved_url]
 
-    # Python 3 iterates through a dictionary in alphabetical order, so this order will always be
-    # correct
-    mock_ctnh.side_effect = [copy.deepcopy(nexus_hosted_info), copy.deepcopy(nexus_hosted_info_two)]
+    with mock.patch(
+        "cachito.workers.pkg_managers.npm._convert_to_nexus_hosted",
+        new=_mock_convert_to_nexus_hosted,
+    ):
+        name_to_deps, replacements = npm._get_deps(package_lock, set())
 
-    name_to_deps, replacements = npm._get_deps(package_lock_deps, set())
-
-    assert name_to_deps == {
-        "@angular-devkit/architect": [
-            {
-                "bundled": False,
-                "dev": True,
-                "name": "@angular-devkit/architect",
-                "type": "npm",
-                "version": "0.803.26",
-                "version_in_nexus": None,
-            }
-        ],
-        "@angular/animations": [
-            {
-                "bundled": False,
-                "dev": False,
-                "name": "@angular/animations",
-                "type": "npm",
-                "version": "8.2.14",
-                "version_in_nexus": None,
-            }
-        ],
-        "rxjs": [
-            {
-                "bundled": False,
-                "dev": False,
-                "name": "rxjs",
-                "type": "npm",
-                "version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
-                "version_in_nexus": (
-                    "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"
-                ),
-            },
-            {
-                "bundled": False,
-                "dev": False,
-                "name": "rxjs",
-                "type": "npm",
-                "version": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-                "version_in_nexus": (
-                    "6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"
-                ),
-            },
-        ],
-        "tslib": [
-            {
-                "bundled": False,
-                "dev": False,
-                "name": "tslib",
-                "type": "npm",
-                "version": "1.11.1",
-                "version_in_nexus": None,
-            }
-        ],
-    }
+    assert name_to_deps == expected_name_to_deps
     # Verify that only the top level replacements are returned
     assert replacements == [
-        ("rxjs", "6.5.2-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5")
+        ("rxjs", "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5")
     ]
-    # Ensure the lock file was updated with the Nexus hosted dependency
-    assert (
-        package_lock_deps["@angular-devkit/architect"]["dependencies"]["rxjs"] == nexus_hosted_info
-    )
-    assert package_lock_deps["rxjs"] == nexus_hosted_info_two
-    assert package_lock_deps["@angular-devkit/architect"]["requires"] == {
-        "@angular-devkit/core": "8.3.26",
-        "rxjs": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
-    }
-
-    assert mock_ctnh.call_count == 2
 
 
-def test_get_deps_allowlisted_file_dep():
-    package_lock_deps = {
-        "jsplumb": {
-            "version": "file:jsplumb-2.10.2.tgz",
-            "integrity": (
-                "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rLq8ynuC7dN4CKtihxybAvqv"
-                "k+FrsLau3fOA=="
-            ),
-        },
-        "rxjs": {
-            "version": "6.5.5",
-            "resolved": "https://registry.npmjs.org/rxjs/-/rxjs-6.5.5.tgz",
-            "integrity": (
-                "sha512-WfQI+1gohdf0Dai/Bbmk5L5ItH5tYqm3ki2c5GdWhKjalzjg93N3avFjVStyZZz+A2Em+Z"
-                "xKH5bNghw9UeylGQ=="
-            ),
-            "requires": {"tslib": "^1.9.0"},
-        },
-    }
-    name_to_deps, replacements = npm._get_deps(package_lock_deps, {"jsplumb"})
+@pytest.mark.parametrize(
+    "packages, expected_name_to_deps",
+    [
+        pytest.param(
+            [
+                Package(
+                    "foo",
+                    {
+                        "version": "1.0.0",
+                        "bundled": True,
+                    },
+                ),
+                Package(
+                    "foo",
+                    {
+                        "version": "1.0.0",
+                        "resolved": "https://registry.npmjs.org/foo/-/foo-1.0.0.tgz",
+                    },
+                ),
+            ],
+            {
+                "foo": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "name": "foo",
+                        "type": "npm",
+                        "version": "1.0.0",
+                        "version_in_nexus": None,
+                    }
+                ],
+            },
+            id="v1_packages_bundle_duplicate",
+        ),
+        pytest.param(
+            [
+                Package(
+                    "foo",
+                    {
+                        "version": "1.0.0",
+                        "bundled": True,
+                    },
+                ),
+                Package(
+                    "foo",
+                    {
+                        "version": "2.0.0",
+                        "resolved": "https://registry.npmjs.org/foo/-/foo-1.0.0.tgz",
+                    },
+                ),
+            ],
+            {
+                "foo": [
+                    {
+                        "bundled": True,
+                        "dev": False,
+                        "name": "foo",
+                        "type": "npm",
+                        "version": "1.0.0",
+                        "version_in_nexus": None,
+                    },
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "name": "foo",
+                        "type": "npm",
+                        "version": "2.0.0",
+                        "version_in_nexus": None,
+                    },
+                ],
+            },
+            id="v1_packages",
+        ),
+        pytest.param(
+            [
+                Package(
+                    "foo",
+                    {
+                        "version": "1.0.0",
+                        "inBundle": True,
+                    },
+                    path="node_modules/spam/node_modules/foo",
+                ),
+                Package(
+                    "foo",
+                    {
+                        "version": "1.0.0",
+                        "resolved": "https://registry.npmjs.org/foo/-/foo-1.0.0.tgz",
+                    },
+                    path="node_modules/foo",
+                ),
+            ],
+            {
+                "foo": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "name": "foo",
+                        "type": "npm",
+                        "version": "1.0.0",
+                        "version_in_nexus": None,
+                    }
+                ],
+            },
+            id="v2_packages_bundle_duplicate",
+        ),
+        pytest.param(
+            [
+                Package(
+                    "foo",
+                    {
+                        "version": "1.0.0",
+                        "inBundle": True,
+                    },
+                    path="node_modules/spam/node_modules/foo",
+                ),
+                Package(
+                    "foo",
+                    {
+                        "version": "2.0.0",
+                        "resolved": "https://registry.npmjs.org/foo/-/foo-1.0.0.tgz",
+                    },
+                    path="node_modules/foo",
+                ),
+            ],
+            {
+                "foo": [
+                    {
+                        "bundled": True,
+                        "dev": False,
+                        "name": "foo",
+                        "type": "npm",
+                        "version": "1.0.0",
+                        "version_in_nexus": None,
+                    },
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "name": "foo",
+                        "type": "npm",
+                        "version": "2.0.0",
+                        "version_in_nexus": None,
+                    },
+                ],
+            },
+            id="v2_packages",
+        ),
+    ],
+)
+def test_get_deps_bundled_dep(
+    packages: list[Package],
+    expected_name_to_deps: dict[str, dict],
+) -> None:
+
+    package_lock = mock.Mock()
+    package_lock.packages = packages
+    name_to_deps, replacements = npm._get_deps(package_lock, set())
+
+    assert name_to_deps == expected_name_to_deps
+    assert replacements == []
+
+
+@pytest.mark.parametrize(
+    "packages",
+    [
+        pytest.param(
+            [
+                Package(
+                    "jsplumb",
+                    {
+                        "version": "file:jsplumb-2.10.2.tgz",
+                        "integrity": (
+                            "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rL"
+                            "q8ynuC7dN4CKtihxybAvqvk+FrsLau3fOA=="
+                        ),
+                    },
+                ),
+                Package(
+                    "rxjs",
+                    {
+                        "version": "6.5.5",
+                        "resolved": "https://registry.npmjs.org/rxjs/-/rxjs-6.5.5.tgz",
+                        "integrity": (
+                            "sha512-WfQI+1gohdf0Dai/Bbmk5L5ItH5tYqm3ki2c5GdWhKjalzjg93N3"
+                            "avFjVStyZZz+A2Em+ZxKH5bNghw9UeylGQ=="
+                        ),
+                        "requires": {"tslib": "^1.9.0"},
+                    },
+                ),
+            ],
+            id="v1_package",
+        ),
+        pytest.param(
+            [
+                Package(
+                    "jsplumb",
+                    {
+                        "version": "2.10.2",
+                        "resolved": "file:jsplumb-2.10.2.tgz",
+                        "integrity": (
+                            "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rL"
+                            "q8ynuC7dN4CKtihxybAvqvk+FrsLau3fOA=="
+                        ),
+                    },
+                    path="node_modules/jsplumb",
+                ),
+                Package(
+                    "rxjs",
+                    {
+                        "version": "6.5.5",
+                        "resolved": "https://registry.npmjs.org/rxjs/-/rxjs-6.5.5.tgz",
+                        "integrity": (
+                            "sha512-WfQI+1gohdf0Dai/Bbmk5L5ItH5tYqm3ki2c5GdWhKjalzjg93N3"
+                            "avFjVStyZZz+A2Em+ZxKH5bNghw9UeylGQ=="
+                        ),
+                        "dependencies": {"tslib": "^1.9.0"},
+                    },
+                ),
+            ],
+            id="v2_package",
+        ),
+    ],
+)
+def test_get_deps_allowlisted_file_dep(packages):
+    package_lock = mock.Mock()
+    package_lock.packages = packages
+    package_lock.workspaces = []
+    name_to_deps, replacements = npm._get_deps(package_lock, {"jsplumb"})
 
     assert name_to_deps == {
         "jsplumb": [
@@ -1126,11 +1182,11 @@ def test_get_deps_allowlisted_file_dep():
 
 
 @pytest.mark.parametrize(
-    "package_lock_deps,workspaces,allowlist,result",
+    "packages,workspaces,allowlist,result",
     [
-        ({}, [], set(), {}),
+        ([], [], set(), {}),
         (
-            {"a": {"version": "file:a"}},
+            [Package("a", {"version": "file:a"})],
             ["a"],
             set(),
             {
@@ -1147,13 +1203,16 @@ def test_get_deps_allowlisted_file_dep():
             },
         ),
         (
-            {
-                "a": {"version": "file:a"},
-                "tslib": {
-                    "version": "1.11.1",
-                    "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
-                },
-            },
+            [
+                Package("a", {"version": "file:a"}),
+                Package(
+                    "tslib",
+                    {
+                        "version": "1.11.1",
+                        "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
+                    },
+                ),
+            ],
             ["a"],
             set(),
             {
@@ -1180,7 +1239,7 @@ def test_get_deps_allowlisted_file_dep():
             },
         ),
         (
-            {"a": {"version": "file:a"}, "b": {"version": "file:b"}},
+            [Package("a", {"version": "file:a"}), Package("b", {"version": "file:b"})],
             ["a", "b"],
             set(),
             {
@@ -1207,14 +1266,17 @@ def test_get_deps_allowlisted_file_dep():
             },
         ),
         (
-            {
-                "tslib": {
-                    "version": "1.11.1",
-                    "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
-                },
-                "a": {"version": "file:a"},
-                "b": {"version": "file:b"},
-            },
+            [
+                Package(
+                    "tslib",
+                    {
+                        "version": "1.11.1",
+                        "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
+                    },
+                ),
+                Package("a", {"version": "file:a"}),
+                Package("b", {"version": "file:b"}),
+            ],
             ["b", "a"],
             set(),
             {
@@ -1251,7 +1313,7 @@ def test_get_deps_allowlisted_file_dep():
             },
         ),
         (
-            {"a": {"version": "file:a"}, "b": {"version": "file:b"}},
+            [Package("a", {"version": "file:a"}), Package("b", {"version": "file:b"})],
             ["a"],
             {"b"},
             {
@@ -1279,59 +1341,159 @@ def test_get_deps_allowlisted_file_dep():
         ),
     ],
 )
-def test_get_deps_worspaces(package_lock_deps, workspaces, allowlist, result):
-    name_to_deps, replacements = npm._get_deps(package_lock_deps, allowlist, workspaces=workspaces)
+def test_get_deps_workspaces(packages, workspaces, allowlist, result):
+    package_lock = mock.Mock()
+    package_lock.packages = packages
+    package_lock.workspaces = workspaces
+    name_to_deps, replacements = npm._get_deps(package_lock, allowlist)
     assert name_to_deps == result
     assert replacements == []
 
 
+@pytest.mark.parametrize(
+    "package, dep_key",
+    [
+        pytest.param(
+            Package(
+                "foo",
+                {"version": "https://foo-1.0.tgz", "integrity": "abc"},
+            ),
+            "requires",
+            id="package_without_deps",
+        ),
+        pytest.param(
+            Package(
+                "foo",
+                {"version": "https://foo-1.0.tgz", "integrity": "abc"},
+                dependent_packages=[Package("bar", {"requires": {"foo": "https://foo-1.0.tgz"}})],
+            ),
+            "requires",
+            id="v1_package_with_deps",
+        ),
+        pytest.param(
+            Package(
+                "foo",
+                {"version": "1.0", "resolved": "https://foo-1.0.tgz", "integrity": "abc"},
+                path="node_modules/foo",
+                dependent_packages=[
+                    Package(
+                        "bar",
+                        {"dependencies": {"foo": "https://foo-1.0.tgz"}},
+                        path="node_modules/bar",
+                    )
+                ],
+            ),
+            "dependencies",
+            id="v2_package_with_deps",
+        ),
+    ],
+)
 @mock.patch("cachito.workers.pkg_managers.npm.process_non_registry_dependency")
-def test_convert_to_nexus_hosted(mock_process_non_registry_dep):
-    dep_name = "rxjs"
-    # The information from the lock file
-    dep_info = {
-        "version": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-        "from": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
-        "requires": {"tslib": "^1.9.0"},
-    }
-
-    assert npm.convert_to_nexus_hosted(dep_name, dep_info) == {
-        "integrity": mock_process_non_registry_dep.return_value.integrity,
-        "resolved": mock_process_non_registry_dep.return_value.source,
-        "version": mock_process_non_registry_dep.return_value.version,
-        "requires": dep_info["requires"],
-    }
-    mock_process_non_registry_dep.assert_called_once_with(
-        general_js.JSDependency(name=dep_name, source=dep_info["version"], integrity=None)
+def test_convert_to_nexus_hosted(
+    mock_process_non_registry_dep, package: Package, dep_key: str
+) -> None:
+    js_dependency = general_js.JSDependency(
+        name=package.name, source=package.resolved_url, integrity=package.integrity
     )
+    with mock.patch(
+        "cachito.workers.pkg_managers.npm.Package.replace_dependency_version"
+    ) as mock_replace:
+        npm._convert_to_nexus_hosted(package)
+        if package.dependent_packages:
+            replace_call = mock.call(
+                package.alias or package.name, mock_process_non_registry_dep.return_value.version
+            )
+            mock_replace.assert_has_calls([replace_call for _ in package.dependent_packages])
+        else:
+            mock_replace.assert_not_called()
+
+    assert package.version == mock_process_non_registry_dep.return_value.version
+    assert package.integrity == mock_process_non_registry_dep.return_value.integrity
+    assert package._package_dict["resolved"] == mock_process_non_registry_dep.return_value.source
+
+    mock_process_non_registry_dep.assert_called_once_with(js_dependency)
 
 
-def test_get_deps_unsupported_non_registry_dep():
-    package_lock_deps = {
-        "@angular/animations": {
-            "version": "8.2.14",
-            "resolved": "https://registry.npmjs.org/@angular/animations/-/animations-8.2.14.tgz",
-            "integrity": (
-                "sha512-3Vc9TnNpKdtvKIXcWDFINSsnwgEMiDmLzjceWg1iYKwpeZGQahUXPoesLwQazBMmxJzQiA"
-                "4HOMj0TTXKZ+Jzkg=="
-            ),
-            "requires": {"tslib": "^1.9.0"},
-        },
-        "tslib": {
-            "version": "file:tslib.tar.gz",
-            "integrity": (
-                "sha512-ZETBuz/jo9ivHHolRRfYZgK5Zd2F5KZ/Yk7iygP8y8YEFLe5ZHCVY5zJMHiP3WeA8M/yvPKN7"
-                "XJpM03KH7FtPw=="
-            ),
-        },
-    }
+@pytest.mark.parametrize(
+    "packages",
+    [
+        pytest.param(
+            [
+                Package(
+                    "@angular/animations",
+                    {
+                        "version": "8.2.14",
+                        "resolved": (
+                            "https://registry.npmjs.org/@angular/animations/"
+                            "-/animations-8.2.14.tgz"
+                        ),
+                        "integrity": (
+                            "sha512-3Vc9TnNpKdtvKIXcWDFINSsnwgEMiDmLzjceWg1iYKwpeZGQahUX"
+                            "PoesLwQazBMmxJzQiA4HOMj0TTXKZ+Jzkg=="
+                        ),
+                        "requires": {"tslib": "^1.9.0"},
+                    },
+                ),
+                Package(
+                    "tslib",
+                    {
+                        "version": "file:tslib.tar.gz",
+                        "integrity": (
+                            "sha512-ZETBuz/jo9ivHHolRRfYZgK5Zd2F5KZ/Yk7iygP8y8YEFLe5ZHCV"
+                            "Y5zJMHiP3WeA8M/yvPKN7XJpM03KH7FtPw=="
+                        ),
+                    },
+                ),
+            ],
+            id="v1_package",
+        ),
+        pytest.param(
+            [
+                Package(
+                    "@angular/animations",
+                    {
+                        "version": "8.2.14",
+                        "resolved": (
+                            "https://registry.npmjs.org/@angular/animations/"
+                            "-/animations-8.2.14.tgz"
+                        ),
+                        "integrity": (
+                            "sha512-3Vc9TnNpKdtvKIXcWDFINSsnwgEMiDmLzjceWg1iYKwpeZGQahUX"
+                            "PoesLwQazBMmxJzQiA4HOMj0TTXKZ+Jzkg=="
+                        ),
+                        "dependencies": {"tslib": "^1.9.0"},
+                    },
+                    path="node_modules/@angular/animations",
+                ),
+                Package(
+                    "tslib",
+                    {
+                        "version": "1.9.0",
+                        "resolved": "file:tslib.tar.gz",
+                        "integrity": (
+                            "sha512-ZETBuz/jo9ivHHolRRfYZgK5Zd2F5KZ/Yk7iygP8y8YEFLe5ZHCV"
+                            "Y5zJMHiP3WeA8M/yvPKN7XJpM03KH7FtPw=="
+                        ),
+                        "dependencies": {"tslib": "^1.9.0"},
+                    },
+                    path="tslib.tar.gz",
+                ),
+            ],
+            id="v2_package",
+        ),
+    ],
+)
+def test_get_deps_unsupported_non_registry_dep(packages):
+    package_lock = mock.Mock()
+    package_lock.packages = packages
+    package_lock.workspaces = []
     expected = re.escape(
         "tslib@file:tslib.tar.gz is a 'file:' dependency. File dependencies are allowed if: "
         "a) the dependency is declared as a workspace in package.json or "
         "b) the dependency is present in the server-side allowlist."
     )
     with pytest.raises(InvalidRepoStructure, match=expected):
-        npm._get_deps(package_lock_deps, set(), name_to_deps={})
+        npm._get_deps(package_lock, set())
 
 
 def test_get_npm_proxy_repo_name():
@@ -1346,15 +1508,48 @@ def test_get_npm_proxy_username():
     assert npm.get_npm_proxy_username(3) == "cachito-npm-3"
 
 
-@pytest.mark.parametrize("lockfileversion,packages", [(1, {}), (2, {"workspaces": ["a"]})])
-def test_get_package_and_deps(package_lock_deps, package_and_deps, lockfileversion, packages):
-    package_lock_deps["millennium-falcon"] = {
-        "version": "file:millennium-falcon-1.0.0.tgz",
-        "integrity": (
-            "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rLq8ynuC7dN4CKtihxybAvqvk+Fr"
-            "sLau3fOA=="
+@pytest.mark.parametrize(
+    "lockfile_fixture, file_dep, dep_key",
+    [
+        (
+            "lockfile_v1",
+            {
+                "millennium-falcon": {
+                    "version": "file:millennium-falcon-1.0.0.tgz",
+                    "integrity": (
+                        "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rLq8yn"
+                        "uC7dN4CKtihxybAvqvk+FrsLau3fOA=="
+                    ),
+                },
+            },
+            "dependencies",
         ),
-    }
+        (
+            "lockfile_v3",
+            {
+                "node_modules/millennium-falcon": {
+                    "version": "1.0.0",
+                    "resolved": "file:millennium-falcon-1.0.0.tgz",
+                    "integrity": (
+                        "sha512-I6R70uG8HTBl4bDae8Tj4WpwRRS0RPLPDw/cZOqNFkk+qhQ241rLq8yn"
+                        "uC7dN4CKtihxybAvqvk+FrsLau3fOA=="
+                    ),
+                },
+            },
+            "packages",
+        ),
+    ],
+)
+def test_get_package_and_deps(
+    tmp_path: Path,
+    package_and_deps: dict[str, Any],
+    lockfile_fixture: str,
+    file_dep: dict[str, dict],
+    dep_key: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    lockfile_data = request.getfixturevalue(lockfile_fixture)
+    lockfile_data[dep_key].update(file_dep)
     package_and_deps["deps"].insert(
         3,
         {
@@ -1367,19 +1562,11 @@ def test_get_package_and_deps(package_lock_deps, package_and_deps, lockfileversi
         },
     )
     package_and_deps["deps"].sort(key=operator.itemgetter("name", "version"))
-
-    package_lock = {
-        "name": "han_solo",
-        "version": "5.0.0",
-        "lockfileVersion": lockfileversion,
-        "packages": {"": packages},
-        "dependencies": package_lock_deps,
-    }
-    mock_open = mock.mock_open(read_data=json.dumps(package_lock))
-    with mock.patch("cachito.workers.pkg_managers.npm.open", mock_open):
+    mock_open = mock.mock_open(read_data=json.dumps(lockfile_data))
+    with mock.patch("pathlib.Path.open", mock_open):
         deps_info = npm.get_package_and_deps(
-            "/tmp/cachito-bundles/1/temp/app/package.json",
-            "/tmp/cachito-bundles/1/temp/app/package-lock.json",
+            tmp_path / "package.json",
+            tmp_path / "package-lock.json",
         )
 
     deps_info["deps"].sort(key=operator.itemgetter("name", "version"))
@@ -1390,138 +1577,263 @@ def test_get_package_and_deps(package_lock_deps, package_and_deps, lockfileversi
 @pytest.mark.parametrize(
     "type", ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies")
 )
-def test_get_package_and_deps_dep_replacements(package_lock_deps, package_and_deps, type):
-    package_lock = {
-        "name": "star-wars",
-        "version": "5.0.0",
-        "lockfileVersion": 1,
-        "dependencies": {
-            "rxjs": {
-                "version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
-                "from": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
-                "requires": {"tslib": "^1.9.0"},
-            },
-            "tslib": {
-                "version": "1.11.1",
-                "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
-                "integrity": (
-                    "sha512-aZW88SY8kQbU7gpV19lN24LtXh/yD4ZZg6qieAJDDg+YBsJcSmLGK9QpnUjAKVG/"
-                    "xefmvJGd1WUmfpT/g6AJGA=="
-                ),
-            },
-        },
+def test_get_package_and_deps_dep_replacements_v1(
+    tmp_path: Path, lockfile_v1_replacements, name_to_deps_v1_replacements, type
+) -> None:
+    lockfile_data = lockfile_v1_replacements
+    name_to_deps_data = name_to_deps_v1_replacements
+
+    replaced_top_level_rxjs = {
+        "version": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+        "resolved": (
+            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
+            "rxjs-6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5.tgz"
+        ),
+        "integrity": (
+            "sha512-vvAdzoVTdbr5Lq7BI2+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8"
+            "UX1Vb45kbRQ=="
+        ),
+        "requires": {"tslib": "^1.9.0"},
     }
+    replaced_second_level_rxjs = {
+        "version": "6.4.0-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+        "resolved": (
+            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
+            "rxjs-6.4.0-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+        ),
+        "integrity": (
+            "sha512-l4R3dM4Mw7305wNKLg+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8"
+            "UX1Vb45kbRQ=="
+        ),
+        "dev": True,
+        "requires": {"tslib": "^1.9.0"},
+    }
+    post_replacement_lockfile_data = copy.deepcopy(lockfile_data)
+    post_replacement_lockfile_data["dependencies"]["rxjs"] = replaced_top_level_rxjs
+    post_replacement_lockfile_data["dependencies"]["@angular-devkit/architect"]["dependencies"][
+        "rxjs"
+    ] = replaced_second_level_rxjs
+
     package_json = {
         type: {
-            "rxjs": {"version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b"},
+            "rxjs": {"version": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5"},
             "tslib": {"version": "1.11.1"},
         },
     }
 
-    def _mock_get_deps(_deps, file_deps_allowlist, workspaces):
-        _deps["rxjs"] = {
-            "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
-            "resolved": (
-                "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-                "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
-            ),
-            "integrity": (
-                "sha512-vvAdzoVTdbr5Lq7BI2+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8"
-                "UX1Vb45kbRQ=="
-            ),
-            "requires": {"tslib": "^1.9.0"},
-        }
-        name_to_deps = {
-            "rxjs": [
-                {
-                    "bundled": False,
-                    "dev": False,
-                    "name": "rxjs",
-                    "version": "6.5.5",
-                    "version_in_nexus": (
-                        "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"
-                    ),
-                },
-            ],
-            "tslib": [
-                {
-                    "bundled": False,
-                    "dev": False,
-                    "name": "rxjs",
-                    "version": "1.11.1",
-                    "version_in_nexus": None,
-                },
-            ],
-        }
+    def _mock_get_deps(package_lock: PackageLock, file_deps_allowlist: set[str]):
+        package_lock._lockfile_data["dependencies"]["rxjs"] = replaced_top_level_rxjs
+        package_lock._lockfile_data["dependencies"]["@angular-devkit/architect"]["dependencies"][
+            "rxjs"
+        ] = replaced_second_level_rxjs
+        name_to_deps = name_to_deps_data
         replacements = [
-            ("rxjs", "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"),
+            ("rxjs", "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"),
         ]
 
         return name_to_deps, replacements
 
     with mock.patch("cachito.workers.pkg_managers.npm._get_deps", new=_mock_get_deps):
-        with mock.patch("cachito.workers.pkg_managers.npm.open") as mock_open:
+        with mock.patch("pathlib.Path.open") as mock_open:
             mock_open.side_effect = [
-                mock.mock_open(read_data=json.dumps(package_lock)).return_value,
+                mock.mock_open(read_data=json.dumps(lockfile_data)).return_value,
                 mock.mock_open(read_data=json.dumps(package_json)).return_value,
             ]
             deps_info = npm.get_package_and_deps(
-                "/tmp/cachito-bundles/1/temp/app/package.json",
-                "/tmp/cachito-bundles/1/temp/app/package-lock.json",
+                tmp_path / "package.json",
+                tmp_path / "package-lock.json",
             )
 
     assert deps_info == {
         "deps": [
             {
                 "bundled": False,
+                "dev": True,
+                "name": "@angular-devkit/architect",
+                "type": "npm",
+                "version": "0.803.26",
+                "version_in_nexus": None,
+            },
+            {
+                "bundled": False,
                 "dev": False,
+                "name": "@angular/animations",
+                "type": "npm",
+                "version": "8.2.14",
+                "version_in_nexus": None,
+            },
+            {
+                "bundled": False,
+                "dev": True,
                 "name": "rxjs",
-                "version": "6.5.5",
+                "type": "npm",
+                "version": "github:ReactiveX/rxjs#dfa239d41b97504312fa95e13f4d593d95b49c4b",
                 "version_in_nexus": (
-                    "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b"
+                    "6.4.0-external-gitcommit-" "dfa239d41b97504312fa95e13f4d593d95b49c4b"
                 ),
             },
             {
                 "bundled": False,
                 "dev": False,
                 "name": "rxjs",
+                "type": "npm",
+                "version": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+                "version_in_nexus": (
+                    "6.5.5-external-gitcommit-" "8cc6491771fcbf44984a419b7f26ff442a5d58f5"
+                ),
+            },
+            {
+                "bundled": False,
+                "dev": False,
+                "name": "tslib",
+                "type": "npm",
                 "version": "1.11.1",
                 "version_in_nexus": None,
             },
         ],
         # Verify that the lock file was detected as having been modified
-        "lock_file": {
-            "dependencies": {
-                "rxjs": {
-                    "integrity": (
-                        "sha512-vvAdzoVTdbr5Lq7BI2+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+k"
-                        "xiBXxCoc8UX1Vb45kbRQ=="
-                    ),
-                    "requires": {"tslib": "^1.9.0"},
-                    "resolved": (
-                        "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
-                        "rxjs-6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
-                    ),
-                    "version": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
-                },
-                "tslib": {
-                    "integrity": (
-                        "sha512-aZW88SY8kQbU7gpV19lN24LtXh/yD4ZZg6qieAJDDg+YBsJcSmLGK9Qp"
-                        "nUjAKVG/xefmvJGd1WUmfpT/g6AJGA=="
-                    ),
-                    "resolved": "https://registry.npmjs.org/tslib/-/tslib-1.11.1.tgz",
-                    "version": "1.11.1",
-                },
-            },
-            "lockfileVersion": 1,
-            "name": "star-wars",
-            "version": "5.0.0",
-        },
-        "package": {"name": "star-wars", "type": "npm", "version": "5.0.0"},
+        "lock_file": post_replacement_lockfile_data,
+        "package": {"name": "han_solo", "type": "npm", "version": "5.0.0"},
         "package.json": {
             type: {
                 # Verify that package.json was updated with the hosted version of rxjs
-                "rxjs": "6.5.5-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+                "rxjs": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+                "tslib": {"version": "1.11.1"},
+            },
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "type", ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies")
+)
+def test_get_package_and_deps_dep_replacements_v3(
+    tmp_path: Path, lockfile_v3_replacements, name_to_deps_v3_replacements, type
+) -> None:
+    lockfile_data = lockfile_v3_replacements
+    name_to_deps_data = name_to_deps_v3_replacements
+
+    replaced_top_level_rxjs = {
+        "version": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
+        "resolved": (
+            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
+            "rxjs-6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5.tgz"
+        ),
+        "integrity": (
+            "sha512-vvAdzoVTdbr5Lq7BI2+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8"
+            "UX1Vb45kbRQ=="
+        ),
+        "dependencies": {"tslib": "^1.9.0"},
+    }
+    replaced_second_level_rxjs = {
+        "version": "6.4.0-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b",
+        "resolved": (
+            "https://nexus.domain.local/repository/cachito-js-hosted/rxjs/-/"
+            "rxjs-6.4.0-external-gitcommit-dfa239d41b97504312fa95e13f4d593d95b49c4b.tgz"
+        ),
+        "integrity": (
+            "sha512-l4R3dM4Mw7305wNKLg+l4R3dM4Mw7305wNKLgij8ru7sx3Fuo1W2XrsoTXWfPtIk+kxiBXxCoc8"
+            "UX1Vb45kbRQ=="
+        ),
+        "dev": True,
+        "dependencies": {"tslib": "^1.9.0"},
+    }
+    post_replacement_lockfile_data = copy.deepcopy(lockfile_data)
+    post_replacement_lockfile_data["packages"]["node_modules/rxjs"] = replaced_top_level_rxjs
+    post_replacement_lockfile_data["packages"][
+        "node_modules/@angular-devkit/architect/node_modules/rxjs"
+    ] = replaced_second_level_rxjs
+
+    package_json = {
+        type: {
+            "rxjs": {"version": "github:ReactiveX/rxjs#8cc6491771fcbf44984a419b7f26ff442a5d58f5"},
+            "tslib": {"version": "1.11.1"},
+        },
+    }
+
+    def _mock_get_deps(package_lock: PackageLock, file_deps_allowlist: set[str]):
+        package_lock._lockfile_data["packages"]["node_modules/rxjs"] = replaced_top_level_rxjs
+        package_lock._lockfile_data["packages"][
+            "node_modules/@angular-devkit/architect/node_modules/rxjs"
+        ] = replaced_second_level_rxjs
+        name_to_deps = name_to_deps_data
+        replacements = [
+            ("rxjs", "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5"),
+        ]
+
+        return name_to_deps, replacements
+
+    with mock.patch("cachito.workers.pkg_managers.npm._get_deps", new=_mock_get_deps):
+        with mock.patch("pathlib.Path.open") as mock_open:
+            mock_open.side_effect = [
+                mock.mock_open(read_data=json.dumps(lockfile_data)).return_value,
+                mock.mock_open(read_data=json.dumps(package_json)).return_value,
+            ]
+            deps_info = npm.get_package_and_deps(
+                tmp_path / "package.json",
+                tmp_path / "package-lock.json",
+            )
+
+    assert deps_info == {
+        "deps": [
+            {
+                "bundled": False,
+                "dev": True,
+                "name": "@angular-devkit/architect",
+                "type": "npm",
+                "version": "0.803.26",
+                "version_in_nexus": None,
+            },
+            {
+                "bundled": False,
+                "dev": False,
+                "name": "@angular/animations",
+                "type": "npm",
+                "version": "8.2.14",
+                "version_in_nexus": None,
+            },
+            {
+                "bundled": False,
+                "dev": True,
+                "name": "rxjs",
+                "type": "npm",
+                "version": (
+                    "git+ssh://git@github.com/ReactiveX/rxjs.git#"
+                    "dfa239d41b97504312fa95e13f4d593d95b49c4b"
+                ),
+                "version_in_nexus": (
+                    "6.4.0-external-gitcommit-" "dfa239d41b97504312fa95e13f4d593d95b49c4b"
+                ),
+            },
+            {
+                "bundled": False,
+                "dev": False,
+                "name": "rxjs",
+                "type": "npm",
+                "version": (
+                    "git+ssh://git@github.com/ReactiveX/rxjs.git#"
+                    "8cc6491771fcbf44984a419b7f26ff442a5d58f5"
+                ),
+                "version_in_nexus": (
+                    "6.5.5-external-gitcommit-" "8cc6491771fcbf44984a419b7f26ff442a5d58f5"
+                ),
+            },
+            {
+                "bundled": False,
+                "dev": False,
+                "name": "tslib",
+                "type": "npm",
+                "version": "1.11.1",
+                "version_in_nexus": None,
+            },
+        ],
+        # Verify that the lock file was detected as having been modified
+        "lock_file": post_replacement_lockfile_data,
+        "package": {"name": "han_solo", "type": "npm", "version": "5.0.0"},
+        "package.json": {
+            type: {
+                # Verify that package.json was updated with the hosted version of rxjs
+                "rxjs": "6.5.5-external-gitcommit-8cc6491771fcbf44984a419b7f26ff442a5d58f5",
                 "tslib": {"version": "1.11.1"},
             },
         },
