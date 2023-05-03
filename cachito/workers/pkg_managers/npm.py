@@ -19,7 +19,6 @@ from cachito.workers.pkg_managers.general_js import (
 )
 
 __all__ = [
-    "convert_to_nexus_hosted",
     "get_npm_proxy_repo_name",
     "get_npm_proxy_repo_url",
     "get_npm_proxy_username",
@@ -480,34 +479,23 @@ def _get_parent_node(
 
 
 def _get_deps(
-    package_lock_deps: dict[str, Any],
+    package_lock: PackageLock,
     file_deps_allowlist: set[str],
-    name_to_deps: dict[str, Any] | None = None,
-    workspaces: list[str] | None = None,
-) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+) -> tuple[dict[str, list[Any]], list[tuple[str, str]]]:
     """
     Get a mapping of dependencies to all versions of the dependency.
-
-    This function works by populating the input ``_name_to_deps``. When first called, this value
-    will be set to ``{}``. As the function executes, it will call itself by passing in the current
-    value of ``_name_to_deps`` for instances where the dependency tree is more than a level deep.
-    This occurs when dependency A and B depend on different versions of the dependency C.
 
     ``_name_to_deps`` is a dictionary so that deduplication is much more efficient than if it were
     a list. If it were a list, there'd be a time complexity of O(n) every time a dependency is to be
     inserted.
 
     If dependencies not from the NPM registry are encountered and their locations are not
-    supported, then an exception will be raised. If the location is supported,
-    the input ``package_lock_deps`` will be modifed to use a reference to Nexus instead for that
-    dependency.
+    supported, then an exception will be raised. If the location is supported, the Package
+    will be modifed to with a reference to the Nexus-hosted dependency instead.
 
-    :param package_lock_deps: the value of a "dependencies" key in a package-lock.json file
+    :param package_lock: the PackageLock object corresponding to the package-lock.json file
     :param file_deps_allowlist: an allow list of dependencies that are allowed to be "file"
         dependencies and should be ignored since they are implementation details
-    :param name_to_deps: the current mapping of dependencies; this is not meant to be set
-        by the caller
-    :param workspaces: package workspaces defined in package-lock.json
     :return: a tuple with the first item as the mapping of dependencies where each key is a
         dependecy name and the values are dictionaries describing the dependency versions; the
         second item is a list of tuples for non-registry dependency replacements, where the first
@@ -516,46 +504,46 @@ def _get_deps(
     :raise UnsupportedFeature: if the dependency is from an unsupported location
     :raise FileAccessError: if the dependency cannot be accessed
     """
-    if name_to_deps is None:
-        name_to_deps = {}
-    if workspaces is None:
-        workspaces = []
+    name_to_deps: dict[str, list[dict[str, Any]]] = {}
+    top_level_replacements: list[tuple[str, str]] = []
 
-    nexus_replacements = []
-    for name, info in package_lock_deps.items():
-        nexus_replacement = None
-        version_in_nexus = None
-        version = info["version"]
+    for dependency in package_lock.packages:
+        dep = {
+            "bundled": dependency.bundled,
+            "dev": dependency.dev,
+            "name": dependency.name,
+            "version_in_nexus": None,
+            "type": "npm",
+            "version": dependency.version
+            if dependency.is_registry_dep or dependency.bundled
+            else dependency.resolved_url,
+        }
 
-        if version.startswith("file:"):
-            js_dep = JSDependency(name=name, source=version)
-            vet_file_dependency(js_dep, workspaces, file_deps_allowlist)
+        if dependency.is_file_dep:
+            js_dep = JSDependency(name=dependency.name, source=dependency.resolved_url)
+            vet_file_dependency(js_dep, package_lock.workspaces, file_deps_allowlist)
         # Note that a bundled dependency will not have the "resolved" key, but those are supported
         # since they are properly cached in the parent dependency in Nexus
-        elif not info.get("bundled", False) and "resolved" not in info:
-            log.info("The dependency %r is not from the npm registry", info)
-            # If the non-registry isn't supported, convert_to_nexus_hosted will raise
-            # an exception
-            nexus_replacement = convert_to_nexus_hosted(name, info)
-            version_in_nexus = nexus_replacement["version"]
-            nexus_replacements.append((name, version_in_nexus))
+        elif not dependency.bundled and not dependency.is_registry_dep:
+            log.info(
+                (
+                    f"The dependency {dependency.name} from {dependency.resolved_url} "
+                    "is not from the npm registry"
+                )
+            )
+            # If the non-registry isn't supported, _convert_to_nexus_hosted will raise an exception
+            _convert_to_nexus_hosted(dependency)
+            dep["version_in_nexus"] = dependency.version
 
-        dep = {
-            "bundled": info.get("bundled", False),
-            "dev": info.get("dev", False),
-            "name": name,
-            "version_in_nexus": version_in_nexus,
-            "type": "npm",
-            "version": version,
-        }
-        if nexus_replacement:
-            # Replace the original dependency in the npm-shrinkwrap.json or package-lock.json file
-            # with the dependency in the Nexus hosted repo
-            info.clear()
-            info.update(nexus_replacement)
+            # If the dependency has an aliased name we want to use that rather than the actual
+            # package name when replacing deps in package.json and in any dependent Packages
+            if dependency.is_top_level:
+                top_level_replacements.append(
+                    (dependency.alias or dependency.name, dependency.version)
+                )
 
-        name_to_deps.setdefault(name, [])
-        for d in name_to_deps[name]:
+        name_to_deps.setdefault(dependency.name, [])
+        for d in name_to_deps[dependency.name]:
             if d["version"] == dep["version"]:
                 # If a duplicate version was found but this one isn't bundled, then mark the
                 # dependency as not bundled so it's included individually in the deps directory
@@ -567,28 +555,16 @@ def _get_deps(
                     d["dev"] = False
                 break
         else:
-            name_to_deps[name].append(dep)
+            name_to_deps[dependency.name].append(dep)
 
-        if "dependencies" in info:
-            _, returned_nexus_replacements = _get_deps(
-                info["dependencies"], file_deps_allowlist, name_to_deps
-            )
-            # If any of the dependencies were non-registry dependencies, replace the requires to be
-            # the version in Nexus
-            for name, version in returned_nexus_replacements:
-                info["requires"][name] = version
-
-    return name_to_deps, nexus_replacements
+    return name_to_deps, top_level_replacements
 
 
-def convert_to_nexus_hosted(dep_name, dep_info):
+def _convert_to_nexus_hosted(dependency: Package) -> None:
     """
     Convert the input dependency not from the NPM registry to a Nexus hosted dependency.
 
-    :param str dep_name: the name of the dependency
-    :param dict dep_info: the dependency info from the npm lock file (e.g. package-lock.json)
-    :return: the dependency information of the Nexus hosted version to use in the npm lock file
-        instead of the original
+    :param Package dependency: the non-registry dependency to be converted to nexus hosted
     :raise InvalidFileFormat: if the dependency has an unexpected format
     :raise UnsupportedFeature: if the dependency is from an unsupported location
     :raise FileAccessError: if the dependency cannot be accessed
@@ -599,22 +575,29 @@ def convert_to_nexus_hosted(dep_name, dep_info):
     #   git+https://github.com/ReactiveX/rxjs.git#dfa239d41b97504312fa95e13f4d593d95b49c4b
     #   github:ReactiveX/rxjs#78032157f5c1655436829017bbda787565b48c30
     #   https://github.com/jsplumb/jsplumb/archive/2.10.2.tar.gz
-    dep_identifier = dep_info["version"]
 
-    dep = JSDependency(name=dep_name, source=dep_identifier, integrity=dep_info.get("integrity"))
+    dep = JSDependency(
+        name=dependency.name, source=dependency.resolved_url, integrity=dependency.integrity
+    )
     dep_in_nexus = process_non_registry_dependency(dep)
 
-    converted_dep_info = copy.deepcopy(dep_info)
-    # The "from" value is the original value from package.json for some locations
-    converted_dep_info.pop("from", None)
-    converted_dep_info.update(
-        {
-            "integrity": dep_in_nexus.integrity,
-            "resolved": dep_in_nexus.source,
-            "version": dep_in_nexus.version,
-        }
-    )
-    return converted_dep_info
+    # Update all Packages that depend on this Package to depend on the nexus-replaced version
+    for dependent in dependency.dependent_packages:
+        log.debug(
+            (
+                f"Updating {dependent.name} from {dependency.version} to depend on "
+                f"nexus-hosted dependency {dependency.name}@{dep_in_nexus.version}"
+            )
+        )
+        dependent.replace_dependency_version(
+            dependency.alias or dependency.name, dep_in_nexus.version
+        )
+
+    # Replace the original dependency in the npm-shrinkwrap.json or package-lock.json file
+    # with the dependency in the Nexus hosted repo
+    dependency.version = dep_in_nexus.version
+    dependency.integrity = dep_in_nexus.integrity
+    dependency.set_resolved(dep_in_nexus.source)
 
 
 def get_npm_proxy_repo_name(request_id):
@@ -668,20 +651,13 @@ def get_package_and_deps(package_json_path, package_lock_path):
         it was modified.
     :rtype: dict
     """
-    with open(package_lock_path, "r") as f:
-        package_lock = json.load(f)
+    package_lock = PackageLock.from_file(Path(package_lock_path))
+    package = package_lock.main_package
 
-    package_lock_original = copy.deepcopy(package_lock)
-    package = {"name": package_lock["name"], "type": "npm", "version": package_lock["version"]}
     file_deps_allowlist = set(
         get_worker_config().cachito_npm_file_deps_allowlist.get(package["name"], [])
     )
-    workspaces = []
-    if package_lock["lockfileVersion"] >= 2:
-        workspaces = package_lock["packages"][""].get("workspaces", [])
-    name_to_deps, top_level_replacements = _get_deps(
-        package_lock.get("dependencies", {}), file_deps_allowlist, workspaces=workspaces
-    )
+    name_to_deps, top_level_replacements = _get_deps(package_lock, file_deps_allowlist)
     # Convert the name_to_deps mapping to a list now that it's fully populated
     deps = [dep_info for deps_info in name_to_deps.values() for dep_info in deps_info]
 
@@ -691,7 +667,7 @@ def get_package_and_deps(package_json_path, package_lock_path):
     # the replaced dependencies in the lock file. If these updates don't occur, running
     # `npm install` causes the lock file to be updated since it's assumed that it's out of date.
     if top_level_replacements:
-        with open(package_json_path, "r") as f:
+        with Path(package_json_path).open("r") as f:
             package_json = json.load(f)
 
         package_json_original = copy.deepcopy(package_json)
@@ -715,8 +691,8 @@ def get_package_and_deps(package_json_path, package_lock_path):
         if package_json != package_json_original:
             rv["package.json"] = package_json
 
-    if package_lock != package_lock_original:
-        rv["lock_file"] = package_lock
+    if package_lock.is_modified:
+        rv["lock_file"] = package_lock.to_dict()
 
     return rv
 
