@@ -1,13 +1,13 @@
 # Test data for npm packages
 #
-# npm package without dependencies
+# npm package (v1 package-lock.json) without dependencies
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
 # expected_files: Expected source files <relative_path>: <file_URL>
 # expected_deps_files: Expected dependencies files (empty)
 # response_expectations: Parts of the Cachito response to check
 # content_manifest: PURLs for image contents part
-without_deps:
+without_deps_v1_lockfile:
   repo: https://github.com/cachito-testing/cachito-npm-without-deps.git
   ref: 2f0ce1d7b1f8b35572d919428b965285a69583f6
   pkg_managers: ["npm"]
@@ -28,14 +28,44 @@ without_deps:
     type: library
     version: 1.0.0
     purl: pkg:github/cachito-testing/cachito-npm-without-deps@2f0ce1d7b1f8b35572d919428b965285a69583f6
-# npm package with dependencies package.json
+# Test data for npm packages
+#
+# npm package (v3 package-lock.json) without dependencies
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files (empty)
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+without_deps_v3_lockfile:
+  repo: https://github.com/cachito-testing/cachito-npm-without-deps.git
+  ref: 01fc1ca0c98e9cbbb150d1b99d42e8add6515992
+  pkg_managers: ["npm"]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-npm-without-deps/tarball/01fc1ca0c98e9cbbb150d1b99d42e8add6515992
+    deps/npm: null
+  response_expectations:
+    dependencies: []
+    packages:
+      - dependencies: []
+        name: "cachito-npm-without-deps"
+        type: "npm"
+        version: "1.0.0"
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-npm-without-deps@01fc1ca0c98e9cbbb150d1b99d42e8add6515992"
+  sbom:
+  - name: cachito-npm-without-deps
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-npm-without-deps@01fc1ca0c98e9cbbb150d1b99d42e8add6515992
+# npm package (v1 package-lock.json) with dependencies in package.json
 # repo: The URL for the upstream git repository
 # ref: A git reference at the given git repository
 # expected_files: Expected source files <relative_path>: <file_URL>
 # expected_deps_files: Expected dependencies files <relative_path>
 # response_expectations: Parts of the Cachito response to check
 # content_manifest: PURLs for image contents part
-with_deps:
+with_deps_v1_lockfile:
   repo: https://github.com/cachito-testing/cachito-npm-with-deps.git
   ref: 565aba4c7f210c6196c1b522e2279f853f77d6d2
   pkg_managers: ["npm"]
@@ -197,6 +227,203 @@ with_deps:
     type: library
     version: github:kevva/is-positive#97edff6f525f192a3f83cea1944765f769ae2678
     purl: pkg:github/kevva/is-positive@97edff6f525f192a3f83cea1944765f769ae2678
+  - name: assertion-error
+    type: library
+    version: 1.1.0
+    purl: pkg:npm/assertion-error@1.1.0
+  - name: chai
+    type: library
+    version: 4.2.0
+    purl: pkg:npm/chai@4.2.0
+  - name: check-error
+    type: library
+    version: 1.0.2
+    purl: pkg:npm/check-error@1.0.2
+  - name: deep-eql
+    type: library
+    version: 3.0.1
+    purl: pkg:npm/deep-eql@3.0.1
+  - name: get-func-name
+    type: library
+    version: 2.0.0
+    purl: pkg:npm/get-func-name@2.0.0
+  - name: pathval
+    type: library
+    version: 1.1.1
+    purl: pkg:npm/pathval@1.1.1
+  - name: type-detect
+    type: library
+    version: 4.0.8
+    purl: pkg:npm/type-detect@4.0.8
+# npm package (v3 package-lock.json) with dependencies in package.json
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files <relative_path>
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+with_deps_v3_lockfile:
+  repo: https://github.com/cachito-testing/cachito-npm-with-deps.git
+  ref: 6349948efe8dd2399ce87af9cc906ecfe4a141a3
+  pkg_managers: ["npm"]
+  response_expectations:
+    dependencies:
+      - dev: false
+        name: assertion-error
+        replaces: null
+        type: npm
+        version: 1.1.0
+      - dev: false
+        name: chai
+        replaces: null
+        type: npm
+        version: 4.2.0
+      - dev: false
+        name: check-error
+        replaces: null
+        type: npm
+        version: 1.0.2
+      - dev: false
+        name: deep-eql
+        replaces: null
+        type: npm
+        version: 3.0.1
+      - dev: false
+        name: fecha
+        replaces: null
+        type: npm
+        version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+      - dev: false
+        name: get-func-name
+        replaces: null
+        type: npm
+        version: 2.0.0
+      - dev: false
+        name: is-positive
+        replaces: null
+        type: npm
+        version: git+ssh://git@github.com/kevva/is-positive.git#97edff6f525f192a3f83cea1944765f769ae2678
+      - dev: false
+        name: pathval
+        replaces: null
+        type: npm
+        version: 1.1.1
+      - dev: false
+        name: type-detect
+        replaces: null
+        type: npm
+        version: 4.0.8
+      - dev: true
+        name: cachito-npm-without-deps
+        replaces: null
+        type: npm
+        version: git+ssh://git@github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+    packages:
+      - dependencies:
+        - dev: false
+          name: assertion-error
+          replaces: null
+          type: npm
+          version: 1.1.0
+        - dev: false
+          name: chai
+          replaces: null
+          type: npm
+          version: 4.2.0
+        - dev: false
+          name: check-error
+          replaces: null
+          type: npm
+          version: 1.0.2
+        - dev: false
+          name: deep-eql
+          replaces: null
+          type: npm
+          version: 3.0.1
+        - dev: false
+          name: fecha
+          replaces: null
+          type: npm
+          version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+        - dev: false
+          name: get-func-name
+          replaces: null
+          type: npm
+          version: 2.0.0
+        - dev: false
+          name: is-positive
+          replaces: null
+          type: npm
+          version: git+ssh://git@github.com/kevva/is-positive.git#97edff6f525f192a3f83cea1944765f769ae2678
+        - dev: false
+          name: pathval
+          replaces: null
+          type: npm
+          version: 1.1.1
+        - dev: false
+          name: type-detect
+          replaces: null
+          type: npm
+          version: 4.0.8
+        - dev: true
+          name: cachito-npm-without-deps
+          replaces: null
+          type: npm
+          version: git+ssh://git@github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+        name: cachito-npm-with-deps
+        type: npm
+        version: 1.0.0
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-npm-with-deps/tarball/6349948efe8dd2399ce87af9cc906ecfe4a141a3
+    deps/npm/assertion-error/assertion-error-1.1.0.tgz: https://registry.npmjs.org/assertion-error/-/assertion-error-1.1.0.tgz
+    deps/npm/chai/chai-4.2.0.tgz: https://registry.npmjs.org/chai/-/chai-4.2.0.tgz
+    deps/npm/check-error/check-error-1.0.2.tgz: https://registry.npmjs.org/check-error/-/check-error-1.0.2.tgz
+    deps/npm/deep-eql/deep-eql-3.0.1.tgz: https://registry.npmjs.org/deep-eql/-/deep-eql-3.0.1.tgz
+    deps/npm/external-fecha/fecha-4.2.0-external-sha512-8ae71e98d68e38e1f6e4c629187684dd85e4dc96647c7219b1dd189598ea52865e947f0ad94a7001fa8fb5eccf58467fe34ad10066e831af3374120134604bd5.tgz: https://github.com/cachito-testing/test_files/raw/master/fecha-npm.tgz
+    deps/npm/get-func-name/get-func-name-2.0.0.tgz: https://registry.npmjs.org/get-func-name/-/get-func-name-2.0.0.tgz
+    deps/npm/external-is-positive/is-positive-3.1.0-external-gitcommit-97edff6f525f192a3f83cea1944765f769ae2678.tgz: https://github.com/cachito-testing/test_files/raw/master/kevva_is-positive.tar.xz
+    deps/npm/pathval/pathval-1.1.1.tgz: https://registry.npmjs.org/pathval/-/pathval-1.1.1.tgz
+    deps/npm/type-detect/type-detect-4.0.8.tgz: https://registry.npmjs.org/type-detect/-/type-detect-4.0.8.tgz
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-npm-with-deps@6349948efe8dd2399ce87af9cc906ecfe4a141a3"
+    dep_purls:
+    - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz"
+    - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2397edff6f525f192a3f83cea1944765f769ae2678"
+    - "pkg:npm/assertion-error@1.1.0"
+    - "pkg:npm/chai@4.2.0"
+    - "pkg:npm/check-error@1.0.2"
+    - "pkg:npm/deep-eql@3.0.1"
+    - "pkg:npm/get-func-name@2.0.0"
+    - "pkg:npm/pathval@1.1.1"
+    - "pkg:npm/type-detect@4.0.8"
+    source_purls:
+    - "pkg:generic/cachito-npm-without-deps?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fcachito-testing%2Fcachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b965285a69583f6"
+    - "pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz"
+    - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2397edff6f525f192a3f83cea1944765f769ae2678"
+    - "pkg:npm/assertion-error@1.1.0"
+    - "pkg:npm/chai@4.2.0"
+    - "pkg:npm/check-error@1.0.2"
+    - "pkg:npm/deep-eql@3.0.1"
+    - "pkg:npm/get-func-name@2.0.0"
+    - "pkg:npm/pathval@1.1.1"
+    - "pkg:npm/type-detect@4.0.8"
+  sbom:
+  - name: cachito-npm-without-deps
+    type: library
+    version: git+ssh://git@github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+    purl: pkg:generic/cachito-npm-without-deps?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fcachito-testing%2Fcachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b965285a69583f6
+  - name: fecha
+    type: library
+    version: https://github.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+    purl: pkg:generic/fecha?download_url=https%3A%2F%2Fgithub.com%2Ftaylorhakes%2Ffecha%2Farchive%2F91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz
+  - name: is-positive
+    type: library
+    version: git+ssh://git@github.com/kevva/is-positive.git#97edff6f525f192a3f83cea1944765f769ae2678
+    purl: pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2397edff6f525f192a3f83cea1944765f769ae2678
+  - name: cachito-npm-with-deps
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-npm-with-deps@6349948efe8dd2399ce87af9cc906ecfe4a141a3
   - name: assertion-error
     type: library
     version: 1.1.0
@@ -621,3 +848,98 @@ workspaces:
     type: library
     version: 9.0.0
     purl: pkg:npm/uuid@9.0.0
+# npm package (v3 package-lock.json) with multiple versions of a dependency
+# repo: The URL for the upstream git repository
+# ref: A git reference at the given git repository
+# expected_files: Expected source files <relative_path>: <file_URL>
+# expected_deps_files: Expected dependencies files (empty)
+# response_expectations: Parts of the Cachito response to check
+# content_manifest: PURLs for image contents part
+multiple-dep-versions:
+  repo: https://github.com/cachito-testing/cachito-npm-with-multiple-dep-versions.git
+  ref: 97070a9eb06bad62eb581890731221660ade9ea3
+  pkg_managers: ["npm"]
+  expected_files:
+    app: https://github.com/cachito-testing/cachito-npm-with-multiple-dep-versions/tarball/97070a9eb06bad62eb581890731221660ade9ea3
+    deps/npm/external-cachito-npm-without-deps/cachito-npm-without-deps-1.0.0-external-gitcommit-2f0ce1d7b1f8b35572d919428b965285a69583f6.tgz: https://github.com/cachito-testing/test_files/raw/master/cachito-npm-without-deps-1.0.0.tgz
+    deps/npm/external-is-positive/is-positive-1.0.0-external-gitcommit-1187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf.tgz: https://github.com/cachito-testing/test_files/raw/master/is-positive-1.0.0.tgz
+    deps/npm/external-is-positive/is-positive-2.0.0-external-gitcommit-75dd3a181375162eda014984f2decc663199b09e.tgz: https://github.com/cachito-testing/test_files/raw/master/is-positive-2.0.0.tgz
+  response_expectations:
+    dependencies:
+      - dev: false
+        name: foo
+        replaces: null
+        type: npm
+        version: file:foo
+      - dev: false
+        name: is-positive
+        replaces: null
+        type: npm
+        version: git+ssh://git@github.com/kevva/is-positive.git#1187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf
+      - dev: false
+        name: is-positive
+        replaces: null
+        type: npm
+        version: git+ssh://git@github.com/kevva/is-positive.git#75dd3a181375162eda014984f2decc663199b09e
+      - dev: true
+        name: cachito-npm-without-deps
+        replaces: null
+        type: npm
+        version: git+ssh://git@github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+    packages:
+      - dependencies:
+        - dev: false
+          name: foo
+          replaces: null
+          type: npm
+          version: file:foo
+        - dev: false
+          name: is-positive
+          replaces: null
+          type: npm
+          version: git+ssh://git@github.com/kevva/is-positive.git#1187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf
+        - dev: false
+          name: is-positive
+          replaces: null
+          type: npm
+          version: git+ssh://git@github.com/kevva/is-positive.git#75dd3a181375162eda014984f2decc663199b09e
+        - dev: true
+          name: cachito-npm-without-deps
+          replaces: null
+          type: npm
+          version: git+ssh://git@github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+        name: "cachito-npm-with-multiple-dep-versions"
+        type: "npm"
+        version: "1.0.0"
+  content_manifest:
+  - purl: "pkg:github/cachito-testing/cachito-npm-with-multiple-dep-versions@97070a9eb06bad62eb581890731221660ade9ea3"
+    dep_purls:
+      - "generic/foo?file%3Afoo"
+      - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%231187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf"
+      - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2375dd3a181375162eda014984f2decc663199b09e"
+    source_purls:
+      - "generic/foo?file%3Afoo"
+      - "pkg:generic/cachito-npm-without-deps?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fcachito-testing%2Fcachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b965285a69583f6"
+      - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%231187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf"
+      - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2375dd3a181375162eda014984f2decc663199b09e"
+  sbom:
+  - name: foo
+    type: library
+    version: file:foo
+    purl: generic/foo?file%3Afoo
+  - name: cachito-npm-without-deps
+    type: library
+    version: git+ssh://git@github.com/cachito-testing/cachito-npm-without-deps.git#2f0ce1d7b1f8b35572d919428b965285a69583f6
+    purl: pkg:generic/cachito-npm-without-deps?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fcachito-testing%2Fcachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b965285a69583f6
+  - name: is-positive
+    type: library
+    version: git+ssh://git@github.com/kevva/is-positive.git#1187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf
+    purl: pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%231187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf
+  - name: is-positive
+    type: library
+    version: git+ssh://git@github.com/kevva/is-positive.git#75dd3a181375162eda014984f2decc663199b09e
+    purl: pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2375dd3a181375162eda014984f2decc663199b09e
+  - name: cachito-npm-with-multiple-dep-versions
+    type: library
+    version: 1.0.0
+    purl: pkg:github/cachito-testing/cachito-npm-with-multiple-dep-versions@97070a9eb06bad62eb581890731221660ade9ea3
