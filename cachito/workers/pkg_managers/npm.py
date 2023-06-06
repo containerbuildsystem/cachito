@@ -6,7 +6,6 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator, Optional, Self
-from urllib.parse import urlparse
 
 from cachito.errors import CachitoError, FileAccessError, ValidationError
 from cachito.workers.config import get_worker_config
@@ -14,6 +13,7 @@ from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general_js import (
     JSDependency,
     download_dependencies,
+    is_from_npm_registry,
     process_non_registry_dependency,
     vet_file_dependency,
 )
@@ -140,7 +140,7 @@ class Package:
     @property
     def is_registry_dep(self) -> bool:
         """Return True if this package is a registry dependency."""
-        return urlparse(self.resolved_url).hostname == "registry.npmjs.org"
+        return is_from_npm_registry(self.resolved_url)
 
     def get_dependency_names(self) -> list[str]:
         """Get the list of names of dependencies that this Package depends on.
