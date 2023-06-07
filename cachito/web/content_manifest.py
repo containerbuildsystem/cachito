@@ -97,16 +97,23 @@ class ContentManifest:
 
             # if we're processing a local dependency
             if dependency.version and dependency.version.startswith("."):
+                dep = None
                 dep_normpath = os.path.normpath(os.path.join(package.name, dependency.version))
-                parent_module_name = gomod.match_parent_module(
+                if parent_module_name := gomod.match_parent_module(
+                    dependency.name, self._gomod_data.keys()
+                ):
+                    dep = dependency.name
+                elif parent_module_name := gomod.match_parent_module(
                     dep_normpath, self._gomod_data.keys()
-                )
+                ):
+                    dep = dep_normpath
+
+                relpath_from_parent_module_to_dep = Path(dep).relative_to(Path(parent_module_name))
+
                 # if the dependency is not in this repo, use a relative path from the root module
                 # otherwise just use the parent purl directly
-                if dependency.name not in self._gomod_data:
-                    relpath_from_parent_module_to_dep = Path(dep_normpath).relative_to(
-                        Path(parent_module_name)
-                    )
+                if relpath_from_parent_module_to_dep == Path():
+                    relpath_from_parent_module_to_dep = None
 
             parent_purl = self._gomod_data[parent_module_name]["purl"]
             dep_purl = to_purl(dependency, relpath_from_parent_module_to_dep)
