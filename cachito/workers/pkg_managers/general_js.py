@@ -42,6 +42,7 @@ from cachito.workers.pkg_managers.general import (
 __all__ = [
     "download_dependencies",
     "get_dependencies",
+    "is_from_npm_registry",
     "parse_dependency",
     "finalize_nexus_for_js_request",
     "find_package_json",
@@ -55,6 +56,19 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+
+
+NPM_REGISTRY_CNAMES = ("registry.npmjs.org", "registry.yarnpkg.com")
+
+
+def is_from_npm_registry(pkg_url):
+    """
+    Check if package is from the NPM registry (which is also the Yarn registry).
+
+    :param str pkg_url: url of the package, in yarn.lock this is always the "resolved" key
+    :rtype: bool
+    """
+    return urlparse(pkg_url).hostname in NPM_REGISTRY_CNAMES
 
 
 def parse_dependency(
