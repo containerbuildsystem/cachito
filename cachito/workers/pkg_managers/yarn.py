@@ -16,6 +16,7 @@ from cachito.workers.pkg_managers.general_js import (
     convert_hex_sha_to_npm,
     download_dependencies,
     get_yarn_component_info_from_non_hosted_nexus,
+    is_from_npm_registry,
     process_non_registry_dependency,
     vet_file_dependency,
 )
@@ -28,9 +29,6 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
-
-
-NPM_REGISTRY_CNAMES = ("registry.npmjs.org", "registry.yarnpkg.com")
 
 
 def get_yarn_proxy_repo_name(request_id):
@@ -245,7 +243,7 @@ def _get_deps(
 
         nexus_replacement = None
 
-        non_registry = not package.url or not _is_from_npm_registry(package.url)
+        non_registry = not package.url or not is_from_npm_registry(package.url)
         if non_registry:
             if source.startswith("file:"):
                 js_dep = JSDependency(package.name, source)
@@ -284,16 +282,6 @@ def _get_deps(
         }
 
     return list(deps_by_id.values()), nexus_replacements
-
-
-def _is_from_npm_registry(pkg_url):
-    """
-    Check if package is from the NPM registry (which is also the Yarn registry).
-
-    :param str pkg_url: url of the package, in yarn.lock this is always the "resolved" key
-    :rtype: bool
-    """
-    return urlparse(pkg_url).hostname in NPM_REGISTRY_CNAMES
 
 
 def _pick_strongest_crypto_hash(integrity_value):

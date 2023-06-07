@@ -24,6 +24,18 @@ from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general, general_js, npm
 
 
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://registry.yarnpkg.com/chai/-/chai-4.2.0.tgz", True),
+        ("https://example.org/fecha.tar.gz", False),
+        ("https://registry.npmjs.org/chai/-/chai-4.2.0.tgz", True),
+    ],
+)
+def test_is_from_npm_registry(url, expected):
+    assert general_js.is_from_npm_registry(url) == expected
+
+
 @pytest.mark.parametrize("nexus_ca_cert_exists", (True, False))
 @pytest.mark.parametrize("pkg_manager", ["npm", "yarn"])
 @mock.patch("tempfile.TemporaryDirectory")

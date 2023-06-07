@@ -71,18 +71,6 @@ def test_get_npm_proxy_username():
 
 
 @pytest.mark.parametrize(
-    "url, expected",
-    [
-        (REGISTRY_DEP_URL, True),
-        (HTTP_DEP_URL, False),
-        ("https://registry.npmjs.org/chai/-/chai-4.2.0.tgz", True),
-    ],
-)
-def test_is_from_npm_registry(url, expected):
-    assert yarn._is_from_npm_registry(url) == expected
-
-
-@pytest.mark.parametrize(
     "integrity_value, expected",
     [
         # only one option
