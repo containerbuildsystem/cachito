@@ -115,7 +115,7 @@ class Package:
     @property
     def dev(self) -> bool:
         """Return True if this package is a dev dependency."""
-        return any(self._package_dict.get(key) for key in ("dev", "devOptional"))
+        return self._package_dict.get("dev", False)
 
     @property
     def is_link(self) -> bool:

@@ -498,6 +498,34 @@ class TestPackage:
         assert package.resolved_url == expected_resolved_url
 
     @pytest.mark.parametrize(
+        "package, is_dev",
+        [
+            (
+                Package("foo", {"dev": True}),
+                True,
+            ),
+            (
+                Package("foo", {"dev": False}),
+                False,
+            ),
+            (
+                Package("foo", {"devOptional": True}),
+                False,
+            ),
+            (
+                Package("foo", {"devOptional": False}),
+                False,
+            ),
+            (
+                Package("foo", {"dev": True, "optional": True}),
+                True,
+            ),
+        ],
+    )
+    def test_dev(self, package: Package, is_dev: bool) -> None:
+        assert package.dev == is_dev
+
+    @pytest.mark.parametrize(
         "package, expected_names",
         [
             pytest.param(
