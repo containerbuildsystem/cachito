@@ -110,7 +110,13 @@ class Package:
     @property
     def bundled(self) -> bool:
         """Return True if this package is bundled."""
-        return any(self._package_dict.get(key) for key in ["bundled", "inBundle"])
+        return (
+            any(self._package_dict.get(key) for key in ["bundled", "inBundle"])
+            # In v2+ lockfiles, direct dependencies do have "inBundle": true if they are to be
+            # bundled. They will get bundled if the package is uploaded to the npm registry, but
+            # aren't bundled yet. These have a resolved url and shouldn't be considered bundled.
+            and "resolved" not in self._package_dict
+        )
 
     @property
     def dev(self) -> bool:

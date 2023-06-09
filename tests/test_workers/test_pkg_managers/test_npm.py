@@ -1102,13 +1102,52 @@ def test_get_deps_non_registry_dep(
             },
             id="v2_packages",
         ),
+        pytest.param(
+            [
+                # direct bundled dep - should be downloaded, shouldn't be considered bundled
+                # npm init --yes
+                # npm add fecha --save-bundle
+                Package(
+                    "fecha",
+                    {
+                        "version": "4.2.3",
+                        "resolved": "https://registry.npmjs.org/fecha/-/fecha-4.2.3.tgz",
+                        "inBundle": True,
+                    },
+                    path="node_modules/fecha",
+                ),
+                # indirect bundled dep, duplicate of the direct one
+                Package(
+                    "fecha",
+                    {
+                        "version": "4.2.3",
+                        # the result should be non-bundled and non-dev
+                        "inBundle": True,
+                        "dev": True,
+                    },
+                    path="node_modules/foo/node_modules/fecha",
+                ),
+            ],
+            {
+                "fecha": [
+                    {
+                        "bundled": False,
+                        "dev": False,
+                        "name": "fecha",
+                        "type": "npm",
+                        "version": "4.2.3",
+                        "version_in_nexus": None,
+                    },
+                ],
+            },
+            id="v2_packages_direct_bundled_dep",
+        ),
     ],
 )
 def test_get_deps_bundled_dep(
     packages: list[Package],
     expected_name_to_deps: dict[str, dict],
 ) -> None:
-
     package_lock = mock.Mock()
     package_lock.packages = packages
     name_to_deps, replacements = npm._get_deps(package_lock, set())
