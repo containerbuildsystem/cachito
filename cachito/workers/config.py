@@ -115,11 +115,14 @@ class DevelopmentConfig(Config):
     broker_url = "amqp://cachito:cachito@rabbitmq:5672//"
     cachito_api_url = "http://cachito-api:8080/api/v1/"
     cachito_athens_url = "http://athens:3000"
+    cachito_s3_url = "http://minio:9000"
     cachito_bundles_dir = os.path.join(ARCHIVES_VOLUME, "bundles")
     cachito_log_level = "DEBUG"
     cachito_nexus_password = "cachito"  # nosec
     cachito_nexus_proxy_password = "cachito_unprivileged"  # nosec
     cachito_nexus_proxy_username = "cachito_unprivileged"
+    cachito_s3_username = "minioadmin"
+    cachito_s3_password = "minioadmin"  # nosec
     cachito_nexus_pypi_proxy_url = "http://nexus:8081/repository/cachito-pip-proxy/"
     cachito_nexus_rubygems_proxy_url = "http://nexus:8081/repository/cachito-rubygems-proxy/"
     cachito_nexus_url = "http://nexus:8081"

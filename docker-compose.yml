@@ -78,6 +78,30 @@ services:
     ports:
       - 8080:8080
 
+  minio:
+    image: quay.io/minio/minio
+    volumes:
+      - minio-storage:/data:z
+    ports:
+      - 9000:9000
+      - 9001:9001
+    command: server /data --console-address ":9001"
+
+  mc:
+    image: quay.io/minio/mc
+    entrypoint: sh
+    # Command sleeps instead of exiting because of https://github.com/containers/podman-compose/issues/683
+    command:
+      - -c
+      - >-
+        /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin &&
+        /usr/bin/mc mb --ignore-existing myminio/cachito-bundles &&
+        /usr/bin/mc mb --ignore-existing myminio/cachito-sources &&
+        /usr/bin/mc anonymous set download myminio/cachito-bundles &&
+        sleep infinity
+    depends_on:
+      - minio
+
   cachito-worker:
     build:
       context: .
@@ -110,11 +134,15 @@ services:
       - ./tmp/nexus-data:/nexus-data:z
       - cachito-request-logs:/var/log/cachito/requests:z
     depends_on:
-      - cachito-api
-      - nexus
-      - rabbitmq
+      cachito-api:
+      mc:
+        condition: service_completed_successfully
+      minio:
+      nexus:
+      rabbitmq:
 
 volumes:
   cachito-archives:
   athens-storage:
   cachito-request-logs:
+  minio-storage:
