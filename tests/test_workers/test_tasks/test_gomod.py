@@ -372,19 +372,65 @@ def test_fail_if_bundle_dir_has_workspaces(add_go_work_file, tmpdir):
         gomod._fail_if_bundle_dir_has_workspaces(bundle_dir, ["."])
 
 
-def test_fail_if_parent_replacement_not_included():
-    packages = [
-        {"name": "foo", "type": "gomod", "version": "1.0.0", "dependencies": []},
-        {
-            "name": "foo/bar",
-            "type": "gomod",
-            "version": "1.0.0",
-            "dependencies": [
-                {"name": "foo", "type": "gomod", "version": "../"},
-                {"name": "foo/bar/baz", "type": "go-package", "version": "1.0.0"},
-            ],
-        },
-    ]
+@pytest.mark.parametrize(
+    "packages",
+    [
+        [
+            {"name": "foo", "type": "gomod", "version": "1.0.0", "dependencies": []},
+            {
+                "name": "foo/bar",
+                "type": "gomod",
+                "version": "1.0.0",
+                "dependencies": [
+                    # both name and normpath match
+                    {"name": "foo", "type": "gomod", "version": "../"},  # foo/bar/.. == foo
+                    {"name": "foo/bar/baz", "type": "go-package", "version": "../bar/baz"},
+                ],
+            },
+        ],
+        [
+            {"name": "spam/v3", "type": "gomod", "version": "1.0.0", "dependencies": []},
+            {
+                "name": "spam/eggs/v3",
+                "type": "gomod",
+                "version": "1.0.0",
+                "dependencies": [
+                    # module name matches (normpath doesn't)
+                    {
+                        "name": "spam/v3",
+                        "type": "gomod",
+                        "version": "../",  # spam/eggs/v3/.. == spam/eggs
+                    },
+                    # package name matches (normpath doesn't)
+                    {
+                        "name": "spam/v3/client",  # spam/v3/client is a package from spam/v3
+                        # technically, a `gomod` package would never have a `go-package` dependency, but good enough for a unit test
+                        "type": "go-package",
+                        "version": "../client",
+                    }
+                ],
+            },
+        ],
+        [
+            # module normpath matches (name doesn't)
+            {"name": "k8s.io/kubernetes", "version": "1.0.0", "type": "gomod", "dependencies": []},
+            {
+                "name": "k8s.io/kubernetes/some-module",
+                "version": "1.0.0",
+                "type": "gomod",
+                "dependencies": [
+                    {
+                        "name": "k8s.io/api",
+                        "type": "gomod",
+                        "version": "../staging/src/k8s.io/api",
+                    },
+                    # TODO add package
+                ],
+            },
+        ],
+    ],
+)
+def test_fail_if_parent_replacement_not_included(packages):
     packages_json_data = PackagesData()
 
     for package in packages:
