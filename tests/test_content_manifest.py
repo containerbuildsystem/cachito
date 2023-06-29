@@ -82,39 +82,111 @@ def test_process_go(app, default_request):
     assert cm._gomod_data == expected_gomod_contents
 
 
-def test_process_gomod_with_local_dep(default_request: Request):
-    packages_json = [
-        {
-            "name": "example.com/org/project",
-            "type": "gomod",
-            "version": "1.1.1",
-            "dependencies": [],
-        },
-        {
-            "name": "example.com/org/project/foo",
-            "type": "gomod",
-            "version": "1.1.1",
-            "dependencies": [
-                {"name": "example.com/org/project", "type": "gomod", "version": "../"}
+@pytest.mark.parametrize(
+    "packages_json, expected_gomod_contents",
+    [
+        pytest.param(
+            [
+                {
+                    "name": "example.com/org/project",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [],
+                },
+                {
+                    "name": "example.com/org/project/foo",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [
+                        {"name": "example.com/org/project", "type": "gomod", "version": "../"}
+                    ],
+                },
             ],
-        },
-    ]
-
-    expected_parent_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
-    expected_foo_purl = "pkg:golang/example.com%2Forg%2Fproject%2Ffoo@1.1.1"
-    expected_src_purl = "pkg:golang/example.com%2Forg%2Fproject@1.1.1"
-
+            {
+                "example.com/org/project": {
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject@1.1.1",
+                    "dependencies": [],
+                },
+                "example.com/org/project/foo": {
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject%2Ffoo@1.1.1",
+                    "dependencies": [{"purl": "pkg:golang/example.com%2Forg%2Fproject@1.1.1"}],
+                },
+            },
+            id="both_name_and_normnormpath_matches",
+        ),
+        pytest.param(
+            [
+                {
+                    "name": "spam/v3",
+                    "type": "gomod",
+                    "version": "3.1.1",
+                    "dependencies": [],
+                },
+                {
+                    "name": "spam/ham/v3",
+                    "type": "gomod",
+                    "version": "3.1.1",
+                    "dependencies": [{"name": "spam/v3", "type": "gomod", "version": "../"}],
+                },
+            ],
+            {
+                "spam/v3": {
+                    "purl": "pkg:golang/spam%2Fv3@3.1.1",
+                    "dependencies": [],
+                },
+                "spam/ham/v3": {
+                    "purl": "pkg:golang/spam%2Fham%2Fv3@3.1.1",
+                    "dependencies": [{"purl": "pkg:golang/spam%2Fv3@3.1.1"}],
+                },
+            },
+            id="name_matches",
+        ),
+        pytest.param(
+            [
+                {
+                    "name": "k8s.io/kubernetes",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [],
+                },
+                {
+                    "name": "k8s.io/kubernetes/some-module",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [
+                        {
+                            "name": "k8s.io/api",
+                            "type": "gomod",
+                            "version": "../staging/src/k8s.io/api",
+                        }
+                    ],
+                },
+            ],
+            {
+                "k8s.io/kubernetes": {
+                    "purl": "pkg:golang/k8s.io%2Fkubernetes@1.1.1",
+                    "dependencies": [],
+                },
+                "k8s.io/kubernetes/some-module": {
+                    "purl": "pkg:golang/k8s.io%2Fkubernetes%2Fsome-module@1.1.1",
+                    "dependencies": [
+                        {"purl": "pkg:golang/k8s.io%2Fkubernetes@1.1.1#staging/src/k8s.io/api"},
+                    ],
+                },
+            },
+            id="normpath_matches",
+        ),
+    ],
+)
+def test_process_gomod_with_local_dep_in_parent_dir(
+    default_request: Request,
+    packages_json: list[dict[str, Any]],
+    expected_gomod_contents: dict[str, dict[str, Any]],
+) -> None:
     packages = _load_packages_from_json(packages_json)
-    parent_module = packages[0]
-    foo_module = packages[1]
 
     cm = ContentManifest(default_request, packages)
     cm.to_json()
-
-    expected_gomod_contents = {
-        parent_module.name: {"purl": expected_parent_purl, "dependencies": []},
-        foo_module.name: {"purl": expected_foo_purl, "dependencies": [{"purl": expected_src_purl}]},
-    }
 
     assert cm._gomod_data == expected_gomod_contents
 
@@ -150,6 +222,144 @@ def test_process_gomod_with_local_dep_unprocessed_module(default_request: Reques
             "dependencies": [{"purl": expected_dependency_purl}],
         },
     }
+
+
+@pytest.mark.parametrize(
+    "packages_json, expected_gopkg_contents",
+    [
+        pytest.param(
+            [
+                {
+                    "name": "example.com/org/project",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [],
+                },
+                {
+                    "name": "example.com/org/project/foo",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [
+                        {"name": "example.com/org/project", "type": "gomod", "version": "../"}
+                    ],
+                },
+                {
+                    "name": "example.com/org/project/foo",
+                    "type": "go-package",
+                    "version": "1.1.1",
+                    "dependencies": [
+                        {
+                            "name": "example.com/org/project/some-package",
+                            "type": "go-package",
+                            "version": "../some-package",
+                        }
+                    ],
+                },
+            ],
+            {
+                Package("example.com/org/project/foo", "go-package", "1.1.1"): {
+                    "purl": "pkg:golang/example.com%2Forg%2Fproject%2Ffoo@1.1.1",
+                    "dependencies": [
+                        {"purl": "pkg:golang/example.com%2Forg%2Fproject%2Fsome-package@1.1.1"}
+                    ],
+                    "sources": [{"purl": "pkg:golang/example.com%2Forg%2Fproject@1.1.1"}],
+                },
+            },
+            id="both_name_and_normpath_matches",
+        ),
+        pytest.param(
+            [
+                {
+                    "name": "spam/v3",
+                    "type": "gomod",
+                    "version": "3.1.1",
+                    "dependencies": [],
+                },
+                {
+                    "name": "spam/ham/v3",
+                    "type": "gomod",
+                    "version": "3.1.1",
+                    "dependencies": [{"name": "spam/v3", "type": "gomod", "version": "../"}],
+                },
+                {
+                    "name": "spam/ham/v3",
+                    "type": "go-package",
+                    "version": "3.1.1",
+                    "dependencies": [
+                        {"name": "spam/v3/api", "type": "go-package", "version": "../api"}
+                    ],
+                },
+            ],
+            {
+                Package("spam/ham/v3", "go-package", "3.1.1"): {
+                    "purl": "pkg:golang/spam%2Fham%2Fv3@3.1.1",
+                    "dependencies": [{"purl": "pkg:golang/spam%2Fv3%2Fapi@3.1.1"}],
+                    "sources": [{"purl": "pkg:golang/spam%2Fv3@3.1.1"}],
+                },
+            },
+            id="name_matches",
+        ),
+        pytest.param(
+            [
+                {
+                    "name": "k8s.io/kubernetes",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [],
+                },
+                {
+                    "name": "k8s.io/kubernetes/some-module",
+                    "type": "gomod",
+                    "version": "1.1.1",
+                    "dependencies": [
+                        {
+                            "name": "k8s.io/api",
+                            "type": "gomod",
+                            "version": "../staging/src/k8s.io/api",
+                        }
+                    ],
+                },
+                {
+                    "name": "k8s.io/kubernetes/some-module",
+                    "type": "go-package",
+                    "version": "1.1.1",
+                    "dependencies": [
+                        {
+                            "name": "k8s.io/api/node",
+                            "type": "go-package",
+                            "version": "../staging/src/k8s.io/api/node",
+                        }
+                    ],
+                },
+            ],
+            {
+                Package("k8s.io/kubernetes/some-module", "go-package", "1.1.1"): {
+                    "purl": "pkg:golang/k8s.io%2Fkubernetes%2Fsome-module@1.1.1",
+                    "dependencies": [
+                        {
+                            "purl": "pkg:golang/k8s.io%2Fkubernetes@1.1.1#staging/src/k8s.io/api/node"
+                        },
+                    ],
+                    "sources": [
+                        {"purl": "pkg:golang/k8s.io%2Fkubernetes@1.1.1#staging/src/k8s.io/api"}
+                    ],
+                },
+            },
+            id="normpath_matches",
+        ),
+    ],
+)
+def test_process_go_package_with_local_dep_in_parent_dir(
+    default_request: Request,
+    packages_json: list[dict[str, Any]],
+    expected_gopkg_contents: dict[str, dict[str, Any]],
+) -> None:
+    packages = _load_packages_from_json(packages_json)
+
+    cm = ContentManifest(default_request, packages)
+    cm.to_json()
+
+    assert cm._gopkg_data == expected_gopkg_contents
 
 
 def test_process_go_package_with_local_dep_unprocessed_module(default_request: Request):
