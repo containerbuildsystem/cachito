@@ -2,6 +2,7 @@
 
 import logging
 import pathlib
+import tempfile
 from typing import Any
 
 from cachito.common import paths
@@ -41,24 +42,23 @@ base_path: Any = type(pathlib.Path())
 
 class SourcesDir(base_path):
     """
-    Represents a sources directory tree for a package.
+    Represents a temporary sources directory tree for a package.
 
     The directory will be created automatically when this object is instantiated.
 
-    :param str repo_name: a namespaced repository name of package. For example,
-        ``release-engineering/retrodep``.
     :param str ref: the revision reference used to construct archive filename.
     """
 
     def __new__(cls, repo_name, ref):
         """Create a new Path object."""
-        self = super().__new__(cls, get_worker_config().cachito_sources_dir)
+        tempdir = tempfile.TemporaryDirectory(prefix="cachito-")
+        self = super().__new__(cls, tempdir.name)
 
-        repo_relative_dir = pathlib.Path(*repo_name.split("/"))
-        self.package_dir = self.joinpath(repo_relative_dir)
-        self.archive_path = self.joinpath(repo_relative_dir, f"{ref}.tar.gz")
+        self._temp_dir = tempdir
+        self.archive_dir = self.joinpath("archive")
+        self.archive_path = self.archive_dir.joinpath(f"{ref}.tar.gz")
 
-        log.debug("Ensure directory %s exists.", self.package_dir)
-        self.package_dir.mkdir(parents=True, exist_ok=True)
+        log.debug(f"Ensure directory {self.archive_dir} exists.")
+        self.archive_dir.mkdir(parents=True, exist_ok=True)
 
         return self

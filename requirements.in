@@ -5,6 +5,7 @@ aiohttp
 aiohttp-retry
 amqp
 backoff
+boto3
 celery>=5.2.2
 defusedxml
 gitpython

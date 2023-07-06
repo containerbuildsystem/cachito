@@ -64,6 +64,8 @@ class Config(object):
     cachito_request_file_logs_perm = 0o660
     cachito_request_lifetime = 1
     cachito_request_lifetime_failed = 7
+    cachito_s3_source_bucket = "cachito-sources"
+    cachito_s3_bundle_bucket = "cachito-bundles"
     cachito_subprocess_timeout = 3600  # 1 hour
     cachito_task_log_format = (
         "[%(asctime)s #%(request_id)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"

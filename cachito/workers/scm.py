@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 
 import git
 
+from cachito.common.s3 import SourceArchive
 from cachito.common.utils import get_repo_name
 from cachito.errors import (
     FileAccessError,
@@ -38,6 +39,7 @@ class SCM(ABC):
         self._repo_name = None
 
         self.sources_dir = SourcesDir(self.repo_name, ref)
+        self.source_archive = SourceArchive(self.repo_name, ref)
 
     @abstractmethod
     def fetch_source(self):
@@ -74,6 +76,18 @@ class Git(SCM):
                 "Failed on checking out the Git repository. Please verify the supplied reference "
                 f'of "{self.ref}" is valid.'
             )
+
+    def _download_archive(self):
+        """
+        Download the archive containing the git repository from s3.
+
+        :raises FileAccessError: if the source archive does not exist in s3
+        """
+        log.debug(f"Downloading the existing archive from s3 to {self.sources_dir.archive_path}")
+        if not self.source_archive.exists():
+            raise FileAccessError("The source archive does not exist in s3")
+
+        self.source_archive.download(self.sources_dir.archive_path)
 
     def _verify_archive(self):
         """
@@ -131,28 +145,20 @@ class Git(SCM):
             "wb",
             prefix=temp_archive_prefix,
             suffix=temp_archive_suffix,
-            dir=self.sources_dir.package_dir,
         ) as tmp:
             log.debug("Creating the archive at %s", tmp.name)
             with tarfile.open(fileobj=tmp, mode="w:gz") as bundle_archive:
                 bundle_archive.add(from_dir, "app")
-            # Make sure the file is written before linking it
+            # Make sure the file is written before uploading it
             tmp.flush()
             os.fsync(tmp.fileno())
-            try:
-                log.debug("Moving the archive to %s", self.sources_dir.archive_path)
-                os.link(tmp.name, self.sources_dir.archive_path)
-            except FileExistsError:
-                # This may happen often for large archives. It should be safe to proceed
-                log.warning(
-                    "%s was created while this task was running. Will proceed with that archive",
-                    self.sources_dir.archive_path,
-                )
+            self.source_archive.upload(tmp.name)
         try:
+            self._download_archive()
             self._verify_archive()
         except (FileAccessError, SubprocessCallError):
-            log.debug("Removing invalid archive at %s", self.sources_dir.archive_path)
-            os.unlink(self.sources_dir.archive_path)
+            log.debug("Deleting invalid archive from s3")
+            self.source_archive.delete()
             raise
 
     def clone_and_archive(self, gitsubmodule=False):
@@ -201,8 +207,14 @@ class Git(SCM):
             the checkout of the target Git ref fails.
         """
         with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
-            with tarfile.open(previous_archive, mode="r:gz") as tar:
-                safe_extract(tar, temp_dir)
+            with tempfile.NamedTemporaryFile(
+                prefix="tmp-archive-",
+                suffix=".tgz.temp",
+            ) as temp_archive:
+                self.source_archive.source_bucket.download_fileobj(previous_archive, temp_archive)
+                temp_archive.seek(0)
+                with tarfile.open(fileobj=temp_archive, mode="r:gz") as tar:
+                    safe_extract(tar, temp_dir)
 
             repo = git.Repo(os.path.join(temp_dir, "app"))
             try:
@@ -233,33 +245,36 @@ class Git(SCM):
         """
         if gitsubmodule:
             self.sources_dir = SourcesDir(self.repo_name, f"{self.ref}-with-submodules")
+            self.source_archive = SourceArchive(self.repo_name, f"{self.ref}-with-submodules")
 
         # If it already exists and isn't corrupt, don't download it again
-        archive_path = self.sources_dir.archive_path
-        if archive_path.exists():
-            log.debug('The archive already exists at "%s"', archive_path)
+        if self.source_archive.exists():
+            log.debug("The archive already exists in s3")
             try:
+                self._download_archive()
                 self._verify_archive()
                 return
             except (FileAccessError, SubprocessCallError):
-                log.warning('The archive at "%s" is invalid and will be re-created', archive_path)
+                log.warning("The archive in s3 is invalid and will be re-created")
 
         # Find a previous archive created by a previous request
-        #
+
         # The previous archive does not mean the one just before the request that
         # schedules current task. The only reason for finding out such a file is
         # to access the git history. So, anyone is ok.
         previous_archives = sorted(
-            self.sources_dir.package_dir.glob("*.tar.gz"), key=os.path.getctime, reverse=True
+            self.source_archive.get_previous_archives_for_repo(),
+            key=lambda x: x.last_modified,
+            reverse=True,
         )
         for previous_archive in previous_archives:
             # Excluding previous archives with submodules since there is
             # no straight-forward way to get rid of the previously included
             # submodules
-            if "-with-submodules" in str(previous_archive):
+            if "-with-submodules" in str(previous_archive.key):
                 continue
             try:
-                self.update_and_archive(previous_archive, gitsubmodule=gitsubmodule)
+                self.update_and_archive(previous_archive.key, gitsubmodule=gitsubmodule)
                 return
             except (
                 git.exc.InvalidGitRepositoryError,
@@ -273,8 +288,8 @@ class Git(SCM):
                     exc,
                 )
                 log.info(
-                    "Existing archive at '%s' may be corrupted and will not be used. Recovering...",
-                    previous_archive,
+                    f"Existing archive {previous_archive.key} in s3 may be corrupted "
+                    "and will not be used. Recovering..."
                 )
 
         self.clone_and_archive(gitsubmodule=gitsubmodule)
