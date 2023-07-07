@@ -29,7 +29,7 @@ class FindBuilddepsError(Exception):
     """Failed to find build dependencies."""
 
 
-def _pip_download(requirements_files, output_file, tmpdir, no_cache):
+def _pip_download(requirements_files, output_file, tmpdir, no_cache, allow_binary):
     """Run pip download, write output to file."""
     cmd = [
         "pip",
@@ -41,6 +41,9 @@ def _pip_download(requirements_files, output_file, tmpdir, no_cache):
         "--use-pep517",
         "--verbose",
     ]
+    if allow_binary:
+        cmd.remove("--no-binary")
+        cmd.remove(":all:")
     if no_cache:
         cmd.append("--no-cache-dir")
     for file in requirements_files:
@@ -67,7 +70,9 @@ def _filter_builddeps(pip_download_output_file):
     return sorted(builddeps)
 
 
-def find_builddeps(requirements_files, no_cache=False, ignore_errors=False):
+def find_builddeps(
+    requirements_files, no_cache=False, ignore_errors=False, allow_binary=False
+):
     """
     Find build dependencies for packages in requirements files.
 
@@ -82,7 +87,9 @@ def find_builddeps(requirements_files, no_cache=False, ignore_errors=False):
 
     try:
         log.info("Running pip download, this may take a while")
-        _pip_download(requirements_files, pip_output_file, tmpdir, no_cache)
+        _pip_download(
+            requirements_files, pip_output_file, tmpdir, no_cache, allow_binary
+        )
     except subprocess.CalledProcessError:
         msg = f"Pip download failed, see {pip_output_file} for more info"
         if ignore_errors:
@@ -175,19 +182,27 @@ def main():
             "dependencies will be added if used in conjunction with -a/--append."
         ),
     )
+    ap.add_argument(
+        "--allow-binary",
+        action="store_true",
+        help=(
+            "do not find build dependencies for packages with wheels "
+            "available for the current platform"
+        ),
+    )
 
     args = ap.parse_args()
     _sanity_check_args(ap, args)
 
     log.info(
-        "Please make sure the input files meet the requirements of this script "
-        "(see --help)"
+        "Please make sure the input files meet the requirements of this script (see --help)"
     )
 
     builddeps, is_partial = find_builddeps(
         args.requirements_files,
         no_cache=args.no_cache,
         ignore_errors=args.ignore_errors,
+        allow_binary=args.allow_binary,
     )
 
     if args.only_write_on_update:
