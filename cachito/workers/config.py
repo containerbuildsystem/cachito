@@ -118,6 +118,7 @@ class DevelopmentConfig(Config):
     cachito_api_url = "http://cachito-api:8080/api/v1/"
     cachito_athens_url = "http://athens:3000"
     cachito_s3_url = "http://minio:9000"
+    cachito_s3_redirect_url = "http://localhost:9000"
     cachito_bundles_dir = os.path.join(ARCHIVES_VOLUME, "bundles")
     cachito_log_level = "DEBUG"
     cachito_nexus_password = "cachito"  # nosec

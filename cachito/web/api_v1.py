@@ -6,11 +6,14 @@ import tempfile
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Dict, List, Set, Union
+from urllib.parse import urljoin
 
 import flask
 import kombu.exceptions
 import pydantic
+import requests
 from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
@@ -18,10 +21,9 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload, load_only
 from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
 
-from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
-from cachito.common.utils import b64encode
+from cachito.common.s3 import Bucket
 from cachito.errors import MessageBrokerError, NoWorkers, RequestErrorOrigin, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM, BASE_SBOM
@@ -40,6 +42,7 @@ from cachito.web.models import (
 from cachito.web.status import status
 from cachito.web.utils import deep_sort_icm, normalize_end_date, pagination_metadata, str_to_bool
 from cachito.workers import tasks
+from cachito.workers.config import get_worker_config
 
 api_v1 = flask.Blueprint("api_v1", __name__)
 
@@ -246,36 +249,32 @@ def download_archive(request_id):
             'The request must be in the "complete" state before downloading the archive'
         )
 
-    bundle_dir = RequestBundleDir(request.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"])
+    s3_path = f"{get_worker_config().cachito_s3_bundle_bucket}/{request_id}.tar.gz"
+    s3_head_check_url = urljoin(get_worker_config().cachito_s3_url, s3_path)
+    s3_redirect_url = urljoin(get_worker_config().cachito_s3_redirect_url, s3_path)
 
-    if not bundle_dir.bundle_archive_file.exists():
+    try:
+        response = requests.head(s3_head_check_url, timeout=10)
+    except requests.RequestException:
         flask.current_app.logger.error(
-            "The bundle archive at %s for request %d doesn't exist",
-            bundle_dir.bundle_archive_file,
-            request_id,
+            f"Failed to connect to s3 when checking if the bundle for request {request_id} "
+            f"exists at {s3_head_check_url}"
         )
         raise InternalServerError()
 
-    hasher = hash_file(bundle_dir.bundle_archive_file)
-    checksum = hasher.hexdigest()
-    store_checksum = bundle_dir.bundle_archive_checksum.read_text(encoding="utf-8")
-    if checksum != store_checksum:
-        msg = "Checksum of bundle archive {} has changed."
-        flask.current_app.logger.error(msg.format(bundle_dir.bundle_archive_file))
-        raise InternalServerError(msg.format(bundle_dir.bundle_archive_file.name))
+    if not response.ok:
+        flask.current_app.logger.error(
+            f"The bundle archive in s3 at {s3_redirect_url} for request {request_id} does not exist"
+        )
+        raise InternalServerError()
 
     flask.current_app.logger.info(
-        "Sending the bundle at %s for request %d", bundle_dir.bundle_archive_file, request_id
+        f"Redirecting to {s3_redirect_url} to download bundle for request {request_id}"
     )
 
-    resp = flask.send_file(
-        str(bundle_dir.bundle_archive_file),
-        mimetype="application/gzip",
-        as_attachment=True,
-        download_name=f"cachito-{request_id}.tar.gz",
-    )
-    resp.headers["Digest"] = f"sha-256={b64encode(bytes.fromhex(store_checksum))}"
-    return resp
+    # TODO: How do we verify/provide the digest for the bundle?
+
+    return flask.redirect(s3_redirect_url)
 
 
 def list_packages_and_dependencies(request_id):
@@ -292,20 +291,23 @@ def list_packages_and_dependencies(request_id):
     """
     request = Request.query.get_or_404(request_id)
 
-    bundle_dir = RequestBundleDir(request_id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"])
+    with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
+        bucket = Bucket(get_worker_config().cachito_s3_bundle_bucket)
+        packages_data_path = Path(temp_dir, f"{request_id}-packages.json")
+        bucket.download_file(packages_data_path.name, packages_data_path)
 
-    if not bundle_dir.packages_data.exists():
-        message = f"The file at {bundle_dir.packages_data} for request {request_id} doesn't exist."
+        if not packages_data_path.exists():
+            message = f"The file at {packages_data_path} for request {request_id} doesn't exist."
 
-        if request.state.state_name == RequestStateMapping.complete.name:
-            flask.current_app.logger.error(message)
-            raise InternalServerError("Invalid state: packages file was not found.")
+            if request.state.state_name == RequestStateMapping.complete.name:
+                flask.current_app.logger.error(message)
+                raise InternalServerError("Invalid state: packages file was not found.")
 
-        flask.current_app.logger.info(message)
-        raise NotFound("The packages file is not present for this request.")
+            flask.current_app.logger.info(message)
+            raise NotFound("The packages file is not present for this request.")
 
-    packages_data = PackagesData()
-    packages_data.load(bundle_dir.packages_data)
+        packages_data = PackagesData()
+        packages_data.load(packages_data_path)
 
     return {"packages": packages_data.packages, "dependencies": packages_data.all_dependencies}
 

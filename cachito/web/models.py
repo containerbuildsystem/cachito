@@ -3,9 +3,11 @@ import functools
 import itertools
 import os
 import re
+import tempfile
 from collections import OrderedDict
 from copy import deepcopy
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List
 
 import flask
@@ -17,10 +19,11 @@ from sqlalchemy.types import DateTime
 from werkzeug.exceptions import Forbidden
 
 from cachito.common.packages_data import PackagesData
-from cachito.common.paths import RequestBundleDir
+from cachito.common.s3 import Bucket
 from cachito.errors import RequestErrorOrigin, ValidationError
 from cachito.web import content_manifest, db
 from cachito.web.validation import validate_dependency_replacements
+from cachito.workers.config import get_worker_config
 
 
 def is_request_ref_valid(ref: str) -> bool:
@@ -385,10 +388,11 @@ class Request(db.Model):  # type: ignore[name-defined]
         packages_data = PackagesData()
 
         if self._is_complete():
-            bundle_dir = RequestBundleDir(
-                self.id, root=flask.current_app.config["CACHITO_BUNDLES_DIR"]
-            )
-            packages_data.load(bundle_dir.packages_data)
+            with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
+                bucket = Bucket(get_worker_config().cachito_s3_bundle_bucket)
+                packages_data_filename = f"{self.id}-packages.json"
+                bucket.download_file(packages_data_filename, Path(temp_dir, packages_data_filename))
+                packages_data.load(Path(temp_dir, packages_data_filename))
 
         return packages_data
 

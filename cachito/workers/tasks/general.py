@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import tarfile
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, List, Optional
 
@@ -10,6 +11,7 @@ import requests
 
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
+from cachito.common.s3 import Bucket
 from cachito.errors import (
     CachitoError,
     ClientError,
@@ -21,6 +23,7 @@ from cachito.errors import (
     SubprocessCallError,
     ValidationError,
 )
+from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.scm import Git
 from cachito.workers.tasks.celery import app
@@ -143,7 +146,7 @@ def failed_request_callback(context, exc, traceback, request_id):
     set_request_state(request_id, "failed", msg, error_origin, error_type)
 
 
-def create_bundle_archive(request_id: int, flags: List[str]) -> None:
+def create_bundle_archive(request_id: int, flags: List[str], tmp_dir) -> None:
     """
     Create the bundle archive to be downloaded by the user.
 
@@ -152,10 +155,11 @@ def create_bundle_archive(request_id: int, flags: List[str]) -> None:
     """
     set_request_state(request_id, "in_progress", "Assembling the bundle archive")
     bundle_dir = RequestBundleDir(request_id)
+    bundle_archive_file = Path(tmp_dir, f"{request_id}.tar.gz")
 
     log.debug("Using %s for creating the bundle for request %d", bundle_dir, request_id)
 
-    log.info("Creating %s", bundle_dir.bundle_archive_file)
+    log.info("Creating %s", bundle_archive_file)
 
     def filter_git_dir(tar_info):
         return tar_info if os.path.basename(tar_info.name) != ".git" else None
@@ -164,7 +168,7 @@ def create_bundle_archive(request_id: int, flags: List[str]) -> None:
     if "include-git-dir" in flags:
         tar_filter = None
 
-    with tarfile.open(bundle_dir.bundle_archive_file, mode="w:gz") as bundle_archive:
+    with tarfile.open(bundle_archive_file, mode="w:gz") as bundle_archive:
         # Add the source to the bundle. This is done one file/directory at a time in the parent
         # directory in order to exclude the app/.git folder.
         for item in bundle_dir.source_dir.iterdir():
@@ -174,13 +178,14 @@ def create_bundle_archive(request_id: int, flags: List[str]) -> None:
         bundle_archive.add(str(bundle_dir.deps_dir), "deps")
 
 
-def aggregate_packages_data(request_id: int, pkg_managers: List[str]) -> PackagesData:
+def aggregate_packages_data(request_id: int, pkg_managers: List[str], tmp_dir) -> PackagesData:
     """Aggregate packages data generated for each package manager into one unified data file.
 
     :param int request_id: the request id.
     """
     set_request_state(request_id, "in_progress", "Aggregating packages data")
     bundle_dir = RequestBundleDir(request_id)
+    packages_data = Path(tmp_dir, f"{request_id}-packages.json")
 
     aggregated_data = PackagesData()
     for pkg_manager in pkg_managers:
@@ -188,24 +193,44 @@ def aggregate_packages_data(request_id: int, pkg_managers: List[str]) -> Package
         data_file = getattr(bundle_dir, f"{pkg_manager.replace('-', '_')}_packages_data")
         aggregated_data.load(data_file)
 
-    log.debug("Write request %s packages data into %s", request_id, bundle_dir.packages_data)
-    aggregated_data.write_to_file(str(bundle_dir.packages_data))
+    log.debug("Write request %s packages data into %s", request_id, packages_data)
+    aggregated_data.write_to_file(str(packages_data))
 
     return aggregated_data
 
 
-def save_bundle_archive_checksum(request_id: int) -> None:
+def save_bundle_archive_checksum(request_id: int, tmp_dir) -> None:
     """Compute and store bundle archive's checksum.
 
     :param int request_id: the request id.
     :raises FileAccessError: if bundle archive file does not exist
     """
-    bundle_dir = RequestBundleDir(request_id)
-    archive_file = bundle_dir.bundle_archive_file
-    if not archive_file.exists():
-        raise FileAccessError(f"Bundle archive {archive_file} does not exist.")
-    checksum = hash_file(archive_file).hexdigest()
-    bundle_dir.bundle_archive_checksum.write_text(checksum, encoding="utf-8")
+    bundle_archive_file = Path(tmp_dir, f"{request_id}.tar.gz")
+    bundle_archive_checksum = Path(tmp_dir, f"{request_id}.checksum.sha256")
+    if not bundle_archive_file.exists():
+        raise FileAccessError(f"Bundle archive {bundle_archive_file} does not exist.")
+    checksum = hash_file(bundle_archive_file).hexdigest()
+    bundle_archive_checksum.write_text(checksum, encoding="utf-8")
+
+
+def upload_bundle_to_s3(request_id: int, tmp_dir) -> None:
+    """Upload the bundle and checksum files to s3.
+
+    :param int request_id: the request id.
+    :raises FileAccessError: if bundle archive file does not exist
+    """
+    bundle_bucket = Bucket(get_worker_config().cachito_s3_bundle_bucket)
+    files = [
+        (Path(tmp_dir, f"{request_id}.tar.gz"), "application/gzip"),
+        (Path(tmp_dir, f"{request_id}.checksum.sha256"), "text/plain"),
+        (Path(tmp_dir, f"{request_id}-packages.json"), "application/json"),
+    ]
+
+    for path, content_type in files:
+        if not path.exists():
+            raise FileAccessError(f"The file at {path} does not exist. Cannot upload to s3.")
+        log.debug(f"Uploading file located at path {path} to s3 with key {path.name}")
+        bundle_bucket.upload_file(path.name, path, extra_args={"ContentType": content_type})
 
 
 @app.task
@@ -213,9 +238,11 @@ def save_bundle_archive_checksum(request_id: int) -> None:
 def process_fetched_sources(request_id):
     """Generate files for request and updates the request with packages/dependencies counts."""
     request = get_request(request_id)
-    create_bundle_archive(request_id, request.get("flags", []))
-    save_bundle_archive_checksum(request_id)
-    data = aggregate_packages_data(request_id, request["pkg_managers"])
+    with tempfile.TemporaryDirectory(prefix=f"tmp-bundle-{request_id}") as tmp_dir:
+        create_bundle_archive(request_id, request.get("flags", []), tmp_dir)
+        save_bundle_archive_checksum(request_id, tmp_dir)
+        data = aggregate_packages_data(request_id, request["pkg_managers"], tmp_dir)
+        upload_bundle_to_s3(request_id, tmp_dir)
 
     packages_count = len(data.packages)
     dependencies_count = len(data.all_dependencies)
