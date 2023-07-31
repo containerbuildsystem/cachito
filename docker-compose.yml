@@ -9,7 +9,7 @@ services:
       POSTGRES_INITDB_ARGS: "--auth='ident' --auth='trust'"
 
   rabbitmq:
-    image: rabbitmq:3.9-management
+    image: rabbitmq:3.11-management
     volumes:
       - ./docker/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:z
     ports:
