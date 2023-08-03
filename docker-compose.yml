@@ -17,7 +17,7 @@ services:
       - 8081:15672
 
   athens:
-    image: gomods/athens:v0.11.0
+    image: gomods/athens:v0.12.1
     environment:
       ATHENS_DISK_STORAGE_ROOT: /var/lib/athens
       ATHENS_STORAGE_TYPE: disk
