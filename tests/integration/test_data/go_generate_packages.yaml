@@ -56,6 +56,10 @@ go_generate:
       replaces: null
       type: go-package
       version: null
+    - name: internal/coverage/rtcov
+      replaces: null
+      type: go-package
+      version: null
     - name: internal/cpu
       replaces: null
       type: go-package
@@ -227,6 +231,10 @@ go_generate:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -414,6 +422,10 @@ go_generate:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -591,6 +603,7 @@ go_generate:
     - "pkg:golang/fmt"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -636,6 +649,7 @@ go_generate:
     - "pkg:golang/fmt"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -709,6 +723,9 @@ go_generate:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -865,6 +882,10 @@ go_generate_generated:
       type: go-package
       version: null
     - name: internal/bytealg
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/coverage/rtcov
       replaces: null
       type: go-package
       version: null
@@ -1042,6 +1063,10 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -1203,6 +1228,10 @@ go_generate_generated:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -1391,6 +1420,10 @@ go_generate_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -1563,6 +1596,7 @@ go_generate_generated:
     - "pkg:golang/fmt"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -1610,6 +1644,7 @@ go_generate_generated:
     - "pkg:golang/fmt"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -1655,6 +1690,7 @@ go_generate_generated:
     - "pkg:golang/fmt"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -1732,6 +1768,9 @@ go_generate_generated:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -1892,6 +1931,10 @@ go_generate_imported:
       type: go-package
       version: null
     - name: internal/bytealg
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/coverage/rtcov
       replaces: null
       type: go-package
       version: null
@@ -2065,6 +2108,10 @@ go_generate_imported:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -2142,6 +2189,10 @@ go_generate_imported:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -2323,6 +2374,7 @@ go_generate_imported:
     - "pkg:golang/fmt"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -2367,6 +2419,7 @@ go_generate_imported:
       - "pkg:golang/github.com%2Fcachito-testing%2Fgo-generate-imported%2Ffoobar@v0.0.0-20211021010705-56659413f7db"
       - "pkg:golang/internal%2Fabi"
       - "pkg:golang/internal%2Fbytealg"
+      - "pkg:golang/internal%2Fcoverage%2Frtcov"
       - "pkg:golang/internal%2Fcpu"
       - "pkg:golang/internal%2Fgoarch"
       - "pkg:golang/internal%2Fgoexperiment"
@@ -2417,6 +2470,9 @@ go_generate_imported:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -2577,6 +2633,10 @@ go_generate_imported_generated:
       type: go-package
       version: null
     - name: internal/bytealg
+      replaces: null
+      type: go-package
+      version: null
+    - name: internal/coverage/rtcov
       replaces: null
       type: go-package
       version: null
@@ -2755,6 +2815,10 @@ go_generate_imported_generated:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -2942,6 +3006,10 @@ go_generate_imported_generated:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -3120,6 +3188,7 @@ go_generate_imported_generated:
     - "pkg:golang/fmt"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -3166,6 +3235,7 @@ go_generate_imported_generated:
       - "pkg:golang/github.com%2Fcachito-testing%2Fgo-generate-imported-generated%2Ffoobar@v0.0.0-20211021013725-27ad22ae910c"
       - "pkg:golang/internal%2Fabi"
       - "pkg:golang/internal%2Fbytealg"
+      - "pkg:golang/internal%2Fcoverage%2Frtcov"
       - "pkg:golang/internal%2Fcpu"
       - "pkg:golang/internal%2Ffmtsort"
       - "pkg:golang/internal%2Fgoarch"
@@ -3242,6 +3312,9 @@ go_generate_imported_generated:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
