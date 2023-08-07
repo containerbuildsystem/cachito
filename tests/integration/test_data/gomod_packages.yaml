@@ -93,6 +93,10 @@ with_deps:
         replaces: null
         type: go-package
         version: null
+      - name: internal/coverage/rtcov
+        replaces: null
+        type: go-package
+        version: null
       - name: internal/cpu
         replaces: null
         type: go-package
@@ -288,6 +292,10 @@ with_deps:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -479,6 +487,7 @@ with_deps:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -554,6 +563,9 @@ with_deps:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -707,6 +719,10 @@ vendored_with_flag:
         type: go-package
         version: null
       - name: internal/bytealg
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/coverage/rtcov
         replaces: null
         type: go-package
         version: null
@@ -905,6 +921,10 @@ vendored_with_flag:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -1096,6 +1116,7 @@ vendored_with_flag:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -1171,6 +1192,9 @@ vendored_with_flag:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -1327,6 +1351,10 @@ implicit_gomod:
         type: go-package
         version: null
       - name: internal/bytealg
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/coverage/rtcov
         replaces: null
         type: go-package
         version: null
@@ -1528,6 +1556,10 @@ implicit_gomod:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -1716,6 +1748,7 @@ implicit_gomod:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -1791,6 +1824,9 @@ implicit_gomod:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -1993,6 +2029,10 @@ force_tidy_vendored:
         replaces: null
         type: go-package
         version: null
+      - name: internal/coverage/rtcov
+        replaces: null
+        type: go-package
+        version: null
       - name: internal/cpu
         replaces: null
         type: go-package
@@ -2191,6 +2231,10 @@ force_tidy_vendored:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -2379,6 +2423,7 @@ force_tidy_vendored:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -2454,6 +2499,9 @@ force_tidy_vendored:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -2655,6 +2703,10 @@ with_local_replacements_in_parent_dir:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -2835,6 +2887,10 @@ with_local_replacements_in_parent_dir:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -3005,6 +3061,10 @@ with_local_replacements_in_parent_dir:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -3197,6 +3257,7 @@ with_local_replacements_in_parent_dir:
     - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Ffoo-module%2Fbar-module%2Fbar-package@v0.0.0-20230131175254-651e1901735b
     - pkg:golang/internal%2Fabi
     - pkg:golang/internal%2Fbytealg
+    - pkg:golang/internal%2Fcoverage%2Frtcov
     - pkg:golang/internal%2Fcpu
     - pkg:golang/internal%2Ffmtsort
     - pkg:golang/internal%2Fgoarch
@@ -3245,6 +3306,7 @@ with_local_replacements_in_parent_dir:
     - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps@v1.0.0#staging/src/spam-module/spam
     - pkg:golang/internal%2Fabi
     - pkg:golang/internal%2Fbytealg
+    - pkg:golang/internal%2Fcoverage%2Frtcov
     - pkg:golang/internal%2Fcpu
     - pkg:golang/internal%2Ffmtsort
     - pkg:golang/internal%2Fgoarch
@@ -3292,6 +3354,7 @@ with_local_replacements_in_parent_dir:
     - pkg:golang/github.com%2Fcachito-testing%2Fcachito-gomod-local-parent-deps%2Fbaz-package@v1.0.0
     - pkg:golang/internal%2Fabi
     - pkg:golang/internal%2Fbytealg
+    - pkg:golang/internal%2Fcoverage%2Frtcov
     - pkg:golang/internal%2Fcpu
     - pkg:golang/internal%2Ffmtsort
     - pkg:golang/internal%2Fgoarch
@@ -3387,6 +3450,9 @@ with_local_replacements_in_parent_dir:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
