@@ -12,7 +12,7 @@ RUN dnf -y install \
     krb5-devel \
     libffi-devel \
     mercurial \
-    nodejs-npm \
+    nodejs-npm-9.5.0 \
     procps \
     python3-devel \
     python3-pip \
