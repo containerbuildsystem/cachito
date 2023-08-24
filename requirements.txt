@@ -338,7 +338,7 @@ frozenlist==1.3.1 \
     # via
     #   aiohttp
     #   aiosignal
-gemlock_parser @ https://github.com/containerbuildsystem/gemlock-parser/archive/a2f0f4020e07b1e87813a3254eb3e40047d8e981.zip \
+gemlock-parser @ https://github.com/containerbuildsystem/gemlock-parser/archive/a2f0f4020e07b1e87813a3254eb3e40047d8e981.zip \
     --hash=sha256:6d1a080042d2d773bc83f7275382aaf0afd18b5b0ce861e4f383ed71e8530ac3
     # via -r requirements.in
 gitdb==4.0.9 \
@@ -485,9 +485,9 @@ multidict==6.0.2 \
     # via
     #   aiohttp
     #   yarl
-packaging==21.3 \
-    --hash=sha256:dd47c42927d89ab911e606518907cc2d3a1f38bbd026385970643f9c5b8ecfeb \
-    --hash=sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522
+packaging==23.1 \
+    --hash=sha256:994793af429502c4ea2ebf6bf664629d07c1a9fe974af92966e4b8d2df7edc61 \
+    --hash=sha256:a392980d2b6cffa644431898be54b0045151319d1e7ec34f0cfed48767dd334f
     # via -r requirements.in
 ply==3.11 \
     --hash=sha256:00c7c1aaa88358b9c765b6d3000c6eec0ba42abca5351b095321aef446081da3 \
@@ -543,10 +543,6 @@ pydantic==1.10.7 \
     --hash=sha256:ecbbc51391248116c0a055899e6c3e7ffbb11fb5e2a4cd6f2d0b93272118a209 \
     --hash=sha256:f4a2b50e2b03d5776e7f21af73e2070e1b5c0d0df255a827e7c632962f8315af
     # via -r requirements.in
-pyparsing==3.0.9 \
-    --hash=sha256:2b020ecf7d21b687f219b71ecad3631f644a47f01403fa1d1036b0c6416d70fb \
-    --hash=sha256:5026bae9a10eeaefb61dab2f09052b9f4307d44aee4eda64b309723d8d206bbc
-    # via packaging
 pyspnego[kerberos]==0.5.3 \
     --hash=sha256:1ee612f20c843365fbc6cf7f95c526b4ee8795281641a9bb87083622a2f87939 \
     --hash=sha256:284ca7a6218344bb90aeae02fb1d2ed73e5c991d6e4c16c0df404aeab5eb58a3 \
