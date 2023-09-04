@@ -17,7 +17,7 @@ jobs:
         python-version: ["3.11"]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install required packages
       run: |
         sudo apt-get install -y \
@@ -70,7 +70,7 @@ jobs:
           - mypy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Install required packages
@@ -98,7 +98,7 @@ jobs:
           - Dockerfile-api
           - Dockerfile-workers
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: hadolint/hadolint-action@v3.1.0
       with:
         dockerfile: docker/${{ matrix.dockerfile }}
@@ -112,7 +112,7 @@ jobs:
     name: Swagger Editor Validator Remote
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Validate OpenAPI definition
         uses: char0n/swagger-editor-validate@v1.3.2
         with:
@@ -126,7 +126,7 @@ jobs:
     - linters
     - hadolint
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Install required packages
