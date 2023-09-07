@@ -140,13 +140,11 @@ async def get_dependencies(
     retry_client = RetryClient(retry_options=retry_options, trace_configs=[trace_config])
 
     async with retry_client as session:
-
         tasks: Set[asyncio.Task] = set()
 
         results = []
 
         for dep_identifier in deps_to_download:
-
             if len(tasks) >= concurrency_limit:
                 # Wait for some download to finish before adding a new one
                 done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
@@ -534,29 +532,7 @@ def upload_non_registry_dependency(
     # These are the scripts that should not be present if verify_scripts is True
     dangerous_scripts = {"prepare", "prepack"}
     with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
-        env = {
-            # This is set since the home directory must be determined by the HOME environment
-            # variable or by looking at the /etc/passwd file. The latter does not always work
-            # since some deployments (e.g. OpenShift) don't have an entry for the running user
-            # in /etc/passwd.
-            "HOME": os.environ.get("HOME", ""),
-            "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
-            # This is important to avoid executing any dangerous scripts if it's a Git dependency
-            "NPM_CONFIG_IGNORE_SCRIPTS": "true",
-            "PATH": os.environ.get("PATH", ""),
-            # Have `npm pack` fail without a prompt if the SSH key from a protected source such
-            # as a private GitHub repo is not trusted
-            "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=yes",
-        }
-        run_params = {"env": env, "cwd": temp_dir}
-        npm_pack_args = ["npm", "pack", dep_identifier]
-        log.info("Downloading the npm dependency %s to be uploaded to Nexus", dep_identifier)
-        # An example of the command's stdout:
-        #   "reactivex-rxjs-6.5.5.tgz\n"
-        stdout = run_cmd(
-            npm_pack_args, run_params, f"Failed to download the npm dependency {dep_identifier}"
-        )
-        dep_archive = os.path.join(temp_dir, stdout.strip())
+        dep_archive = _fetch_external_dep(dep_identifier, temp_dir)
         if checksum_info:
             try:
                 verify_checksum(dep_archive, checksum_info)
@@ -624,6 +600,34 @@ def upload_non_registry_dependency(
 
         repo_name = get_js_hosted_repo_name()
         nexus.upload_asset_only_component(repo_name, "npm", modified_dep_archive)
+
+
+def _fetch_external_dep(dep_identifier: str, temp_dir: str) -> str:
+    """Fetch an external (git or https) JS dependency."""
+    env = {
+        # This is set since the home directory must be determined by the HOME environment
+        # variable or by looking at the /etc/passwd file. The latter does not always work
+        # since some deployments (e.g. OpenShift) don't have an entry for the running user
+        # in /etc/passwd.
+        "HOME": os.environ.get("HOME", ""),
+        "NPM_CONFIG_CACHE": os.path.join(temp_dir, "cache"),
+        # This is important to avoid executing any dangerous scripts if it's a Git dependency
+        "NPM_CONFIG_IGNORE_SCRIPTS": "true",
+        "PATH": os.environ.get("PATH", ""),
+        # Have `npm pack` fail without a prompt if the SSH key from a protected source such
+        # as a private GitHub repo is not trusted
+        "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=yes",
+    }
+    run_params = {"env": env, "cwd": temp_dir}
+    npm_pack_args = ["npm", "pack", dep_identifier]
+    log.info("Downloading the npm dependency %s to be uploaded to Nexus", dep_identifier)
+    # An example of the command's stdout:
+    #   "reactivex-rxjs-6.5.5.tgz\n"
+    stdout = run_cmd(
+        npm_pack_args, run_params, f"Failed to download the npm dependency {dep_identifier}"
+    )
+    dep_archive = os.path.join(temp_dir, stdout.strip())
+    return dep_archive
 
 
 @dataclass(frozen=True)
