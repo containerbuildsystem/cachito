@@ -253,7 +253,6 @@ def test_download_dependencies_skip_deps(
     ],
 )
 def test_parse_dependency(data):
-
     proxy_repo_url = "http://nexus:8081/repository/1/"
 
     result = general_js.parse_dependency(proxy_repo_url, data["dep"])
@@ -263,7 +262,6 @@ def test_parse_dependency(data):
 @mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
 @pytest.mark.asyncio
 async def test_get_dependecies(mock_async_download_binary_file):
-
     mock_async_download_binary_file.side_effect = lambda s, u, d, tarball_name, auth: tarball_name
 
     deps_list = [
@@ -338,8 +336,7 @@ def test_find_package_json(tmpdir):
         archive.addfile(tarfile.TarInfo("package/index.html"))
         archive.addfile(tarfile.TarInfo("package2/package.json"))
         archive.addfile(tarfile.TarInfo("package/package.json"))
-
-    assert general_js.find_package_json(tarfile_path) == "package2/package.json"
+        assert general_js.find_package_json(archive) == "package2/package.json"
 
 
 def test_find_package_json_no_package_json(tmpdir):
@@ -350,7 +347,7 @@ def test_find_package_json_no_package_json(tmpdir):
             tarfile.TarInfo("package/tom_hanks_quotes.html"),
             b"<p>Life is like a box of chocolates. You never know what you're gonna get.<p>",
         )
-    assert general_js.find_package_json(tarfile_path) is None
+        assert general_js.find_package_json(archive) is None
 
 
 @pytest.mark.parametrize("custom_ca_path", (None, "./registry-ca.pem"))
@@ -485,11 +482,10 @@ def test_prepare_nexus_for_js_request_failed(mock_exec_script):
 @mock.patch("cachito.workers.pkg_managers.general_js.verify_checksum")
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_asset_only_component")
 @pytest.mark.parametrize("checksum_info", [None, general.ChecksumInfo("sha512", "12345")])
 def test_upload_non_registry_dependency(
-    mock_ua, mock_fpj, mock_run_cmd, mock_td, mock_vc, checksum_info, tmpdir
+    mock_ua, mock_run_cmd, mock_td, mock_vc, checksum_info, tmpdir
 ):
     tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
     with tarfile.open(tarfile_path, "x:gz") as archive:
@@ -505,7 +501,6 @@ def test_upload_non_registry_dependency(
 
     mock_td.return_value.__enter__.return_value = str(tmpdir)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = "package/package.json"
 
     general_js.upload_non_registry_dependency(
         "star-wars@5.0.0", "-the-empire-strikes-back", checksum_info=checksum_info
@@ -521,7 +516,6 @@ def test_upload_non_registry_dependency(
         assert new_version == "5.0.0-the-empire-strikes-back"
 
     mock_run_cmd.assert_called_once_with(["npm", "pack", "star-wars@5.0.0"], mock.ANY, mock.ANY)
-    mock_fpj.assert_called_once_with(tarfile_path)
     mock_ua.assert_called_once_with("cachito-js-hosted", "npm", modified_tarfile_path)
     if not checksum_info:
         mock_vc.assert_not_called()
@@ -531,10 +525,7 @@ def test_upload_non_registry_dependency(
 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
-def test_upload_non_registry_dependency_invalid_prepare_script(
-    mock_fpj, mock_run_cmd, mock_td, tmpdir
-):
+def test_upload_non_registry_dependency_invalid_prepare_script(mock_run_cmd, mock_td, tmpdir):
     tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
     with tarfile.open(tarfile_path, "x:gz") as archive:
         tar_info = tarfile.TarInfo("package/fair-warning.html")
@@ -549,7 +540,6 @@ def test_upload_non_registry_dependency_invalid_prepare_script(
 
     mock_td.return_value.__enter__.return_value = str(tmpdir)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = "package/package.json"
 
     expected = (
         "The dependency star-wars@5.0.0 is not supported because Cachito cannot execute the "
@@ -563,11 +553,19 @@ def test_upload_non_registry_dependency_invalid_prepare_script(
 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
-def test_upload_non_registry_dependency_no_package_json(mock_fpj, mock_run_cmd, mock_td, tmpdir):
-    mock_td.return_value.__enter__.return_value = str(tmpdir)
+def test_upload_non_registry_dependency_no_package_json(
+    mock_run_cmd: mock.Mock,
+    mock_td: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_td.return_value.__enter__.return_value = str(tmp_path)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = None
+
+    with tarfile.open(tmp_path / "star-wars-5.0.0.tgz", "w:gz") as archive:
+        archive.addfile(
+            tarfile.TarInfo("package/script.txt"),
+            io.BytesIO(b"No. *I* am your father."),
+        )
 
     expected = "The dependency star-wars@5.0.0 does not have a package.json file"
     with pytest.raises(FileAccessError, match=expected):
@@ -576,10 +574,9 @@ def test_upload_non_registry_dependency_no_package_json(mock_fpj, mock_run_cmd, 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_asset_only_component")
 def test_upload_non_registry_dependency_invalid_package_json(
-    mock_ua, mock_fpj, mock_run_cmd, mock_td, tmpdir
+    mock_ua, mock_run_cmd, mock_td, tmpdir
 ):
     tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
     with tarfile.open(tarfile_path, "x:gz") as archive:
@@ -590,7 +587,6 @@ def test_upload_non_registry_dependency_invalid_package_json(
 
     mock_td.return_value.__enter__.return_value = str(tmpdir)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = "package/package.json"
 
     expected = "The dependency star-wars@5.0.0 does not have a valid package.json file"
     with pytest.raises(FileAccessError, match=expected):
