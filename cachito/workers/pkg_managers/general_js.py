@@ -322,7 +322,7 @@ def finalize_nexus_for_js_request(repo_name, username):
     return password
 
 
-def find_package_json(package_archive):
+def find_package_json(package_archive: tarfile.TarFile) -> str | None:
     """
     Find the package.json in a tar achive of an npm package.
 
@@ -341,25 +341,24 @@ def find_package_json(package_archive):
     If no package.json file is found, an error is thrown.
       https://github.com/npm/cli/blob/cf7da1e1a0dc9becbe382ac5abd8830551009a53/node_modules/pacote/lib/finalize-manifest.js#L156-L160
 
-    :param str package_archive: the path to the tar archive of the npm package
+    :param package_archive: the tar archive of the npm package
     :return: the path to the package.json file in the tarball or None
     :rtype: str or None
     """
-    log.debug("Finding the package.json file in the archive %s", package_archive)
-    with tarfile.open(package_archive, "r:*") as f:
-        # Iterate through all the members of the tar archive in order
-        for member in f.getmembers():
-            # If one or more directories are present in the tar archive, remove the first directory
-            # and then check if the value is equal to package.json
-            #   https://github.com/npm/cli/blob/cf7da1e1a0dc9becbe382ac5abd8830551009a53/node_modules/pacote/lib/finalize-manifest.js#L201-L204
-            if re.sub(r"[^/]+/", "", member.name, count=1) == "package.json":
-                log.debug(
-                    "Found the package.json file at %s in the archive %s",
-                    member.name,
-                    package_archive,
-                )
-                return member.name
-        return None
+    log.debug("Finding the package.json file in the archive %s", package_archive.name)
+    # Iterate through all the members of the tar archive in order
+    for member in package_archive.getmembers():
+        # If one or more directories are present in the tar archive, remove the first directory
+        # and then check if the value is equal to package.json
+        #   https://github.com/npm/cli/blob/cf7da1e1a0dc9becbe382ac5abd8830551009a53/node_modules/pacote/lib/finalize-manifest.js#L201-L204
+        if re.sub(r"[^/]+/", "", member.name, count=1) == "package.json":
+            log.debug(
+                "Found the package.json file at %s in the archive %s",
+                member.name,
+                package_archive.name,
+            )
+            return member.name
+    return None
 
 
 def generate_npmrc_content(proxy_repo_url, username, password, custom_ca_path=None):
@@ -540,16 +539,16 @@ def upload_non_registry_dependency(
                 log.error("%s", e)
                 raise
 
-        package_json_rel_path = find_package_json(dep_archive)
-        if not package_json_rel_path:
-            msg = f"The dependency {dep_identifier} does not have a package.json file"
-            log.error(msg)
-            raise FileAccessError(msg)
-
         modified_dep_archive = os.path.join(
             os.path.dirname(dep_archive), f"modified-{os.path.basename(dep_archive)}"
         )
         with tarfile.open(dep_archive, mode="r:*") as dep_archive_file:
+            package_json_rel_path = find_package_json(dep_archive_file)
+            if not package_json_rel_path:
+                msg = f"The dependency {dep_identifier} does not have a package.json file"
+                log.error(msg)
+                raise FileAccessError(msg)
+
             with tarfile.open(modified_dep_archive, mode="x:gz") as modified_dep_archive_file:
                 for member in dep_archive_file.getmembers():
                     # Add all the files except for the package.json file without any modifications
