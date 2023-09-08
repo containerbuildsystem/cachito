@@ -15,7 +15,7 @@ import tempfile
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Collection, Dict, List, Optional, Set, Union
+from typing import Any, Collection, Dict, List, NoReturn, Optional, Set, Union
 from urllib.parse import urlparse
 
 import aiohttp
@@ -45,7 +45,6 @@ __all__ = [
     "is_from_npm_registry",
     "parse_dependency",
     "finalize_nexus_for_js_request",
-    "find_package_json",
     "generate_npmrc_content",
     "get_js_hosted_repo_name",
     "get_npm_component_info_from_nexus",
@@ -322,7 +321,41 @@ def finalize_nexus_for_js_request(repo_name, username):
     return password
 
 
-def find_package_json(package_archive: tarfile.TarFile) -> str | None:
+def _load_package_json(
+    dep_identifier: str, package_archive: tarfile.TarFile
+) -> tuple[str, dict[str, Any]]:
+    """Load the package.json in the tar archive of an npm package.
+
+    :return: the path of the package.json file and the parsed content of the package.json file
+    :raises FileAccessError: if there's no package.json, package.json is not a regular file
+        or cannot be parsed
+    """
+
+    def fail(reason: str, original_exc: Exception | None = None) -> NoReturn:
+        msg = f"Could not process dependency {dep_identifier}: {reason}"
+        log.error(msg)
+        if original_exc:
+            raise FileAccessError(msg) from original_exc
+        else:
+            raise FileAccessError(msg)
+
+    package_json_path = _find_package_json(package_archive)
+    if not package_json_path:
+        fail("no package.json file")
+
+    package_json_file = package_archive.extractfile(package_json_path)
+    if package_json_file is None:
+        fail("package.json is not a regular file")
+
+    try:
+        package_json = json.load(package_json_file)
+    except json.JSONDecodeError as e:
+        fail("package.json is not valid JSON", e)
+
+    return package_json_path, package_json
+
+
+def _find_package_json(package_archive: tarfile.TarFile) -> str | None:
     """
     Find the package.json in a tar achive of an npm package.
 
@@ -543,31 +576,16 @@ def upload_non_registry_dependency(
             os.path.dirname(dep_archive), f"modified-{os.path.basename(dep_archive)}"
         )
         with tarfile.open(dep_archive, mode="r:*") as dep_archive_file:
-            package_json_rel_path = find_package_json(dep_archive_file)
-            if not package_json_rel_path:
-                msg = f"The dependency {dep_identifier} does not have a package.json file"
-                log.error(msg)
-                raise FileAccessError(msg)
+            package_json_path, package_json = _load_package_json(dep_identifier, dep_archive_file)
 
             with tarfile.open(modified_dep_archive, mode="x:gz") as modified_dep_archive_file:
                 for member in dep_archive_file.getmembers():
                     # Add all the files except for the package.json file without any modifications
-                    if member.path != package_json_rel_path:
+                    if member.path != package_json_path:
                         modified_dep_archive_file.addfile(
                             member, dep_archive_file.extractfile(member)
                         )
                         continue
-
-                    # Modify the version in the package.json file
-                    try:
-                        package_json = json.load(dep_archive_file.extractfile(member))
-                    except json.JSONDecodeError:
-                        msg = (
-                            f"The dependency {dep_identifier} does not have a valid "
-                            "package.json file"
-                        )
-                        log.exception(msg)
-                        raise FileAccessError(msg)
 
                     if verify_scripts:
                         log.info(
@@ -584,6 +602,7 @@ def upload_non_registry_dependency(
                             log.error(msg)
                             raise UnsupportedFeature(msg)
 
+                    # Modify the version in the package.json file
                     new_version = f"{package_json['version']}{version_suffix}"
                     log.debug(
                         "Modifying the version of %s from %s to %s",
