@@ -336,7 +336,7 @@ def test_find_package_json(tmpdir):
         archive.addfile(tarfile.TarInfo("package/index.html"))
         archive.addfile(tarfile.TarInfo("package2/package.json"))
         archive.addfile(tarfile.TarInfo("package/package.json"))
-        assert general_js.find_package_json(archive) == "package2/package.json"
+        assert general_js._find_package_json(archive) == "package2/package.json"
 
 
 def test_find_package_json_no_package_json(tmpdir):
@@ -347,7 +347,7 @@ def test_find_package_json_no_package_json(tmpdir):
             tarfile.TarInfo("package/tom_hanks_quotes.html"),
             b"<p>Life is like a box of chocolates. You never know what you're gonna get.<p>",
         )
-        assert general_js.find_package_json(archive) is None
+        assert general_js._find_package_json(archive) is None
 
 
 @pytest.mark.parametrize("custom_ca_path", (None, "./registry-ca.pem"))
@@ -567,7 +567,7 @@ def test_upload_non_registry_dependency_no_package_json(
             io.BytesIO(b"No. *I* am your father."),
         )
 
-    expected = "The dependency star-wars@5.0.0 does not have a package.json file"
+    expected = "Could not process dependency star-wars@5.0.0: no package.json file"
     with pytest.raises(FileAccessError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
 
@@ -588,7 +588,7 @@ def test_upload_non_registry_dependency_invalid_package_json(
     mock_td.return_value.__enter__.return_value = str(tmpdir)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
 
-    expected = "The dependency star-wars@5.0.0 does not have a valid package.json file"
+    expected = "Could not process dependency star-wars@5.0.0: package.json is not valid JSON"
     with pytest.raises(FileAccessError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
 
