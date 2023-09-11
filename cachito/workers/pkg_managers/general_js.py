@@ -28,6 +28,7 @@ from cachito.errors import (
     InvalidRepoStructure,
     NetworkError,
     NexusError,
+    RepositoryAccessError,
     UnsupportedFeature,
 )
 from cachito.workers import nexus, run_cmd
@@ -38,6 +39,7 @@ from cachito.workers.pkg_managers.general import (
     async_download_binary_file,
     verify_checksum,
 )
+from cachito.workers.scm import Git
 
 __all__ = [
     "download_dependencies",
@@ -544,27 +546,25 @@ def prepare_nexus_for_js_request(repo_name):
 
 
 def upload_non_registry_dependency(
-    dep_identifier, version_suffix, verify_scripts=False, checksum_info=None
-):
+    dep_identifier: str,
+    version_suffix: str,
+    is_git: bool = False,
+    checksum_info: ChecksumInfo | None = None,
+) -> None:
     """
     Upload the non-registry npm dependency to the Nexus hosted repository with a custom version.
 
-    :param str dep_identifier: the identifier of the dependency to download
-    :param str version_suffix: the suffix to append to the dependency's version in its package.json
+    :param dep_identifier: the identifier of the dependency to download
+    :param version_suffix: the suffix to append to the dependency's version in its package.json
         file
-    :param bool verify_scripts: if ``True``, raise an exception if dangerous scripts are present in
-        the ``package.json`` file and would have been executed by ``npm pack`` if ``ignore-scripts``
-        was set to ``false``
-    :param ChecksumInfo checksum_info: if not ``None``, the checksum of the downloaded artifact
-        will be verified.
+    :param is_git: the dependency is a git dependency
+    :param checksum_info: if not None, the checksum of the downloaded artifact will be verified
     :raise InvalidChecksum: if checksum cannot be verified
     :raise FileAccessError: if a file is not found
     :raise UnsupportedFeature: if Cachito does not support a dependency
     """
-    # These are the scripts that should not be present if verify_scripts is True
-    dangerous_scripts = {"prepare", "prepack"}
     with tempfile.TemporaryDirectory(prefix="cachito-") as temp_dir:
-        dep_archive = _fetch_external_dep(dep_identifier, temp_dir)
+        dep_archive = _fetch_external_dep(dep_identifier, is_git, temp_dir)
         if checksum_info:
             try:
                 verify_checksum(dep_archive, checksum_info)
@@ -587,21 +587,6 @@ def upload_non_registry_dependency(
                         )
                         continue
 
-                    if verify_scripts:
-                        log.info(
-                            "Checking for dangerous scripts in the package.json of %s",
-                            dep_identifier,
-                        )
-                        scripts = package_json.get("scripts", {})
-                        if dangerous_scripts & scripts.keys():
-                            msg = (
-                                f"The dependency {dep_identifier} is not supported because Cachito "
-                                "cannot execute the following required scripts of Git "
-                                f"dependencies: {', '.join(sorted(dangerous_scripts))}"
-                            )
-                            log.error(msg)
-                            raise UnsupportedFeature(msg)
-
                     # Modify the version in the package.json file
                     new_version = f"{package_json['version']}{version_suffix}"
                     log.debug(
@@ -620,8 +605,37 @@ def upload_non_registry_dependency(
         nexus.upload_asset_only_component(repo_name, "npm", modified_dep_archive)
 
 
-def _fetch_external_dep(dep_identifier: str, temp_dir: str) -> str:
-    """Fetch an external (git or https) JS dependency."""
+def _fetch_external_dep(dep_identifier: str, is_git: bool, temp_dir: str) -> str:
+    """Fetch an external (git or https) JS dependency.
+
+    If the dependency is a git dependency, raise an exception if dangerous scripts are present in
+    the package.json file.
+
+    A "dangerous" script is one that needs to be executed in order to ensure that the package
+    content is correct. We can avoid executing them, but by not executing them we would run the risk
+    of serving incorrect content to the users.
+    """
+    log.info("Downloading the npm dependency %s to be uploaded to Nexus", dep_identifier)
+
+    if is_git:
+        archive_path = _clone_git_dep(dep_identifier)
+        _check_dangerous_scripts(dep_identifier, archive_path)
+
+        shutil.unpack_archive(archive_path, temp_dir)
+        repo_path = os.path.join(temp_dir, "app")
+        # Use npm pack on the unpacked repo directory to apply npm's file exclusion logic.
+        # By packing a directory (rather than an archive), we ensure npm will use the DirFetcher,
+        # which uses npm-packlist to figure out what belongs in the final packed tarball.
+        # https://github.com/npm/pacote/blob/18e760f5c438155c1b8af8aa1ffbead874732058/lib/dir.js#L82
+        # https://github.com/npm/npm-packlist/blob/main/lib/index.js
+        # In fact, GitFetcher simply clones the repo, does a bit of preparation (npm install) and
+        # then delegates to DirFetcher. By using DirFetcher directly, we avoid the npm install.
+        # The purpose of npm install is to install the dependencies that may be needed for the
+        # "dangerous" scripts, which we're not going to execute anyway.
+        npm_pack_args = ["npm", "pack", f"file:{repo_path}"]
+    else:
+        npm_pack_args = ["npm", "pack", dep_identifier]
+
     env = {
         # This is set since the home directory must be determined by the HOME environment
         # variable or by looking at the /etc/passwd file. The latter does not always work
@@ -637,8 +651,6 @@ def _fetch_external_dep(dep_identifier: str, temp_dir: str) -> str:
         "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=yes",
     }
     run_params = {"env": env, "cwd": temp_dir}
-    npm_pack_args = ["npm", "pack", dep_identifier]
-    log.info("Downloading the npm dependency %s to be uploaded to Nexus", dep_identifier)
     # An example of the command's stdout:
     #   "reactivex-rxjs-6.5.5.tgz\n"
     stdout = run_cmd(
@@ -646,6 +658,64 @@ def _fetch_external_dep(dep_identifier: str, temp_dir: str) -> str:
     )
     dep_archive = os.path.join(temp_dir, stdout.strip())
     return dep_archive
+
+
+def _clone_git_dep(dep_identifier: str) -> Path:
+    """Clone a git dependency, create a tar archive from it and return the archive's path.
+
+    The content of the git repo is at app/* in the archive.
+    """
+    npm_style_repo_url, commit = dep_identifier.rsplit("#", 1)
+    for repo_url in _get_clonable_urls(npm_style_repo_url):
+        log.debug("Cloning %s", repo_url)
+        repo = Git(repo_url, commit)
+        try:
+            # https://docs.npmjs.com/cli/v9/commands/npm-install
+            #   If the repository makes use of submodules, those submodules will be cloned as well
+            repo.fetch_source(gitsubmodule=True)
+        except RepositoryAccessError:
+            # We can't log any details here (RepositoryAccessError has none),
+            # but fetch_source will have logged them already
+            log.warning("Failed to clone %s", repo_url)
+            continue
+
+        return repo.sources_dir.archive_path
+
+    raise RepositoryAccessError(f"Failed to clone {dep_identifier}")
+
+
+def _get_clonable_urls(npm_style_repo_url: str) -> list[str]:
+    # npm shorthands for specific git servers
+    if npm_style_repo_url.startswith(("github:", "gitlab:", "bitbucket:")):
+        host, _, path = npm_style_repo_url.partition(":")
+        domain = "org" if host == "bitbucket" else "com"
+        npm_style_repo_url = f"git+ssh://git@{host}.{domain}/{path}.git"
+
+    git_url = npm_style_repo_url.removeprefix("git+")
+    if git_url.startswith("ssh://"):
+        # npm tries https first before falling back to ssh
+        # https://github.com/npm/pacote/blob/18e760f5c438155c1b8af8aa1ffbead874732058/lib/git.js#L280
+        return [f"https://{git_url.removeprefix('ssh://')}", git_url]
+    else:
+        return [git_url]
+
+
+def _check_dangerous_scripts(dep_identifier: str, archive_path: Path) -> None:
+    log.info("Checking for dangerous scripts in the package.json of %s", dep_identifier)
+
+    with tarfile.open(archive_path) as archive:
+        _, package_json = _load_package_json(dep_identifier, archive)
+
+    scripts = package_json.get("scripts", {})
+    dangerous_scripts = {"prepare", "prepack"}
+    if dangerous_scripts & scripts.keys():
+        msg = (
+            f"The dependency {dep_identifier} is not supported because Cachito "
+            "cannot execute the following required scripts of Git "
+            f"dependencies: {', '.join(sorted(dangerous_scripts))}"
+        )
+        log.error(msg)
+        raise UnsupportedFeature(msg)
 
 
 @dataclass(frozen=True)
@@ -742,7 +812,7 @@ def process_non_registry_dependency(js_dep):
         "gitlab:",
     }
     http_prefixes = {"http://", "https://"}
-    verify_scripts = False
+    is_git = False
     checksum_info = None
     if any(js_dep.source.startswith(prefix) for prefix in git_prefixes):
         try:
@@ -757,10 +827,7 @@ def process_non_registry_dependency(js_dep):
         # When the dependency is uploaded to the Nexus hosted repository, it will be in the format
         # of `<version>-gitcommit-<commit hash>`
         version_suffix = f"-external-gitcommit-{commit_hash}"
-        # Dangerous scripts might be required to be executed by `npm pack` since this is a Git
-        # dependency. If those scripts are present, Cachito will fail the request since it will not
-        # execute those scripts when packing the dependency.
-        verify_scripts = True
+        is_git = True
     elif any(js_dep.source.startswith(prefix) for prefix in http_prefixes):
         if not js_dep.integrity:
             msg = (
@@ -781,7 +848,7 @@ def process_non_registry_dependency(js_dep):
 
     component_info = get_npm_component_info_from_nexus(js_dep.name, f"*{version_suffix}")
     if not component_info:
-        upload_non_registry_dependency(js_dep.source, version_suffix, verify_scripts, checksum_info)
+        upload_non_registry_dependency(js_dep.source, version_suffix, is_git, checksum_info)
         component_info = get_npm_component_info_from_nexus(
             js_dep.name, f"*{version_suffix}", max_attempts=5
         )
