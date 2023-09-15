@@ -50,9 +50,9 @@ flask-login==0.6.2 \
     --hash=sha256:1ef79843f5eddd0f143c2cd994c1b05ac83c0401dc6234c143495af9a939613f \
     --hash=sha256:c0a7baa9fdc448cdd3dd6f0939df72eec5177b2f7abe6cb82fc934d29caac9c3
     # via -r requirements-web.in
-flask-migrate==4.0.4 \
-    --hash=sha256:73293d40b10ac17736e715b377e7b7bde474cb8105165d77474df4c3619b10b3 \
-    --hash=sha256:77580f27ab39bc68be4906a43c56d7674b45075bc4f883b1d0b985db5164d58f
+flask-migrate==4.0.5 \
+    --hash=sha256:613a2df703998e78716cace68cd83972960834424457f5b67f56e74fff950aef \
+    --hash=sha256:d3f437a8b5f3849d1bb1b60e1b818efc564c66e3fefe90b62e5db08db295e1b1
     # via -r requirements-web.in
 flask-sqlalchemy==3.0.5 \
     --hash=sha256:c5765e58ca145401b52106c0f46178569243c5da25556be2c231ecc60867c5b1 \
