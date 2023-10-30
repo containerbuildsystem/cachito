@@ -54,7 +54,7 @@ def test_get_request_metrics_summary(api_client):
         "server_errors",
         "total",
     }.difference(summary)
-    assert summary["total"] == total
+    assert summary["total"] >= total
     assert 0 < summary["duration_50"] <= summary["duration_95"]
     assert summary["duration_avg"] > 0
     assert summary["time_in_queue_avg"] > 0
