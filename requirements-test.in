@@ -2,7 +2,6 @@ jsonschema
 pytest
 pytest-asyncio
 pytest-cov
-pytest-opentelemetry
 pyyaml
 opentelemetry-sdk
 opentelemetry-instrumentation-celery
