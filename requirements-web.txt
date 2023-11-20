@@ -58,9 +58,9 @@ flask==2.2.5 \
     #   flask-migrate
     #   flask-sqlalchemy
     #   prometheus-flask-exporter
-flask-login==0.6.2 \
-    --hash=sha256:1ef79843f5eddd0f143c2cd994c1b05ac83c0401dc6234c143495af9a939613f \
-    --hash=sha256:c0a7baa9fdc448cdd3dd6f0939df72eec5177b2f7abe6cb82fc934d29caac9c3
+flask-login==0.6.3 \
+    --hash=sha256:5e23d14a607ef12806c699590b89d0f0e0d67baeec599d75947bf9c147330333 \
+    --hash=sha256:849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d
     # via -r requirements-web.in
 flask-migrate==4.0.5 \
     --hash=sha256:613a2df703998e78716cace68cd83972960834424457f5b67f56e74fff950aef \
@@ -208,9 +208,9 @@ jinja2==3.1.2 \
     --hash=sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852 \
     --hash=sha256:6088930bfe239f0e6710546ab9c19c9ef35e29792895fed6e6e31a023a182a61
     # via flask
-jsonschema==4.19.1 \
-    --hash=sha256:cd5f1f9ed9444e554b38ba003af06c0a8c2868131e56bfbef0550fb450c0330e \
-    --hash=sha256:ec84cc37cfa703ef7cd4928db24f9cb31428a5d0fa77747b8b51a847458e0bbf
+jsonschema==4.20.0 \
+    --hash=sha256:4f614fd46d8d61258610998997743ec5492a648b33cf478c1ddc23ed4598a5fa \
+    --hash=sha256:ed6231f0429ecf966f5bc8dfef245998220549cbbcf140f913b7464c52c3b6b3
     # via connexion
 jsonschema-specifications==2023.6.1 \
     --hash=sha256:3d2b82663aff01815f744bb5c7887e2121a63399b49b104a3c96145474d091d7 \
@@ -281,17 +281,17 @@ opentelemetry-api==1.20.0 \
     #   opentelemetry-instrumentation-sqlalchemy
     #   opentelemetry-instrumentation-wsgi
     #   opentelemetry-sdk
-opentelemetry-exporter-jaeger==1.20.0 \
-    --hash=sha256:1cad383034e3f8fb7d2bf8e01c033c9594023d76658127417be84baa0817f106 \
-    --hash=sha256:1ebd756063f8ee72f8d8ecad427f7ec53ed59aee50c69baef58a8e6aa55d59a2
+opentelemetry-exporter-jaeger==1.21.0 \
+    --hash=sha256:3d645eff7e31461d917be5c6635803ad7913cbb7662feed014ba2fe6e005b209 \
+    --hash=sha256:e5650af9d09adad35add56b93d9856bd410644d25b0b5b87e6111467b9877dc2
     # via -r requirements-web.in
-opentelemetry-exporter-jaeger-proto-grpc==1.20.0 \
-    --hash=sha256:3e0c7a511d267e4f9efffe07893365f26ad6568617b036f6462882051014d4af \
-    --hash=sha256:98f7973edc0edd6c44d34338e93d7329776a4a2de8b9e8b5038dc11dd2dd4299
+opentelemetry-exporter-jaeger-proto-grpc==1.21.0 \
+    --hash=sha256:359ceb15b72e798881b4b7b2afdcbc189aef3a0508944856ac70d74968574ed7 \
+    --hash=sha256:cf8ec4761c56d611e7bfb9538d4d85ea6a67cd1548f12deff83afaa5c447816e
     # via opentelemetry-exporter-jaeger
-opentelemetry-exporter-jaeger-thrift==1.20.0 \
-    --hash=sha256:781045dbbce3094772426259fac4602269ddd7934f7767145997ea13f82d67e2 \
-    --hash=sha256:ab8416584535f93e3a087eecd6edec534361748763a9f8b609bbd0b44f3d73f9
+opentelemetry-exporter-jaeger-thrift==1.21.0 \
+    --hash=sha256:41119bc7e5602cec83dd7d7060f061ecbc91de231272e8f515b07ef9a4b6e41c \
+    --hash=sha256:4364b8dfa6965707c72c43d85942b1491982b7d44f0123d593513e8bedafa9e2
     # via opentelemetry-exporter-jaeger
 opentelemetry-exporter-otlp-proto-common==1.20.0 \
     --hash=sha256:dd63209b40702636ab6ae76a06b401b646ad7b008a906ecb41222d4af24fbdef \
@@ -377,9 +377,9 @@ prometheus-client==0.14.1 \
     --hash=sha256:522fded625282822a89e2773452f42df14b5a8e84a86433e3f8a189c1d54dc01 \
     --hash=sha256:5459c427624961076277fdc6dc50540e2bacb98eebde99886e59ec55ed92093a
     # via prometheus-flask-exporter
-prometheus-flask-exporter==0.22.4 \
-    --hash=sha256:959b69f1e740b6736ea53fe5f28dc2ab6229b2ebeade6582b3dbb5d74c7d58e4 \
-    --hash=sha256:e130179c26d5a9b903c12c0d8826127ae491b04b298cae0b92b98677dcf2c06f
+prometheus-flask-exporter==0.23.0 \
+    --hash=sha256:7a026b4fdd54ebeddb77589333efe3a1ec43c7c717468825b0b3e9b6c33f7e9e \
+    --hash=sha256:e4e6beb1b8e1e164da6d70fe1edefc95ef184f113b5047f66f4b7262233da9c0
     # via -r requirements-web.in
 protobuf==3.20.3 \
     --hash=sha256:03038ac1cfbc41aa21f6afcbcd357281d7521b4157926f30ebecc8d4ea59dcb7 \
