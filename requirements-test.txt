@@ -9,7 +9,6 @@ attrs==23.1.0 \
     --hash=sha256:6279836d581513a26f1bf235f9acd333bc9115683f14f7e8fae46c98fc50e015
     # via
     #   jsonschema
-    #   pytest
     #   referencing
 backoff==2.2.1 \
     --hash=sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba \
@@ -152,9 +151,9 @@ iniconfig==1.1.1 \
     --hash=sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3 \
     --hash=sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32
     # via pytest
-jsonschema==4.19.1 \
-    --hash=sha256:cd5f1f9ed9444e554b38ba003af06c0a8c2868131e56bfbef0550fb450c0330e \
-    --hash=sha256:ec84cc37cfa703ef7cd4928db24f9cb31428a5d0fa77747b8b51a847458e0bbf
+jsonschema==4.20.0 \
+    --hash=sha256:4f614fd46d8d61258610998997743ec5492a648b33cf478c1ddc23ed4598a5fa \
+    --hash=sha256:ed6231f0429ecf966f5bc8dfef245998220549cbbcf140f913b7464c52c3b6b3
     # via -r requirements-test.in
 jsonschema-specifications==2023.6.1 \
     --hash=sha256:3d2b82663aff01815f744bb5c7887e2121a63399b49b104a3c96145474d091d7 \
@@ -172,17 +171,17 @@ opentelemetry-api==1.20.0 \
     #   opentelemetry-instrumentation-requests
     #   opentelemetry-instrumentation-sqlalchemy
     #   opentelemetry-sdk
-opentelemetry-exporter-jaeger==1.20.0 \
-    --hash=sha256:1cad383034e3f8fb7d2bf8e01c033c9594023d76658127417be84baa0817f106 \
-    --hash=sha256:1ebd756063f8ee72f8d8ecad427f7ec53ed59aee50c69baef58a8e6aa55d59a2
+opentelemetry-exporter-jaeger==1.21.0 \
+    --hash=sha256:3d645eff7e31461d917be5c6635803ad7913cbb7662feed014ba2fe6e005b209 \
+    --hash=sha256:e5650af9d09adad35add56b93d9856bd410644d25b0b5b87e6111467b9877dc2
     # via -r requirements-test.in
-opentelemetry-exporter-jaeger-proto-grpc==1.20.0 \
-    --hash=sha256:3e0c7a511d267e4f9efffe07893365f26ad6568617b036f6462882051014d4af \
-    --hash=sha256:98f7973edc0edd6c44d34338e93d7329776a4a2de8b9e8b5038dc11dd2dd4299
+opentelemetry-exporter-jaeger-proto-grpc==1.21.0 \
+    --hash=sha256:359ceb15b72e798881b4b7b2afdcbc189aef3a0508944856ac70d74968574ed7 \
+    --hash=sha256:cf8ec4761c56d611e7bfb9538d4d85ea6a67cd1548f12deff83afaa5c447816e
     # via opentelemetry-exporter-jaeger
-opentelemetry-exporter-jaeger-thrift==1.20.0 \
-    --hash=sha256:781045dbbce3094772426259fac4602269ddd7934f7767145997ea13f82d67e2 \
-    --hash=sha256:ab8416584535f93e3a087eecd6edec534361748763a9f8b609bbd0b44f3d73f9
+opentelemetry-exporter-jaeger-thrift==1.21.0 \
+    --hash=sha256:41119bc7e5602cec83dd7d7060f061ecbc91de231272e8f515b07ef9a4b6e41c \
+    --hash=sha256:4364b8dfa6965707c72c43d85942b1491982b7d44f0123d593513e8bedafa9e2
     # via opentelemetry-exporter-jaeger
 opentelemetry-exporter-otlp-proto-common==1.20.0 \
     --hash=sha256:dd63209b40702636ab6ae76a06b401b646ad7b008a906ecb41222d4af24fbdef \
@@ -273,16 +272,16 @@ protobuf==3.20.3 \
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
-pytest==7.2.0 \
-    --hash=sha256:892f933d339f068883b6fd5a459f03d85bfcb355e4981e146d2c7616c21fef71 \
-    --hash=sha256:c4014eb40e10f11f355ad4e3c2fb2c6c6d1919c73f3b5a433de4708202cade59
+pytest==7.4.3 \
+    --hash=sha256:0d009c083ea859a71b76adf7c1d502e4bc170b80a8ef002da5806527b9591fac \
+    --hash=sha256:d989d136982de4e3b29dabcc838ad581c64e8ed52c11fbe86ddebd9da0818cd5
     # via
     #   -r requirements-test.in
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==0.20.1 \
-    --hash=sha256:2c85a835df33fda40fe3973b451e0c194ca11bc2c007eabff90bb3d156fc172b \
-    --hash=sha256:626699de2a747611f3eeb64168b3575f70439b06c3d0206e6ceaeeb956e65519
+pytest-asyncio==0.21.1 \
+    --hash=sha256:40a7eae6dded22c7b604986855ea48400ab15b069ae38116e8c01238e9eeb64d \
+    --hash=sha256:8666c1c8ac02631d7c51ba282e0c69a8a452b211ffedf2599099845da5c5c37b
     # via -r requirements-test.in
 pytest-cov==4.1.0 \
     --hash=sha256:3904b13dfbfec47f003b8e77fd5b589cd11904a21ddf1ab38a64f204d6a10ef6 \
