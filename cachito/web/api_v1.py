@@ -6,7 +6,7 @@ import tempfile
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import date, datetime
-from typing import Any, Dict, List, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union, cast
 
 import flask
 import kombu.exceptions
@@ -15,14 +15,14 @@ from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
 from opentelemetry import trace
-from sqlalchemy import and_, func
+from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import joinedload, load_only
 from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
 
 from cachito.common.checksum import hash_file
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
-from cachito.common.utils import b64encode
+from cachito.common.utils import b64encode, get_repo_name
 from cachito.errors import MessageBrokerError, NoWorkers, RequestErrorOrigin, ValidationError
 from cachito.web import db
 from cachito.web.content_manifest import BASE_ICM, BASE_SBOM
@@ -182,6 +182,68 @@ def get_request(request_id):
         )
 
     return flask.jsonify(json)
+
+
+def get_latest_request() -> flask.Response:
+    """
+    Retrieve the latest request for a repo_name/ref and return as JSON.
+
+    :return: a Flask JSON response
+    :rtype: flask.Response
+    :raise NotFound: if the request is not found
+    """
+    # mypy: Connexion ensures that these cannot be None
+    repo_name = cast(str, flask.request.args.get("repo_name"))
+    ref = cast(str, flask.request.args.get("ref"))
+
+    request = _get_latest_request_by_repo_name_and_ref(repo_name, ref)
+
+    if not request:
+        raise NotFound
+
+    return flask.jsonify(request.to_json(verbose=False))
+
+
+def _get_latest_request_by_repo_name_and_ref(repo_name: str, ref: str) -> Optional[Request]:
+    """
+    Retrieve the latest request for a repo_name/ref.
+
+    The latest request will be the one with the highest id. Initially query the DB
+    for a request with:
+      - matching git ref
+      - repo URL that ends with either repo_name or repo_name.git
+      - the highest request_id
+
+    Failing the initial match on repo_name, fall back to iterating over the result set
+    in-order until a match is found (or not found). This is necessary because we don't
+    know the URL scheme/netloc from the repo_name.
+
+    :param str repo_name: the namespaced repository name
+    :param str ref: the git ref
+    :return: a Request object or None
+    :rtype: Request or None
+    """
+    # The .git ending *may* be present at the end of the Request.repo URL
+    repo_name_with_git = f"{repo_name}.git"
+
+    query = (
+        Request.query.filter(Request.ref == ref)
+        .filter(or_(Request.repo.endswith(repo_name), Request.repo.endswith(repo_name_with_git)))
+        .order_by(desc(Request.id))
+    )
+
+    # Check the first result for a matching repo_name
+    first_request = query.first()
+    if first_request and get_repo_name(first_request.repo) == repo_name:
+        return first_request
+
+    # Fall back to iterating over the full result set, loading it in chunks,
+    # looking for a matching repo_name
+    for request in query.yield_per(10):
+        if get_repo_name(request.repo) == repo_name:
+            return request
+
+    return None
 
 
 def get_request_config_files(request_id):

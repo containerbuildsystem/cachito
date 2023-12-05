@@ -341,6 +341,52 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RequestUpdate'
+  "/requests/latest":
+    get:
+      operationId: cachito.web.api_v1.get_latest_request
+      summary: Get the latest request for a repo/ref
+      description: Return the latest request for a specified repo_name and ref
+      parameters:
+      - name: repo_name
+        required: true
+        in: query
+        description: >
+          The namespaced repository name (namespace/name). The domain and protocol/scheme
+          must not be present in this param (e.g. https://github.com/my-org/my-repo translates
+          to my-org/my-repo).
+        schema:
+          type: string
+          minLength: 3
+          maxLength: 200
+          pattern: '^.*\/[\w.-]+$'
+          example: release-engineering/retrodep
+      - name: ref
+        required: true
+        in: query
+        description: The git reference
+        schema:
+          type: string
+          minLength: 40
+          maxLength: 40
+          pattern: '^[a-f0-9]{40}$'
+          example: bc9767a71ede6e0084ae4a9e01dcd8b81c30b741
+      responses:
+        "200":
+          description: The requested Cachito request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "404":
+          description: The request wasn't found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: The requested resource was not found
   "/requests/{request_id}/configuration-files":
     get:
       operationId: cachito.web.api_v1.get_request_config_files
