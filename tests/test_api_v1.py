@@ -545,6 +545,186 @@ def test_datetime_validator(client, date, is_valid, expected_status):
         assert rv.status_code == expected_status
 
 
+@pytest.fixture()
+def latest_requests_db(app, db, worker_auth_env):
+    """Add requests to the db for testing the requests/latest endpoint."""
+    data = [
+        {
+            "repo": "https://github.com/org/foo.git",
+            "ref": "a50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/org/foo.git",
+            "ref": "b50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/org/foo.git",
+            "ref": "a50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/org/bar.git",
+            "ref": "a50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://otherforge.com/org/baz.git",
+            "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/org/baz.git",
+            "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/org/spam.git",
+            "ref": "d50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/org/spam",
+            "ref": "d50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/org/eggs",
+            "ref": "e50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "https://github.com/git/org/eggs",
+            "ref": "e50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "git@github.com:org/ham",
+            "ref": "f50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+        {
+            "repo": "git@github.com:org/ham",
+            "ref": "f50b93a32df1c9d700e3e80996845bc2e13be848",
+        },
+    ]
+
+    for item in data:
+        with app.test_request_context(environ_base=worker_auth_env):
+            request = Request.from_json(item)
+        db.session.add(request)
+    db.session.commit()
+
+
+@pytest.mark.parametrize(
+    "query_params, latest_request_id",
+    [
+        pytest.param(
+            {"repo_name": "org/foo", "ref": "a50b93a32df1c9d700e3e80996845bc2e13be848"},
+            3,
+            id="same_repo_same_ref",
+        ),
+        pytest.param(
+            {"repo_name": "org/foo", "ref": "b50b93a32df1c9d700e3e80996845bc2e13be848"},
+            2,
+            id="same_repo_different_ref",
+        ),
+        pytest.param(
+            {"repo_name": "org/bar", "ref": "a50b93a32df1c9d700e3e80996845bc2e13be848"},
+            4,
+            id="different_repo_same_ref",
+        ),
+        pytest.param(
+            {"repo_name": "org/baz", "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"},
+            6,
+            id="different_forge",
+        ),
+        pytest.param(
+            {"repo_name": "org/spam", "ref": "d50b93a32df1c9d700e3e80996845bc2e13be848"},
+            8,
+            id="with_or_without_dot_git",
+        ),
+        pytest.param(
+            {"repo_name": "org/eggs", "ref": "e50b93a32df1c9d700e3e80996845bc2e13be848"},
+            9,
+            id="extended_namespace",
+        ),
+        pytest.param(
+            {
+                "repo_name": "git@github.com:org/ham",
+                "ref": "f50b93a32df1c9d700e3e80996845bc2e13be848",
+            },
+            12,
+            id="ssh_repository_name",
+        ),
+    ],
+)
+def test_get_latest_request(client, latest_requests_db, query_params, latest_request_id):
+    rv = client.get("/api/v1/requests/latest", query_string=query_params)
+    assert HTTPStatus.OK == rv.status_code
+    response = rv.json
+    assert latest_request_id == response["id"]
+
+
+@pytest.mark.parametrize(
+    "query_params",
+    [
+        pytest.param(
+            {"repo_name": "org/foo", "ref": "d50b93a32df1c9d700e3e80996845bc2e13be848"},
+            id="ref_not_found",
+        ),
+        pytest.param(
+            {"repo_name": "org/qux", "ref": "a50b93a32df1c9d700e3e80996845bc2e13be848"},
+            id="repo_not_found",
+        ),
+    ],
+)
+def test_get_latest_request_not_found(client, latest_requests_db, query_params):
+    rv = client.get("/api/v1/requests/latest", query_string=query_params)
+    assert HTTPStatus.NOT_FOUND == rv.status_code
+
+
+@pytest.mark.parametrize(
+    "query_params, error_str",
+    [
+        pytest.param(
+            {"repo_name": "org/repo", "ref": "c50b93a32df1c9d700e3e80996845bc2e13be84"},
+            "'c50b93a32df1c9d700e3e80996845bc2e13be84' is too short",
+            id="ref_too_short",
+        ),
+        pytest.param(
+            {"repo_name": "org/repo", "ref": "c50b93a32df1c9d700e3e80996845bc2e13be8489"},
+            "'c50b93a32df1c9d700e3e80996845bc2e13be8489' is too long",
+            id="ref_too_long",
+        ),
+        pytest.param(
+            {"repo_name": "org/repo", "ref": "c50b93a32df1c9d700e*e80996845bc2e13be848"},
+            "'c50b93a32df1c9d700e*e80996845bc2e13be848' does not match",
+            id="ref_invalid_character",
+        ),
+        pytest.param(
+            {
+                "repo_name": "repo_name=org/" + ("repo" * 51),
+                "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848",
+            },
+            "reporepo' is too long",
+            id="repo_name_too_long",
+        ),
+        pytest.param(
+            {"repo_name": "git", "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"},
+            "'git' does not match",
+            id="invalid_repo_name_format",
+        ),
+        pytest.param(
+            {"repo_name": "org/*", "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"},
+            "'org/*' does not match ",
+            id="invalid_repo_name_character",
+        ),
+        pytest.param(
+            {"ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"},
+            "Missing query parameter 'repo_name'",
+            id="missing_repo_name",
+        ),
+        pytest.param({"repo_name": "org/repo"}, "Missing query parameter 'ref'", id="missing_ref"),
+    ],
+)
+def test_get_latest_request_invalid_input(app, client, query_params, error_str):
+    rv = client.get("/api/v1/requests/latest", query_string=query_params)
+    assert rv.status_code == 400
+    response = rv.json
+    assert error_str in response["error"]
+
+
 def test_fetch_paginated_requests(
     app, auth_env, client, db, sample_deps_replace, sample_package, worker_auth_env, tmpdir
 ):
