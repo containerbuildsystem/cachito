@@ -123,6 +123,18 @@ class Client:
 
         return Response({"items": all_items}, None, resp.status_code)
 
+    def fetch_latest_request(self, **params) -> requests.Response:
+        """
+        Fetch the latest request for a repo/ref from the Cachito API.
+
+        :param dict query_params: Request parameters and values (repo_name, ref)
+        :return: Object that contains response from the Cachito API
+        :rtype: Response
+        """
+        resp = self.requests_session.get(f"{self._cachito_api_url}/requests/latest", params=params)
+        resp.raise_for_status()
+        return resp
+
     def fetch_content_manifest(self, request_id):
         """
         Fetch a contest manifest by request_id from the Cachito API.
