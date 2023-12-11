@@ -5,6 +5,7 @@ import flask
 import kombu
 import requests
 import sqlalchemy.exc
+from sqlalchemy import text
 
 from cachito.errors import NoWorkers, WorkerConfigError
 from cachito.web import db
@@ -84,7 +85,7 @@ def database_ok():
     session = db.session()
     try:
         # Does not actually query data, simply returns 1 (if the connection is working)
-        session.execute("SELECT 1")
+        session.execute(text("SELECT 1"))
     except sqlalchemy.exc.OperationalError:
         return False, "database connection failed"
     except sqlalchemy.exc.SQLAlchemyError:
