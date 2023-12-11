@@ -21,6 +21,7 @@ from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
@@ -53,7 +54,7 @@ def healthcheck():
     try:
         start_time = timer()
 
-        db.session.execute("SELECT 1 FROM request LIMIT 0").fetchall()
+        db.session.execute(text("SELECT 1 FROM request LIMIT 0")).fetchall()
 
         end_time = timer() - start_time
         current_app.logger.info("The healthcheck database query took %f seconds", end_time)
