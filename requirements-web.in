@@ -8,3 +8,11 @@ psycopg2-binary
 pydantic
 SQLAlchemy<2.1
 prometheus-flask-exporter
+opentelemetry-instrumentation-flask
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-psycopg2
+opentelemetry-instrumentation-sqlalchemy
+opentelemetry-exporter-jaeger
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk
+opentelemetry-api

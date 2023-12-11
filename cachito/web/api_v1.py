@@ -14,6 +14,7 @@ import pydantic
 from celery import chain
 from flask import stream_with_context
 from flask_login import current_user, login_required
+from opentelemetry import trace
 from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload, load_only
 from werkzeug.exceptions import BadRequest, Forbidden, Gone, InternalServerError, NotFound
@@ -42,6 +43,8 @@ from cachito.web.utils import deep_sort_icm, normalize_end_date, pagination_meta
 from cachito.workers import tasks
 
 api_v1 = flask.Blueprint("api_v1", __name__)
+
+tracer = trace.get_tracer(__name__)
 
 
 class RequestsArgs(pydantic.BaseModel):
@@ -153,6 +156,7 @@ def get_requests():
     return flask.jsonify(response)
 
 
+@tracer.start_as_current_span("get_request")
 def get_request(request_id):
     """
     Retrieve details for the given request.
@@ -231,6 +235,7 @@ def get_request_environment_variables(request_id):
     return flask.jsonify(env_vars_json)
 
 
+@tracer.start_as_current_span("download_archive")
 def download_archive(request_id):
     """
     Download archive of source code.
@@ -311,6 +316,7 @@ def list_packages_and_dependencies(request_id):
 
 
 @login_required
+@tracer.start_as_current_span("create_request")
 def create_request():
     """
     Submit a request to resolve and cache the given source code and its dependencies.
@@ -342,12 +348,25 @@ def create_request():
     cachito_metrics["gauge_state"].labels(state="total").inc()
     cachito_metrics["gauge_state"].labels(state=request.state.state_name).inc()
 
+    ctx = trace.get_current_span().get_span_context()
+    # Format the trace_id to a conventional 32 digit hexadecimal number that can be used
+    # by jaeger or other endpoints for tracing.
+    trace_id = "{trace:032x}".format(trace=ctx.trace_id)
+
+    current_span = trace.get_current_span()
+    current_span.set_attribute("cachito.request.id", request.id)
+
     if current_user.is_authenticated:
         flask.current_app.logger.info(
-            "The user %s submitted request %d", current_user.username, request.id
+            "The user %s submitted request %d; trace_id: %s",
+            current_user.username,
+            request.id,
+            trace_id,
         )
     else:
-        flask.current_app.logger.info("An anonymous user submitted request %d", request.id)
+        flask.current_app.logger.info(
+            "An anonymous user submitted request %d; trace_id: %s", request.id, trace_id
+        )
 
     # Chain tasks
     error_callback = tasks.failed_request_callback.s(request.id)

@@ -6,10 +6,14 @@ from typing import Dict, List, Optional
 
 import celery
 import kombu
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 from cachito.errors import ConfigError
 
 ARCHIVES_VOLUME = os.path.join(tempfile.gettempdir(), "cachito-archives")
+
+RequestsInstrumentor().instrument()
+
 
 app = celery.Celery()
 
@@ -68,6 +72,9 @@ class Config(object):
     cachito_task_log_format = (
         "[%(asctime)s #%(request_id)s %(name)s %(levelname)s %(module)s.%(funcName)s] %(message)s"
     )
+    cachito_jaeger_exporter_endpoint: Optional[str] = ""
+    cachito_jaeger_exporter_port: Optional[int]
+    cachito_otlp_exporter_endpoint: Optional[str] = ""
     include = [
         "cachito.workers.tasks.general",
         "cachito.workers.tasks.gomod",
@@ -140,6 +147,8 @@ class DevelopmentConfig(Config):
     }
     cachito_request_file_logs_dir: Optional[str] = "/var/log/cachito/requests"
     cachito_sources_dir = os.path.join(ARCHIVES_VOLUME, "sources")
+    cachito_jaeger_exporter_endpoint = "jaeger"
+    cachito_jaeger_exporter_port = 6831
 
 
 class TestingConfig(DevelopmentConfig):
@@ -166,6 +175,14 @@ def configure_celery(celery_app):
 
     :param celery.Celery celery: the Celery application instance to configure
     """
+    config = get_config()
+
+    celery_app.config_from_object(config, force=True)
+    logging.getLogger("cachito.workers").setLevel(celery_app.conf.cachito_log_level)
+
+
+def get_config():
+    """Read in the config based on the environment."""
     config = ProductionConfig
     prod_config_file_path = "/etc/cachito/celery.py"
     if os.getenv("CACHITO_DEV", "").lower() == "true":
@@ -190,9 +207,7 @@ def configure_celery(celery_app):
             # The _user_config dictionary will contain the __builtins__ key, which we need to skip
             if not key.startswith("__"):
                 setattr(config, key, value)
-
-    celery_app.config_from_object(config, force=True)
-    logging.getLogger("cachito.workers").setLevel(celery_app.conf.cachito_log_level)
+    return config
 
 
 def validate_celery_config(conf, **kwargs):

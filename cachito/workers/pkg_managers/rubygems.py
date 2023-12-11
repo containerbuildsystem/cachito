@@ -14,6 +14,7 @@ import requests
 from gemlock_parser.gemfile_lock import GemfileLockParser
 from git import Repo
 from git.exc import CheckoutError
+from opentelemetry import trace
 
 from cachito.common.utils import get_repo_name
 from cachito.errors import GitError, NexusError, UnsupportedFeature, ValidationError
@@ -34,6 +35,7 @@ GIT_REF_FORMAT = re.compile(r"^[a-fA-F0-9]{40}$")
 PLATFORMS_RUBY = re.compile(r"^PLATFORMS\n {2}ruby\n\n", re.MULTILINE)
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 @dataclass
@@ -47,6 +49,7 @@ class GemMetadata:
     branch: Optional[str] = None
 
 
+@tracer.start_as_current_span("prepare_nexus_for_rubygems_request")
 def prepare_nexus_for_rubygems_request(rubygems_repo_name):
     """
     Prepare Nexus so that Cachito can stage Rubygems content.
@@ -160,6 +163,7 @@ def _validate_path_dependency_dir(gem, project_root, gemlock_dir):
         raise ValidationError(f"{str(dependency_dir)} is not a subpath of {str(project_root)}")
 
 
+@tracer.start_as_current_span("finalize_nexus_for_rubygems_request")
 def finalize_nexus_for_rubygems_request(rubygems_repo_name, username):
     """
     Configure Nexus so that the request's Rubygems repositories are ready for consumption.
@@ -186,6 +190,7 @@ def finalize_nexus_for_rubygems_request(rubygems_repo_name, username):
     return password
 
 
+@tracer.start_as_current_span("download_dependencies")
 def download_dependencies(request_id, dependencies, package_root, allowed_path_deps: set[str]):
     """
     Download all dependencies from Gemfile.lock with its sources.
@@ -281,6 +286,7 @@ def verify_path_dep_is_allowed(dep: GemMetadata, allowed_path_deps: set[str]):
         )
 
 
+@tracer.start_as_current_span("_download_rubygems_package")
 def _download_rubygems_package(gem, deps_dir, proxy_url, proxy_auth):
     """Download platform independent RubyGem.
 
@@ -306,6 +312,7 @@ def _download_rubygems_package(gem, deps_dir, proxy_url, proxy_auth):
     }
 
 
+@tracer.start_as_current_span("_download_git_package")
 def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_auth):
     """
     Fetch the source for a Ruby package from Git.
@@ -374,6 +381,7 @@ def _get_path_package_info(dep, package_root):
     }
 
 
+@tracer.start_as_current_span("resolve_rubygems")
 def resolve_rubygems(package_root, request):
     """
     Resolve and fetch RubyGems dependencies for the given app source archive.
@@ -425,6 +433,7 @@ def resolve_rubygems(package_root, request):
     }
 
 
+@tracer.start_as_current_span("prepare_git_dependency")
 def prepare_git_dependency(dep):
     """
     Unpack the archive with the downloaded dependency and checkout a specified Git branch.
@@ -465,6 +474,7 @@ def checkout_branch(dep: dict):
         )
 
 
+@tracer.start_as_current_span("_upload_rubygems_package")
 def _upload_rubygems_package(repo_name, artifact_path):
     """
     Upload a RubyGems package to a Nexus repository.
@@ -478,6 +488,7 @@ def _upload_rubygems_package(repo_name, artifact_path):
     nexus.upload_asset_only_component(repo_name, "rubygems", artifact_path, to_nexus_hoster=False)
 
 
+@tracer.start_as_current_span("_push_downloaded_gem")
 def _push_downloaded_gem(dependency, rubygems_repo_name):
     """
     Upload a GEM dependency to the request temporary Nexus repository.

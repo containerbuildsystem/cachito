@@ -7,6 +7,7 @@ from typing import Any, Dict, NamedTuple, Optional
 from urllib.parse import urlparse
 
 import pyarn.lockfile
+from opentelemetry import trace
 
 from cachito.errors import InvalidRepoStructure, InvalidRequestData, NexusError
 from cachito.workers.config import get_worker_config
@@ -16,6 +17,7 @@ from cachito.workers.pkg_managers.general_js import (
     convert_hex_sha_to_npm,
     download_dependencies,
     get_yarn_component_info_from_non_hosted_nexus,
+    is_from_npm_registry,
     process_non_registry_dependency,
     vet_file_dependency,
 )
@@ -28,9 +30,7 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
-
-
-NPM_REGISTRY_CNAMES = ("registry.npmjs.org", "registry.yarnpkg.com")
+tracer = trace.get_tracer(__name__)
 
 
 def get_yarn_proxy_repo_name(request_id):
@@ -91,6 +91,7 @@ class Workspace(NamedTuple):
         return f"file:{self.path.as_posix()}"
 
 
+@tracer.start_as_current_span("_get_yarn_workspaces")
 def _get_yarn_workspaces(package_path: Path, package_json: dict[str, Any]) -> list[Workspace]:
     workspaces_attr = package_json.get("workspaces", [])
     if isinstance(workspaces_attr, list):
@@ -135,6 +136,7 @@ def _get_yarn_workspaces(package_path: Path, package_json: dict[str, Any]) -> li
     return workspaces
 
 
+@tracer.start_as_current_span("_find_non_dev_deps")
 def _find_non_dev_deps(
     main_package_json: dict[str, Any], yarn_lock: dict[str, Any], workspaces: list[Workspace]
 ) -> set[str]:
@@ -164,6 +166,7 @@ def _find_non_dev_deps(
     return non_dev_deps
 
 
+@tracer.start_as_current_span("_add_reachable_deps")
 def _add_reachable_deps(
     dep_id: str, expanded_yarn_lock: dict[str, Any], visited_deps: set[str]
 ) -> None:
@@ -204,6 +207,7 @@ def _split_yarn_lock_key(dep_identifer):
     return dep_identifer.replace('"', "").split(", ")
 
 
+@tracer.start_as_current_span("_get_deps")
 def _get_deps(
     package_json: dict[str, Any],
     yarn_lock: dict[str, Any],
@@ -245,7 +249,7 @@ def _get_deps(
 
         nexus_replacement = None
 
-        non_registry = not package.url or not _is_from_npm_registry(package.url)
+        non_registry = not package.url or not is_from_npm_registry(package.url)
         if non_registry:
             if source.startswith("file:"):
                 js_dep = JSDependency(package.name, source)
@@ -284,16 +288,6 @@ def _get_deps(
         }
 
     return list(deps_by_id.values()), nexus_replacements
-
-
-def _is_from_npm_registry(pkg_url):
-    """
-    Check if package is from the NPM registry (which is also the Yarn registry).
-
-    :param str pkg_url: url of the package, in yarn.lock this is always the "resolved" key
-    :rtype: bool
-    """
-    return urlparse(pkg_url).hostname in NPM_REGISTRY_CNAMES
 
 
 def _pick_strongest_crypto_hash(integrity_value):
@@ -356,6 +350,7 @@ def _convert_to_nexus_hosted(dep_name, dep_source, dep_info):
     }
 
 
+@tracer.start_as_current_span("_get_package_and_deps")
 def _get_package_and_deps(package_path: Path) -> dict[str, Any]:
     """
     Get the main package and dependencies based on the lock file.
@@ -552,6 +547,7 @@ def _replace_deps_in_yarn_lock(yarn_lock, nexus_replacements):
     return yarn_lock_new
 
 
+@tracer.start_as_current_span("resolve_yarn")
 def resolve_yarn(app_source_path, request, skip_deps=None):
     """
     Resolve and fetch npm dependencies for the given app source archive.

@@ -51,6 +51,10 @@ correct_vendor:
         replaces: null
         type: go-package
         version: null
+      - name: internal/coverage/rtcov
+        replaces: null
+        type: go-package
+        version: null
       - name: internal/cpu
         replaces: null
         type: go-package
@@ -246,6 +250,10 @@ correct_vendor:
           type: go-package
           version: null
         - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
           replaces: null
           type: go-package
           version: null
@@ -436,6 +444,7 @@ correct_vendor:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -511,6 +520,9 @@ correct_vendor:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu
@@ -662,6 +674,10 @@ no_vendor:
         type: go-package
         version: null
       - name: internal/bytealg
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/coverage/rtcov
         replaces: null
         type: go-package
         version: null
@@ -863,6 +879,10 @@ no_vendor:
           replaces: null
           type: go-package
           version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
         - name: internal/cpu
           replaces: null
           type: go-package
@@ -1050,6 +1070,7 @@ no_vendor:
     - "pkg:golang/golang.org%2Fx%2Ftext%2Flanguage@v0.0.0-20170915032832-14c0d48ead0c"
     - "pkg:golang/internal%2Fabi"
     - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
     - "pkg:golang/internal%2Fcpu"
     - "pkg:golang/internal%2Ffmtsort"
     - "pkg:golang/internal%2Fgoarch"
@@ -1125,6 +1146,9 @@ no_vendor:
   - name: internal/bytealg
     type: library
     purl: pkg:golang/internal%2Fbytealg
+  - name: internal/coverage/rtcov
+    type: library
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
   - name: internal/cpu
     type: library
     purl: pkg:golang/internal%2Fcpu

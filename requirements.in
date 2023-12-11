@@ -12,8 +12,15 @@ gemlock_parser @ https://github.com/containerbuildsystem/gemlock-parser/archive/
 kombu>=5 # A celery dependency but it's directly imported
 packaging
 pyarn
+pydantic
 pyyaml
 requests_kerberos>=0.13.0
 requests
 semver
 setuptools
+opentelemetry-sdk
+opentelemetry-instrumentation-celery
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-sqlalchemy
+opentelemetry-exporter-jaeger
+opentelemetry-exporter-otlp-proto-http

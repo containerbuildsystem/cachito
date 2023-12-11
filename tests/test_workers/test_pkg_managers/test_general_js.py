@@ -3,6 +3,7 @@ import io
 import json
 import os
 import os.path
+import re
 import tarfile
 import textwrap
 from pathlib import Path
@@ -16,12 +17,25 @@ from cachito.errors import (
     InvalidFileFormat,
     InvalidRepoStructure,
     NexusError,
+    RepositoryAccessError,
     UnsupportedFeature,
 )
 from cachito.workers import nexus
 from cachito.workers.config import get_worker_config
 from cachito.workers.errors import NexusScriptError
 from cachito.workers.pkg_managers import general, general_js, npm
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://registry.yarnpkg.com/chai/-/chai-4.2.0.tgz", True),
+        ("https://example.org/fecha.tar.gz", False),
+        ("https://registry.npmjs.org/chai/-/chai-4.2.0.tgz", True),
+    ],
+)
+def test_is_from_npm_registry(url, expected):
+    assert general_js.is_from_npm_registry(url) == expected
 
 
 @pytest.mark.parametrize("nexus_ca_cert_exists", (True, False))
@@ -241,7 +255,6 @@ def test_download_dependencies_skip_deps(
     ],
 )
 def test_parse_dependency(data):
-
     proxy_repo_url = "http://nexus:8081/repository/1/"
 
     result = general_js.parse_dependency(proxy_repo_url, data["dep"])
@@ -251,7 +264,6 @@ def test_parse_dependency(data):
 @mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
 @pytest.mark.asyncio
 async def test_get_dependecies(mock_async_download_binary_file):
-
     mock_async_download_binary_file.side_effect = lambda s, u, d, tarball_name, auth: tarball_name
 
     deps_list = [
@@ -326,8 +338,7 @@ def test_find_package_json(tmpdir):
         archive.addfile(tarfile.TarInfo("package/index.html"))
         archive.addfile(tarfile.TarInfo("package2/package.json"))
         archive.addfile(tarfile.TarInfo("package/package.json"))
-
-    assert general_js.find_package_json(tarfile_path) == "package2/package.json"
+        assert general_js._find_package_json(archive) == "package2/package.json"
 
 
 def test_find_package_json_no_package_json(tmpdir):
@@ -338,7 +349,7 @@ def test_find_package_json_no_package_json(tmpdir):
             tarfile.TarInfo("package/tom_hanks_quotes.html"),
             b"<p>Life is like a box of chocolates. You never know what you're gonna get.<p>",
         )
-    assert general_js.find_package_json(tarfile_path) is None
+        assert general_js._find_package_json(archive) is None
 
 
 @pytest.mark.parametrize("custom_ca_path", (None, "./registry-ca.pem"))
@@ -355,7 +366,7 @@ def test_generate_npmrc_content(custom_ca_path):
         registry=http://nexus:8081/repository/cachito-npm-1/
         email=noreply@domain.local
         always-auth=true
-        _auth=YWRtaW46YWRtaW4xMjM=
+        //nexus:8081/repository/cachito-npm-1/:_auth=YWRtaW46YWRtaW4xMjM=
         fetch-retries=5
         fetch-retry-factor=2
         strict-ssl=true
@@ -473,11 +484,10 @@ def test_prepare_nexus_for_js_request_failed(mock_exec_script):
 @mock.patch("cachito.workers.pkg_managers.general_js.verify_checksum")
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_asset_only_component")
 @pytest.mark.parametrize("checksum_info", [None, general.ChecksumInfo("sha512", "12345")])
 def test_upload_non_registry_dependency(
-    mock_ua, mock_fpj, mock_run_cmd, mock_td, mock_vc, checksum_info, tmpdir
+    mock_ua, mock_run_cmd, mock_td, mock_vc, checksum_info, tmpdir
 ):
     tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
     with tarfile.open(tarfile_path, "x:gz") as archive:
@@ -493,7 +503,6 @@ def test_upload_non_registry_dependency(
 
     mock_td.return_value.__enter__.return_value = str(tmpdir)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = "package/package.json"
 
     general_js.upload_non_registry_dependency(
         "star-wars@5.0.0", "-the-empire-strikes-back", checksum_info=checksum_info
@@ -509,7 +518,6 @@ def test_upload_non_registry_dependency(
         assert new_version == "5.0.0-the-empire-strikes-back"
 
     mock_run_cmd.assert_called_once_with(["npm", "pack", "star-wars@5.0.0"], mock.ANY, mock.ANY)
-    mock_fpj.assert_called_once_with(tarfile_path)
     mock_ua.assert_called_once_with("cachito-js-hosted", "npm", modified_tarfile_path)
     if not checksum_info:
         mock_vc.assert_not_called()
@@ -518,56 +526,72 @@ def test_upload_non_registry_dependency(
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.general_js.Git")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 def test_upload_non_registry_dependency_invalid_prepare_script(
-    mock_fpj, mock_run_cmd, mock_td, tmpdir
-):
-    tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
+    mock_run_cmd: mock.Mock, mock_git: mock.Mock, mock_td: mock.Mock, tmp_path: Path
+) -> None:
+    dep_identifier = "github:LucasArts/StarWars#abcdef1234"
+    tarfile_path = tmp_path / "cachito-sources/github.com/LucasArts/StarWars/abcdef1234.git"
+    tarfile_path.parent.mkdir(parents=True)
+
     with tarfile.open(tarfile_path, "x:gz") as archive:
-        tar_info = tarfile.TarInfo("package/fair-warning.html")
+        tar_info = tarfile.TarInfo("app/fair-warning.html")
         content = "<h1>Je vais te détruire monsieur Solo!</h1>".encode("utf-8")
         tar_info.size = len(content)
         archive.addfile(tar_info, io.BytesIO(content))
 
-        tar_info = tarfile.TarInfo("package/package.json")
+        tar_info = tarfile.TarInfo("app/package.json")
         content = b'{"version": "5.0.0", "scripts": {"prepare": "rm -rf /"}}'
         tar_info.size = len(content)
         archive.addfile(tar_info, io.BytesIO(content))
 
-    mock_td.return_value.__enter__.return_value = str(tmpdir)
-    mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = "package/package.json"
+    mock_repo = mock_git.return_value
+    mock_repo.sources_dir.archive_path = tarfile_path
+
+    mock_td.return_value.__enter__.return_value = str(tmp_path)
 
     expected = (
-        "The dependency star-wars@5.0.0 is not supported because Cachito cannot execute the "
+        f"The dependency {dep_identifier} is not supported because Cachito cannot execute the "
         "following required scripts of Git dependencies: prepack, prepare"
     )
-    with pytest.raises(UnsupportedFeature, match=expected):
+    with pytest.raises(UnsupportedFeature, match=re.escape(expected)):
         general_js.upload_non_registry_dependency(
-            "star-wars@5.0.0", "-the-empire-strikes-back", verify_scripts=True
+            dep_identifier, "-the-empire-strikes-back", is_git=True
         )
+
+    mock_git.assert_called_once_with("https://git@github.com/LucasArts/StarWars.git", "abcdef1234")
+    mock_repo.fetch_source.assert_called_once_with(gitsubmodule=True)
+    # shouldn't call npm pack
+    mock_run_cmd.assert_not_called()
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
-def test_upload_non_registry_dependency_no_package_json(mock_fpj, mock_run_cmd, mock_td, tmpdir):
-    mock_td.return_value.__enter__.return_value = str(tmpdir)
+def test_upload_non_registry_dependency_no_package_json(
+    mock_run_cmd: mock.Mock,
+    mock_td: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_td.return_value.__enter__.return_value = str(tmp_path)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = None
 
-    expected = "The dependency star-wars@5.0.0 does not have a package.json file"
+    with tarfile.open(tmp_path / "star-wars-5.0.0.tgz", "w:gz") as archive:
+        archive.addfile(
+            tarfile.TarInfo("package/script.txt"),
+            io.BytesIO(b"No. *I* am your father."),
+        )
+
+    expected = "Could not process dependency star-wars@5.0.0: no package.json file"
     with pytest.raises(FileAccessError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
-@mock.patch("cachito.workers.pkg_managers.general_js.find_package_json")
 @mock.patch("cachito.workers.pkg_managers.general_js.nexus.upload_asset_only_component")
 def test_upload_non_registry_dependency_invalid_package_json(
-    mock_ua, mock_fpj, mock_run_cmd, mock_td, tmpdir
+    mock_ua, mock_run_cmd, mock_td, tmpdir
 ):
     tarfile_path = os.path.join(tmpdir, "star-wars-5.0.0.tgz")
     with tarfile.open(tarfile_path, "x:gz") as archive:
@@ -578,11 +602,134 @@ def test_upload_non_registry_dependency_invalid_package_json(
 
     mock_td.return_value.__enter__.return_value = str(tmpdir)
     mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
-    mock_fpj.return_value = "package/package.json"
 
-    expected = "The dependency star-wars@5.0.0 does not have a valid package.json file"
+    expected = "Could not process dependency star-wars@5.0.0: package.json is not valid JSON"
     with pytest.raises(FileAccessError, match=expected):
         general_js.upload_non_registry_dependency("star-wars@5.0.0", "-the-empire-strikes-back")
+
+
+@mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
+def test_fetch_external_dep_https(
+    mock_run_cmd: mock.Mock, mock_temp_dir: mock.Mock, tmp_path: Path
+) -> None:
+    dep_identifier = "https://github.com/LucasArts/StarWars/5.0.0.tar.gz"
+
+    mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
+    mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
+
+    archive_path = general_js._fetch_external_dep(
+        dep_identifier, is_git=False, temp_dir=str(tmp_path)
+    )
+    assert archive_path == str(tmp_path / "star-wars-5.0.0.tgz")
+
+    mock_run_cmd.assert_called_once_with(["npm", "pack", dep_identifier], mock.ANY, mock.ANY)
+
+
+@mock.patch("cachito.workers.pkg_managers.general_js.tempfile.TemporaryDirectory")
+@mock.patch("cachito.workers.pkg_managers.general_js.Git")
+@mock.patch("cachito.workers.pkg_managers.general_js.run_cmd")
+@pytest.mark.parametrize("both_clones_fail", [False, True])
+def test_fetch_external_dep_git(
+    mock_run_cmd: mock.Mock,
+    mock_git: mock.Mock,
+    mock_temp_dir: mock.Mock,
+    both_clones_fail: bool,
+    tmp_path: Path,
+) -> None:
+    dep_identifier = "github:LucasArts/StarWars#abcdef1234"
+
+    mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
+
+    tarfile_path = tmp_path / "cachito-sources/github.com/LucasArts/StarWars/abcdef1234.tar.gz"
+    tarfile_path.parent.mkdir(parents=True)
+
+    https_repo = mock.Mock()
+    ssh_repo = mock.Mock()
+    mock_git.side_effect = [https_repo, ssh_repo]
+
+    https_repo.fetch_source.side_effect = RepositoryAccessError()
+    if both_clones_fail:
+        ssh_repo.fetch_source.side_effect = RepositoryAccessError()
+
+    https_repo.sources_dir.archive_path = tarfile_path
+    ssh_repo.sources_dir.archive_path = tarfile_path
+
+    with tarfile.open(tarfile_path, "x:gz") as archive:
+        tar_info = tarfile.TarInfo("app/package.json")
+        content = b'{"version": "5.0.0"}'
+        tar_info.size = len(content)
+        archive.addfile(tar_info, io.BytesIO(content))
+
+    mock_run_cmd.return_value = "star-wars-5.0.0.tgz\n"
+
+    if both_clones_fail:
+        with pytest.raises(RepositoryAccessError):
+            general_js._fetch_external_dep(dep_identifier, is_git=True, temp_dir=str(tmp_path))
+    else:
+        archive_path = general_js._fetch_external_dep(
+            dep_identifier, is_git=True, temp_dir=str(tmp_path)
+        )
+        assert archive_path == str(tmp_path / "star-wars-5.0.0.tgz")
+        # test that we extracted the archive into the expected location
+        assert tmp_path.joinpath("app/package.json").read_text() == '{"version": "5.0.0"}'
+        mock_run_cmd.assert_called_once_with(
+            ["npm", "pack", f"file:{tmp_path / 'app'}"], mock.ANY, mock.ANY
+        )
+
+    mock_git.assert_has_calls(
+        [
+            mock.call("https://git@github.com/LucasArts/StarWars.git", "abcdef1234"),
+            mock.call("ssh://git@github.com/LucasArts/StarWars.git", "abcdef1234"),
+        ]
+    )
+    https_repo.fetch_source.assert_called_once_with(gitsubmodule=True)
+    ssh_repo.fetch_source.assert_called_once_with(gitsubmodule=True)
+
+
+@pytest.mark.parametrize(
+    "npm_git_url, expect_git_urls",
+    [
+        (
+            "github:LucasArts/StarWars",
+            [
+                "https://git@github.com/LucasArts/StarWars.git",
+                "ssh://git@github.com/LucasArts/StarWars.git",
+            ],
+        ),
+        (
+            "gitlab:LucasArts/StarWars",
+            [
+                "https://git@gitlab.com/LucasArts/StarWars.git",
+                "ssh://git@gitlab.com/LucasArts/StarWars.git",
+            ],
+        ),
+        (
+            "bitbucket:LucasArts/StarWars",
+            [
+                "https://git@bitbucket.org/LucasArts/StarWars.git",
+                "ssh://git@bitbucket.org/LucasArts/StarWars.git",
+            ],
+        ),
+        (
+            "git+ssh://git@github.com/LucasArts/StarWars.git",
+            [
+                "https://git@github.com/LucasArts/StarWars.git",
+                "ssh://git@github.com/LucasArts/StarWars.git",
+            ],
+        ),
+        (
+            "git+https://git@github.com/LucasArts/StarWars.git",
+            ["https://git@github.com/LucasArts/StarWars.git"],
+        ),
+        (
+            "git://git@github.com/LucasArts/StarWars.git",
+            ["git://git@github.com/LucasArts/StarWars.git"],
+        ),
+    ],
+)
+def test_get_clonable_urls(npm_git_url: str, expect_git_urls: list[str]) -> None:
+    assert general_js._get_clonable_urls(npm_git_url) == expect_git_urls
 
 
 @pytest.mark.parametrize("exists", (False, True))

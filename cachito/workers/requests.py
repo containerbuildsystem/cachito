@@ -3,7 +3,7 @@ import logging
 
 import requests
 import requests_kerberos
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 
 from cachito.workers.config import get_worker_config
 

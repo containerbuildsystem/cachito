@@ -3,6 +3,8 @@ import os
 import random
 import shutil
 import string
+import subprocess
+from contextlib import ExitStack
 from pathlib import Path
 from textwrap import dedent
 
@@ -116,24 +118,18 @@ class TestCachedPackage:
 class TestCachedDependencies:
     """Test class for cached dependencies."""
 
-    def teardown_method(self, method):
-        """Delete branch with commit in the main repo."""
-        if (not self.use_local) and self.cloned_main_repo:
-            delete_branch_and_check(
-                self.branch, self.cloned_main_repo, self.main_repo_origin, [self.main_repo_commit]
-            )
-
     @pytest.mark.parametrize(
-        "env_name",
+        "env_name,private",
         [
-            "pip_cached_deps",
-            "gomod_cached_deps",
-            "npm_cached_deps",
-            "yarn_cached_deps",
-            "rubygems_cached_deps",
+            ("pip_cached_deps", False),
+            ("gomod_cached_deps", False),
+            ("npm_cached_deps", False),
+            ("yarn_cached_deps", False),
+            ("rubygems_cached_deps", False),
+            ("private_repo_gomod", True),
         ],
     )
-    def test_package_with_cached_deps(self, test_env, tmpdir, env_name):
+    def test_package_with_cached_deps(self, test_env, tmpdir, env_name: str, private: bool):
         """
         Test a package with cached dependency.
 
@@ -160,11 +156,26 @@ class TestCachedDependencies:
         * The source tarball includes the dependencies and dev dependencies source code
         under deps/<pkg_manager> directory.
         * The content manifest is successfully generated and contains correct content.
+        * Sbom is successfully generated and contains correct content.
         """
-        env_data = utils.load_test_data("cached_dependencies.yaml")[env_name]
-        self.use_local = env_data["use_local"]
-        if self.use_local:
-            pytest.skip("The local repos are not supported for the test")
+        if private:
+            test_data = utils.load_test_data("private_repo_packages.yaml")
+            deps_test_envs = test_data["private_repo_test_envs"]
+        else:
+            test_data = utils.load_test_data("cached_dependencies.yaml")
+            deps_test_envs = test_data["cached_deps_test_envs"]
+        job_name = str(os.environ.get("JOB_NAME"))
+        is_supported_env = any(x in job_name for x in deps_test_envs)
+        if not is_supported_env:
+            pytest.skip(
+                (
+                    "This test is only executed in environments that"
+                    "have been configured with the credentials needed"
+                    "for write access to repositories."
+                )
+            )
+
+        env_data = test_data[env_name]
 
         self.git_user = test_env["git_user"]
         self.git_email = test_env["git_email"]
@@ -186,16 +197,7 @@ class TestCachedDependencies:
                 "user", "email", self.git_email
             ).release()
 
-        # Make changes in dependency repo
-        # We need 2 commits:
-        # 1st for remote source archive dependency
-        # 2nd for VCS dependency
-        new_dep_commits = []
-        for _ in range(2):
-            self.cloned_dep_repo.git.commit(
-                "--allow-empty", m="Commit created in integration test for Cachito"
-            )
-            new_dep_commits.append(self.cloned_dep_repo.head.object.hexsha)
+        new_dep_commits = create_commits(self.cloned_dep_repo)
 
         # Push changes
         self.dep_repo_origin = self.cloned_dep_repo.remote(name="origin")
@@ -214,7 +216,7 @@ class TestCachedDependencies:
             ).release()
 
         replace_rules = update_main_repo(
-            env_data, main_repo_dir, tmpdir, new_dep_commits, self.cloned_dep_repo
+            env_data, main_repo_dir, tmpdir, new_dep_commits, self.cloned_dep_repo, private
         )
 
         diff_files = self.cloned_main_repo.git.diff(None, name_only=True)
@@ -224,12 +226,12 @@ class TestCachedDependencies:
         self.main_repo_commit = self.cloned_main_repo.head.object.hexsha
         self.main_repo_origin = self.cloned_main_repo.remote(name="origin")
         self.main_repo_origin.push(self.branch)
-        main_version = get_pseudo_version(self.cloned_main_repo, self.main_repo_commit)
+        main_version = utils.get_pseudo_version(self.cloned_main_repo, self.main_repo_commit)
 
         replace_rules.update(
             {"MAIN_REPO_COMMIT": self.main_repo_commit, "MAIN_VERSION": main_version}
         )
-        update_expected_data(env_data, replace_rules)
+        utils.update_expected_data(env_data, replace_rules)
 
         # Create new Cachito request
         client = utils.Client(
@@ -240,24 +242,34 @@ class TestCachedDependencies:
             "ref": self.main_repo_commit,
             "pkg_managers": env_data["pkg_managers"],
         }
-        try:
+
+        with ExitStack() as defer:
+            defer.callback(
+                delete_branch_and_check,
+                self.branch,
+                self.cloned_dep_repo,
+                self.dep_repo_origin,
+                new_dep_commits,
+            )
+            defer.callback(
+                delete_branch_and_check,
+                self.branch,
+                self.cloned_main_repo,
+                self.main_repo_origin,
+                [self.main_repo_commit],
+            )
             initial_response = client.create_new_request(payload=payload)
             completed_response = client.wait_for_complete_request(initial_response)
-        finally:
-            # Delete the dependency branch
-            delete_branch_and_check(
-                self.branch, self.cloned_dep_repo, self.dep_repo_origin, new_dep_commits
-            )
 
-        assert_successful_cached_request(completed_response, env_data, tmpdir, client)
+        assert_successful_cached_request(completed_response, env_data, tmpdir, client, private)
         # Create new Cachito request to test cached deps
         initial_response = client.create_new_request(payload=payload)
         completed_response = client.wait_for_complete_request(initial_response)
 
-        assert_successful_cached_request(completed_response, env_data, tmpdir, client)
+        assert_successful_cached_request(completed_response, env_data, tmpdir, client, private)
 
 
-def assert_successful_cached_request(response, env_data, tmpdir, client):
+def assert_successful_cached_request(response, env_data, tmpdir, client, private=False):
     """
     Provide all verifications for Cachito request with cached dependencies.
 
@@ -265,6 +277,7 @@ def assert_successful_cached_request(response, env_data, tmpdir, client):
     :param dict env_data: the test data
     :param tmpdir: the path to directory with testing files
     :param Client client: the Cachito client to make requests
+    :param bool private: a boolean that denotes if the test is using private repo
     """
     utils.assert_properly_completed_response(response)
 
@@ -273,20 +286,17 @@ def assert_successful_cached_request(response, env_data, tmpdir, client):
     utils.assert_elements_from_response(response_data, expected_response_data)
 
     client.download_and_extract_archive(response.id, tmpdir)
-    source_path = tmpdir.join(f"download_{str(response.id)}")
-    expected_files = env_data["expected_files"]
-    utils.assert_expected_files(source_path, expected_files, tmpdir)
+    source_path = tmpdir / f"download_{str(response.id)}"
 
-    purl = env_data["content_manifest"]["purl"]
-    deps_purls = []
-    source_purls = []
-    if "dep_purls" in env_data["content_manifest"]:
-        deps_purls = [{"purl": x} for x in env_data["content_manifest"]["dep_purls"]]
-    if "source_purls" in env_data["content_manifest"]:
-        source_purls = [{"purl": x} for x in env_data["content_manifest"]["source_purls"]]
+    if not private:
+        expected_files = env_data["expected_files"]
+        utils.assert_expected_files(source_path, expected_files, tmpdir)
 
-    image_contents = [{"dependencies": deps_purls, "purl": purl, "sources": source_purls}]
+    image_contents = utils.parse_image_contents(env_data.get("content_manifest"))
     utils.assert_content_manifest(client, response.id, image_contents)
+
+    sbom_components = env_data.get("sbom", [])
+    utils.assert_sbom(client, response.id, sbom_components)
 
 
 def clone_repo_in_new_dir(ssh_repo, branch, repo_dir):
@@ -339,82 +349,7 @@ def delete_branch_and_check(branch, repo, remote, commits):
         ), f"Commit {commit} is still in a branch (it shouldn't be there at this point)."
 
 
-def get_pseudo_version(repo, commit):
-    """
-    Get go pseudo version.
-
-    Go pseudo version based on commit and commit time.
-    :param repo: git repo with go project
-    :param str commit: git commit
-    :return: string with pseudo version
-    :rtype: str
-    """
-    commit_time = repo.git.show("-s", "--format=%cd", "--date=format:%Y%m%d%H%M%S", commit)
-    return f"v0.0.0-{commit_time}-{commit[:12]}"
-
-
-def replace_by_rules(orig_str, replace_rules):
-    """
-    Replace elements in string according to replace rules.
-
-    :param str orig_str: original string
-    :param dict replace_rules: replace rules as a dictionary:
-        {<ORIG_PART>: <NEW_PART>}
-    :return: string with replaced values
-    :rtype: str
-    """
-    if orig_str is None:
-        return None
-    res_string = orig_str
-    for s, r in replace_rules.items():
-        if s in res_string:
-            res_string = res_string.replace(s, r)
-    return res_string
-
-
-def update_expected_data(env_data, replace_rules):
-    """
-    Update expected data for the test in place.
-
-    Change commits and hashes in:
-    * expected_files
-    * response_expectations
-    * all purls in env_data
-    :param dict env_data: the test data
-    :param dict replace_rules: replace rules as a dictionary:
-        {<ORIG_PART>: <NEW_PART>}
-    """
-    new_expected_files = {}
-    if env_data["expected_files"]:
-        for file, url in env_data["expected_files"].items():
-            new_expected_files[replace_by_rules(file, replace_rules)] = replace_by_rules(
-                url, replace_rules
-            )
-    env_data["expected_files"] = new_expected_files
-    for pkg_idx in range(len(env_data["response_expectations"]["packages"])):
-        env_data["response_expectations"]["packages"][pkg_idx]["version"] = replace_by_rules(
-            env_data["response_expectations"]["packages"][pkg_idx]["version"], replace_rules
-        )
-
-        deps = env_data["response_expectations"]["packages"][pkg_idx]["dependencies"]
-        for dep_idx, dep in enumerate(deps):
-            deps[dep_idx]["version"] = replace_by_rules(dep["version"], replace_rules)
-
-    for i, dep in enumerate(env_data["response_expectations"]["dependencies"]):
-        env_data["response_expectations"]["dependencies"][i]["version"] = replace_by_rules(
-            dep["version"], replace_rules
-        )
-
-    env_data["content_manifest"]["purl"] = replace_by_rules(
-        env_data["content_manifest"]["purl"], replace_rules
-    )
-    for i, p in enumerate(env_data["content_manifest"]["dep_purls"]):
-        env_data["content_manifest"]["dep_purls"][i] = replace_by_rules(p, replace_rules)
-    for i, p in enumerate(env_data["content_manifest"]["source_purls"]):
-        env_data["content_manifest"]["source_purls"][i] = replace_by_rules(p, replace_rules)
-
-
-def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
+def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo, private):
     """
     Update main repo with new dependencies and return replacement rules.
 
@@ -443,6 +378,7 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
     :param tmpdir: temporary test directory
     :param list new_dep_commits: list of 2 dep commits
     :param dep_repo: Dependency git repository
+    :param bool private: a boolean that denotes if the test is using private repo
     :return: replacement rules
     :rtype: dict
     """
@@ -470,13 +406,19 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
             "FIRST_DEP_HASH": dep_hash,
         }
     elif env_data["pkg_managers"] == ["gomod"]:
-        dep_version = get_pseudo_version(dep_repo, new_dep_commits[0])
+        dep_version = utils.get_pseudo_version(dep_repo, new_dep_commits[0])
 
         with open(os.path.join(repo_dir, "go.mod"), "a") as f:
             go_dep = env_data["https_dep_repo"][len("https://") :]
             if go_dep.endswith(".git"):
                 go_dep = go_dep[: -len(".git")]
             f.write(f"require {go_dep} {dep_version} \n")
+
+        result_tidy = subprocess.run(
+            ["go", "get", f"{go_dep}@{dep_version}"], cwd=repo_dir, text=True, capture_output=True
+        )
+        assert result_tidy.returncode == 0, f"The command failed with: {result_tidy.stderr}"
+
         return {
             "FIRST_DEP_COMMIT": new_dep_commits[0],
             "DEP_VERSION": dep_version,
@@ -529,3 +471,22 @@ def update_main_repo(env_data, repo_dir, tmpdir, new_dep_commits, dep_repo):
             "FIRST_DEP_COMMIT": new_dep_commits[0],
         }
     return None
+
+
+def create_commits(repo):
+    """
+    Add 2 new commits in repo.
+
+    * 1st for remote source archive dependency
+    * 2nd for VCS dependency
+
+    :param repo: repository
+    :return: list of 2 commits
+    :rtype: list
+    """
+    new_dep_commits = []
+    for _ in range(2):
+        repo.git.commit("--allow-empty", m="Commit created in integration test for Cachito")
+        new_dep_commits.append(repo.head.object.hexsha)
+
+    return new_dep_commits

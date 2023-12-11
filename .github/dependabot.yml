@@ -11,4 +11,9 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    groups:
+      patch-and-minor-updates:
+        update-types:
+          - "patch"
+          - "minor"

@@ -495,3 +495,115 @@ def assert_properly_completed_response(completed_response):
         f"#{completed_response.id}: response state_reason is "
         f"{completed_response.data['state_reason']}"
     )
+
+
+def parse_image_contents(content_manifest_data):
+    """
+    Parse expected content manifest data.
+
+    :param content_manifest_data: dictionary containing purl, dep_purls and source_purls
+    :return: list of dicts with dependencies, purl and sources
+    """
+    image_contents = []
+    for pkg in content_manifest_data:
+        purl = pkg.get("purl", "")
+        dep_purls = []
+        source_purls = []
+        if "dep_purls" in pkg:
+            dep_purls = [{"purl": x} for x in pkg["dep_purls"]]
+        if "source_purls" in pkg:
+            source_purls = [{"purl": x} for x in pkg["source_purls"]]
+        if purl:
+            image_contents.append(
+                {"dependencies": dep_purls, "purl": purl, "sources": source_purls}
+            )
+
+    return image_contents
+
+
+def get_pseudo_version(repo, commit):
+    """
+    Get go pseudo version.
+
+    Go pseudo version based on commit and commit time.
+    :param repo: git repo with go project
+    :param str commit: git commit
+    :return: string with pseudo version
+    :rtype: str
+    """
+    commit_time = repo.git.show("-s", "--format=%cd", "--date=format:%Y%m%d%H%M%S", commit)
+    return f"v0.0.0-{commit_time}-{commit[:12]}"
+
+
+def replace_by_rules(orig_str, replace_rules):
+    """
+    Replace elements in string according to replace rules.
+
+    :param str orig_str: original string
+    :param dict replace_rules: replace rules as a dictionary:
+        {<ORIG_PART>: <NEW_PART>}
+    :return: string with replaced values
+    :rtype: str
+    """
+    if orig_str is None:
+        return None
+    res_string = orig_str
+    for s, r in replace_rules.items():
+        if s in res_string:
+            res_string = res_string.replace(s, r)
+    return res_string
+
+
+def update_expected_data(env_data, replace_rules):
+    """
+    Update expected data for the test in place.
+
+    Change commits and hashes in:
+    * expected_files
+    * response_expectations
+    * all purls in env_data
+    :param dict env_data: the test data
+    :param dict replace_rules: replace rules as a dictionary:
+        {<ORIG_PART>: <NEW_PART>}
+    """
+    new_expected_files = {}
+    if env_data.get("expected_files"):
+        for file, url in env_data["expected_files"].items():
+            new_expected_files[replace_by_rules(file, replace_rules)] = replace_by_rules(
+                url, replace_rules
+            )
+    env_data["expected_files"] = new_expected_files
+    for pkg_idx in range(len(env_data["response_expectations"]["packages"])):
+        env_data["response_expectations"]["packages"][pkg_idx]["version"] = replace_by_rules(
+            env_data["response_expectations"]["packages"][pkg_idx]["version"], replace_rules
+        )
+
+        deps = env_data["response_expectations"]["packages"][pkg_idx]["dependencies"]
+        for dep_idx, dep in enumerate(deps):
+            deps[dep_idx]["version"] = replace_by_rules(dep["version"], replace_rules)
+
+    for i, dep in enumerate(env_data["response_expectations"]["dependencies"]):
+        env_data["response_expectations"]["dependencies"][i]["version"] = replace_by_rules(
+            dep["version"], replace_rules
+        )
+
+    for i, pkg in enumerate(env_data["content_manifest"]):
+        purl = pkg.get("purl", "")
+        env_data["content_manifest"][i]["purl"] = replace_by_rules(purl, replace_rules)
+
+        dep_purls = pkg.get("dep_purls", "")
+        for j, purl in enumerate(dep_purls):
+            env_data["content_manifest"][i]["dep_purls"][j] = replace_by_rules(purl, replace_rules)
+
+        source_purls = pkg.get("source_purls", "")
+        for j, purl in enumerate(source_purls):
+            env_data["content_manifest"][i]["source_purls"][j] = replace_by_rules(
+                purl, replace_rules
+            )
+
+    if env_data.get("sbom", False):
+        for i, pkg in enumerate(env_data["sbom"]):
+            if env_data["sbom"][i].get("version", False):
+                env_data["sbom"][i]["version"] = replace_by_rules(pkg["version"], replace_rules)
+            if env_data["sbom"][i].get("purl", False):
+                env_data["sbom"][i]["purl"] = replace_by_rules(pkg["purl"], replace_rules)

@@ -1,7 +1,7 @@
 version: '3'
 services:
   db:
-    image: postgres:9.6
+    image: docker.io/postgres:9.6
     environment:
       POSTGRES_USER: cachito
       POSTGRES_PASSWORD: cachito
@@ -9,7 +9,7 @@ services:
       POSTGRES_INITDB_ARGS: "--auth='ident' --auth='trust'"
 
   rabbitmq:
-    image: rabbitmq:3.9-management
+    image: docker.io/rabbitmq:3.11-management
     volumes:
       - ./docker/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:z
     ports:
@@ -17,7 +17,7 @@ services:
       - 8081:15672
 
   athens:
-    image: gomods/athens:v0.11.0
+    image: docker.io/gomods/athens:v0.12.1
     environment:
       ATHENS_DISK_STORAGE_ROOT: /var/lib/athens
       ATHENS_STORAGE_TYPE: disk
@@ -29,10 +29,13 @@ services:
       - 3000:3000
 
   nexus:
-    image: sonatype/nexus3:3.45.0
+    image: docker.io/sonatype/nexus3:3.45.0
     environment:
       # Enable the script API. This is disabled by default in 3.21.2+.
-      INSTALL4J_ADD_VM_PARAMS: -Dnexus.scripts.allowCreation=true -Dstorage.diskCache.diskFreeSpaceLimit=512
+      INSTALL4J_ADD_VM_PARAMS: >
+        -Dnexus.scripts.allowCreation=true
+        -Dstorage.diskCache.diskFreeSpaceLimit=512
+        -Djava.util.prefs.userRoot=/nexus-data/javaprefs
     volumes:
       # Use a local volume for nexus data (podman compatibility)
       - ./tmp/nexus-data:/nexus-data:z
@@ -110,6 +113,16 @@ services:
       - cachito-api
       - nexus
       - rabbitmq
+
+  jaeger:
+    image: docker.io/jaegertracing/all-in-one:latest
+    ports:
+      # OTLP/gprc -  used by pytest to forward integration test traces to jaeger.
+      - "4317:4317"
+      # Development environment is hard-coded to send to port 6831.
+      - "6831:6831/udp"
+      # Web UI is available at port 16686
+      - "16686:16686"
 
 volumes:
   cachito-archives:

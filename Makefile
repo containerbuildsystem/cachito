@@ -69,6 +69,9 @@ test-suite test-tox:
 
 test-all: test-unit test-integration
 
+mock-unittest-data:
+	hack/mock-unittest-data/gomod.sh
+
 pip-compile:
 	venv/bin/pip install -U pip-tools
 	# --allow-unsafe: we use pkg_resources (provided by setuptools) as a runtime dependency

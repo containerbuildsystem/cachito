@@ -18,10 +18,16 @@ setup(
         "kombu>=5",  # A celery dependency but it's directly imported
         "packaging",
         "pyarn",
+        "pydantic",
         "requests_kerberos",
         "requests",
         "semver",
         "setuptools",
+        "opentelemetry-sdk",
+        "opentelemetry-instrumentation-celery",
+        "opentelemetry-instrumentation-requests",
+        "opentelemetry-exporter-jaeger",
+        "opentelemetry-exporter-otlp-proto-http",
     ],
     extras_require={
         "web": [
@@ -31,7 +37,7 @@ setup(
             "Flask-SQLAlchemy",
             "psycopg2-binary",
             "prometheus-flask-exporter",
-            "pydantic",
+            "opentelemetry-instrumentation-sqlalchemy",
         ],
     },
     entry_points={
@@ -51,6 +57,6 @@ setup(
     use_scm_version={
         "version_scheme": "post-release",
     },
-    setup_requires=['setuptools_scm'],
+    setup_requires=["setuptools_scm"],
     scripts=["bin/pip_find_builddeps.py"],
 )

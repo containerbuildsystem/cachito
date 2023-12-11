@@ -94,18 +94,22 @@ def _fail_if_parent_replacement_not_included(packages_json_data: PackagesData) -
                         f"Could not find parent Go module for package: {package['name']}"
                     )
 
+                dep_name = dependency["name"]
                 dep_normpath = os.path.normpath(
                     os.path.join(pkg_module_name, dependency["version"])
                 )
-                dep_module_name = match_parent_module(dep_normpath, modules)
-                if dep_module_name is None:
+                dep_module_name = match_parent_module(dep_name, modules) or match_parent_module(
+                    dep_normpath, modules
+                )
+
+                if not dep_module_name:
                     raise InvalidRequestData(
                         (
-                            f"Could not find a Go module in this request containing {dep_normpath} "
-                            f"while processing dependency {dependency} of package "
-                            f"{package['name']}. Please tell Cachito to process the module which "
-                            f"contains the dependency. Perhaps the parent module of "
-                            f"{pkg_module_name}?"
+                            f"Could not find a Go module in this request containing "
+                            f"{dependency['name']} while processing dependency {dependency} "
+                            f"of package {package['name']}. Please tell Cachito to process "
+                            f"the module which contains the dependency. Perhaps the parent "
+                            f"module of {pkg_module_name}?"
                         )
                     )
 

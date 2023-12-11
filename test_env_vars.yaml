@@ -42,10 +42,13 @@ get:
     - ["crypto/cipher", "go-package", null]
     - ["crypto/des", "go-package", null]
     - ["crypto/dsa", "go-package", null]
+    - ["crypto/ecdh", "go-package", null]
     - ["crypto/ecdsa", "go-package", null]
     - ["crypto/ed25519", "go-package", null]
     - ["crypto/elliptic", "go-package", null]
     - ["crypto/hmac", "go-package", null]
+    - ["crypto/internal/alias", "go-package", null]
+    - ["crypto/internal/bigmod", "go-package", null]
     - ["crypto/internal/boring", "go-package", null]
     - ["crypto/internal/boring/bbig", "go-package", null]
     - ["crypto/internal/boring/sig", "go-package", null]
@@ -54,7 +57,6 @@ get:
     - ["crypto/internal/nistec", "go-package", null]
     - ["crypto/internal/nistec/fiat", "go-package", null]
     - ["crypto/internal/randutil", "go-package", null]
-    - ["crypto/internal/subtle", "go-package", null]
     - ["crypto/md5", "go-package", null]
     - ["crypto/rand", "go-package", null]
     - ["crypto/rc4", "go-package", null]
@@ -81,8 +83,6 @@ get:
     - ["github.com/Masterminds/semver", "gomod", "v1.4.2"]
     - ["github.com/Masterminds/semver", "go-package", "v1.4.2"]
     - ["github.com/kr/pretty", "gomod", "v0.1.0"]
-    - ["github.com/kr/pty", "gomod", "v1.1.1"]
-    - ["github.com/kr/text", "gomod", "v0.1.0"]
     - ["github.com/op/go-logging", "gomod", "v0.0.0-20160315200505-970db520ece7"]
     - ["github.com/op/go-logging", "go-package", "v0.0.0-20160315200505-970db520ece7"]
     - ["github.com/pkg/errors", "gomod", "v0.8.1"]
@@ -98,10 +98,6 @@ get:
     - ["go/parser", "go-package", null]
     - ["go/scanner", "go-package", null]
     - ["go/token", "go-package", null]
-    - ["golang.org/x/crypto", "gomod", "v0.0.0-20190308221718-c2843e01d9a2"]
-    - ["golang.org/x/net", "gomod", "v0.0.0-20190311183353-d8887717615a"]
-    - ["golang.org/x/sys", "gomod", "v0.0.0-20190215142949-d0b11bdaac8a"]
-    - ["golang.org/x/text", "gomod", "v0.3.0"]
     - ["golang.org/x/tools", "gomod", "v0.0.0-20190325161752-5a8dccf5b48a"]
     - ["golang.org/x/tools/go/vcs", "go-package", "v0.0.0-20190325161752-5a8dccf5b48a"]
     - ["gopkg.in/check.v1", "gomod", "v1.0.0-20180628173108-788fd7840127"]
@@ -112,6 +108,7 @@ get:
     - ["internal/abi", "go-package", null]
     - ["internal/buildcfg", "go-package", null]
     - ["internal/bytealg", "go-package", null]
+    - ["internal/coverage/rtcov", "go-package", null]
     - ["internal/cpu", "go-package", null]
     - ["internal/fmtsort", "go-package", null]
     - ["internal/goarch", "go-package", null]
@@ -184,11 +181,9 @@ get:
     - ["vendor/golang.org/x/crypto/chacha20poly1305", "go-package", null]
     - ["vendor/golang.org/x/crypto/cryptobyte", "go-package", null]
     - ["vendor/golang.org/x/crypto/cryptobyte/asn1", "go-package", null]
-    - ["vendor/golang.org/x/crypto/curve25519", "go-package", null]
-    - ["vendor/golang.org/x/crypto/curve25519/internal/field", "go-package", null]
     - ["vendor/golang.org/x/crypto/hkdf", "go-package", null]
+    - ["vendor/golang.org/x/crypto/internal/alias", "go-package", null]
     - ["vendor/golang.org/x/crypto/internal/poly1305", "go-package", null]
-    - ["vendor/golang.org/x/crypto/internal/subtle", "go-package", null]
     - ["vendor/golang.org/x/net/dns/dnsmessage", "go-package", null]
     - ["vendor/golang.org/x/net/http/httpguts", "go-package", null]
     - ["vendor/golang.org/x/net/http/httpproxy", "go-package", null]
@@ -247,7 +242,7 @@ various_packages:
   gomod:
     repo: https://github.com/cachito-testing/cachito-gomod-test
     ref: 1827221d787cbd1e979b339cfbbf59728eddf0d4
-    dependencies_count: 49
+    dependencies_count: 50
 # test repo user
 git_user: "Arthur Dent"
 # test repo user email

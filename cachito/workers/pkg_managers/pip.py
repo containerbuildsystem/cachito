@@ -18,6 +18,7 @@ from typing import Optional
 import defusedxml.ElementTree
 import pkg_resources
 import requests
+from opentelemetry import trace
 from packaging.utils import canonicalize_name, canonicalize_version
 
 from cachito.errors import (
@@ -44,6 +45,7 @@ from cachito.workers.pkg_managers.general import (
 from cachito.workers.scm import Git
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 DEFAULT_BUILD_REQUIREMENTS_FILE = "requirements-build.txt"
 DEFAULT_REQUIREMENTS_FILE = "requirements.txt"
@@ -60,6 +62,7 @@ SDIST_FILE_EXTENSIONS = [ZIP_FILE_EXT, ".tar.gz", ".tar.bz2", ".tar.xz", COMPRES
 SDIST_EXT_PATTERN = r"|".join(map(re.escape, SDIST_FILE_EXTENSIONS))
 
 
+@tracer.start_as_current_span("get_pip_metadata")
 def get_pip_metadata(package_dir):
     """
     Attempt to get the name and version of a Pip package.
@@ -87,7 +90,8 @@ def get_pip_metadata(package_dir):
         version = setup_py.get_version()
     else:
         log.warning(
-            "No setup.py found in directory %s, package is likely not pip compatible", package_dir
+            "No setup.py found in directory %s, package is likely not pip compatible",
+            package_dir,
         )
 
     if not (name and version) and setup_cfg.exists():
@@ -1216,6 +1220,7 @@ class PipRequirement:
         return hashes, reduced_options
 
 
+@tracer.start_as_current_span("prepare_nexus_for_pip_request")
 def prepare_nexus_for_pip_request(pip_repo_name, raw_repo_name):
     """
     Prepare Nexus so that Cachito can stage Python content.
@@ -1236,6 +1241,7 @@ def prepare_nexus_for_pip_request(pip_repo_name, raw_repo_name):
         raise NexusError("Failed to prepare Nexus for Cachito to stage Python content")
 
 
+@tracer.start_as_current_span("finalize_nexus_for_pip_request")
 def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
     """
     Configure Nexus so that the request's Pyhton repositories are ready for consumption.
@@ -1264,6 +1270,7 @@ def finalize_nexus_for_pip_request(pip_repo_name, raw_repo_name, username):
     return password
 
 
+@tracer.start_as_current_span("download_dependencies")
 def download_dependencies(request_id, requirements_file):
     """
     Download sdists (source distributions) of all dependencies in a requirements.txt file.
@@ -1519,6 +1526,7 @@ def _validate_provided_hashes(requirements, require_hashes):
                 raise ValidationError(msg)
 
 
+@tracer.start_as_current_span("_download_pypi_package")
 def _download_pypi_package(requirement, pip_deps_dir, pypi_proxy_url, pypi_proxy_auth):
     """
     Download the sdist (source distribution) of a PyPI package.
@@ -1654,6 +1662,7 @@ def _sdist_preference(sdist_pkg):
     return yanked_pref, filetype_pref
 
 
+@tracer.start_as_current_span("_download_vcs_package")
 def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_auth):
     """
     Fetch the source for a Python package from VCS (only git is supported).
@@ -1704,6 +1713,7 @@ def _download_vcs_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_au
     }
 
 
+@tracer.start_as_current_span("_download_url_package")
 def _download_url_package(requirement, pip_deps_dir, pip_raw_repo_name, nexus_auth, trusted_hosts):
     """
     Download a Python package from a URL.
@@ -1809,6 +1819,7 @@ def _verify_hash(download_path, hashes):
     raise InvalidChecksum(msg)
 
 
+@tracer.start_as_current_span("upload_pypi_package")
 def upload_pypi_package(repo_name, artifact_path):
     """
     Upload a PyPI Python package to a Nexus repository.
@@ -1916,6 +1927,7 @@ def get_index_url(nexus_pypi_hosted_repo_url, username, password):
     return simple_api_url
 
 
+@tracer.start_as_current_span("_download_from_requirement_files")
 def _download_from_requirement_files(request_id, files):
     """
     Download dependencies listed in the requirement files.
@@ -1949,6 +1961,7 @@ def _default_requirement_file_list(path, devel=False):
     return [str(req)] if req.is_file() else []
 
 
+@tracer.start_as_current_span("_push_downloaded_requirement")
 def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
     """
     Upload a dependency to the proper Request temporary Nexus repository.
@@ -2020,6 +2033,7 @@ def _push_downloaded_requirement(requirement, pip_repo_name, raw_repo_name):
     return dep
 
 
+@tracer.start_as_current_span("resolve_pip")
 def resolve_pip(path, request, requirement_files=None, build_requirement_files=None):
     """
     Resolve and fetch pip dependencies for the given app source archive.

@@ -51,6 +51,7 @@ Documents that outgrew this README can be found in the `docs/` drectory.
   * [pip.md](./docs/pip.md) is a guide for using pip with Cachito
   * [using_requests_locally.md](./docs/using_requests_locally.md) explains how to use Cachito
     requests to run builds on your PC
+  * [tracing.md](./docs/tracing.md) documents Cachito's support for OpenTelemetry tracing
 
 ## Coding Standards
 
@@ -410,8 +411,7 @@ Run `cachito db upgrade --help` to get more info about additional arguments cons
 The documentation is generated from the [API specification](cachito/web/static/api_v1.yaml)
 written in the OpenAPI 3.0 format.
 
-It is available on [GitHub Pages](https://release-engineering.github.io/cachito) or Cachito's root
-URL.
+It is available on Cachito's root URL.
 
 ## Configuring Workers
 
@@ -549,6 +549,8 @@ Custom configuration for the Celery workers are listed below:
 * `cachito_subprocess_timeout` - a number (in seconds) to set a timeout for commands executed by
   the `subprocess` module. Default is 3600 seconds. A timeout is always required, and there is no
   way provided by Cachito to disable it. Set a larger number to give the subprocess execution more time.
+* `cachito_otlp_exporter_endpoint` - A valid URL with a port number as necessary to a OTLP/http-compatible
+  endpoint to receive OpenTelemetry trace data. 
 
 To configure the workers to use a Kerberos keytab for authentication, set the `KRB5_CLIENT_KTNAME`
 environment variable to the path of the keytab. Additional Kerberos configuration can be made in
@@ -575,6 +577,8 @@ Custom configuration for the API:
 * `CACHITO_WORKER_USERNAMES` - the list of usernames that are allowed to use the `/requests/<id>`
   PATCH endpoint.
 * `LOGIN_DISABLED` - disables authentication requirements.
+* `CACHITO_OTLP_EXPORTER_ENDPOINT` - A valid URL with a port number as necessary to a OTLP/http-compatible
+  endpoint to receive OpenTelemetry trace data. 
 
 Additionally, to configure the communication with the Cachito Celery workers, create a Python file
 at `/etc/cachito/celery.py`, and set the
@@ -743,12 +747,12 @@ The table below shows the supported package managers and their support level in 
 
 Tool     | Version |
 ---      |---------|
-Go       | 1.19.5  |
-Npm      | 8.19.2  |
-Node     | 18.12.1 |
-Pip      | 22.2.2  |
-Python   | 3.11.1  |
-Git      | 2.39.1  |
+Go       | 1.20.7  |
+Npm      | 9.5.0   |
+Node     | 18.16.1 |
+Pip      | 22.3.1  |
+Python   | 3.11.4  |
+Git      | 2.41.0  |
 Yarn*    | 1.x     |
 Bundler* | 2.x     |
 

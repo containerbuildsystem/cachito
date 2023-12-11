@@ -56,6 +56,8 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://cachito:cachito@db:5432/cachito"
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     LOGIN_DISABLED = True
+    CACHITO_JAEGER_EXPORTER_ENDPOINT = "jaeger"
+    CACHITO_JAEGER_EXPORTER_PORT = 6831
 
 
 class TestingConfig(DevelopmentConfig):
