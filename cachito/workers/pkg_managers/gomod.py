@@ -312,6 +312,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             "GOPROXY": f"{athens_url}|{athens_url}",
             "PATH": os.environ.get("PATH", ""),
             "GOMODCACHE": "{}/pkg/mod".format(temp_dir),
+            "GOTOOLCHAIN": "local",
         }
         if "cgo-disable" in request.get("flags", []):
             env["CGO_ENABLED"] = "0"
