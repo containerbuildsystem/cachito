@@ -541,6 +541,9 @@ paths:
                 GOSUMDB:
                   value: off
                   kind: literal
+                GOTOOLCHAIN:
+                  value: local
+                  kind: literal
         "404":
           description: The request wasn't found
           content:
@@ -1221,6 +1224,9 @@ components:
               kind: path
             GOSUMDB:
               value: off
+              kind: literal
+            GOTOOLCHAIN:
+              value: local
               kind: literal
         state:
           $ref: "#/components/schemas/RequestState"
