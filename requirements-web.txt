@@ -154,9 +154,9 @@ flask-migrate==4.0.5 \
     --hash=sha256:613a2df703998e78716cace68cd83972960834424457f5b67f56e74fff950aef \
     --hash=sha256:d3f437a8b5f3849d1bb1b60e1b818efc564c66e3fefe90b62e5db08db295e1b1
     # via -r requirements-web.in
-flask-sqlalchemy==3.0.5 \
-    --hash=sha256:c5765e58ca145401b52106c0f46178569243c5da25556be2c231ecc60867c5b1 \
-    --hash=sha256:cabb6600ddd819a9f859f36515bb1bd8e7dbf30206cc679d2b081dff9e383283
+flask-sqlalchemy==3.1.1 \
+    --hash=sha256:4ba4be7f419dc72f4efd8802d69974803c37259dd42f3913b0dcf75c9447e0a0 \
+    --hash=sha256:e4b68bb881802dda1a7d878b2fc84c06d1ee57fb40b874d3dc97dabfa36b8312
     # via
     #   -r requirements-web.in
     #   flask-migrate
@@ -824,6 +824,7 @@ typing-extensions==4.9.0 \
     # via
     #   alembic
     #   opentelemetry-sdk
+    #   sqlalchemy
 urllib3==2.1.0 \
     --hash=sha256:55901e917a5896a349ff771be919f8bd99aff50b79fe58fec595eb37bbc56bb3 \
     --hash=sha256:df7aa8afb0148fa78488e7899b2c59b5f4ffcfa82e6c54ccb9dd37c1d7b52d54
