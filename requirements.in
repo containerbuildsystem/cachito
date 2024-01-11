@@ -14,6 +14,7 @@ packaging
 pyarn
 pydantic<2
 pyyaml
+ratelimit
 requests_kerberos>=0.13.0
 requests
 semver
@@ -24,3 +25,4 @@ opentelemetry-instrumentation-requests
 opentelemetry-instrumentation-sqlalchemy
 opentelemetry-exporter-jaeger
 opentelemetry-exporter-otlp-proto-http
+typer
