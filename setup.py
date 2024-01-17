@@ -44,6 +44,7 @@ setup(
         "console_scripts": [
             "cachito=cachito.web.manage:cli",
             "cachito-cleanup=cachito.workers.cleanup_job:main",
+            "cachito-prune-archives=cachito.workers.prune_archives:app",
             "cachito-update-nexus-scripts=cachito.workers.nexus:create_or_update_scripts",
         ]
     },
