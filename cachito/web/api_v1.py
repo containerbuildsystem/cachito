@@ -978,7 +978,7 @@ def get_request_metrics():
                     "id": state.request_id,
                     "final_state": RequestStateMapping(state.state).name,
                     "final_state_reason": state.state_reason,
-                    "finished": state.updated.isoformat(),
+                    "finished": state.updated.isoformat(timespec="microseconds"),
                     "duration": state.duration,
                     "time_in_queue": state.time_in_queue,
                 }
