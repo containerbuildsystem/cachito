@@ -406,12 +406,16 @@ class Request(db.Model):  # type: ignore[name-defined]
         if self.user:
             user = self.user.username
 
+        created = None
+        if self.created is not None:
+            created = self.created.isoformat(timespec="microseconds")
+
         env_vars_json = OrderedDict()
         for env_var in self.environment_variables:
             env_vars_json[env_var.name] = env_var.value
         rv = {
             "id": self.id,
-            "created": None if self.created is None else self.created.isoformat(),
+            "created": created,
             "repo": self.repo,
             "ref": self.ref,
             "pkg_managers": pkg_managers,
@@ -428,7 +432,7 @@ class Request(db.Model):  # type: ignore[name-defined]
             return {
                 "state": RequestStateMapping(state.state).name,
                 "state_reason": state.state_reason,
-                "updated": state.updated.isoformat(),
+                "updated": state.updated.isoformat(timespec="microseconds"),
             }
 
         def _error_to_json(error):
@@ -776,7 +780,7 @@ class RequestError(db.Model):  # type: ignore[name-defined]
             "origin": self.origin,
             "error_type": self.error_type,
             "message": self.message,
-            "occurred": self.occurred.isoformat(),
+            "occurred": self.occurred.isoformat(timespec="microseconds"),
         }
 
     @classmethod
