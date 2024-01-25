@@ -1792,7 +1792,7 @@ def test_set_packages_and_deps_count(app, client, db, worker_auth_env):
             404,
             "The requested resource was not found",
         ),
-        (1, {}, 400, "{} does not have enough properties"),
+        (1, {}, 400, "{} should be non-empty"),
         (
             1,
             {"state": "complete", "state_reason": "Success", "id": 42},
