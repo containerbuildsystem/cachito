@@ -208,7 +208,7 @@ class Git(SCM):
             try:
                 # The reference must be specified to handle commits which are not part
                 # of a branch.
-                repo.remote().fetch(refspec=self.ref)
+                repo.remote().fetch(refspec=self.ref, tags=True, force=True)
 
             except Exception as ex:
                 log.exception(

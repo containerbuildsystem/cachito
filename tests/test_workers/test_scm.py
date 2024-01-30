@@ -6,6 +6,7 @@ import subprocess
 import tarfile
 import zlib
 from datetime import datetime
+from pathlib import Path
 from unittest import mock
 
 import git
@@ -17,7 +18,7 @@ from cachito.errors import (
     RepositoryAccessError,
     SubprocessCallError,
 )
-from cachito.workers import scm
+from cachito.workers import safe_extract, scm
 
 url = "https://github.com/release-engineering/retrodep.git"
 ref = "c50b93a32df1c9d700e3e80996845bc2e13be848"
@@ -290,7 +291,7 @@ def test_update_and_archive(
 
     repo = mock_repo.return_value
     # Verify the changes are pulled.
-    repo.remote.return_value.fetch.assert_called_once_with(refspec=ref)
+    repo.remote.return_value.fetch.assert_called_once_with(refspec=ref, tags=True, force=True)
     # Verify the repo is reset to specific ref
     repo.commit.assert_called_once_with(ref)
     assert repo.commit.return_value == repo.head.reference
@@ -306,6 +307,39 @@ def test_update_and_archive(
         mock_ugs.assert_not_called()
 
     mock_repo.return_value.git.gc.assert_called_once_with("--prune=now")
+
+
+def test_update_and_archive_update_tags(tmp_path: Path, fake_repo: tuple[str, str]) -> None:
+    """Tests that source archives created from existing source archives will have updated tags."""
+    # Add a 1.0.0 tag to the first commit
+    source_repo_dir, _ = fake_repo
+    source_repo = git.Repo(source_repo_dir)
+    second_commit, first_commit = list(source_repo.iter_commits("master", max_count=2))
+    source_repo.create_tag("1.0.0", first_commit)
+
+    # Create a source archive from the source repo and first commit ref
+    git_obj = scm.Git(f"file://{source_repo_dir}", first_commit)
+    git_obj.clone_and_archive()
+    first_archive_path = git_obj.sources_dir.archive_path
+
+    # Add a 2.0.0 tag to the second commit in the source repo
+    source_repo.create_tag("2.0.0", second_commit)
+
+    # Create a source archive from the source repo and second commit ref
+    # Since we already have an initial source archive, use update_and_archive
+    git_obj = scm.Git(f"file://{source_repo_dir}", second_commit.hexsha)
+    git_obj.update_and_archive(first_archive_path)
+    second_archive_path = git_obj.sources_dir.archive_path
+
+    # Extract the second source archive
+    extracted_archive_dir = tmp_path / "extracted"
+    with tarfile.open(second_archive_path, mode="r:gz") as tar:
+        safe_extract(tar, extracted_archive_dir)
+
+    # Verify that the 2.0.0 tag is in the "updated" source archive
+    extracted_archive_repo = git.Repo(extracted_archive_dir / "app")
+    assert extracted_archive_repo.head.commit.hexsha == second_commit.hexsha
+    assert "2.0.0" in [tag.name for tag in extracted_archive_repo.tags]
 
 
 @pytest.mark.parametrize("gitsubmodule", [True, False])
