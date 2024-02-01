@@ -18,21 +18,6 @@ from cachito.workers import safe_extract
 from cachito.workers.errors import CachitoCalledProcessError
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers import gomod
-from cachito.workers.pkg_managers.gomod import (
-    GoModule,
-    _fail_unless_allowed,
-    _get_allowed_local_deps,
-    _merge_bundle_dirs,
-    _merge_files,
-    _set_full_local_dep_relpaths,
-    _validate_local_dependency_path,
-    _vet_local_deps,
-    contains_package,
-    get_golang_version,
-    match_parent_module,
-    path_to_subpackage,
-    resolve_gomod,
-)
 from tests.helper_utils import assert_directories_equal, write_file_tree
 
 
@@ -132,9 +117,9 @@ def test_resolve_gomod(
 
     expect_gomod = json.loads(get_mocked_data("expected-results/resolve_gomod.json"))
     if dep_replacement is None:
-        gomod = resolve_gomod(module_dir, request)
+        gomod_ = gomod.resolve_gomod(module_dir, request)
     else:
-        gomod = resolve_gomod(module_dir, request, [dep_replacement])
+        gomod_ = gomod.resolve_gomod(module_dir, request, [dep_replacement])
         # modify the expected data (Cachito should report the replaced module)
         for mod in expect_gomod["module_deps"]:
             if mod["name"] == RETRODEP_POST_REPLACE:
@@ -144,7 +129,7 @@ def test_resolve_gomod(
                     "type": "gomod",
                 }
 
-    assert gomod == expect_gomod
+    assert gomod_ == expect_gomod
 
     if expected_replace:
         assert mock_run.call_args_list[0][0][0] == (
@@ -252,7 +237,7 @@ def test_resolve_gomod_vendor_dependencies(
     if force_gomod_tidy:
         request["flags"].append("force-gomod-tidy")
 
-    gomod = resolve_gomod(str(module_dir), request)
+    gomod_ = gomod.resolve_gomod(str(module_dir), request)
 
     assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
     # when vendoring, go list should be called without -mod readonly
@@ -265,7 +250,7 @@ def test_resolve_gomod_vendor_dependencies(
         "all",
     ]
 
-    assert gomod == json.loads(get_mocked_data("expected-results/resolve_gomod_vendored.json"))
+    assert gomod_ == json.loads(get_mocked_data("expected-results/resolve_gomod_vendored.json"))
 
     # Ensure an empty directory is created at bundle_dir.gomod_download_dir
     mock_bundle_dir.return_value.gomod_download_dir.mkdir.assert_called_once_with(
@@ -312,7 +297,7 @@ def test_resolve_gomod_strict_mode_raise_error(
         "vendored dependencies."
     )
     with strict_vendor and pytest.raises(ValidationError, match=expected_error) or nullcontext():
-        resolve_gomod(module_dir, request)
+        gomod.resolve_gomod(module_dir, request)
 
 
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
@@ -371,21 +356,21 @@ def test_resolve_gomod_no_deps(
     if force_gomod_tidy:
         request["flags"] = ["force-gomod-tidy"]
 
-    gomod = resolve_gomod(module_dir, request)
+    gomod_ = gomod.resolve_gomod(module_dir, request)
 
-    assert gomod["module"] == {
+    assert gomod_["module"] == {
         "type": "gomod",
         "name": "github.com/release-engineering/retrodep/v2",
         "version": "v2.1.1",
     }
-    assert not gomod["module_deps"]
-    assert len(gomod["packages"]) == 1
-    assert gomod["packages"][0]["pkg"] == {
+    assert not gomod_["module_deps"]
+    assert len(gomod_["packages"]) == 1
+    assert gomod_["packages"][0]["pkg"] == {
         "type": "go-package",
         "name": "github.com/release-engineering/retrodep/v2",
         "version": "v2.1.1",
     }
-    assert not gomod["packages"][0]["pkg_deps"]
+    assert not gomod_["packages"][0]["pkg_deps"]
 
     # The second one ensures the source cache directory exists
     mock_makedirs.assert_called_once_with(
@@ -427,7 +412,7 @@ def test_go_list_cmd_failure(
     with pytest.raises(
         (CachitoCalledProcessError, GoModError), match="Processing gomod dependencies failed"
     ):
-        resolve_gomod(module_dir, request)
+        gomod.resolve_gomod(module_dir, request)
 
 
 @pytest.mark.parametrize(
@@ -548,7 +533,7 @@ def test_get_golang_version(tmpdir, module_suffix, ref, expected, subpath):
     repo_path = os.path.join(tmpdir, "golang_git_repo")
 
     module_name = f"github.com/mprahl/test-golang-pseudo-versions{module_suffix}"
-    version = get_golang_version(module_name, repo_path, ref, subpath=subpath)
+    version = gomod.get_golang_version(module_name, repo_path, ref, subpath=subpath)
     assert version == expected
 
 
@@ -602,7 +587,7 @@ def test_merge_bundle_dirs(mock_merge_files, tree_1, tree_2, result_tree, merge_
         write_file_tree(tree_1, dir_1)
         write_file_tree(tree_2, dir_2)
         write_file_tree(result_tree, dir_3)
-        _merge_bundle_dirs(dir_1, dir_2)
+        gomod._merge_bundle_dirs(dir_1, dir_2)
         assert_directories_equal(dir_2, dir_3)
     assert mock_merge_files.call_count == merge_file_executions
 
@@ -654,7 +639,7 @@ def test_merge_files(file_1_content, file_2_content, result_file_content):
         write_file_tree({"list": file_1_content}, dir_1)
         write_file_tree({"list": file_2_content}, dir_2)
         write_file_tree({"list": result_file_content}, dir_3)
-        _merge_files("{}/list".format(dir_1), "{}/list".format(dir_2))
+        gomod._merge_files("{}/list".format(dir_1), "{}/list".format(dir_2))
         with open("{}/list".format(dir_2), "r") as f:
             print(f.read())
         with open("{}/list".format(dir_3), "r") as f:
@@ -675,7 +660,7 @@ def test_vet_local_deps(mock_fail_allowlist, mock_validate_dep_path):
     git_dir = "/repo"
     mock_validate_dep_path.return_value = None
 
-    _vet_local_deps(dependencies, module_name, ["foo", "baz"], app_dir, git_dir)
+    gomod._vet_local_deps(dependencies, module_name, ["foo", "baz"], app_dir, git_dir)
 
     mock_fail_allowlist.assert_has_calls(
         [
@@ -707,7 +692,7 @@ def test_vet_local_deps_abspath(platform_specific_path):
         f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
     )
     with pytest.raises(UnsupportedFeature, match=expect_error):
-        _vet_local_deps(dependencies, "some-module", [], app_dir, app_dir)
+        gomod._vet_local_deps(dependencies, "some-module", [], app_dir, app_dir)
 
 
 @pytest.mark.parametrize(
@@ -727,9 +712,9 @@ def test_validate_local_dependency_path(
 
     if expect_error:
         with pytest.raises(ValidationError):
-            _validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
+            gomod._validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
     else:
-        _validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
+        gomod._validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
 
 
 @pytest.mark.parametrize(
@@ -797,9 +782,9 @@ def test_validate_local_dependency_path(
 def test_fail_unless_allowed(module_name, package_name, allowed_patterns, expect_error):
     if expect_error:
         with pytest.raises(UnsupportedFeature, match=re.escape(expect_error)):
-            _fail_unless_allowed(module_name, package_name, allowed_patterns)
+            gomod._fail_unless_allowed(module_name, package_name, allowed_patterns)
     else:
-        _fail_unless_allowed(module_name, package_name, allowed_patterns)
+        gomod._fail_unless_allowed(module_name, package_name, allowed_patterns)
 
 
 @pytest.mark.parametrize(
@@ -868,7 +853,7 @@ def test_fail_unless_allowed(module_name, package_name, allowed_patterns, expect
     ],
 )
 def test_set_full_local_dep_relpaths(main_module_deps, pkg_deps_pre, pkg_deps_post):
-    _set_full_local_dep_relpaths(pkg_deps_pre, main_module_deps)
+    gomod._set_full_local_dep_relpaths(pkg_deps_pre, main_module_deps)
     # pkg_deps_pre should be modified in place
     assert pkg_deps_pre == pkg_deps_post
 
@@ -878,7 +863,7 @@ def test_set_full_local_dep_relpaths_no_match():
     err_msg = "Could not find parent Go module for local dependency: example.org/foo"
 
     with pytest.raises(RuntimeError, match=err_msg):
-        _set_full_local_dep_relpaths(pkg_deps, [])
+        gomod._set_full_local_dep_relpaths(pkg_deps, [])
 
 
 @pytest.mark.parametrize(
@@ -931,7 +916,7 @@ def test_set_full_local_dep_relpaths_no_match():
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 def test_get_allowed_local_deps(mock_worker_config, allowlist, module_name, expect_allowed):
     mock_worker_config.return_value.cachito_gomod_file_deps_allowlist = allowlist
-    assert _get_allowed_local_deps(module_name) == expect_allowed
+    assert gomod._get_allowed_local_deps(module_name) == expect_allowed
 
 
 @pytest.mark.parametrize(
@@ -945,7 +930,7 @@ def test_get_allowed_local_deps(mock_worker_config, allowlist, module_name, expe
     ],
 )
 def test_contains_package(parent_name, package_name, expect_result):
-    assert contains_package(parent_name, package_name) == expect_result
+    assert gomod.contains_package(parent_name, package_name) == expect_result
 
 
 @pytest.mark.parametrize(
@@ -959,12 +944,12 @@ def test_contains_package(parent_name, package_name, expect_result):
     ],
 )
 def test_path_to_subpackage(parent, subpackage, expect_path):
-    assert path_to_subpackage(parent, subpackage) == expect_path
+    assert gomod.path_to_subpackage(parent, subpackage) == expect_path
 
 
 def test_path_to_subpackage_not_a_subpackage():
     with pytest.raises(ValueError, match="Package github.com/b does not belong to github.com/a"):
-        path_to_subpackage("github.com/a", "github.com/b")
+        gomod.path_to_subpackage("github.com/a", "github.com/b")
 
 
 @pytest.mark.parametrize(
@@ -983,7 +968,7 @@ def test_path_to_subpackage_not_a_subpackage():
     ],
 )
 def test_match_parent_module(package_name, module_names, expect_parent_module):
-    assert match_parent_module(package_name, module_names) == expect_parent_module
+    assert gomod.match_parent_module(package_name, module_names) == expect_parent_module
 
 
 @pytest.mark.parametrize(
@@ -1059,42 +1044,48 @@ def test_parse_vendor(tmp_path: Path) -> None:
     modules_txt.parent.mkdir(parents=True)
     modules_txt.write_text(get_mocked_data("vendored/modules.txt"))
     expect_modules = [
-        GoModule(path="github.com/Azure/go-ansiterm", version="v0.0.0-20210617225240-d185dfc1b5a1"),
-        GoModule(path="github.com/Masterminds/semver", version="v1.4.2"),
-        GoModule(path="github.com/Microsoft/go-winio", version="v0.6.0"),
-        GoModule(
+        gomod.GoModule(
+            path="github.com/Azure/go-ansiterm", version="v0.0.0-20210617225240-d185dfc1b5a1"
+        ),
+        gomod.GoModule(path="github.com/Masterminds/semver", version="v1.4.2"),
+        gomod.GoModule(path="github.com/Microsoft/go-winio", version="v0.6.0"),
+        gomod.GoModule(
             path="github.com/cachito-testing/gomod-pandemonium/terminaltor",
             version="v0.0.0",
-            replace=GoModule(path="./terminaltor"),
+            replace=gomod.GoModule(path="./terminaltor"),
         ),
-        GoModule(
+        gomod.GoModule(
             path="github.com/cachito-testing/gomod-pandemonium/weird",
             version="v0.0.0",
-            replace=GoModule(path="./weird"),
+            replace=gomod.GoModule(path="./weird"),
         ),
-        GoModule(path="github.com/go-logr/logr", version="v1.2.3"),
-        GoModule(
+        gomod.GoModule(path="github.com/go-logr/logr", version="v1.2.3"),
+        gomod.GoModule(
             path="github.com/go-task/slim-sprig", version="v0.0.0-20230315185526-52ccab3ef572"
         ),
-        GoModule(path="github.com/google/go-cmp", version="v0.5.9"),
-        GoModule(path="github.com/google/pprof", version="v0.0.0-20210407192527-94a9f03dee38"),
-        GoModule(path="github.com/moby/term", version="v0.0.0-20221205130635-1aeaba878587"),
-        GoModule(path="github.com/onsi/ginkgo/v2", version="v2.9.2"),
-        GoModule(path="github.com/onsi/gomega", version="v1.27.4"),
-        GoModule(path="github.com/op/go-logging", version="v0.0.0-20160315200505-970db520ece7"),
-        GoModule(path="github.com/pkg/errors", version="v0.8.1"),
-        GoModule(
+        gomod.GoModule(path="github.com/google/go-cmp", version="v0.5.9"),
+        gomod.GoModule(
+            path="github.com/google/pprof", version="v0.0.0-20210407192527-94a9f03dee38"
+        ),
+        gomod.GoModule(path="github.com/moby/term", version="v0.0.0-20221205130635-1aeaba878587"),
+        gomod.GoModule(path="github.com/onsi/ginkgo/v2", version="v2.9.2"),
+        gomod.GoModule(path="github.com/onsi/gomega", version="v1.27.4"),
+        gomod.GoModule(
+            path="github.com/op/go-logging", version="v0.0.0-20160315200505-970db520ece7"
+        ),
+        gomod.GoModule(path="github.com/pkg/errors", version="v0.8.1"),
+        gomod.GoModule(
             path="github.com/release-engineering/retrodep/v2",
             version="v2.1.0",
-            replace=GoModule(path="github.com/cachito-testing/retrodep/v2", version="v2.1.1"),
+            replace=gomod.GoModule(path="github.com/cachito-testing/retrodep/v2", version="v2.1.1"),
         ),
-        GoModule(path="golang.org/x/mod", version="v0.9.0"),
-        GoModule(path="golang.org/x/net", version="v0.8.0"),
-        GoModule(path="golang.org/x/sys", version="v0.6.0"),
-        GoModule(path="golang.org/x/text", version="v0.8.0"),
-        GoModule(path="golang.org/x/tools", version="v0.7.0"),
-        GoModule(path="gopkg.in/yaml.v2", version="v2.2.2"),
-        GoModule(path="gopkg.in/yaml.v3", version="v3.0.1"),
+        gomod.GoModule(path="golang.org/x/mod", version="v0.9.0"),
+        gomod.GoModule(path="golang.org/x/net", version="v0.8.0"),
+        gomod.GoModule(path="golang.org/x/sys", version="v0.6.0"),
+        gomod.GoModule(path="golang.org/x/text", version="v0.8.0"),
+        gomod.GoModule(path="golang.org/x/tools", version="v0.7.0"),
+        gomod.GoModule(path="gopkg.in/yaml.v2", version="v2.2.2"),
+        gomod.GoModule(path="gopkg.in/yaml.v3", version="v3.0.1"),
     ]
     assert gomod._parse_vendor(tmp_path) == expect_modules
 
