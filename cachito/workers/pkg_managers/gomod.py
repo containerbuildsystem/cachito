@@ -18,6 +18,10 @@ import pydantic
 import semver
 from opentelemetry import trace
 
+# if a namespace alias isn't used, flake8 starts complaining whenever version.Version is used:
+# 'local variable 'version' defined in enclosing scope on line N referenced before assignment'
+from packaging import version as pkgver
+
 from cachito.errors import (
     GoModError,
     InvalidFileFormat,
@@ -89,6 +93,53 @@ class GoPackage(_GolangModel):
     standard: bool = False
     module: Optional[GoModule]
     deps: list[str] = []
+
+
+class Go:
+    """High level wrapper over the 'go' CLI command.
+
+    Provides convenient methods to download project dependencies, alternative toolchains,
+    parses various Go files, etc.
+    """
+
+    def __init__(
+        self,
+        binary: Union[str, os.PathLike[str]] = "go",
+        release: Optional[str] = None,
+    ) -> None:
+        """Initialize the Go toolchain wrapper.
+
+        :param binary: path-like string to the Go binary or direct command (in PATH)
+        :param release: Go release version string, e.g. go1.20, go1.21.10
+        :returns: a callable instance
+        """
+        # run_cmd will take care of checking any bogus passed in 'binary'
+        self._bin = str(binary)
+        self._release = release
+
+        self._version: Optional[pkgver.Version] = None
+
+    def __call__(
+        self, cmd: list[str], params: Optional[dict] = None, retry: bool = False
+    ) -> str:  # type: ignore
+        """Run a Go command using the underlying toolchain, same as running GoToolchain()().
+
+        :param cmd: Go CLI options
+        :param params: additional subprocess arguments, e.g. 'env'
+        :param retry: whether the command should be retried on failure (e.g. network actions)
+        :returs: Go command's output
+        """
+        pass
+
+    @property
+    def version(self) -> pkgver.Version:  # type: ignore
+        """Version of the Go toolchain as a packaging.version.Version object."""
+        pass
+
+    @property
+    def release(self) -> str:  # type: ignore
+        """Release name of the Go Toolchain, e.g. go1.20 ."""
+        pass
 
 
 @tracer.start_as_current_span("run_download_cmd")
