@@ -1248,3 +1248,38 @@ def test_run_download_cmd_failure(mock_sleep, mock_run, mock_worker_config, capl
     assert "Backing off run_go(...) for 4.0s" in caplog.text
     assert "Backing off run_go(...) for 8.0s" in caplog.text
     assert "Giving up run_go(...) after 5 tries" in caplog.text
+
+
+class TestGo:
+    @pytest.mark.parametrize(
+        "bin_, params",
+        [
+            pytest.param(None, {}, id="bundled_go_no_params"),
+            pytest.param("/usr/bin/go1.21", {}, id="custom_go_no_params"),
+            pytest.param(None, {"cwd": "/foo/bar"}, id="bundled_go_params"),
+            pytest.param(
+                "/usr/bin/go1.21",
+                {
+                    "env": {"GOCACHE": "/foo", "GOTOOLCHAIN": "local"},
+                    "cwd": "/foo/bar",
+                    "text": True,
+                },
+                id="custom_go_params",
+            ),
+        ],
+    )
+    @mock.patch("cachito.workers.pkg_managers.gomod.run_cmd")
+    def test_run(
+        self,
+        mock_run: mock.Mock,
+        bin_: str,
+        params: dict,
+    ) -> None:
+        if not bin_:
+            go = gomod.Go(bin_)
+        else:
+            go = gomod.Go()
+
+        cmd = [go._bin, "mod", "download"]
+        go._run(cmd, **params)
+        mock_run.assert_called_once_with(cmd, params)
