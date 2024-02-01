@@ -141,6 +141,14 @@ class Go:
         """Release name of the Go Toolchain, e.g. go1.20 ."""
         pass
 
+    def _run(self, cmd: list[str], **kwargs: Any) -> str:
+        try:
+            log.debug(f"Running '{cmd}'")
+            return run_cmd(cmd, kwargs)
+        except CachitoCalledProcessError as e:
+            rc = e.retcode
+            raise GoModError(f"Go execution failed: `{' '.join(cmd)}` failed with {rc=}") from e
+
 
 @tracer.start_as_current_span("run_download_cmd")
 def run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
