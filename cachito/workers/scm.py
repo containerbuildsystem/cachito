@@ -294,7 +294,7 @@ class Git(SCM):
                                      update the git submodules.
         """
         log.debug(f"Git submodules for the requested repo are: {repo.submodules}")
-        cmd = ["git", "submodule", "update", "--init"]
+        cmd = ["git", "submodule", "update", "--init", "--filter=blob:none"]
         try:
             run_cmd(cmd, {"cwd": repo.working_dir, "check": True})
         except subprocess.CalledProcessError as exc:
