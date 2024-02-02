@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import subprocess
 import tarfile
 from contextlib import nullcontext
 from pathlib import Path
@@ -1367,3 +1368,66 @@ class TestGo:
         assert "Backing off run_go(...) for 4.0s" in caplog.text
         assert "Backing off run_go(...) for 8.0s" in caplog.text
         assert "Giving up run_go(...) after 5 tries" in caplog.text
+
+    @pytest.mark.parametrize(
+        "release, retry",
+        [
+            pytest.param(None, False, id="bundled_go"),
+            pytest.param("go1.20", True, id="custom_release"),
+        ],
+    )
+    @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
+    @mock.patch("cachito.workers.pkg_managers.gomod.Go._retry")
+    @mock.patch("cachito.workers.pkg_managers.gomod.Go._run")
+    def test_call(
+        self,
+        mock_run: mock.Mock,
+        mock_retry: mock.Mock,
+        mock_get_config: mock.Mock,
+        tmp_path: Path,
+        release: Optional[str],
+        retry: bool,
+    ) -> None:
+
+        env = {"env": {"GOTOOLCHAIN": "local", "GOCACHE": "foo", "GOPATH": "bar"}}
+        opts = ["mod", "download"]
+        go = gomod.Go(release=release)
+        go(opts, retry=retry, params=env)
+
+        cmd = [go._bin, *opts]
+
+        if release:
+            assert go._bin == f"/usr/local/go/{release}/bin/go"
+        if not retry:
+            mock_run.assert_called_once_with(cmd, **env)
+        else:
+            mock_get_config.return_value.gomod_download_max_tries = 1
+            mock_retry.assert_called_once_with(cmd, **env)
+
+    @pytest.mark.parametrize("retry", [False, True])
+    @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
+    @mock.patch("subprocess.run")
+    def test_call_failure(
+        self,
+        mock_run: mock.Mock,
+        mock_get_config: mock.Mock,
+        retry: bool,
+    ) -> None:
+        ntries = 1
+        mock_get_config.return_value.cachito_gomod_download_max_tries = ntries
+        failure = subprocess.CompletedProcess(args="", returncode=1, stdout="")
+        mock_run.side_effect = [failure]
+
+        opts = ["mod", "download"]
+        cmd = ["go", *opts]
+        error_msg = "Go execution failed: "
+        if retry:
+            error_msg += f"Cachito re-tried running `{' '.join(cmd)}` command {ntries} times."
+        else:
+            error_msg += f"`{' '.join(cmd)}` failed with rc=1"
+
+        with pytest.raises(GoModError, match=error_msg):
+            go = gomod.Go()
+            go(opts, retry=retry)
+
+        assert mock_run.call_count == 1

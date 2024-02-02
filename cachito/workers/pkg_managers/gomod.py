@@ -117,19 +117,28 @@ class Go:
         self._bin = str(binary)
         self._release = release
 
+        if self._release:
+            self._bin = f"/usr/local/go/{release}/bin/go"
+
         self._version: Optional[pkgver.Version] = None
 
-    def __call__(
-        self, cmd: list[str], params: Optional[dict] = None, retry: bool = False
-    ) -> str:  # type: ignore
-        """Run a Go command using the underlying toolchain, same as running GoToolchain()().
+    @tracer.start_as_current_span("Go.__call__")
+    def __call__(self, cmd: list[str], params: Optional[dict] = None, retry: bool = False) -> str:
+        """Run a Go command using the underlying toolchain, same as running Go()().
 
         :param cmd: Go CLI options
         :param params: additional subprocess arguments, e.g. 'env'
         :param retry: whether the command should be retried on failure (e.g. network actions)
-        :returs: Go command's output
+        :returns: Go command's output
         """
-        pass
+        if params is None:
+            params = {}
+
+        cmd = [self._bin] + cmd
+        if retry:
+            return self._retry(cmd, **params)
+
+        return self._run(cmd, **params)
 
     @property
     def version(self) -> pkgver.Version:  # type: ignore
