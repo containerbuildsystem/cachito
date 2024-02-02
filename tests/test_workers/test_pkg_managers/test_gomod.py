@@ -1431,3 +1431,40 @@ class TestGo:
             go(opts, retry=retry)
 
         assert mock_run.call_count == 1
+
+    @pytest.mark.parametrize(
+        "release, expect, go_output",
+        [
+            pytest.param("go1.20", "go1.20", None, id="explicit_release"),
+            pytest.param(
+                None, "go1.21.4", "go version go1.21.4 linux/amd64", id="parse_from_output"
+            ),
+            pytest.param(
+                None,
+                "go1.21.4",
+                "go   version\tgo1.21.4 \t\t linux/amd64",
+                id="parse_from_output_white_spaces",
+            ),
+        ],
+    )
+    @mock.patch("cachito.workers.pkg_managers.gomod.Go._run")
+    def test_release(
+        self,
+        mock_run: mock.Mock,
+        release: Optional[str],
+        expect: str,
+        go_output: str,
+    ) -> None:
+        mock_run.return_value = go_output
+
+        go = gomod.Go(release=release)
+        assert go.release == expect
+
+    @mock.patch("cachito.workers.pkg_managers.gomod.Go._run")
+    def test_release_failure(self, mock_run: mock.Mock) -> None:
+        go_output = "go mangled version 1.21_4"
+        mock_run.return_value = go_output
+
+        error_msg = f"Could not extract Go toolchain version from Go's output: '{go_output}'"
+        with pytest.raises(GoModError, match=error_msg):
+            gomod.Go(release=None).release
