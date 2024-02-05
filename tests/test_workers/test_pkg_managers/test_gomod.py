@@ -33,6 +33,14 @@ def get_mocked_data(filepath: Union[str, Path]) -> str:
     return gomod_mocks.joinpath(filepath).read_text()
 
 
+@pytest.fixture
+def go_mod_file(tmp_path: Path, request: pytest.FixtureRequest) -> None:
+    output_file = tmp_path / "go.mod"
+
+    with open(output_file, "w") as f:
+        f.write(request.param)
+
+
 RETRODEP_PRE_REPLACE = "github.com/release-engineering/retrodep/v2"
 RETRODEP_POST_REPLACE = "github.com/cachito-testing/retrodep/v2"
 
@@ -1249,6 +1257,24 @@ def test_run_download_cmd_failure(mock_sleep, mock_run, mock_worker_config, capl
     assert "Backing off run_go(...) for 4.0s" in caplog.text
     assert "Backing off run_go(...) for 8.0s" in caplog.text
     assert "Giving up run_go(...) after 5 tries" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "go_mod_file, go_mod_version",
+    [("go 1.21", "1.21"), ("    go    1.21.4    ", "1.21.4")],
+    indirect=["go_mod_file"],
+)
+def test_get_gomod_version(tmp_path: Path, go_mod_file: Path, go_mod_version: str) -> None:
+    assert gomod._get_gomod_version(tmp_path) == go_mod_version
+
+
+@pytest.mark.parametrize(
+    "go_mod_file",
+    [pytest.param(_, id=_) for _ in ["go1.21", "go 1.21.0.100", "1.21", "go 1.21 foo"]],
+    indirect=True,
+)
+def test_get_gomod_version_fail(tmp_path: Path, go_mod_file: Path) -> None:
+    assert gomod._get_gomod_version(tmp_path) is None
 
 
 class TestGo:
