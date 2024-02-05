@@ -367,9 +367,9 @@ pytest==7.4.4 \
     #   -r requirements-test.in
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==0.23.3 \
-    --hash=sha256:37a9d912e8338ee7b4a3e917381d1c95bfc8682048cb0fbc35baba316ec1faba \
-    --hash=sha256:af313ce900a62fbe2b1aed18e37ad757f1ef9940c6b6a88e2954de38d6b1fb9f
+pytest-asyncio==0.23.4 \
+    --hash=sha256:2143d9d9375bf372a73260e4114541485e84fca350b0b6b92674ca56ff5f7ea2 \
+    --hash=sha256:b0079dfac14b60cd1ce4691fbfb1748fe939db7d0234b5aba97197d10fbe0fef
     # via -r requirements-test.in
 pytest-cov==4.1.0 \
     --hash=sha256:3904b13dfbfec47f003b8e77fd5b589cd11904a21ddf1ab38a64f204d6a10ef6 \
