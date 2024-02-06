@@ -117,11 +117,19 @@ def _resolve_source_archive(parsed_archive: _ParsedArchive) -> Optional[_Resolve
         log.debug("Archive %s could not be resolved via the API.", parsed_archive.path)
         return None
 
+    request_age = latest_request.get("created") or latest_request.get("updated")
+    if request_age is None:
+        # This should be impossible
+        log.debug(
+            "Unable to determine the age of %s with latest request_id=%s",
+            parsed_archive.path,
+            latest_request["id"],
+        )
+        return None
+
     return _ResolvedArchive(
         parsed_archive.path,
-        datetime.strptime(latest_request["created"], "%Y-%m-%dT%H:%M:%S.%f").replace(
-            tzinfo=timezone.utc
-        ),
+        datetime.strptime(request_age, "%Y-%m-%dT%H:%M:%S.%f").replace(tzinfo=timezone.utc),
         latest_request["id"],
     )
 
