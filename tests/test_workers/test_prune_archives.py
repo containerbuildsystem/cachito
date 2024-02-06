@@ -200,6 +200,43 @@ def test_resolve_source_archive_not_found(mock_request: mock.Mock):
     assert resolved_archive is None
 
 
+@mock.patch("cachito.workers.prune_archives._get_latest_request")
+def test_resolve_source_archive_no_created_date(mock_request: mock.Mock):
+    """Tests resolving a ParsedArchive when request data is missing a created date."""
+    path = Path("my-org/my-project/ce60002604554992203f2afe17f23724f674b411.tar.gz")
+    repo_name = path.parent.as_posix()
+    ref = path.name[:40]
+    updated = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    latest_request_id = 1
+
+    mock_request.return_value = {
+        "created": None,
+        "updated": datetime.strftime(updated, format="%Y-%m-%dT%H:%M:%S.%f"),
+        "id": latest_request_id,
+    }
+    parsed_archive = _ParsedArchive(path, repo_name, ref)
+    expected_resolved_archive = _ResolvedArchive(path, updated, latest_request_id)
+
+    resolved_archive = _resolve_source_archive(parsed_archive)
+    assert resolved_archive == expected_resolved_archive
+
+
+@mock.patch("cachito.workers.prune_archives._get_latest_request")
+def test_resolve_source_archive_no_age(mock_request: mock.Mock):
+    """Tests when we cannot resolve a ParsedArchive because we can't determine the age."""
+    path = Path("my-org/my-project/ce60002604554992203f2afe17f23724f674b411.tar.gz")
+    repo_name = path.parent.as_posix()
+    ref = path.name[:40]
+
+    mock_request.return_value = {
+        "id": 1,
+    }
+    parsed_archive = _ParsedArchive(path, repo_name, ref)
+
+    resolved_archive = _resolve_source_archive(parsed_archive)
+    assert resolved_archive is None
+
+
 @mock.patch("cachito.workers.prune_archives._resolve_source_archive")
 @mock.patch("cachito.workers.prune_archives._get_parsed_source_archives")
 def test_get_stale_archives(
