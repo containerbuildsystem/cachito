@@ -10,7 +10,7 @@ import tempfile
 from datetime import datetime
 from itertools import chain
 from pathlib import Path, PureWindowsPath
-from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Literal, Optional, Tuple, Union
 
 import backoff
 import git
@@ -44,7 +44,6 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
-run_gomod_cmd = functools.partial(run_cmd, exc_msg="Processing gomod dependencies failed")
 
 MODULE_VERSION_RE = re.compile(r"/v\d+$")
 
@@ -207,40 +206,6 @@ class Go:
         except CachitoCalledProcessError as e:
             rc = e.retcode
             raise GoModError(f"Go execution failed: `{' '.join(cmd)}` failed with {rc=}") from e
-
-
-@tracer.start_as_current_span("run_download_cmd")
-def run_download_cmd(cmd: Iterable[str], params: Dict[str, str]) -> str:
-    """Run gomod command that downloads dependencies.
-
-    Such commands may fail due to network errors (go is bad at retrying), so the entire operation
-    will be retried a configurable number of times.
-
-    Cachito will reuse the same cache directory between retries, so Go will not have to download
-    the same dependency twice. The backoff is exponential, Cachito will wait 1s -> 2s -> 4s -> ...
-    before retrying.
-    """
-    n_tries = get_worker_config().cachito_gomod_download_max_tries
-
-    @backoff.on_exception(
-        backoff.expo,
-        CachitoCalledProcessError,
-        jitter=None,  # use deterministic backoff, do not apply jitter
-        max_tries=n_tries,
-        logger=log,
-    )
-    def run_go(_cmd, _params) -> str:
-        log.debug(f"Running {_cmd}")
-        return run_gomod_cmd(_cmd, _params)
-
-    try:
-        return run_go(cmd, params)
-    except CachitoCalledProcessError:
-        err_msg = (
-            f"Processing gomod dependencies failed. Cachito tried the {' '.join(cmd)} command "
-            f"{n_tries} times. This may indicate a problem with your repository or Cachito itself."
-        )
-        raise GoModError(err_msg)
 
 
 class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
