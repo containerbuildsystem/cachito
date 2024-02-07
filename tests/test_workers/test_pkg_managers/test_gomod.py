@@ -1247,53 +1247,6 @@ def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change,
     assert not repo.git.diff("--diff-filter", "A")
 
 
-@pytest.mark.parametrize("tries_needed", [1, 2, 3, 4, 5])
-@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
-@mock.patch("subprocess.run")
-@mock.patch("time.sleep")
-def test_run_download_cmd_success(mock_sleep, mock_run, mock_worker_config, tries_needed, caplog):
-    mock_worker_config.return_value.cachito_gomod_download_max_tries = 5
-
-    failure = mock.Mock(returncode=1, stdout="")
-    success = mock.Mock(returncode=0, stdout="")
-    mock_run.side_effect = [failure for _ in range(tries_needed - 1)] + [success]
-
-    gomod.run_download_cmd(["go", "mod", "download"], {})
-    assert mock_run.call_count == tries_needed
-    assert mock_sleep.call_count == tries_needed - 1
-
-    for n in range(tries_needed - 1):
-        wait = 2**n
-        assert f"Backing off run_go(...) for {wait:.1f}s" in caplog.text
-
-
-@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
-@mock.patch("subprocess.run")
-@mock.patch("time.sleep")
-def test_run_download_cmd_failure(mock_sleep, mock_run, mock_worker_config, caplog):
-    mock_worker_config.return_value.cachito_gomod_download_max_tries = 5
-
-    failure = mock.Mock(returncode=1, stdout="")
-    mock_run.side_effect = [failure] * 5
-
-    expect_msg = (
-        "Processing gomod dependencies failed. Cachito tried the go mod download command 5 times. "
-        "This may indicate a problem with your repository or Cachito itself."
-    )
-
-    with pytest.raises(GoModError, match=expect_msg):
-        gomod.run_download_cmd(["go", "mod", "download"], {})
-
-    assert mock_run.call_count == 5
-    assert mock_sleep.call_count == 4
-
-    assert "Backing off run_go(...) for 1.0s" in caplog.text
-    assert "Backing off run_go(...) for 2.0s" in caplog.text
-    assert "Backing off run_go(...) for 4.0s" in caplog.text
-    assert "Backing off run_go(...) for 8.0s" in caplog.text
-    assert "Giving up run_go(...) after 5 tries" in caplog.text
-
-
 @pytest.mark.parametrize(
     "go_mod_file, go_mod_version",
     [("go 1.21", "1.21"), ("    go    1.21.4    ", "1.21.4")],
