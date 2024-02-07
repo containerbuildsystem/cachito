@@ -256,7 +256,8 @@ class GoCacheTemporaryDirectory(tempfile.TemporaryDirectory):
         """Clean up the temporary directory by first cleaning up the Go cache."""
         try:
             env = {"GOPATH": self.name, "GOCACHE": self.name}
-            run_gomod_cmd(("go", "clean", "-modcache"), {"env": env})
+            go = Go()
+            go(["clean", "-modcache"], {"env": env})
         finally:
             super().__exit__(exc, value, tb)
 
@@ -352,6 +353,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
         run_params = {"env": env, "cwd": app_source_path}
 
+        go = _select_go_toolchain(git_dir_path)
+
         # Collect all the dependency names that are being replaced to later report which
         # dependencies were replaced
         deps_to_replace = set()
@@ -361,10 +364,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             new_name = dep_replacement.get("new_name", name)
             version = dep_replacement["version"]
             log.info("Applying the gomod replacement %s => %s@%s", name, new_name, version)
-            run_gomod_cmd(
-                ("go", "mod", "edit", "-replace", f"{name}={new_name}@{version}"),
-                run_params,
-            )
+            go(["mod", "edit", "-replace", f"{name}={new_name}@{version}"], run_params)
 
         # Vendor dependencies if the gomod-vendor flag is set
         flags = request.get("flags", [])
@@ -372,17 +372,17 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             flags, app_source_path, worker_config.cachito_gomod_strict_vendor
         )
         if should_vendor:
-            downloaded_modules = _vendor_deps(run_params, can_make_changes, git_dir_path)
+            downloaded_modules = _vendor_deps(go, run_params, can_make_changes, git_dir_path)
         else:
             log.info("Downloading the gomod dependencies")
-            download_cmd = ["go", "mod", "download", "-json"]
+            download_opts = ["mod", "download", "-json"]
             downloaded_modules = [
                 GoModule.parse_obj(obj)
-                for obj in load_json_stream(run_download_cmd(download_cmd, run_params))
+                for obj in load_json_stream(go(download_opts, run_params, retry=True))
             ]
 
         if "force-gomod-tidy" in flags or dep_replacements:
-            run_gomod_cmd(("go", "mod", "tidy"), run_params)
+            go(["mod", "tidy"], run_params)
 
         bundle_dir = RequestBundleDir(request["id"])
         if should_vendor:
@@ -404,12 +404,12 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             )
             _merge_bundle_dirs(tmp_download_cache_dir, str(bundle_dir.gomod_download_dir))
 
-        go_list = ["go", "list", "-e"]
+        go_list = ["list", "-e"]
         if not should_vendor:
             # Make Go ignore the vendor dir even if there is one
             go_list.extend(["-mod", "readonly"])
 
-        main_module_name = run_gomod_cmd([*go_list, "-m"], run_params).rstrip()
+        main_module_name = go([*go_list, "-m"], run_params).rstrip()
         main_module_version = get_golang_version(
             main_module_name,
             git_dir_path,
@@ -435,8 +435,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             The "all" pattern includes dependencies needed only for tests. Use it to get a more
             complete module list (roughly matching the list of downloaded modules).
             """
-            cmd = [*go_list, "-deps", "-json=ImportPath,Module,Standard,Deps", pattern]
-            return map(GoPackage.parse_obj, load_json_stream(run_gomod_cmd(cmd, run_params)))
+            opts = [*go_list, "-deps", "-json=ImportPath,Module,Standard,Deps", pattern]
+            return map(GoPackage.parse_obj, load_json_stream(go(opts, run_params)))
 
         package_modules = (
             mod for pkg in go_list_deps("all") if (mod := pkg.module) and not mod.main
@@ -574,7 +574,7 @@ def _should_vendor_deps(flags: List[str], app_dir: str, strict: bool) -> Tuple[b
 
 
 @tracer.start_as_current_span("_vendor_deps")
-def _vendor_deps(run_params: dict, can_make_changes: bool, git_dir: str) -> list[GoModule]:
+def _vendor_deps(go: Go, run_params: dict, can_make_changes: bool, git_dir: str) -> list[GoModule]:
     """
     Vendor golang dependencies.
 
@@ -587,7 +587,7 @@ def _vendor_deps(run_params: dict, can_make_changes: bool, git_dir: str) -> list
     :raise ValidationError: if vendor directory changed and Cachito is not allowed to make changes
     """
     log.info("Vendoring the gomod dependencies")
-    run_download_cmd(("go", "mod", "vendor"), run_params)
+    go(["mod", "vendor"], run_params)
     app_dir = run_params["cwd"]
     if not can_make_changes and _vendor_changed(git_dir, app_dir):
         raise ValidationError(

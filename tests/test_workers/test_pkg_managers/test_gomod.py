@@ -66,6 +66,8 @@ RETRODEP_POST_REPLACE = "github.com/cachito-testing/retrodep/v2"
 )
 @pytest.mark.parametrize("cgo_disable", [False, True])
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
+@mock.patch("cachito.workers.pkg_managers.gomod.Go.release", new_callable=mock.PropertyMock)
+@mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
@@ -81,6 +83,8 @@ def test_resolve_gomod(
     mock_merge_tree: mock.Mock,
     mock_temp_dir: mock.Mock,
     mock_golang_version: mock.Mock,
+    mock_get_gomod_version: mock.Mock,
+    mock_go_release: mock.PropertyMock,
     dep_replacement: Optional[dict[str, Any]],
     expected_replace: Optional[str],
     cgo_disable: bool,
@@ -115,6 +119,8 @@ def test_resolve_gomod(
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v0.1.0"
+    mock_go_release.return_value = "go0.1.0"
+    mock_get_gomod_version.return_value = "0.1.1"
 
     mock_get_allowed_local_deps.return_value = ["*"]
 
@@ -142,16 +148,16 @@ def test_resolve_gomod(
     assert gomod_ == expect_gomod
 
     if expected_replace:
-        assert mock_run.call_args_list[0][0][0] == (
+        assert mock_run.call_args_list[0][0][0] == [
             "go",
             "mod",
             "edit",
             "-replace",
             expected_replace,
-        )
-        assert mock_run.call_args_list[2][0][0] == ("go", "mod", "tidy")
+        ]
+        assert mock_run.call_args_list[2][0][0] == ["go", "mod", "tidy"]
     elif force_gomod_tidy:
-        assert mock_run.call_args_list[1][0][0] == ("go", "mod", "tidy")
+        assert mock_run.call_args_list[1][0][0] == ["go", "mod", "tidy"]
 
     # when not vendoring, go list should be called with -mod readonly
     listdeps_cmd = [
@@ -199,6 +205,8 @@ def test_resolve_gomod(
 
 
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
+@mock.patch("cachito.workers.pkg_managers.gomod.Go.release", new_callable=mock.PropertyMock)
+@mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
@@ -208,6 +216,8 @@ def test_resolve_gomod_vendor_dependencies(
     mock_run: mock.Mock,
     mock_temp_dir: mock.Mock,
     mock_golang_version: mock.Mock,
+    mock_get_gomod_version: mock.Mock,
+    mock_go_release: mock.PropertyMock,
     force_gomod_tidy: bool,
     tmp_path: Path,
 ) -> None:
@@ -234,6 +244,8 @@ def test_resolve_gomod_vendor_dependencies(
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v0.1.0"
+    mock_go_release.return_value = "go0.1.0"
+    mock_get_gomod_version.return_value = "0.1.1"
 
     module_dir = tmp_path / "path/to/module"
     module_dir.joinpath("vendor").mkdir(parents=True)
@@ -249,7 +261,7 @@ def test_resolve_gomod_vendor_dependencies(
 
     gomod_ = gomod.resolve_gomod(str(module_dir), request)
 
-    assert mock_run.call_args_list[0][0][0] == ("go", "mod", "vendor")
+    assert mock_run.call_args_list[0][0][0] == ["go", "mod", "vendor"]
     # when vendoring, go list should be called without -mod readonly
     assert mock_run.call_args_list[-2][0][0] == [
         "go",
@@ -268,6 +280,8 @@ def test_resolve_gomod_vendor_dependencies(
     )
 
 
+@mock.patch("cachito.workers.pkg_managers.gomod.Go.release", new_callable=mock.PropertyMock)
+@mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
@@ -278,6 +292,8 @@ def test_resolve_gomod_strict_mode_raise_error(
     mock_golang_version: mock.Mock,
     mock_run: mock.Mock,
     mock_temp_dir: mock.Mock,
+    mock_get_gomod_version: mock.Mock,
+    mock_go_release: mock.PropertyMock,
     tmp_path: Path,
     strict_vendor: bool,
 ) -> None:
@@ -289,6 +305,8 @@ def test_resolve_gomod_strict_mode_raise_error(
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
     mock_golang_version.return_value = "v2.1.1"
+    mock_go_release.return_value = "go0.1.0"
+    mock_get_gomod_version.return_value = "0.1.1"
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
@@ -311,6 +329,8 @@ def test_resolve_gomod_strict_mode_raise_error(
 
 
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
+@mock.patch("cachito.workers.pkg_managers.gomod.Go.release", new_callable=mock.PropertyMock)
+@mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
@@ -322,6 +342,8 @@ def test_resolve_gomod_no_deps(
     mock_merge_tree: mock.Mock,
     mock_temp_dir: mock.Mock,
     mock_golang_version: mock.Mock,
+    mock_get_gomod_version: mock.Mock,
+    mock_go_release: mock.PropertyMock,
     force_gomod_tidy: bool,
     tmp_path: Path,
 ) -> None:
@@ -359,6 +381,8 @@ def test_resolve_gomod_no_deps(
     mock_run.side_effect = run_side_effects
 
     mock_golang_version.return_value = "v2.1.1"
+    mock_go_release.return_value = "go0.1.0"
+    mock_get_gomod_version.return_value = "0.1.1"
 
     module_dir = str(tmp_path / "/path/to/module")
 
@@ -395,6 +419,8 @@ def test_resolve_gomod_no_deps(
 
 
 @pytest.mark.parametrize(("go_mod_rc", "go_list_rc"), ((0, 1), (1, 0)))
+@mock.patch("cachito.workers.pkg_managers.gomod.Go.release", new_callable=mock.PropertyMock)
+@mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
 @mock.patch("subprocess.run")
@@ -402,6 +428,8 @@ def test_go_list_cmd_failure(
     mock_run: mock.Mock,
     mock_worker_config: mock.Mock,
     mock_temp_dir: mock.Mock,
+    mock_get_gomod_version: mock.Mock,
+    mock_go_release: mock.PropertyMock,
     tmp_path: Path,
     go_mod_rc: int,
     go_list_rc: int,
@@ -412,6 +440,8 @@ def test_go_list_cmd_failure(
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
     mock_worker_config.return_value.cachito_gomod_download_max_tries = 1
+    mock_go_release.return_value = "go0.1.0"
+    mock_get_gomod_version.return_value = "0.1.1"
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
@@ -419,9 +449,13 @@ def test_go_list_cmd_failure(
         mock.Mock(returncode=go_list_rc, stdout=""),  # go list -m
     ]
 
-    with pytest.raises(
-        (CachitoCalledProcessError, GoModError), match="Processing gomod dependencies failed"
-    ):
+    expect_error = "Go execution failed: "
+    if go_mod_rc == 0:
+        expect_error += "`go list -e -mod readonly -m` failed with rc=1"
+    else:
+        expect_error += "Cachito re-tried running `go mod download -json` command 1 times."
+
+    with pytest.raises((CachitoCalledProcessError, GoModError), match=expect_error):
         gomod.resolve_gomod(module_dir, request)
 
 
@@ -1028,9 +1062,9 @@ def test_should_vendor_deps_strict(flags, vendor_exists, expect_error, tmp_path)
 
 @pytest.mark.parametrize("can_make_changes", [True, False])
 @pytest.mark.parametrize("vendor_changed", [True, False])
-@mock.patch("cachito.workers.pkg_managers.gomod.run_download_cmd")
+@mock.patch("cachito.workers.pkg_managers.gomod.Go._run")
 @mock.patch("cachito.workers.pkg_managers.gomod._vendor_changed")
-def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor_changed):
+def test_vendor_deps(mock_vendor_changed, mock_run, can_make_changes, vendor_changed):
     git_dir = "/fake/repo"
     app_dir = "/fake/repo/some/app"
     run_params = {"cwd": app_dir}
@@ -1040,11 +1074,11 @@ def test_vendor_deps(mock_vendor_changed, mock_run_cmd, can_make_changes, vendor
     if expect_error:
         msg = "The content of the vendor directory is not consistent with go.mod."
         with pytest.raises(ValidationError, match=msg):
-            gomod._vendor_deps(run_params, can_make_changes, git_dir)
+            gomod._vendor_deps(gomod.Go(), run_params, can_make_changes, git_dir)
     else:
-        gomod._vendor_deps(run_params, can_make_changes, git_dir)
+        gomod._vendor_deps(gomod.Go(), run_params, can_make_changes, git_dir)
 
-    mock_run_cmd.assert_called_once_with(("go", "mod", "vendor"), run_params)
+    mock_run.assert_called_once_with(["go", "mod", "vendor"], **run_params)
     if not can_make_changes:
         mock_vendor_changed.assert_called_once_with(git_dir, app_dir)
 
