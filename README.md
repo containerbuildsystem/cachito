@@ -747,7 +747,7 @@ The table below shows the supported package managers and their support level in 
 
 Tool     | Version |
 ---      |---------|
-Go       | 1.20.7  |
+Go*      | 1.20.7, 1.21.0  |
 Npm      | 9.5.0   |
 Node     | 18.16.1 |
 Pip      | 22.3.1  |
@@ -761,6 +761,12 @@ Bundler* | 2.x     |
 * Cachito does not use the Ruby runtime (no ruby is interpreted from `Gemfile`s). 
   The processing of Gemfile.lock files is handled by
   [gemlock-parser](https://github.com/containerbuildsystem/gemlock-parser).
+* Starting with Go 1.21 Go changed the meaning of the `go` directive in `go.mod` file slightly and
+  made the constraint stricter in that the line now denotes the **minimum required** version of Go
+  instead of a suggested version of Go. If a project recommending an older version of Go is
+  processed with Go >=1.21 it might happen (based on other dependencies) that its own required
+  version of Go will be bumped to 1.21+, hence dirtying the git repo - to prevent this cachito
+  uses two releases of Go SDK concurrently.
 
 ### gomod
 
