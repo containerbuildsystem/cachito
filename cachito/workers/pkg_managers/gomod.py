@@ -1090,3 +1090,40 @@ def _get_gomod_version(source_dir: Path) -> Optional[str]:
             if match := re.match(reg, line):
                 return match.group("ver")
     return None
+
+
+def _select_go_toolchain(source_dir: Path) -> Go:
+    go = Go()
+    go1_21 = pkgver.Version("1.21")
+    go_base_version = go.version
+    go_mod_version_msg = "go.mod recommends/requires Go version: {}"
+
+    if (modfile_version := _get_gomod_version(source_dir)) is None:
+        # Go added the 'go' directive to go.mod in 1.12 [1]. If missing, 1.16 is assumed [2].
+        # For our version comparison purposes we set the version explicitly to 1.20 if missing.
+        # [1] https://go.dev/doc/go1.12#modules
+        # [2] https://go.dev/ref/mod#go-mod-file-go
+        modfile_version = "1.20"
+        go_mod_version_msg += " " + "(cachito enforced)"
+
+    go_mod_version = pkgver.Version(modfile_version)
+
+    log.info(go_mod_version_msg.format(go_mod_version))
+
+    if go_mod_version >= go1_21 and go_base_version < go1_21:
+        # our base Go installation is too old and we need a newer one to support new keywords
+        go = Go(release="go1.21.0")
+    elif go_mod_version < go1_21 and go_base_version >= go1_21:
+        # Starting with Go 1.21, Go doesn't try to be semantically backwards compatible in that
+        # the 'go X.Y' line now denotes the minimum required version of Go, no a "suggested"
+        # version. What it means in practice is that a Go toolchain >= 1.21 enforces the
+        # biggest common toolchain denominator across all dependencies and so if the input
+        # project specifies e.g. 'go 1.19' and **any** of its dependencies specify 'go 1.21'
+        # (or higher), then the default 1.21 toolchain will bump the input project's go.mod
+        # file to make sure the minimum required Go version is met across all dependencies.
+        # That is a problem, because it'll lead to fatal build failures forcing everyone to
+        # update their build recipes. Note that at some point they'll have to do that anyway,
+        # but until majority of projects in the ecosystem adopt 1.21, we need a fallback to an
+        # older toolchain version.
+        go = Go(release="go1.20")
+    return go
