@@ -285,7 +285,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
     """
     Resolve and fetch gomod dependencies for given app source archive.
 
-    :param str app_source_path: the full path to the application source code
+    :param Path app_source_path: the full path to the application source code
     :param dict request: the Cachito request this is for
     :param list dep_replacements: dependency replacements with the keys "name" and "version"; this
         results in a series of `go mod edit -replace` commands
@@ -319,7 +319,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
         run_params = {"env": env, "cwd": app_source_path}
 
-        go = _select_go_toolchain(git_dir_path)
+        go = _select_go_toolchain(app_source_path)
 
         # Collect all the dependency names that are being replaced to later report which
         # dependencies were replaced
@@ -383,8 +383,8 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             update_tags=True,
             subpath=(
                 None
-                if app_source_path == str(git_dir_path)
-                else app_source_path.replace(f"{git_dir_path}/", "")
+                if app_source_path == git_dir_path
+                else str(app_source_path).replace(f"{git_dir_path}/", "")
             ),
         )
         main_module = {
@@ -662,7 +662,7 @@ def _vet_local_deps(
     dependencies: List[dict],
     module_name: str,
     allowed_patterns: List[str],
-    app_source_path: str,
+    app_source_path: Path,
     git_dir_path: str,
 ) -> None:
     """
@@ -693,11 +693,13 @@ def _vet_local_deps(
             )
 
 
-def _validate_local_dependency_path(app_source_path: str, git_dir_path: str, dep_path: str) -> None:
+def _validate_local_dependency_path(
+    app_source_path: Path, git_dir_path: str, dep_path: str
+) -> None:
     """
     Validate that the local dependency path is not outside the repository.
 
-    :param str app_source_path: the full path to the application source code
+    :param Path app_source_path: the full path to the application source code
     :param str git_dir_path: the full path to the git repository
     :param str dep_path: the relative path for local replacements (the dep version)
     :raise ValidationError: if the local dependency path is invalid
@@ -1049,7 +1051,7 @@ def _get_gomod_version(source_dir: Path) -> Optional[str]:
     If we cannot extract a version from the 'go' line, we return None, leaving it up to the caller
     to decide what to do next.
     """
-    go_mod = source_dir / "go.mod"
+    go_mod = source_dir.joinpath("go.mod")
     with open(go_mod) as f:
         reg = re.compile(r"^\s*go\s+(?P<ver>\d\.\d+(:?.\d+)?)\s*$")
         for line in f:
