@@ -26,19 +26,19 @@ from cachito.workers.tasks import gomod
             None,
             True,
             None,
-            {"present": {".": True}, "relpath": {".": "./go.mod"}, "sourcedir": {".": "./"}},
+            {"present": {".": True}, "relpath": {".": "./go.mod"}, "sourcedir": {".": Path("./")}},
         ),
         (
             None,
             False,
             None,
-            {"present": {".": True}, "relpath": {".": "./go.mod"}, "sourcedir": {".": "./"}},
+            {"present": {".": True}, "relpath": {".": "./go.mod"}, "sourcedir": {".": Path("./")}},
         ),
         (
             [{"name": "github.com/pkg/errors", "type": "gomod", "version": "v0.8.1"}],
             True,
             None,
-            {"present": {".": True}, "relpath": {".": "./go.mod"}, "sourcedir": {".": "./"}},
+            {"present": {".": True}, "relpath": {".": "./go.mod"}, "sourcedir": {".": Path("./")}},
         ),
         (
             None,
@@ -47,7 +47,7 @@ from cachito.workers.tasks import gomod
             {
                 "present": {"bar": True, "foo": True},
                 "relpath": {"bar": "./bar/go.mod", "foo": "./foo/go.mod"},
-                "sourcedir": {"bar": "./bar/", "foo": "./foo/"},
+                "sourcedir": {"bar": Path("./bar/"), "foo": Path("./foo/")},
             },
         ),
         (
@@ -57,7 +57,7 @@ from cachito.workers.tasks import gomod
             {
                 "present": {".": True, "foo": True},
                 "relpath": {".": "./go.mod", "foo": "./foo/go.mod"},
-                "sourcedir": {".": "./", "foo": "./foo/"},
+                "sourcedir": {".": Path("./"), "foo": Path("./foo/")},
             },
         ),
         (
@@ -67,7 +67,7 @@ from cachito.workers.tasks import gomod
             {
                 "present": {".": True, "foo": True},
                 "relpath": {".": "./go.mod", "foo": "./foo/go.mod"},
-                "sourcedir": {".": "./", "foo": "./foo/"},
+                "sourcedir": {".": Path("./"), "foo": Path("./foo/")},
             },
         ),
     ),
@@ -191,7 +191,7 @@ def test_fetch_gomod_source(
 
     gomod_calls = [
         mock.call(
-            str(mock_bundle_dir().app_subpath(path).source_dir),
+            mock_bundle_dir().app_subpath(path).source_dir,
             mock_request,
             dep_replacements,
             mock_bundle_dir().source_dir,

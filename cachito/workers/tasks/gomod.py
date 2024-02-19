@@ -166,6 +166,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
         "GOCACHE": {"value": "deps/gomod", "kind": "path"},
         "GOPATH": {"value": "deps/gomod", "kind": "path"},
         "GOMODCACHE": {"value": "deps/gomod/pkg/mod", "kind": "path"},
+        "GOTOOLCHAIN": {"value": "local", "kind": "literal"},
     }
     env_vars.update(config.cachito_default_environment_variables.get("gomod", {}))
     update_request_env_vars(request_id, env_vars)
@@ -182,7 +183,7 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
             f'Fetching the gomod dependencies at the "{subpath}" directory',
         )
         request = get_request(request_id)
-        gomod_source_path = str(bundle_dir.app_subpath(subpath).source_dir)
+        gomod_source_path = Path(bundle_dir.app_subpath(subpath).source_dir)
         try:
             gomod = resolve_gomod(
                 gomod_source_path, request, dep_replacements, bundle_dir.source_dir
