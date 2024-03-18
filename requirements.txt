@@ -702,9 +702,9 @@ opentelemetry-util-http==0.42b0 \
     --hash=sha256:665e7d372837811aa08cbb9102d4da862441d1c9b1795d649ef08386c8a3cbbd \
     --hash=sha256:764069ed2f7e9a98ed1a7a87111f838000484e388e81f467405933be4b0306c6
     # via opentelemetry-instrumentation-requests
-packaging==23.2 \
-    --hash=sha256:048fb0e9405036518eaaf48a55953c750c11e1a1b68e0dd1a9d62ed0c092cfc5 \
-    --hash=sha256:8c491190033a9af7e1d931d0b5dacc2ef47509b34dd0de67ed209b5203fc88c7
+packaging==24.0 \
+    --hash=sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5 \
+    --hash=sha256:eb82c5e3e56209074766e6885bb04b8c38a0c015d0a30036ebe7ece34c9989e9
     # via
     #   -r requirements.in
     #   opentelemetry-instrumentation-sqlalchemy
