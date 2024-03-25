@@ -165,9 +165,7 @@ coverage[toml]==7.3.2 \
     --hash=sha256:f94b734214ea6a36fe16e96a70d941af80ff3bfd716c141300d95ebc85339738 \
     --hash=sha256:fa28e909776dc69efb6ed975a63691bc8172b64ff357e663a1bb06ff3c9b589a \
     --hash=sha256:fe494faa90ce6381770746077243231e0b83ff3f17069d748f645617cefe19d4
-    # via
-    #   coverage
-    #   pytest-cov
+    # via pytest-cov
 deprecated==1.2.14 \
     --hash=sha256:6fac8b097794a90302bdbb17b9b815e732d3c4720583ff1b198499d78470466c \
     --hash=sha256:e5323eb936458dccc2582dc6f9c322c852a775a27065ff2b0c4970b9d53d01b3
@@ -367,9 +365,9 @@ pytest==7.4.4 \
     #   -r requirements-test.in
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==0.23.4 \
-    --hash=sha256:2143d9d9375bf372a73260e4114541485e84fca350b0b6b92674ca56ff5f7ea2 \
-    --hash=sha256:b0079dfac14b60cd1ce4691fbfb1748fe939db7d0234b5aba97197d10fbe0fef
+pytest-asyncio==0.23.6 \
+    --hash=sha256:68516fdd1018ac57b846c9846b954f0393b26f094764a28c955eabb0536a4e8a \
+    --hash=sha256:ffe523a89c1c222598c76856e76852b787504ddb72dd5d9b6617ffa8aa2cde5f
     # via -r requirements-test.in
 pytest-cov==4.1.0 \
     --hash=sha256:3904b13dfbfec47f003b8e77fd5b589cd11904a21ddf1ab38a64f204d6a10ef6 \
