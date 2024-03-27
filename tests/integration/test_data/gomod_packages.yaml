@@ -6500,3 +6500,11 @@ go_1.21:
   - name: vendor/golang.org/x/text/unicode/norm
     purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Funicode%2Fnorm
     type: library
+# Test data for a module requiring go 1.20 but depends on a module requiring go 1.21
+gomod_1_20_dirty_repo:
+  repo: https://github.com/cachito-testing/cachi2-gomod
+  ref: 3353e452672851079f1926b6b2d7372447104b31
+  pkg_managers: ["gomod"]
+  packages:
+    gomod: [{ "path": "twenty" }]
+  flags: ["include-git-dir"]

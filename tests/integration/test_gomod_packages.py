@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import pytest
+from git import Repo
 
 from . import utils
 
@@ -140,3 +141,31 @@ def test_gomod_with_local_replacements_in_parent_dir_missing(test_env):
         f"#{completed_response.id}: Request failed correctly, but with unexpected message: "
         f"{completed_response.data['state_reason']}. Expected message was: {error_msg}"
     )
+
+
+def test_gomod_1_20_dirty_repo(tmp_path, test_env):
+    """
+    Validate that go.mod with go < 1.21 is processed with go < 1.21.
+
+    Go versions < 1.21 will not update the go directive in go.mod, but go versions
+    >= 1.21 will and dirty the application repository.
+    """
+    env_data = utils.load_test_data("gomod_packages.yaml")["gomod_1_20_dirty_repo"]
+    client = utils.Client(test_env["api_url"], test_env["api_auth_type"], test_env.get("timeout"))
+    initial_response = client.create_new_request(
+        payload={
+            "repo": env_data["repo"],
+            "ref": env_data["ref"],
+            "pkg_managers": env_data["pkg_managers"],
+            "packages": env_data["packages"],
+            "flags": env_data["flags"],
+        },
+    )
+    completed_response = client.wait_for_complete_request(initial_response)
+    utils.assert_properly_completed_response(completed_response)
+
+    client.download_and_extract_archive(completed_response.data["id"], tmp_path)
+    app_dir = tmp_path / f"download_{completed_response.data['id']}" / "app"
+    repo = Repo(app_dir)
+
+    assert not repo.is_dirty(), "The app git repository is dirty. Check if go.mod was modified."
