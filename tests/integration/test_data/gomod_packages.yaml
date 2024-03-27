@@ -4470,3 +4470,2033 @@ multiple_modules:
   - name: unsafe
     type: library
     purl: pkg:golang/unsafe
+# Test data for the retrodep module with minimum required go version 1.21
+go_1.21:
+  repo: https://github.com/cachito-testing/retrodep.git
+  ref: d0c316edef82e527fed5713f9960cfe7f7c29945
+  pkg_managers: ["gomod"]
+  response_expectations:
+    packages:
+      - dependencies:
+        - name: bufio
+          replaces: null
+          type: go-package
+          version: null
+        - name: bytes
+          replaces: null
+          type: go-package
+          version: null
+        - name: compress/flate
+          replaces: null
+          type: go-package
+          version: null
+        - name: compress/gzip
+          replaces: null
+          type: go-package
+          version: null
+        - name: container/list
+          replaces: null
+          type: go-package
+          version: null
+        - name: context
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/aes
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/cipher
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/des
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/dsa
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/ecdh
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/ecdsa
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/ed25519
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/elliptic
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/hmac
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/alias
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/bigmod
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/boring
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/boring/bbig
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/boring/sig
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/edwards25519
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/edwards25519/field
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/nistec
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/nistec/fiat
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/internal/randutil
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/md5
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/rand
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/rc4
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/rsa
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/sha1
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/sha256
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/sha512
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/subtle
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/tls
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/x509
+          replaces: null
+          type: go-package
+          version: null
+        - name: crypto/x509/pkix
+          replaces: null
+          type: go-package
+          version: null
+        - name: embed
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding/asn1
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding/base64
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding/binary
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding/hex
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding/json
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding/pem
+          replaces: null
+          type: go-package
+          version: null
+        - name: encoding/xml
+          replaces: null
+          type: go-package
+          version: null
+        - name: errors
+          replaces: null
+          type: go-package
+          version: null
+        - name: flag
+          replaces: null
+          type: go-package
+          version: null
+        - name: fmt
+          replaces: null
+          type: go-package
+          version: null
+        - name: github.com/Masterminds/semver
+          replaces: null
+          type: go-package
+          version: v1.4.2
+        - name: github.com/op/go-logging
+          replaces: null
+          type: go-package
+          version: v0.0.0-20160315200505-970db520ece7
+        - name: github.com/pkg/errors
+          replaces: null
+          type: go-package
+          version: v0.8.1
+        - name: github.com/release-engineering/retrodep/v2/retrodep
+          replaces: null
+          type: go-package
+          version: v2.1.2-0.20240308152237-d0c316edef82
+        - name: github.com/release-engineering/retrodep/v2/retrodep/glide
+          replaces: null
+          type: go-package
+          version: v2.1.2-0.20240308152237-d0c316edef82
+        - name: go/ast
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/build
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/build/constraint
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/doc
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/doc/comment
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/internal/typeparams
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/parser
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/scanner
+          replaces: null
+          type: go-package
+          version: null
+        - name: go/token
+          replaces: null
+          type: go-package
+          version: null
+        - name: golang.org/x/tools/go/vcs
+          replaces: null
+          type: go-package
+          version: v0.0.0-20190325161752-5a8dccf5b48a
+        - name: gopkg.in/yaml.v2
+          replaces: null
+          type: go-package
+          version: v2.2.2
+        - name: hash
+          replaces: null
+          type: go-package
+          version: null
+        - name: hash/crc32
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/abi
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/bisect
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/buildcfg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/cpu
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/fmtsort
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/godebug
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/godebugs
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goroot
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goversion
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/intern
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/itoa
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/lazyregexp
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/nettrace
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/oserror
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/platform
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/poll
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/race
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/singleflight
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/execenv
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/unix
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/testlog
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/unsafeheader
+          replaces: null
+          type: go-package
+          version: null
+        - name: io
+          replaces: null
+          type: go-package
+          version: null
+        - name: io/fs
+          replaces: null
+          type: go-package
+          version: null
+        - name: io/ioutil
+          replaces: null
+          type: go-package
+          version: null
+        - name: log
+          replaces: null
+          type: go-package
+          version: null
+        - name: log/internal
+          replaces: null
+          type: go-package
+          version: null
+        - name: log/syslog
+          replaces: null
+          type: go-package
+          version: null
+        - name: math
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/big
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/bits
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/rand
+          replaces: null
+          type: go-package
+          version: null
+        - name: mime
+          replaces: null
+          type: go-package
+          version: null
+        - name: mime/multipart
+          replaces: null
+          type: go-package
+          version: null
+        - name: mime/quotedprintable
+          replaces: null
+          type: go-package
+          version: null
+        - name: net
+          replaces: null
+          type: go-package
+          version: null
+        - name: net/http
+          replaces: null
+          type: go-package
+          version: null
+        - name: net/http/httptrace
+          replaces: null
+          type: go-package
+          version: null
+        - name: net/http/internal
+          replaces: null
+          type: go-package
+          version: null
+        - name: net/http/internal/ascii
+          replaces: null
+          type: go-package
+          version: null
+        - name: net/netip
+          replaces: null
+          type: go-package
+          version: null
+        - name: net/textproto
+          replaces: null
+          type: go-package
+          version: null
+        - name: net/url
+          replaces: null
+          type: go-package
+          version: null
+        - name: os
+          replaces: null
+          type: go-package
+          version: null
+        - name: os/exec
+          replaces: null
+          type: go-package
+          version: null
+        - name: path
+          replaces: null
+          type: go-package
+          version: null
+        - name: path/filepath
+          replaces: null
+          type: go-package
+          version: null
+        - name: reflect
+          replaces: null
+          type: go-package
+          version: null
+        - name: regexp
+          replaces: null
+          type: go-package
+          version: null
+        - name: regexp/syntax
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/cgo
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/math
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: sort
+          replaces: null
+          type: go-package
+          version: null
+        - name: strconv
+          replaces: null
+          type: go-package
+          version: null
+        - name: strings
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: text/template
+          replaces: null
+          type: go-package
+          version: null
+        - name: text/template/parse
+          replaces: null
+          type: go-package
+          version: null
+        - name: time
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode/utf16
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode/utf8
+          replaces: null
+          type: go-package
+          version: null
+        - name: unsafe
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/crypto/chacha20
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/crypto/chacha20poly1305
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/crypto/cryptobyte
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/crypto/cryptobyte/asn1
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/crypto/hkdf
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/crypto/internal/alias
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/crypto/internal/poly1305
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/net/dns/dnsmessage
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/net/http/httpguts
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/net/http/httpproxy
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/net/http2/hpack
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/net/idna
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/sys/cpu
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/text/secure/bidirule
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/text/transform
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/text/unicode/bidi
+          replaces: null
+          type: go-package
+          version: null
+        - name: vendor/golang.org/x/text/unicode/norm
+          replaces: null
+          type: go-package
+          version: null
+        name: github.com/release-engineering/retrodep/v2
+        type: go-package
+        version: v2.1.2-0.20240308152237-d0c316edef82
+      - dependencies:
+        - name: github.com/Masterminds/semver
+          replaces: null
+          type: gomod
+          version: v1.4.2
+        - name: github.com/kr/pretty
+          replaces: null
+          type: gomod
+          version: v0.1.0
+        - name: github.com/op/go-logging
+          replaces: null
+          type: gomod
+          version: v0.0.0-20160315200505-970db520ece7
+        - name: github.com/pkg/errors
+          replaces: null
+          type: gomod
+          version: v0.8.1
+        - name: golang.org/x/tools
+          replaces: null
+          type: gomod
+          version: v0.0.0-20190325161752-5a8dccf5b48a
+        - name: gopkg.in/check.v1
+          replaces: null
+          type: gomod
+          version: v1.0.0-20180628173108-788fd7840127
+        - name: gopkg.in/yaml.v2
+          replaces: null
+          type: gomod
+          version: v2.2.2
+        name: github.com/release-engineering/retrodep/v2
+        type: gomod
+        version: v2.1.2-0.20240308152237-d0c316edef82
+    dependencies:
+      - name: bufio
+        replaces: null
+        type: go-package
+        version: null
+      - name: bytes
+        replaces: null
+        type: go-package
+        version: null
+      - name: compress/flate
+        replaces: null
+        type: go-package
+        version: null
+      - name: compress/gzip
+        replaces: null
+        type: go-package
+        version: null
+      - name: container/list
+        replaces: null
+        type: go-package
+        version: null
+      - name: context
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/aes
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/cipher
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/des
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/dsa
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/ecdh
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/ecdsa
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/ed25519
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/elliptic
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/hmac
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/alias
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/bigmod
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/boring
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/boring/bbig
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/boring/sig
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/edwards25519
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/edwards25519/field
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/nistec
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/nistec/fiat
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/internal/randutil
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/md5
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/rand
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/rc4
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/rsa
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/sha1
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/sha256
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/sha512
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/subtle
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/tls
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/x509
+        replaces: null
+        type: go-package
+        version: null
+      - name: crypto/x509/pkix
+        replaces: null
+        type: go-package
+        version: null
+      - name: embed
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding/asn1
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding/base64
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding/binary
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding/hex
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding/json
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding/pem
+        replaces: null
+        type: go-package
+        version: null
+      - name: encoding/xml
+        replaces: null
+        type: go-package
+        version: null
+      - name: errors
+        replaces: null
+        type: go-package
+        version: null
+      - name: flag
+        replaces: null
+        type: go-package
+        version: null
+      - name: fmt
+        replaces: null
+        type: go-package
+        version: null
+      - name: github.com/Masterminds/semver
+        replaces: null
+        type: go-package
+        version: v1.4.2
+      - name: github.com/op/go-logging
+        replaces: null
+        type: go-package
+        version: v0.0.0-20160315200505-970db520ece7
+      - name: github.com/pkg/errors
+        replaces: null
+        type: go-package
+        version: v0.8.1
+      - name: github.com/release-engineering/retrodep/v2/retrodep
+        replaces: null
+        type: go-package
+        version: v2.1.2-0.20240308152237-d0c316edef82
+      - name: github.com/release-engineering/retrodep/v2/retrodep/glide
+        replaces: null
+        type: go-package
+        version: v2.1.2-0.20240308152237-d0c316edef82
+      - name: go/ast
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/build
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/build/constraint
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/doc
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/doc/comment
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/internal/typeparams
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/parser
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/scanner
+        replaces: null
+        type: go-package
+        version: null
+      - name: go/token
+        replaces: null
+        type: go-package
+        version: null
+      - name: golang.org/x/tools/go/vcs
+        replaces: null
+        type: go-package
+        version: v0.0.0-20190325161752-5a8dccf5b48a
+      - name: gopkg.in/yaml.v2
+        replaces: null
+        type: go-package
+        version: v2.2.2
+      - name: hash
+        replaces: null
+        type: go-package
+        version: null
+      - name: hash/crc32
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/abi
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/bisect
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/buildcfg
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/bytealg
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/coverage/rtcov
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/cpu
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/fmtsort
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goarch
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/godebug
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/godebugs
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goexperiment
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goos
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goroot
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goversion
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/intern
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/itoa
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/lazyregexp
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/nettrace
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/oserror
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/platform
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/poll
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/race
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/reflectlite
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/safefilepath
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/singleflight
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/syscall/execenv
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/syscall/unix
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/testlog
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/unsafeheader
+        replaces: null
+        type: go-package
+        version: null
+      - name: io
+        replaces: null
+        type: go-package
+        version: null
+      - name: io/fs
+        replaces: null
+        type: go-package
+        version: null
+      - name: io/ioutil
+        replaces: null
+        type: go-package
+        version: null
+      - name: log
+        replaces: null
+        type: go-package
+        version: null
+      - name: log/internal
+        replaces: null
+        type: go-package
+        version: null
+      - name: log/syslog
+        replaces: null
+        type: go-package
+        version: null
+      - name: math
+        replaces: null
+        type: go-package
+        version: null
+      - name: math/big
+        replaces: null
+        type: go-package
+        version: null
+      - name: math/bits
+        replaces: null
+        type: go-package
+        version: null
+      - name: math/rand
+        replaces: null
+        type: go-package
+        version: null
+      - name: mime
+        replaces: null
+        type: go-package
+        version: null
+      - name: mime/multipart
+        replaces: null
+        type: go-package
+        version: null
+      - name: mime/quotedprintable
+        replaces: null
+        type: go-package
+        version: null
+      - name: net
+        replaces: null
+        type: go-package
+        version: null
+      - name: net/http
+        replaces: null
+        type: go-package
+        version: null
+      - name: net/http/httptrace
+        replaces: null
+        type: go-package
+        version: null
+      - name: net/http/internal
+        replaces: null
+        type: go-package
+        version: null
+      - name: net/http/internal/ascii
+        replaces: null
+        type: go-package
+        version: null
+      - name: net/netip
+        replaces: null
+        type: go-package
+        version: null
+      - name: net/textproto
+        replaces: null
+        type: go-package
+        version: null
+      - name: net/url
+        replaces: null
+        type: go-package
+        version: null
+      - name: os
+        replaces: null
+        type: go-package
+        version: null
+      - name: os/exec
+        replaces: null
+        type: go-package
+        version: null
+      - name: path
+        replaces: null
+        type: go-package
+        version: null
+      - name: path/filepath
+        replaces: null
+        type: go-package
+        version: null
+      - name: reflect
+        replaces: null
+        type: go-package
+        version: null
+      - name: regexp
+        replaces: null
+        type: go-package
+        version: null
+      - name: regexp/syntax
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/cgo
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/atomic
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/math
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/sys
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/syscall
+        replaces: null
+        type: go-package
+        version: null
+      - name: sort
+        replaces: null
+        type: go-package
+        version: null
+      - name: strconv
+        replaces: null
+        type: go-package
+        version: null
+      - name: strings
+        replaces: null
+        type: go-package
+        version: null
+      - name: sync
+        replaces: null
+        type: go-package
+        version: null
+      - name: sync/atomic
+        replaces: null
+        type: go-package
+        version: null
+      - name: syscall
+        replaces: null
+        type: go-package
+        version: null
+      - name: text/template
+        replaces: null
+        type: go-package
+        version: null
+      - name: text/template/parse
+        replaces: null
+        type: go-package
+        version: null
+      - name: time
+        replaces: null
+        type: go-package
+        version: null
+      - name: unicode
+        replaces: null
+        type: go-package
+        version: null
+      - name: unicode/utf16
+        replaces: null
+        type: go-package
+        version: null
+      - name: unicode/utf8
+        replaces: null
+        type: go-package
+        version: null
+      - name: unsafe
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/crypto/chacha20
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/crypto/chacha20poly1305
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/crypto/cryptobyte
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/crypto/cryptobyte/asn1
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/crypto/hkdf
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/crypto/internal/alias
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/crypto/internal/poly1305
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/net/dns/dnsmessage
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/net/http/httpguts
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/net/http/httpproxy
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/net/http2/hpack
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/net/idna
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/sys/cpu
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/text/secure/bidirule
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/text/transform
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/text/unicode/bidi
+        replaces: null
+        type: go-package
+        version: null
+      - name: vendor/golang.org/x/text/unicode/norm
+        replaces: null
+        type: go-package
+        version: null
+      - name: github.com/Masterminds/semver
+        replaces: null
+        type: gomod
+        version: v1.4.2
+      - name: github.com/kr/pretty
+        replaces: null
+        type: gomod
+        version: v0.1.0
+      - name: github.com/op/go-logging
+        replaces: null
+        type: gomod
+        version: v0.0.0-20160315200505-970db520ece7
+      - name: github.com/pkg/errors
+        replaces: null
+        type: gomod
+        version: v0.8.1
+      - name: golang.org/x/tools
+        replaces: null
+        type: gomod
+        version: v0.0.0-20190325161752-5a8dccf5b48a
+      - name: gopkg.in/check.v1
+        replaces: null
+        type: gomod
+        version: v1.0.0-20180628173108-788fd7840127
+      - name: gopkg.in/yaml.v2
+        replaces: null
+        type: gomod
+        version: v2.2.2
+  expected_files:
+    app: https://github.com/cachito-testing/retrodep/tarball/d0c316edef82e527fed5713f9960cfe7f7c29945
+    deps/gomod/pkg/mod/cache/download/: https://github.com/cachito-testing/test_files/raw/master/retrodep-deps-go-1_21.tar.gz
+  content_manifest:
+  - purl: "pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2@v2.1.2-0.20240308152237-d0c316edef82"
+    dep_purls:
+    - "pkg:golang/bufio"
+    - "pkg:golang/bytes"
+    - "pkg:golang/compress%2Fflate"
+    - "pkg:golang/compress%2Fgzip"
+    - "pkg:golang/container%2Flist"
+    - "pkg:golang/context"
+    - "pkg:golang/crypto"
+    - "pkg:golang/crypto%2Faes"
+    - "pkg:golang/crypto%2Fcipher"
+    - "pkg:golang/crypto%2Fdes"
+    - "pkg:golang/crypto%2Fdsa"
+    - "pkg:golang/crypto%2Fecdh"
+    - "pkg:golang/crypto%2Fecdsa"
+    - "pkg:golang/crypto%2Fed25519"
+    - "pkg:golang/crypto%2Felliptic"
+    - "pkg:golang/crypto%2Fhmac"
+    - "pkg:golang/crypto%2Finternal%2Falias"
+    - "pkg:golang/crypto%2Finternal%2Fbigmod"
+    - "pkg:golang/crypto%2Finternal%2Fboring"
+    - "pkg:golang/crypto%2Finternal%2Fboring%2Fbbig"
+    - "pkg:golang/crypto%2Finternal%2Fboring%2Fsig"
+    - "pkg:golang/crypto%2Finternal%2Fedwards25519"
+    - "pkg:golang/crypto%2Finternal%2Fedwards25519%2Ffield"
+    - "pkg:golang/crypto%2Finternal%2Fnistec"
+    - "pkg:golang/crypto%2Finternal%2Fnistec%2Ffiat"
+    - "pkg:golang/crypto%2Finternal%2Frandutil"
+    - "pkg:golang/crypto%2Fmd5"
+    - "pkg:golang/crypto%2Frand"
+    - "pkg:golang/crypto%2Frc4"
+    - "pkg:golang/crypto%2Frsa"
+    - "pkg:golang/crypto%2Fsha1"
+    - "pkg:golang/crypto%2Fsha256"
+    - "pkg:golang/crypto%2Fsha512"
+    - "pkg:golang/crypto%2Fsubtle"
+    - "pkg:golang/crypto%2Ftls"
+    - "pkg:golang/crypto%2Fx509"
+    - "pkg:golang/crypto%2Fx509%2Fpkix"
+    - "pkg:golang/embed"
+    - "pkg:golang/encoding"
+    - "pkg:golang/encoding%2Fasn1"
+    - "pkg:golang/encoding%2Fbase64"
+    - "pkg:golang/encoding%2Fbinary"
+    - "pkg:golang/encoding%2Fhex"
+    - "pkg:golang/encoding%2Fjson"
+    - "pkg:golang/encoding%2Fpem"
+    - "pkg:golang/encoding%2Fxml"
+    - "pkg:golang/errors"
+    - "pkg:golang/flag"
+    - "pkg:golang/fmt"
+    - "pkg:golang/github.com%2FMasterminds%2Fsemver@v1.4.2"
+    - "pkg:golang/github.com%2Fop%2Fgo-logging@v0.0.0-20160315200505-970db520ece7"
+    - "pkg:golang/github.com%2Fpkg%2Ferrors@v0.8.1"
+    - "pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2%2Fretrodep%2Fglide@v2.1.2-0.20240308152237-d0c316edef82"
+    - "pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2%2Fretrodep@v2.1.2-0.20240308152237-d0c316edef82"
+    - "pkg:golang/go%2Fast"
+    - "pkg:golang/go%2Fbuild"
+    - "pkg:golang/go%2Fbuild%2Fconstraint"
+    - "pkg:golang/go%2Fdoc"
+    - "pkg:golang/go%2Fdoc%2Fcomment"
+    - "pkg:golang/go%2Finternal%2Ftypeparams"
+    - "pkg:golang/go%2Fparser"
+    - "pkg:golang/go%2Fscanner"
+    - "pkg:golang/go%2Ftoken"
+    - "pkg:golang/golang.org%2Fx%2Ftools%2Fgo%2Fvcs@v0.0.0-20190325161752-5a8dccf5b48a"
+    - "pkg:golang/gopkg.in%2Fyaml.v2@v2.2.2"
+    - "pkg:golang/hash"
+    - "pkg:golang/hash%2Fcrc32"
+    - "pkg:golang/internal%2Fabi"
+    - "pkg:golang/internal%2Fbisect"
+    - "pkg:golang/internal%2Fbuildcfg"
+    - "pkg:golang/internal%2Fbytealg"
+    - "pkg:golang/internal%2Fcoverage%2Frtcov"
+    - "pkg:golang/internal%2Fcpu"
+    - "pkg:golang/internal%2Ffmtsort"
+    - "pkg:golang/internal%2Fgoarch"
+    - "pkg:golang/internal%2Fgodebug"
+    - "pkg:golang/internal%2Fgodebugs"
+    - "pkg:golang/internal%2Fgoexperiment"
+    - "pkg:golang/internal%2Fgoos"
+    - "pkg:golang/internal%2Fgoroot"
+    - "pkg:golang/internal%2Fgoversion"
+    - "pkg:golang/internal%2Fintern"
+    - "pkg:golang/internal%2Fitoa"
+    - "pkg:golang/internal%2Flazyregexp"
+    - "pkg:golang/internal%2Fnettrace"
+    - "pkg:golang/internal%2Foserror"
+    - "pkg:golang/internal%2Fplatform"
+    - "pkg:golang/internal%2Fpoll"
+    - "pkg:golang/internal%2Frace"
+    - "pkg:golang/internal%2Freflectlite"
+    - "pkg:golang/internal%2Fsafefilepath"
+    - "pkg:golang/internal%2Fsingleflight"
+    - "pkg:golang/internal%2Fsyscall%2Fexecenv"
+    - "pkg:golang/internal%2Fsyscall%2Funix"
+    - "pkg:golang/internal%2Ftestlog"
+    - "pkg:golang/internal%2Funsafeheader"
+    - "pkg:golang/io"
+    - "pkg:golang/io%2Ffs"
+    - "pkg:golang/io%2Fioutil"
+    - "pkg:golang/log"
+    - "pkg:golang/log%2Finternal"
+    - "pkg:golang/log%2Fsyslog"
+    - "pkg:golang/math"
+    - "pkg:golang/math%2Fbig"
+    - "pkg:golang/math%2Fbits"
+    - "pkg:golang/math%2Frand"
+    - "pkg:golang/mime"
+    - "pkg:golang/mime%2Fmultipart"
+    - "pkg:golang/mime%2Fquotedprintable"
+    - "pkg:golang/net"
+    - "pkg:golang/net%2Fhttp"
+    - "pkg:golang/net%2Fhttp%2Fhttptrace"
+    - "pkg:golang/net%2Fhttp%2Finternal"
+    - "pkg:golang/net%2Fhttp%2Finternal%2Fascii"
+    - "pkg:golang/net%2Fnetip"
+    - "pkg:golang/net%2Ftextproto"
+    - "pkg:golang/net%2Furl"
+    - "pkg:golang/os"
+    - "pkg:golang/os%2Fexec"
+    - "pkg:golang/path"
+    - "pkg:golang/path%2Ffilepath"
+    - "pkg:golang/reflect"
+    - "pkg:golang/regexp"
+    - "pkg:golang/regexp%2Fsyntax"
+    - "pkg:golang/runtime"
+    - "pkg:golang/runtime%2Fcgo"
+    - "pkg:golang/runtime%2Finternal%2Fatomic"
+    - "pkg:golang/runtime%2Finternal%2Fmath"
+    - "pkg:golang/runtime%2Finternal%2Fsys"
+    - "pkg:golang/runtime%2Finternal%2Fsyscall"
+    - "pkg:golang/sort"
+    - "pkg:golang/strconv"
+    - "pkg:golang/strings"
+    - "pkg:golang/sync"
+    - "pkg:golang/sync%2Fatomic"
+    - "pkg:golang/syscall"
+    - "pkg:golang/text%2Ftemplate"
+    - "pkg:golang/text%2Ftemplate%2Fparse"
+    - "pkg:golang/time"
+    - "pkg:golang/unicode"
+    - "pkg:golang/unicode%2Futf16"
+    - "pkg:golang/unicode%2Futf8"
+    - "pkg:golang/unsafe"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fchacha20"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fchacha20poly1305"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fcryptobyte"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fcryptobyte%2Fasn1"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fhkdf"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Finternal%2Falias"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Finternal%2Fpoly1305"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fdns%2Fdnsmessage"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fhttp%2Fhttpguts"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fhttp%2Fhttpproxy"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fhttp2%2Fhpack"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fidna"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Fsys%2Fcpu"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Fsecure%2Fbidirule"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Ftransform"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Funicode%2Fbidi"
+    - "pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Funicode%2Fnorm"
+    source_purls:
+    - "pkg:golang/github.com%2FMasterminds%2Fsemver@v1.4.2"
+    - "pkg:golang/github.com%2Fkr%2Fpretty@v0.1.0"
+    - "pkg:golang/github.com%2Fop%2Fgo-logging@v0.0.0-20160315200505-970db520ece7"
+    - "pkg:golang/github.com%2Fpkg%2Ferrors@v0.8.1"
+    - "pkg:golang/golang.org%2Fx%2Ftools@v0.0.0-20190325161752-5a8dccf5b48a"
+    - "pkg:golang/gopkg.in%2Fcheck.v1@v1.0.0-20180628173108-788fd7840127"
+    - "pkg:golang/gopkg.in%2Fyaml.v2@v2.2.2"
+  sbom:
+  - name: bufio
+    purl: pkg:golang/bufio
+    type: library
+  - name: bytes
+    purl: pkg:golang/bytes
+    type: library
+  - name: compress/flate
+    purl: pkg:golang/compress%2Fflate
+    type: library
+  - name: compress/gzip
+    purl: pkg:golang/compress%2Fgzip
+    type: library
+  - name: container/list
+    purl: pkg:golang/container%2Flist
+    type: library
+  - name: context
+    purl: pkg:golang/context
+    type: library
+  - name: crypto
+    purl: pkg:golang/crypto
+    type: library
+  - name: crypto/aes
+    purl: pkg:golang/crypto%2Faes
+    type: library
+  - name: crypto/cipher
+    purl: pkg:golang/crypto%2Fcipher
+    type: library
+  - name: crypto/des
+    purl: pkg:golang/crypto%2Fdes
+    type: library
+  - name: crypto/dsa
+    purl: pkg:golang/crypto%2Fdsa
+    type: library
+  - name: crypto/ecdh
+    purl: pkg:golang/crypto%2Fecdh
+    type: library
+  - name: crypto/ecdsa
+    purl: pkg:golang/crypto%2Fecdsa
+    type: library
+  - name: crypto/ed25519
+    purl: pkg:golang/crypto%2Fed25519
+    type: library
+  - name: crypto/elliptic
+    purl: pkg:golang/crypto%2Felliptic
+    type: library
+  - name: crypto/hmac
+    purl: pkg:golang/crypto%2Fhmac
+    type: library
+  - name: crypto/internal/alias
+    purl: pkg:golang/crypto%2Finternal%2Falias
+    type: library
+  - name: crypto/internal/bigmod
+    purl: pkg:golang/crypto%2Finternal%2Fbigmod
+    type: library
+  - name: crypto/internal/boring
+    purl: pkg:golang/crypto%2Finternal%2Fboring
+    type: library
+  - name: crypto/internal/boring/bbig
+    purl: pkg:golang/crypto%2Finternal%2Fboring%2Fbbig
+    type: library
+  - name: crypto/internal/boring/sig
+    purl: pkg:golang/crypto%2Finternal%2Fboring%2Fsig
+    type: library
+  - name: crypto/internal/edwards25519
+    purl: pkg:golang/crypto%2Finternal%2Fedwards25519
+    type: library
+  - name: crypto/internal/edwards25519/field
+    purl: pkg:golang/crypto%2Finternal%2Fedwards25519%2Ffield
+    type: library
+  - name: crypto/internal/nistec
+    purl: pkg:golang/crypto%2Finternal%2Fnistec
+    type: library
+  - name: crypto/internal/nistec/fiat
+    purl: pkg:golang/crypto%2Finternal%2Fnistec%2Ffiat
+    type: library
+  - name: crypto/internal/randutil
+    purl: pkg:golang/crypto%2Finternal%2Frandutil
+    type: library
+  - name: crypto/md5
+    purl: pkg:golang/crypto%2Fmd5
+    type: library
+  - name: crypto/rand
+    purl: pkg:golang/crypto%2Frand
+    type: library
+  - name: crypto/rc4
+    purl: pkg:golang/crypto%2Frc4
+    type: library
+  - name: crypto/rsa
+    purl: pkg:golang/crypto%2Frsa
+    type: library
+  - name: crypto/sha1
+    purl: pkg:golang/crypto%2Fsha1
+    type: library
+  - name: crypto/sha256
+    purl: pkg:golang/crypto%2Fsha256
+    type: library
+  - name: crypto/sha512
+    purl: pkg:golang/crypto%2Fsha512
+    type: library
+  - name: crypto/subtle
+    purl: pkg:golang/crypto%2Fsubtle
+    type: library
+  - name: crypto/tls
+    purl: pkg:golang/crypto%2Ftls
+    type: library
+  - name: crypto/x509
+    purl: pkg:golang/crypto%2Fx509
+    type: library
+  - name: crypto/x509/pkix
+    purl: pkg:golang/crypto%2Fx509%2Fpkix
+    type: library
+  - name: embed
+    purl: pkg:golang/embed
+    type: library
+  - name: encoding
+    purl: pkg:golang/encoding
+    type: library
+  - name: encoding/asn1
+    purl: pkg:golang/encoding%2Fasn1
+    type: library
+  - name: encoding/base64
+    purl: pkg:golang/encoding%2Fbase64
+    type: library
+  - name: encoding/binary
+    purl: pkg:golang/encoding%2Fbinary
+    type: library
+  - name: encoding/hex
+    purl: pkg:golang/encoding%2Fhex
+    type: library
+  - name: encoding/json
+    purl: pkg:golang/encoding%2Fjson
+    type: library
+  - name: encoding/pem
+    purl: pkg:golang/encoding%2Fpem
+    type: library
+  - name: encoding/xml
+    purl: pkg:golang/encoding%2Fxml
+    type: library
+  - name: errors
+    purl: pkg:golang/errors
+    type: library
+  - name: flag
+    purl: pkg:golang/flag
+    type: library
+  - name: fmt
+    purl: pkg:golang/fmt
+    type: library
+  - name: github.com/Masterminds/semver
+    purl: pkg:golang/github.com%2FMasterminds%2Fsemver@v1.4.2
+    type: library
+    version: v1.4.2
+  - name: github.com/kr/pretty
+    purl: pkg:golang/github.com%2Fkr%2Fpretty@v0.1.0
+    type: library
+    version: v0.1.0
+  - name: github.com/op/go-logging
+    purl: pkg:golang/github.com%2Fop%2Fgo-logging@v0.0.0-20160315200505-970db520ece7
+    type: library
+    version: v0.0.0-20160315200505-970db520ece7
+  - name: github.com/pkg/errors
+    purl: pkg:golang/github.com%2Fpkg%2Ferrors@v0.8.1
+    type: library
+    version: v0.8.1
+  - name: github.com/release-engineering/retrodep/v2/retrodep/glide
+    purl: pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2%2Fretrodep%2Fglide@v2.1.2-0.20240308152237-d0c316edef82
+    type: library
+    version: v2.1.2-0.20240308152237-d0c316edef82
+  - name: github.com/release-engineering/retrodep/v2/retrodep
+    purl: pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2%2Fretrodep@v2.1.2-0.20240308152237-d0c316edef82
+    type: library
+    version: v2.1.2-0.20240308152237-d0c316edef82
+  - name: github.com/release-engineering/retrodep/v2
+    purl: pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2@v2.1.2-0.20240308152237-d0c316edef82
+    type: library
+    version: v2.1.2-0.20240308152237-d0c316edef82
+  - name: go/ast
+    purl: pkg:golang/go%2Fast
+    type: library
+  - name: go/build
+    purl: pkg:golang/go%2Fbuild
+    type: library
+  - name: go/build/constraint
+    purl: pkg:golang/go%2Fbuild%2Fconstraint
+    type: library
+  - name: go/doc
+    purl: pkg:golang/go%2Fdoc
+    type: library
+  - name: go/doc/comment
+    purl: pkg:golang/go%2Fdoc%2Fcomment
+    type: library
+  - name: go/internal/typeparams
+    purl: pkg:golang/go%2Finternal%2Ftypeparams
+    type: library
+  - name: go/parser
+    purl: pkg:golang/go%2Fparser
+    type: library
+  - name: go/scanner
+    purl: pkg:golang/go%2Fscanner
+    type: library
+  - name: go/token
+    purl: pkg:golang/go%2Ftoken
+    type: library
+  - name: golang.org/x/tools/go/vcs
+    purl: pkg:golang/golang.org%2Fx%2Ftools%2Fgo%2Fvcs@v0.0.0-20190325161752-5a8dccf5b48a
+    type: library
+    version: v0.0.0-20190325161752-5a8dccf5b48a
+  - name: golang.org/x/tools
+    purl: pkg:golang/golang.org%2Fx%2Ftools@v0.0.0-20190325161752-5a8dccf5b48a
+    type: library
+    version: v0.0.0-20190325161752-5a8dccf5b48a
+  - name: gopkg.in/check.v1
+    purl: pkg:golang/gopkg.in%2Fcheck.v1@v1.0.0-20180628173108-788fd7840127
+    type: library
+    version: v1.0.0-20180628173108-788fd7840127
+  - name: gopkg.in/yaml.v2
+    purl: pkg:golang/gopkg.in%2Fyaml.v2@v2.2.2
+    type: library
+    version: v2.2.2
+  - name: hash
+    purl: pkg:golang/hash
+    type: library
+  - name: hash/crc32
+    purl: pkg:golang/hash%2Fcrc32
+    type: library
+  - name: internal/abi
+    purl: pkg:golang/internal%2Fabi
+    type: library
+  - name: internal/bisect
+    purl: pkg:golang/internal%2Fbisect
+    type: library
+  - name: internal/buildcfg
+    purl: pkg:golang/internal%2Fbuildcfg
+    type: library
+  - name: internal/bytealg
+    purl: pkg:golang/internal%2Fbytealg
+    type: library
+  - name: internal/coverage/rtcov
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
+    type: library
+  - name: internal/cpu
+    purl: pkg:golang/internal%2Fcpu
+    type: library
+  - name: internal/fmtsort
+    purl: pkg:golang/internal%2Ffmtsort
+    type: library
+  - name: internal/goarch
+    purl: pkg:golang/internal%2Fgoarch
+    type: library
+  - name: internal/godebug
+    purl: pkg:golang/internal%2Fgodebug
+    type: library
+  - name: internal/godebugs
+    purl: pkg:golang/internal%2Fgodebugs
+    type: library
+  - name: internal/goexperiment
+    purl: pkg:golang/internal%2Fgoexperiment
+    type: library
+  - name: internal/goos
+    purl: pkg:golang/internal%2Fgoos
+    type: library
+  - name: internal/goroot
+    purl: pkg:golang/internal%2Fgoroot
+    type: library
+  - name: internal/goversion
+    purl: pkg:golang/internal%2Fgoversion
+    type: library
+  - name: internal/intern
+    purl: pkg:golang/internal%2Fintern
+    type: library
+  - name: internal/itoa
+    purl: pkg:golang/internal%2Fitoa
+    type: library
+  - name: internal/lazyregexp
+    purl: pkg:golang/internal%2Flazyregexp
+    type: library
+  - name: internal/nettrace
+    purl: pkg:golang/internal%2Fnettrace
+    type: library
+  - name: internal/oserror
+    purl: pkg:golang/internal%2Foserror
+    type: library
+  - name: internal/platform
+    purl: pkg:golang/internal%2Fplatform
+    type: library
+  - name: internal/poll
+    purl: pkg:golang/internal%2Fpoll
+    type: library
+  - name: internal/race
+    purl: pkg:golang/internal%2Frace
+    type: library
+  - name: internal/reflectlite
+    purl: pkg:golang/internal%2Freflectlite
+    type: library
+  - name: internal/safefilepath
+    purl: pkg:golang/internal%2Fsafefilepath
+    type: library
+  - name: internal/singleflight
+    purl: pkg:golang/internal%2Fsingleflight
+    type: library
+  - name: internal/syscall/execenv
+    purl: pkg:golang/internal%2Fsyscall%2Fexecenv
+    type: library
+  - name: internal/syscall/unix
+    purl: pkg:golang/internal%2Fsyscall%2Funix
+    type: library
+  - name: internal/testlog
+    purl: pkg:golang/internal%2Ftestlog
+    type: library
+  - name: internal/unsafeheader
+    purl: pkg:golang/internal%2Funsafeheader
+    type: library
+  - name: io
+    purl: pkg:golang/io
+    type: library
+  - name: io/fs
+    purl: pkg:golang/io%2Ffs
+    type: library
+  - name: io/ioutil
+    purl: pkg:golang/io%2Fioutil
+    type: library
+  - name: log
+    purl: pkg:golang/log
+    type: library
+  - name: log/internal
+    purl: pkg:golang/log%2Finternal
+    type: library
+  - name: log/syslog
+    purl: pkg:golang/log%2Fsyslog
+    type: library
+  - name: math
+    purl: pkg:golang/math
+    type: library
+  - name: math/big
+    purl: pkg:golang/math%2Fbig
+    type: library
+  - name: math/bits
+    purl: pkg:golang/math%2Fbits
+    type: library
+  - name: math/rand
+    purl: pkg:golang/math%2Frand
+    type: library
+  - name: mime
+    purl: pkg:golang/mime
+    type: library
+  - name: mime/multipart
+    purl: pkg:golang/mime%2Fmultipart
+    type: library
+  - name: mime/quotedprintable
+    purl: pkg:golang/mime%2Fquotedprintable
+    type: library
+  - name: net
+    purl: pkg:golang/net
+    type: library
+  - name: net/http
+    purl: pkg:golang/net%2Fhttp
+    type: library
+  - name: net/http/httptrace
+    purl: pkg:golang/net%2Fhttp%2Fhttptrace
+    type: library
+  - name: net/http/internal
+    purl: pkg:golang/net%2Fhttp%2Finternal
+    type: library
+  - name: net/http/internal/ascii
+    purl: pkg:golang/net%2Fhttp%2Finternal%2Fascii
+    type: library
+  - name: net/netip
+    purl: pkg:golang/net%2Fnetip
+    type: library
+  - name: net/textproto
+    purl: pkg:golang/net%2Ftextproto
+    type: library
+  - name: net/url
+    purl: pkg:golang/net%2Furl
+    type: library
+  - name: os
+    purl: pkg:golang/os
+    type: library
+  - name: os/exec
+    purl: pkg:golang/os%2Fexec
+    type: library
+  - name: path
+    purl: pkg:golang/path
+    type: library
+  - name: path/filepath
+    purl: pkg:golang/path%2Ffilepath
+    type: library
+  - name: reflect
+    purl: pkg:golang/reflect
+    type: library
+  - name: regexp
+    purl: pkg:golang/regexp
+    type: library
+  - name: regexp/syntax
+    purl: pkg:golang/regexp%2Fsyntax
+    type: library
+  - name: runtime
+    purl: pkg:golang/runtime
+    type: library
+  - name: runtime/cgo
+    purl: pkg:golang/runtime%2Fcgo
+    type: library
+  - name: runtime/internal/atomic
+    purl: pkg:golang/runtime%2Finternal%2Fatomic
+    type: library
+  - name: runtime/internal/math
+    purl: pkg:golang/runtime%2Finternal%2Fmath
+    type: library
+  - name: runtime/internal/sys
+    purl: pkg:golang/runtime%2Finternal%2Fsys
+    type: library
+  - name: runtime/internal/syscall
+    purl: pkg:golang/runtime%2Finternal%2Fsyscall
+    type: library
+  - name: sort
+    purl: pkg:golang/sort
+    type: library
+  - name: strconv
+    purl: pkg:golang/strconv
+    type: library
+  - name: strings
+    purl: pkg:golang/strings
+    type: library
+  - name: sync
+    purl: pkg:golang/sync
+    type: library
+  - name: sync/atomic
+    purl: pkg:golang/sync%2Fatomic
+    type: library
+  - name: syscall
+    purl: pkg:golang/syscall
+    type: library
+  - name: text/template
+    purl: pkg:golang/text%2Ftemplate
+    type: library
+  - name: text/template/parse
+    purl: pkg:golang/text%2Ftemplate%2Fparse
+    type: library
+  - name: time
+    purl: pkg:golang/time
+    type: library
+  - name: unicode
+    purl: pkg:golang/unicode
+    type: library
+  - name: unicode/utf16
+    purl: pkg:golang/unicode%2Futf16
+    type: library
+  - name: unicode/utf8
+    purl: pkg:golang/unicode%2Futf8
+    type: library
+  - name: unsafe
+    purl: pkg:golang/unsafe
+    type: library
+  - name: vendor/golang.org/x/crypto/chacha20
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fchacha20
+    type: library
+  - name: vendor/golang.org/x/crypto/chacha20poly1305
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fchacha20poly1305
+    type: library
+  - name: vendor/golang.org/x/crypto/cryptobyte
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fcryptobyte
+    type: library
+  - name: vendor/golang.org/x/crypto/cryptobyte/asn1
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fcryptobyte%2Fasn1
+    type: library
+  - name: vendor/golang.org/x/crypto/hkdf
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Fhkdf
+    type: library
+  - name: vendor/golang.org/x/crypto/internal/alias
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Finternal%2Falias
+    type: library
+  - name: vendor/golang.org/x/crypto/internal/poly1305
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fcrypto%2Finternal%2Fpoly1305
+    type: library
+  - name: vendor/golang.org/x/net/dns/dnsmessage
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fdns%2Fdnsmessage
+    type: library
+  - name: vendor/golang.org/x/net/http/httpguts
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fhttp%2Fhttpguts
+    type: library
+  - name: vendor/golang.org/x/net/http/httpproxy
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fhttp%2Fhttpproxy
+    type: library
+  - name: vendor/golang.org/x/net/http2/hpack
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fhttp2%2Fhpack
+    type: library
+  - name: vendor/golang.org/x/net/idna
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fnet%2Fidna
+    type: library
+  - name: vendor/golang.org/x/sys/cpu
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Fsys%2Fcpu
+    type: library
+  - name: vendor/golang.org/x/text/secure/bidirule
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Fsecure%2Fbidirule
+    type: library
+  - name: vendor/golang.org/x/text/transform
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Ftransform
+    type: library
+  - name: vendor/golang.org/x/text/unicode/bidi
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Funicode%2Fbidi
+    type: library
+  - name: vendor/golang.org/x/text/unicode/norm
+    purl: pkg:golang/vendor%2Fgolang.org%2Fx%2Ftext%2Funicode%2Fnorm
+    type: library
