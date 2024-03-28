@@ -28,6 +28,7 @@ from . import utils
         ("gomod_packages", "without_pkg_manager"),
         ("gomod_packages", "with_local_replacements_in_parent_dir"),
         ("gomod_packages", "multiple_modules"),
+        ("gomod_packages", "go_1.21"),
         ("gomod_vendor_check", "correct_vendor"),
         ("gomod_vendor_check", "no_vendor"),
         ("npm_packages", "without_deps_v1_lockfile"),
