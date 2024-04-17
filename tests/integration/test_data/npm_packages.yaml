@@ -782,22 +782,22 @@ workspaces:
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-npm-workspaces@b4ec59868cb5667deb62930859762b107f23598c"
     dep_purls:
-      - "pkg:generic/bar?file%3Abar"
-      - "pkg:generic/eggs?file%3Aeggs-packages%2Feggs"
-      - "pkg:generic/foo?file%3Afoo"
-      - "pkg:generic/not-baz?file%3Abaz"
-      - "pkg:generic/spam?file%3Aspam-packages%2Fspam"
+      - "pkg:generic/bar?file=bar"
+      - "pkg:generic/eggs?file=eggs-packages%2Feggs"
+      - "pkg:generic/foo?file=foo"
+      - "pkg:generic/not-baz?file=baz"
+      - "pkg:generic/spam?file=spam-packages%2Fspam"
       - "pkg:npm/abbrev@2.0.0"
       - "pkg:npm/classnames@2.3.2"
       - "pkg:npm/colors@1.4.0"
       - "pkg:npm/dateformat@5.0.3"
       - "pkg:npm/uuid@9.0.0"
     source_purls:
-      - "pkg:generic/bar?file%3Abar"
-      - "pkg:generic/eggs?file%3Aeggs-packages%2Feggs"
-      - "pkg:generic/foo?file%3Afoo"
-      - "pkg:generic/not-baz?file%3Abaz"
-      - "pkg:generic/spam?file%3Aspam-packages%2Fspam"
+      - "pkg:generic/bar?file=bar"
+      - "pkg:generic/eggs?file=eggs-packages%2Feggs"
+      - "pkg:generic/foo?file=foo"
+      - "pkg:generic/not-baz?file=baz"
+      - "pkg:generic/spam?file=spam-packages%2Fspam"
       - "pkg:npm/abbrev@2.0.0"
       - "pkg:npm/classnames@2.3.2"
       - "pkg:npm/colors@1.4.0"
@@ -807,23 +807,23 @@ workspaces:
   - name: bar
     type: library
     version: file:bar
-    purl: pkg:generic/bar?file%3Abar
+    purl: pkg:generic/bar?file=bar
   - name: eggs
     type: library
     version: file:eggs-packages/eggs
-    purl: pkg:generic/eggs?file%3Aeggs-packages%2Feggs
+    purl: pkg:generic/eggs?file=eggs-packages%2Feggs
   - name: foo
     type: library
     version: file:foo
-    purl: pkg:generic/foo?file%3Afoo
+    purl: pkg:generic/foo?file=foo
   - name: not-baz
     type: library
     version: file:baz
-    purl: pkg:generic/not-baz?file%3Abaz
+    purl: pkg:generic/not-baz?file=baz
   - name: spam
     type: library
     version: file:spam-packages/spam
-    purl: pkg:generic/spam?file%3Aspam-packages%2Fspam
+    purl: pkg:generic/spam?file=spam-packages%2Fspam
   - name: npm_test
     type: library
     version: 1.1.0
@@ -914,12 +914,12 @@ multiple-dep-versions:
   content_manifest:
   - purl: "pkg:github/cachito-testing/cachito-npm-with-multiple-dep-versions@97070a9eb06bad62eb581890731221660ade9ea3"
     dep_purls:
-      - "pkg:generic/foo?file%3Afoo"
+      - "pkg:generic/foo?file=foo"
       - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%231187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf"
       - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2375dd3a181375162eda014984f2decc663199b09e"
     source_purls:
       - "pkg:generic/cachito-npm-without-deps?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fcachito-testing%2Fcachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b965285a69583f6"
-      - "pkg:generic/foo?file%3Afoo"
+      - "pkg:generic/foo?file=foo"
       - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%231187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf"
       - "pkg:generic/is-positive?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fkevva%2Fis-positive.git%2375dd3a181375162eda014984f2decc663199b09e"
   sbom:
@@ -930,7 +930,7 @@ multiple-dep-versions:
   - name: foo
     type: library
     version: file:foo
-    purl: pkg:generic/foo?file%3Afoo
+    purl: pkg:generic/foo?file=foo
   - name: is-positive
     type: library
     version: git+ssh://git@github.com/kevva/is-positive.git#1187a61f2e18cf7c11c23d61a1bd52b9fa6a5fdf
