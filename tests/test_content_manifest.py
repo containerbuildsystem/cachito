@@ -1566,7 +1566,7 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
         ],
         [
             {"name": "fromfile", "type": "npm", "version": "file:client-default"},
-            "pkg:generic/fromfile?file%3Aclient-default",
+            "pkg:generic/fromfile?file=client-default",
             None,
             True,
             True,
@@ -1698,7 +1698,7 @@ def test_set_go_package_sources(mock_warning, app, pkg_name, gomod_data, warn, d
         ],
         [
             {"name": "fromfile", "type": "yarn", "version": "file:client-default"},
-            "pkg:generic/fromfile?file%3Aclient-default",
+            "pkg:generic/fromfile?file=client-default",
             None,
             True,
             True,
