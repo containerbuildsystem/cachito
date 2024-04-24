@@ -122,7 +122,7 @@ def test_resolve_gomod(
 
     mock_golang_version.return_value = "v0.1.0"
     mock_go_release.return_value = "go0.1.0"
-    mock_get_gomod_version.return_value = "0.1.1"
+    mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
     mock_get_allowed_local_deps.return_value = ["*"]
 
@@ -247,7 +247,7 @@ def test_resolve_gomod_vendor_dependencies(
 
     mock_golang_version.return_value = "v0.1.0"
     mock_go_release.return_value = "go0.1.0"
-    mock_get_gomod_version.return_value = "0.1.1"
+    mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
     module_dir = tmp_path / "path/to/module"
     module_dir.joinpath("vendor").mkdir(parents=True)
@@ -308,7 +308,7 @@ def test_resolve_gomod_strict_mode_raise_error(
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
     mock_golang_version.return_value = "v2.1.1"
     mock_go_release.return_value = "go0.1.0"
-    mock_get_gomod_version.return_value = "0.1.1"
+    mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
@@ -384,7 +384,7 @@ def test_resolve_gomod_no_deps(
 
     mock_golang_version.return_value = "v2.1.1"
     mock_go_release.return_value = "go0.1.0"
-    mock_get_gomod_version.return_value = "0.1.1"
+    mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
     module_dir = str(tmp_path / "/path/to/module")
 
@@ -443,7 +443,7 @@ def test_go_list_cmd_failure(
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
     mock_worker_config.return_value.cachito_gomod_download_max_tries = 1
     mock_go_release.return_value = "go0.1.0"
-    mock_get_gomod_version.return_value = "0.1.1"
+    mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
@@ -1250,21 +1250,38 @@ def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change,
 
 
 @pytest.mark.parametrize(
-    "go_mod_file, go_mod_version",
-    [("go 1.21", "1.21"), ("    go    1.21.4    ", "1.21.4")],
+    "go_mod_file, go_mod_version, go_toolchain_version",
+    [
+        pytest.param("go 1.21", "1.21", None, id="no_toolchain"),
+        pytest.param("    go    1.21.4    ", "1.21.4", None, id="whitechars_no_toolchain"),
+        pytest.param("   toolchain   go1.21.4  ", None, "1.21.4", id="whitechars_toolchain"),
+        pytest.param("toolchain go1.21", None, "1.21", id="toolchain_missing_micro_version"),
+        pytest.param("go 1.21\ntoolchain go1.21.6", "1.21", "1.21.6", id="go_and_toolchain"),
+    ],
     indirect=["go_mod_file"],
 )
-def test_get_gomod_version(go_mod_file: Path, go_mod_version: str) -> None:
-    assert gomod._get_gomod_version(go_mod_file) == go_mod_version
+def test_get_gomod_version(
+    go_mod_file: Path, go_mod_version: str, go_toolchain_version: str
+) -> None:
+    assert gomod._get_gomod_version(go_mod_file) == (go_mod_version, go_toolchain_version)
+
+
+INVALID_VERSION_STRINGS = [
+    "go1.21",  # missing space between go and version number
+    "go 1.21.0.100",  # non-conforming to the X.Y(.Z)? versioning template
+    "1.21",  # missing 'go' at the beginning
+    "go 1.21 foo",  # extra characters after version string
+    "toolchain 1.21",  # missing 'go' prefix for the toolchain spec
+]
 
 
 @pytest.mark.parametrize(
     "go_mod_file",
-    [pytest.param(_, id=_) for _ in ["go1.21", "go 1.21.0.100", "1.21", "go 1.21 foo"]],
+    [pytest.param(_, id=_) for _ in INVALID_VERSION_STRINGS],
     indirect=True,
 )
 def test_get_gomod_version_fail(go_mod_file: Path) -> None:
-    assert gomod._get_gomod_version(go_mod_file) is None
+    assert gomod._get_gomod_version(go_mod_file) == (None, None)
 
 
 @pytest.mark.parametrize(
@@ -1277,6 +1294,7 @@ def test_get_gomod_version_fail(go_mod_file: Path) -> None:
         pytest.param("go1.21.4", "go 1.20", "1.20", id="modfile_requires_older_toolchain"),
         pytest.param("go1.20", "", "1.20", id="no_modfile_version_use_base_toolchain"),
         pytest.param("go1.21.4", "", "1.20", id="no_modfile_version_use_older_toolchain"),
+        pytest.param("go1.21.6", "toolchain go1.21.4", "1.21.6", id="decide_based_on_toolchain"),
     ],
     indirect=["go_mod_file"],
 )
