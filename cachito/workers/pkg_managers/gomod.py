@@ -319,7 +319,7 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
 
         run_params = {"env": env, "cwd": app_source_path}
 
-        go = _select_go_toolchain(app_source_path)
+        go = _select_go_toolchain(Path(app_source_path, "go.mod"))
         log.info(f"Using Go release: {go.release}")
 
         # Collect all the dependency names that are being replaced to later report which
@@ -1042,7 +1042,7 @@ def get_golang_version(module_name, git_path, commit_sha, update_tags=False, sub
     )
 
 
-def _get_gomod_version(source_dir: Path) -> Optional[str]:
+def _get_gomod_version(go_mod_file: Path) -> Optional[str]:
     """Return the required/recommended version of Go from go.mod.
 
     We need to extract the desired version of Go ourselves as older versions of Go might fail
@@ -1052,8 +1052,7 @@ def _get_gomod_version(source_dir: Path) -> Optional[str]:
     If we cannot extract a version from the 'go' line, we return None, leaving it up to the caller
     to decide what to do next.
     """
-    go_mod = source_dir.joinpath("go.mod")
-    with open(go_mod) as f:
+    with open(go_mod_file) as f:
         reg = re.compile(r"^\s*go\s+(?P<ver>\d\.\d+(:?.\d+)?)\s*$")
         for line in f:
             if match := re.match(reg, line):
@@ -1061,13 +1060,13 @@ def _get_gomod_version(source_dir: Path) -> Optional[str]:
     return None
 
 
-def _select_go_toolchain(source_dir: Path) -> Go:
+def _select_go_toolchain(go_mod_file: Path) -> Go:
     go = Go()
     go1_21 = pkgver.Version("1.21")
     go_base_version = go.version
     go_mod_version_msg = "go.mod recommends/requires Go version: {}"
 
-    if (modfile_version := _get_gomod_version(source_dir)) is None:
+    if (modfile_version := _get_gomod_version(go_mod_file)) is None:
         # Go added the 'go' directive to go.mod in 1.12 [1]. If missing, 1.16 is assumed [2].
         # For our version comparison purposes we set the version explicitly to 1.20 if missing.
         # [1] https://go.dev/doc/go1.12#modules

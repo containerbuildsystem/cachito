@@ -1253,7 +1253,7 @@ def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change,
     indirect=["go_mod_file"],
 )
 def test_get_gomod_version(tmp_path: Path, go_mod_file: Path, go_mod_version: str) -> None:
-    assert gomod._get_gomod_version(tmp_path) == go_mod_version
+    assert gomod._get_gomod_version(tmp_path / "go.mod") == go_mod_version
 
 
 @pytest.mark.parametrize(
@@ -1262,7 +1262,7 @@ def test_get_gomod_version(tmp_path: Path, go_mod_file: Path, go_mod_version: st
     indirect=True,
 )
 def test_get_gomod_version_fail(tmp_path: Path, go_mod_file: Path) -> None:
-    assert gomod._get_gomod_version(tmp_path) is None
+    assert gomod._get_gomod_version(tmp_path / "go.mod") is None
 
 
 @pytest.mark.parametrize(
@@ -1288,7 +1288,7 @@ def test_select_go_toolchain(
 ) -> None:
     mock_go_call.return_value = f"Go release: {base_release}"
 
-    go = gomod._select_go_toolchain(tmp_path)
+    go = gomod._select_go_toolchain(tmp_path / "go.mod")
     assert go.version == Version(expected_toolchain)
 
 
