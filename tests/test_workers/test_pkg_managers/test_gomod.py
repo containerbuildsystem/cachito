@@ -1288,13 +1288,13 @@ def test_get_gomod_version_fail(go_mod_file: Path) -> None:
     "base_release, go_mod_file, expected_toolchain",
     [
         pytest.param("go1.20.7", "go 1.20", "1.20.7", id="old_base_version_equals_modfile"),
-        pytest.param("go1.21.4", "go 1.21.0", "1.21.4", id="new_base_version_equals_modfile"),
+        pytest.param("go1.21.4", "go 1.21.0", "1.21.0", id="new_base_version_equals_modfile"),
         pytest.param("go1.20.7", "go 1.21.0", "1.21.0", id="modfile_requires_newer_toolchain"),
-        pytest.param("go1.21.4", "go 1.21.9", "1.21.4", id="modfile_requires_newer_121_toolchain"),
+        pytest.param("go1.21.4", "go 1.21.9", "1.21.0", id="modfile_requires_newer_121_toolchain"),
         pytest.param("go1.21.4", "go 1.20", "1.20", id="modfile_requires_older_toolchain"),
         pytest.param("go1.20", "", "1.20", id="no_modfile_version_use_base_toolchain"),
         pytest.param("go1.21.4", "", "1.20", id="no_modfile_version_use_older_toolchain"),
-        pytest.param("go1.21.6", "toolchain go1.21.4", "1.21.6", id="decide_based_on_toolchain"),
+        pytest.param("go1.21.6", "toolchain go1.21.4", "1.21.0", id="decide_based_on_toolchain"),
     ],
     indirect=["go_mod_file"],
 )
@@ -1345,7 +1345,7 @@ class TestGo:
             pytest.param(
                 "/usr/bin/go1.21",
                 {
-                    "env": {"GOCACHE": "/foo", "GOTOOLCHAIN": "local"},
+                    "env": {"GOCACHE": "/foo", "GOTOOLCHAIN": "auto"},
                     "cwd": "/foo/bar",
                     "text": True,
                 },
@@ -1377,7 +1377,7 @@ class TestGo:
             pytest.param(
                 None,
                 {
-                    "env": {"GOCACHE": "/foo", "GOTOOLCHAIN": "local"},
+                    "env": {"GOCACHE": "/foo", "GOTOOLCHAIN": "auto"},
                     "cwd": "/foo/bar",
                     "text": True,
                 },
@@ -1473,7 +1473,7 @@ class TestGo:
         retry: bool,
     ) -> None:
 
-        env = {"env": {"GOTOOLCHAIN": "local", "GOCACHE": "foo", "GOPATH": "bar"}}
+        env = {"env": {"GOTOOLCHAIN": "auto", "GOCACHE": "foo", "GOPATH": "bar"}}
         opts = ["mod", "download"]
         go = gomod.Go(release=release)
         go(opts, retry=retry, params=env)

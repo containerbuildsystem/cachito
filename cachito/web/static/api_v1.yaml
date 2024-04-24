@@ -541,9 +541,6 @@ paths:
                 GOSUMDB:
                   value: off
                   kind: literal
-                GOTOOLCHAIN:
-                  value: local
-                  kind: literal
         "404":
           description: The request wasn't found
           content:
