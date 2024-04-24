@@ -31,7 +31,6 @@ class Config(object):
     cachito_default_environment_variables = {
         "gomod": {
             "GOSUMDB": {"value": "off", "kind": "literal"},
-            "GOTOOLCHAIN": {"value": "local", "kind": "literal"},
         },
         "npm": {
             "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
@@ -164,7 +163,6 @@ class TestingConfig(DevelopmentConfig):
         "gomod": {
             "GO111MODULE": {"value": "on", "kind": "literal"},
             "GOSUMDB": {"value": "off", "kind": "literal"},
-            "GOTOOLCHAIN": {"value": "local", "kind": "literal"},
         },
         "npm": {
             "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
