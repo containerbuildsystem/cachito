@@ -1266,32 +1266,30 @@ def test_get_gomod_version_fail(tmp_path: Path, go_mod_file: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "base_release,modfile_version,used_version",
+    "base_release, go_mod_file, expected_toolchain",
     [
-        pytest.param("go1.20.7", "1.20", "1.20.7", id="old_base_version_equals_modfile"),
-        pytest.param("go1.21.4", "1.21.0", "1.21.4", id="new_base_version_equals_modfile"),
-        pytest.param("go1.20.7", "1.21.0", "1.21.0", id="modfile_requires_newer_toolchain"),
-        pytest.param("go1.21.4", "1.21.9", "1.21.4", id="modfile_requires_newer_121_toolchain"),
-        pytest.param("go1.21.4", "1.20", "1.20", id="modfile_requires_older_toolchain"),
-        pytest.param("go1.20", None, "1.20", id="no_modfile_version_use_base_toolchain"),
-        pytest.param("go1.21.4", None, "1.20", id="no_modfile_version_use_older_toolchain"),
+        pytest.param("go1.20.7", "go 1.20", "1.20.7", id="old_base_version_equals_modfile"),
+        pytest.param("go1.21.4", "go 1.21.0", "1.21.4", id="new_base_version_equals_modfile"),
+        pytest.param("go1.20.7", "go 1.21.0", "1.21.0", id="modfile_requires_newer_toolchain"),
+        pytest.param("go1.21.4", "go 1.21.9", "1.21.4", id="modfile_requires_newer_121_toolchain"),
+        pytest.param("go1.21.4", "go 1.20", "1.20", id="modfile_requires_older_toolchain"),
+        pytest.param("go1.20", "", "1.20", id="no_modfile_version_use_base_toolchain"),
+        pytest.param("go1.21.4", "", "1.20", id="no_modfile_version_use_older_toolchain"),
     ],
+    indirect=["go_mod_file"],
 )
-@mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
-@mock.patch("cachito.workers.pkg_managers.gomod.Go._run")
+@mock.patch("cachito.workers.pkg_managers.gomod.Go.__call__")
 def test_select_go_toolchain(
-    mock_go_run: mock.Mock,
-    mock_get_gomod_version: mock.Mock,
+    mock_go_call: mock.Mock,
     tmp_path: Path,
     base_release: str,
-    modfile_version: str,
-    used_version: str,
+    go_mod_file: Path,
+    expected_toolchain: str,
 ) -> None:
-    mock_go_run.return_value = base_release
-    mock_get_gomod_version.return_value = modfile_version
+    mock_go_call.return_value = f"Go release: {base_release}"
 
     go = gomod._select_go_toolchain(tmp_path)
-    assert go.version == Version(used_version)
+    assert go.version == Version(expected_toolchain)
 
 
 class TestGo:
