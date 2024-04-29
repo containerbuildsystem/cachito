@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
 from datetime import datetime
+
+import pytest
 
 from . import utils
 
@@ -24,6 +27,10 @@ def test_get_request_metrics(api_client):
     assert request_metrics["time_in_queue"] > 0
 
 
+@pytest.mark.skipif(
+    "cachito-prod" in str(os.environ.get("JOB_NAME")),
+    reason="Test is skipped in production environment",
+)
 def test_get_request_metrics_summary(api_client):
     finished_from = datetime.utcnow().isoformat()
     env_data = utils.load_test_data("pip_packages.yaml")["without_deps"]
