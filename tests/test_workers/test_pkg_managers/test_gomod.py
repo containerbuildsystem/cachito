@@ -35,11 +35,13 @@ def get_mocked_data(filepath: Union[str, Path]) -> str:
 
 
 @pytest.fixture
-def go_mod_file(tmp_path: Path, request: pytest.FixtureRequest) -> None:
+def go_mod_file(tmp_path: Path, request: pytest.FixtureRequest) -> Path:
     output_file = tmp_path / "go.mod"
 
     with open(output_file, "w") as f:
         f.write(request.param)
+
+    return output_file
 
 
 RETRODEP_PRE_REPLACE = "github.com/release-engineering/retrodep/v2"
@@ -1252,8 +1254,8 @@ def test_vendor_changed(subpath, vendor_before, vendor_changes, expected_change,
     [("go 1.21", "1.21"), ("    go    1.21.4    ", "1.21.4")],
     indirect=["go_mod_file"],
 )
-def test_get_gomod_version(tmp_path: Path, go_mod_file: Path, go_mod_version: str) -> None:
-    assert gomod._get_gomod_version(tmp_path / "go.mod") == go_mod_version
+def test_get_gomod_version(go_mod_file: Path, go_mod_version: str) -> None:
+    assert gomod._get_gomod_version(go_mod_file) == go_mod_version
 
 
 @pytest.mark.parametrize(
@@ -1261,8 +1263,8 @@ def test_get_gomod_version(tmp_path: Path, go_mod_file: Path, go_mod_version: st
     [pytest.param(_, id=_) for _ in ["go1.21", "go 1.21.0.100", "1.21", "go 1.21 foo"]],
     indirect=True,
 )
-def test_get_gomod_version_fail(tmp_path: Path, go_mod_file: Path) -> None:
-    assert gomod._get_gomod_version(tmp_path / "go.mod") is None
+def test_get_gomod_version_fail(go_mod_file: Path) -> None:
+    assert gomod._get_gomod_version(go_mod_file) is None
 
 
 @pytest.mark.parametrize(
@@ -1281,14 +1283,13 @@ def test_get_gomod_version_fail(tmp_path: Path, go_mod_file: Path) -> None:
 @mock.patch("cachito.workers.pkg_managers.gomod.Go.__call__")
 def test_select_go_toolchain(
     mock_go_call: mock.Mock,
-    tmp_path: Path,
     base_release: str,
     go_mod_file: Path,
     expected_toolchain: str,
 ) -> None:
     mock_go_call.return_value = f"Go release: {base_release}"
 
-    go = gomod._select_go_toolchain(tmp_path / "go.mod")
+    go = gomod._select_go_toolchain(go_mod_file)
     assert go.version == Version(expected_toolchain)
 
 
