@@ -350,7 +350,7 @@ def assert_elements_from_response(response_data, expected_response_data):
         )
 
 
-def assert_expected_files(source_path, expected_files, tmpdir):
+def assert_expected_files(source_path, expected_files, tmpdir, ignore_files={}):
     """
     Check that the source path includes expected files in directories.
 
@@ -397,8 +397,13 @@ def assert_expected_files(source_path, expected_files, tmpdir):
             assert os.path.isdir(
                 expected_package_root_dir
             ), f"Wrong directory path {expected_package_root_dir}."
+
+            ignore_files_for_dir = ignore_files.get(dir_to_check, [])
+
             # Compare and assert files in directory with expected data
-            assert_directories_equal(package_root_dir, expected_package_root_dir)
+            assert_directories_equal(
+                package_root_dir, expected_package_root_dir, ignore_files_for_dir
+            )
             # Delete temporary data
             for temp_data in [deps_data_path, expected_data_path, expected_archive]:
                 if os.path.isdir(temp_data):

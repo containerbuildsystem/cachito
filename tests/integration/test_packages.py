@@ -94,7 +94,13 @@ def test_packages(env_package, env_name, test_env, tmpdir):
     client.download_and_extract_archive(completed_response.id, tmpdir)
     source_path = tmpdir.join(f"download_{str(completed_response.id)}")
     expected_files = env_data["expected_files"]
-    utils.assert_expected_files(source_path, expected_files, tmpdir)
+
+    # File or directory names that will be ignored when checking the request output contents.
+    # Note that these do not represent absolute paths, so any file or directory that matches
+    # a name will be ignored.
+    ignore_files = env_data.get("ignore_files", {})
+
+    utils.assert_expected_files(source_path, expected_files, tmpdir, ignore_files)
 
     image_contents = utils.parse_image_contents(env_data.get("content_manifest"))
     utils.assert_content_manifest(client, completed_response.id, image_contents)
