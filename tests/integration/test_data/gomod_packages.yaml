@@ -5825,6 +5825,9 @@ go_1.21:
   expected_files:
     app: https://github.com/cachito-testing/retrodep/tarball/d0c316edef82e527fed5713f9960cfe7f7c29945
     deps/gomod/pkg/mod/cache/download/: https://github.com/cachito-testing/test_files/raw/master/retrodep-deps-go-1_21.tar.gz
+  ignore_files:
+    deps/gomod/pkg/mod/cache/download/:
+      - sumdb
   content_manifest:
   - purl: "pkg:golang/github.com%2Frelease-engineering%2Fretrodep%2Fv2@v2.1.2-0.20240308152237-d0c316edef82"
     dep_purls:
