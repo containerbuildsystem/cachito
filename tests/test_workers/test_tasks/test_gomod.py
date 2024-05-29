@@ -113,7 +113,6 @@ def test_fetch_gomod_source(
     # Add the default environment variables from the configuration
     env_vars = {
         "GO111MODULE": {"value": "on", "kind": "literal"},
-        "GOSUMDB": {"value": "off", "kind": "literal"},
     }
     sample_env_vars.update(env_vars)
 
