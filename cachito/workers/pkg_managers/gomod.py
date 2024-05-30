@@ -1077,7 +1077,7 @@ def _get_gomod_version(go_mod_file: Path) -> Tuple[Optional[str], Optional[str]]
 def _select_go_toolchain(go_mod_file: Path) -> Go:
     go = Go()
     target_version = None
-    go_max_version = pkgver.Version("1.21")
+    go_max_version = pkgver.Version("1.22")
     go_121_version = pkgver.Version("1.21")
     go_base_version = go.version
     go_mod_version_msg = "go.mod reported versions: '{}'[go], '{}'[toolchain]"
