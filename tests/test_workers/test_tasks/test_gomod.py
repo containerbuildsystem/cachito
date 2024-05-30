@@ -9,12 +9,7 @@ import pytest
 
 from cachito.common.packages_data import PackagesData
 from cachito.common.paths import RequestBundleDir
-from cachito.errors import (
-    FileAccessError,
-    InvalidRepoStructure,
-    InvalidRequestData,
-    UnsupportedFeature,
-)
+from cachito.errors import FileAccessError, InvalidRequestData, UnsupportedFeature
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
 
@@ -366,7 +361,7 @@ def test_fail_if_bundle_dir_has_workspaces(add_go_work_file, tmpdir):
 
     if add_go_work_file:
         Path(bundle_dir.source_root_dir / "go.work").touch()
-        with pytest.raises(InvalidRepoStructure):
+        with pytest.raises(UnsupportedFeature):
             gomod._fail_if_bundle_dir_has_workspaces(bundle_dir, ["."])
     else:
         gomod._fail_if_bundle_dir_has_workspaces(bundle_dir, ["."])
