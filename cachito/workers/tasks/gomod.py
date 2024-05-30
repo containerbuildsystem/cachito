@@ -4,13 +4,7 @@ import os
 from pathlib import Path
 
 from cachito.common.packages_data import PackagesData
-from cachito.errors import (
-    FileAccessError,
-    GoModError,
-    InvalidRepoStructure,
-    InvalidRequestData,
-    UnsupportedFeature,
-)
+from cachito.errors import FileAccessError, GoModError, InvalidRequestData, UnsupportedFeature
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general import update_request_env_vars
@@ -68,7 +62,7 @@ def _is_workspace(repo_root: Path, subpath: str):
 def _fail_if_bundle_dir_has_workspaces(bundle_dir: RequestBundleDir, subpaths: list[str]):
     for subpath in subpaths:
         if _is_workspace(bundle_dir.source_root_dir, subpath):
-            raise InvalidRepoStructure("Go workspaces are not supported by Cachito.")
+            raise UnsupportedFeature("Go workspaces are not supported by Cachito.")
 
 
 def _fail_if_parent_replacement_not_included(packages_json_data: PackagesData) -> None:
