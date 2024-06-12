@@ -73,7 +73,6 @@ RETRODEP_POST_REPLACE = "github.com/cachito-testing/retrodep/v2"
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
-@mock.patch("cachito.workers.pkg_managers.gomod._get_allowed_local_deps")
 @mock.patch("cachito.workers.pkg_managers.gomod._vet_local_deps")
 @mock.patch("cachito.workers.pkg_managers.gomod._set_full_local_dep_relpaths")
 @mock.patch("subprocess.run")
@@ -81,7 +80,6 @@ def test_resolve_gomod(
     mock_run: mock.Mock,
     mock_set_full_relpaths: mock.Mock,
     mock_vet_local_deps: mock.Mock,
-    mock_get_allowed_local_deps: mock.Mock,
     mock_merge_tree: mock.Mock,
     mock_temp_dir: mock.Mock,
     mock_golang_version: mock.Mock,
@@ -123,8 +121,6 @@ def test_resolve_gomod(
     mock_golang_version.return_value = "v0.1.0"
     mock_go_release.return_value = "go0.1.0"
     mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
-
-    mock_get_allowed_local_deps.return_value = ["*"]
 
     module_dir = str(tmp_path / "path/to/module")
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848", "flags": []}
@@ -190,14 +186,12 @@ def test_resolve_gomod(
     expect_module_deps = expect_gomod["module_deps"]
     expect_pkg_deps = expect_gomod["packages"][0]["pkg_deps"]
 
-    mock_get_allowed_local_deps.assert_called_once_with(expect_module_name)
     mock_vet_local_deps.assert_has_calls(
         [
-            mock.call(expect_module_deps, expect_module_name, ["*"], module_dir, module_dir),
+            mock.call(expect_module_deps, expect_module_name, module_dir, module_dir),
             mock.call(
                 expect_pkg_deps,
                 expect_module_name,
-                ["*"],
                 module_dir,
                 module_dir,
             ),
@@ -694,8 +688,7 @@ def test_merge_files(file_1_content, file_2_content, result_file_content):
 
 
 @mock.patch("cachito.workers.pkg_managers.gomod._validate_local_dependency_path")
-@mock.patch("cachito.workers.pkg_managers.gomod._fail_unless_allowed")
-def test_vet_local_deps(mock_fail_allowlist, mock_validate_dep_path):
+def test_vet_local_deps(mock_validate_dep_path):
     dependencies = [
         {"name": "foo", "version": "./local/foo"},
         {"name": "bar", "version": "v1.0.0"},
@@ -706,14 +699,8 @@ def test_vet_local_deps(mock_fail_allowlist, mock_validate_dep_path):
     git_dir = "/repo"
     mock_validate_dep_path.return_value = None
 
-    gomod._vet_local_deps(dependencies, module_name, ["foo", "baz"], app_dir, git_dir)
+    gomod._vet_local_deps(dependencies, module_name, app_dir, git_dir)
 
-    mock_fail_allowlist.assert_has_calls(
-        [
-            mock.call("some-module", "foo", ["foo", "baz"]),
-            mock.call("some-module", "baz", ["foo", "baz"]),
-        ],
-    )
     mock_validate_dep_path.assert_has_calls(
         [
             mock.call(app_dir, git_dir, "./local/foo"),
@@ -738,7 +725,7 @@ def test_vet_local_deps_abspath(platform_specific_path):
         f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
     )
     with pytest.raises(UnsupportedFeature, match=expect_error):
-        gomod._vet_local_deps(dependencies, "some-module", [], app_dir, app_dir)
+        gomod._vet_local_deps(dependencies, "some-module", app_dir, app_dir)
 
 
 @pytest.mark.parametrize(
@@ -761,76 +748,6 @@ def test_validate_local_dependency_path(
             gomod._validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
     else:
         gomod._validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
-
-
-@pytest.mark.parametrize(
-    "module_name, package_name, allowed_patterns, expect_error",
-    [
-        ("example/module", "example/package", ["example/package"], None),
-        ("example/module", "example/package", ["example/*"], None),
-        ("example/module", "example/package", ["*/package"], None),
-        ("example/module", "example/package", ["*/*"], None),
-        ("example/module", "example/package", ["*"], None),
-        ("example/module", "example/module/submodule", [], None),
-        ("example/module/v1", "example/module/submodule", [], None),
-        ("example/module/v1", "example/module/submodule/v2", [], None),
-        ("example/module", "example/module/submodule/v1", [], None),
-        (
-            "example/module",
-            "example/package",
-            [],
-            "The module example/module is not allowed to replace example/package",
-        ),
-        (
-            "example/module",
-            "example/package",
-            ["example"],
-            "The module example/module is not allowed to replace example/package",
-        ),
-        (
-            "example/module",
-            "example/package",
-            ["package"],
-            "The module example/module is not allowed to replace example/package",
-        ),
-        (
-            "example/module",
-            "example/package",
-            ["other-example/*"],
-            "The module example/module is not allowed to replace example/package",
-        ),
-        (
-            "example/module",
-            "example/package",
-            ["*/other-package"],
-            "The module example/module is not allowed to replace example/package",
-        ),
-        (
-            "example/module",
-            "example/package",
-            ["example/package/*"],
-            "The module example/module is not allowed to replace example/package",
-        ),
-        (
-            "example/module",
-            "example/package",
-            ["*/example/package"],
-            "The module example/module is not allowed to replace example/package",
-        ),
-        (
-            "example/module/v",
-            "example/module/submodule",
-            [],
-            "The module example/module/v is not allowed to replace example/module/submodule",
-        ),
-    ],
-)
-def test_fail_unless_allowed(module_name, package_name, allowed_patterns, expect_error):
-    if expect_error:
-        with pytest.raises(UnsupportedFeature, match=re.escape(expect_error)):
-            gomod._fail_unless_allowed(module_name, package_name, allowed_patterns)
-    else:
-        gomod._fail_unless_allowed(module_name, package_name, allowed_patterns)
 
 
 @pytest.mark.parametrize(
@@ -910,59 +827,6 @@ def test_set_full_local_dep_relpaths_no_match():
 
     with pytest.raises(RuntimeError, match=err_msg):
         gomod._set_full_local_dep_relpaths(pkg_deps, [])
-
-
-@pytest.mark.parametrize(
-    "allowlist, module_name, expect_allowed",
-    [
-        (
-            # simple match
-            {"example.org/foo": ["example.org/*"]},
-            "example.org/foo",
-            ["example.org/*"],
-        ),
-        (
-            # versionless match
-            {"example.org/foo": ["example.org/*"]},
-            "example.org/foo/v2",
-            ["example.org/*"],
-        ),
-        (
-            # simple match
-            {"example.org/foo/v2": ["example.org/*"]},
-            "example.org/foo/v2",
-            ["example.org/*"],
-        ),
-        (
-            # simple match beats versionless match
-            {"example.org/foo/v2": ["example.org/foo/v2/*"], "example.org/foo": ["example.org/*"]},
-            "example.org/foo/v2",
-            ["example.org/foo/v2/*"],
-        ),
-        (
-            # no match
-            {"example.org/foo": ["example.org/*"]},
-            "example.org/foo/bar",
-            [],
-        ),
-        (
-            # no match
-            {"example.org/foo/v2": ["example.org/*"]},
-            "example.org/foo",
-            [],
-        ),
-        (
-            # no match
-            {"example.org/foo/v2": ["example.org/*"]},
-            "example.org/foo/v3",
-            [],
-        ),
-    ],
-)
-@mock.patch("cachito.workers.pkg_managers.gomod.get_worker_config")
-def test_get_allowed_local_deps(mock_worker_config, allowlist, module_name, expect_allowed):
-    mock_worker_config.return_value.cachito_gomod_file_deps_allowlist = allowlist
-    assert gomod._get_allowed_local_deps(module_name) == expect_allowed
 
 
 @pytest.mark.parametrize(
