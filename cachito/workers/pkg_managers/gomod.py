@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-import fnmatch
 import functools
 import logging
 import os
@@ -455,16 +454,10 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             }
             main_packages.append({"pkg": main_pkg, "pkg_deps": pkg_deps})
 
-        allowlist = _get_allowed_local_deps(main_module_name)
-        log.debug("Allowed local dependencies for %s: %s", main_module_name, allowlist)
-        _vet_local_deps(
-            main_module_deps, main_module_name, allowlist, app_source_path, git_dir_path
-        )
+        _vet_local_deps(main_module_deps, main_module_name, app_source_path, git_dir_path)
         for pkg in main_packages:
             # Local dependencies are always relative to the main module, even for subpackages
-            _vet_local_deps(
-                pkg["pkg_deps"], main_module_name, allowlist, app_source_path, git_dir_path
-            )
+            _vet_local_deps(pkg["pkg_deps"], main_module_name, app_source_path, git_dir_path)
             _set_full_local_dep_relpaths(pkg["pkg_deps"], main_module_deps)
 
         return {
@@ -643,34 +636,13 @@ def _vendor_changed(git_dir: str, app_dir: str) -> bool:
     return False
 
 
-def _get_allowed_local_deps(module_name: str) -> List[str]:
-    """
-    Get allowed local dependencies for module.
-
-    If module name contains a version and is not present in the allowlist, also try matching
-    without the version. E.g. if example.org/module/v2 is not present in the allowlist, return
-    allowed deps for example.org/module.
-    """
-    allowlist = get_worker_config().cachito_gomod_file_deps_allowlist
-    allowed_deps = allowlist.get(module_name)
-    if allowed_deps is None:
-        versionless_module_name = MODULE_VERSION_RE.sub("", module_name)
-        allowed_deps = allowlist.get(versionless_module_name)
-    return allowed_deps or []
-
-
 def _vet_local_deps(
     dependencies: List[dict],
     module_name: str,
-    allowed_patterns: List[str],
     app_source_path: Path,
     git_dir_path: str,
 ) -> None:
-    """
-    Fail if any dependency is replaced by a local path unless the module is allowlisted.
-
-    Also fail if the module is allowlisted but the path is absolute or outside repository.
-    """
+    """Fail if any local file dependency path is either absolute or outside the repository."""
     for dep in dependencies:
         name = dep["name"]
         version = dep["version"]
@@ -685,7 +657,6 @@ def _vet_local_deps(
                 name,
                 version,
             )
-            _fail_unless_allowed(module_name, name, allowed_patterns)
             _validate_local_dependency_path(app_source_path, git_dir_path, version)
         elif version.startswith("/") or PureWindowsPath(version).root:
             # This will disallow paths starting with '/', '\' or '<drive letter>:\'
@@ -710,24 +681,6 @@ def _validate_local_dependency_path(
         resolved_dep_path.relative_to(Path(git_dir_path).resolve())
     except ValueError:
         raise ValidationError(f"The local dependency path {dep_path} is outside the repository")
-
-
-def _fail_unless_allowed(module_name: str, package_name: str, allowed_patterns: List[str]):
-    """
-    Fail unless the module is allowed to replace the package with a local dependency.
-
-    When packages are allowed to be replaced:
-    * package_name is a submodule of module_name
-    * package_name replacement is allowed according to allowed_patterns
-    """
-    versionless_module_name = MODULE_VERSION_RE.sub("", module_name)
-    is_submodule = contains_package(versionless_module_name, package_name)
-    if not is_submodule and not any(fnmatch.fnmatch(package_name, pat) for pat in allowed_patterns):
-        raise UnsupportedFeature(
-            f"The module {module_name} is not allowed to replace {package_name} with a local "
-            f"dependency. Please contact the maintainers of this Cachito instance about adding "
-            "an exception."
-        )
 
 
 def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[dict]):

@@ -62,7 +62,6 @@ class Config(object):
     cachito_nexus_username = "cachito"
     cachito_npm_file_deps_allowlist: Dict[str, List[str]] = {}
     cachito_yarn_file_deps_allowlist: Dict[str, List[str]] = {}
-    cachito_gomod_file_deps_allowlist: Dict[str, List[str]] = {}
     cachito_rubygems_file_deps_allowlist: Dict[str, List[str]] = {}
     cachito_request_file_logs_dir: Optional[str] = None
     cachito_request_file_logs_format = (
@@ -136,15 +135,6 @@ class DevelopmentConfig(Config):
     cachito_nexus_url = "http://nexus:8081"
     cachito_npm_file_deps_allowlist = {"cachito-npm-test": ["subpackage"]}
     cachito_yarn_file_deps_allowlist = {"cachito-yarn-test": ["subpackage"]}
-    cachito_gomod_file_deps_allowlist = {
-        "github.com/cachito-testing/cachito-gomod-local-deps": ["github.com/cachito-testing/*"],
-        "github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module": [
-            "github.com/cachito-testing/*"
-        ],
-        "github.com/cachito-testing/cachito-gomod-local-parent-deps/foo-module/bar-module": [
-            "github.com/cachito-testing/*"
-        ],
-    }
     cachito_rubygems_file_deps_allowlist = {
         "cachito-rubygems-with-dependencies": ["pathgem"],
         "cachito-rubygems-multiple/first_pkg": ["pathgem"],
