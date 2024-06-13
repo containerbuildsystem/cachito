@@ -73,13 +73,13 @@ RETRODEP_POST_REPLACE = "github.com/cachito-testing/retrodep/v2"
 @mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("cachito.workers.pkg_managers.gomod._merge_bundle_dirs")
-@mock.patch("cachito.workers.pkg_managers.gomod._vet_local_deps")
+@mock.patch("cachito.workers.pkg_managers.gomod._vet_local_file_dep_paths")
 @mock.patch("cachito.workers.pkg_managers.gomod._set_full_local_dep_relpaths")
 @mock.patch("subprocess.run")
 def test_resolve_gomod(
     mock_run: mock.Mock,
     mock_set_full_relpaths: mock.Mock,
-    mock_vet_local_deps: mock.Mock,
+    mock_vet_local_file_dep_paths: mock.Mock,
     mock_merge_tree: mock.Mock,
     mock_temp_dir: mock.Mock,
     mock_golang_version: mock.Mock,
@@ -182,16 +182,14 @@ def test_resolve_gomod(
         str(RequestBundleDir(request["id"]).gomod_download_dir),
     )
 
-    expect_module_name = expect_gomod["module"]["name"]
     expect_module_deps = expect_gomod["module_deps"]
     expect_pkg_deps = expect_gomod["packages"][0]["pkg_deps"]
 
-    mock_vet_local_deps.assert_has_calls(
+    mock_vet_local_file_dep_paths.assert_has_calls(
         [
-            mock.call(expect_module_deps, expect_module_name, module_dir, module_dir),
+            mock.call(expect_module_deps, module_dir, module_dir),
             mock.call(
                 expect_pkg_deps,
-                expect_module_name,
                 module_dir,
                 module_dir,
             ),
@@ -687,26 +685,17 @@ def test_merge_files(file_1_content, file_2_content, result_file_content):
         assert_directories_equal(dir_2, dir_3)
 
 
-@mock.patch("cachito.workers.pkg_managers.gomod._validate_local_dependency_path")
-def test_vet_local_deps(mock_validate_dep_path):
+def test_vet_local_file_dep_paths():
     dependencies = [
-        {"name": "foo", "version": "./local/foo"},
-        {"name": "bar", "version": "v1.0.0"},
-        {"name": "baz", "version": "./local/baz"},
+        {"name": "stdlib-dep", "version": None},
+        {"name": "versioned-dep", "version": "v1.0.0"},
+        {"name": "local-file-dep", "version": "./local/foo"},
+        {"name": "local-file-dep-parent-dir", "version": "../local/bar"},
     ]
-    module_name = "some-module"
     app_dir = Path("/repo/some-module")
     git_dir = Path("/repo")
-    mock_validate_dep_path.return_value = None
 
-    gomod._vet_local_deps(dependencies, module_name, app_dir, git_dir)
-
-    mock_validate_dep_path.assert_has_calls(
-        [
-            mock.call(app_dir, git_dir, "./local/foo"),
-            mock.call(app_dir, git_dir, "./local/baz"),
-        ],
-    )
+    gomod._vet_local_file_dep_paths(dependencies, app_dir, git_dir)
 
 
 @pytest.mark.parametrize(
@@ -717,7 +706,7 @@ def test_vet_local_deps(mock_validate_dep_path):
         "C:\\Users\\user\\go\\src\\k8s.io\\kubectl",
     ],
 )
-def test_vet_local_deps_abspath(platform_specific_path):
+def test_vet_local_file_dep_paths_abspath(platform_specific_path):
     dependencies = [{"name": "foo", "version": platform_specific_path}]
     app_dir = Path("/some/path")
 
@@ -725,29 +714,21 @@ def test_vet_local_deps_abspath(platform_specific_path):
         f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
     )
     with pytest.raises(UnsupportedFeature, match=expect_error):
-        gomod._vet_local_deps(dependencies, "some-module", app_dir, app_dir)
+        gomod._vet_local_file_dep_paths(dependencies, app_dir, app_dir)
 
 
-@pytest.mark.parametrize(
-    "app_dir, git_dir, dep_path, expect_error",
-    [
-        ("foo", "foo", "./..", True),
-        ("foo/bar", "foo", "./..", False),
-        ("foo/bar", "foo", "./../..", True),
-    ],
-)
-def test_validate_local_dependency_path(
-    tmp_path: Path, app_dir: str, git_dir: str, dep_path: str, expect_error: bool
-):
-    tmp_git_dir = tmp_path / git_dir
-    tmp_app_dir = tmp_path / app_dir
-    tmp_app_dir.mkdir(parents=True, exist_ok=True)
+def test_vet_local_file_dep_paths_outside_repo():
+    dependencies = [
+        {"name": "local-file-dep", "version": "../../local/foo"},
+    ]
+    app_dir = Path("/repo/some-module")
+    git_dir = Path("/repo")
 
-    if expect_error:
-        with pytest.raises(ValidationError):
-            gomod._validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
-    else:
-        gomod._validate_local_dependency_path(tmp_app_dir, tmp_git_dir, dep_path)
+    expect_error = re.escape(
+        f"The local file dependency path {dependencies[0]['version']} is outside the repository"
+    )
+    with pytest.raises(ValidationError, match=expect_error):
+        gomod._vet_local_file_dep_paths(dependencies, app_dir, git_dir)
 
 
 @pytest.mark.parametrize(

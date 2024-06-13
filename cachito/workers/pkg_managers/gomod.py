@@ -459,10 +459,10 @@ def resolve_gomod(
             }
             main_packages.append({"pkg": main_pkg, "pkg_deps": pkg_deps})
 
-        _vet_local_deps(main_module_deps, main_module_name, app_source_path, git_dir_path)
+        _vet_local_file_dep_paths(main_module_deps, app_source_path, git_dir_path)
         for package in main_packages:
             # Local dependencies are always relative to the main module, even for subpackages
-            _vet_local_deps(package["pkg_deps"], main_module_name, app_source_path, git_dir_path)
+            _vet_local_file_dep_paths(package["pkg_deps"], app_source_path, git_dir_path)
             _set_full_local_dep_relpaths(package["pkg_deps"], main_module_deps)
 
         return {
@@ -641,51 +641,29 @@ def _vendor_changed(git_dir: Path, app_dir: str) -> bool:
     return False
 
 
-def _vet_local_deps(
+def _vet_local_file_dep_paths(
     dependencies: List[dict],
-    module_name: str,
     app_source_path: Path,
     git_dir_path: Path,
 ) -> None:
-    """Fail if any local file dependency path is either absolute or outside the repository."""
+    """Fail if any local file dependency path is either outside the repository or absolute."""
     for dep in dependencies:
-        name = dep["name"]
         version = dep["version"]
 
-        if not version:
-            continue  # go stdlib
+        if not version:  # go stdlib
+            continue
 
         if version.startswith("."):
-            log.debug(
-                "Module %s wants to replace %s with a local dependency: %s",
-                module_name,
-                name,
-                version,
-            )
-            _validate_local_dependency_path(app_source_path, git_dir_path, version)
+            resolved_dep_path = Path(app_source_path, version).resolve()
+            if not resolved_dep_path.is_relative_to(git_dir_path.resolve()):
+                raise ValidationError(
+                    f"The local file dependency path {version} is outside the repository"
+                )
         elif version.startswith("/") or PureWindowsPath(version).root:
             # This will disallow paths starting with '/', '\' or '<drive letter>:\'
             raise UnsupportedFeature(
                 f"Absolute paths to gomod dependencies are not supported: {version}"
             )
-
-
-def _validate_local_dependency_path(
-    app_source_path: Path, git_dir_path: Path, dep_path: str
-) -> None:
-    """
-    Validate that the local dependency path is not outside the repository.
-
-    :param Path app_source_path: the full path to the application source code
-    :param Path git_dir_path: the full path to the git repository
-    :param str dep_path: the relative path for local replacements (the dep version)
-    :raise ValidationError: if the local dependency path is invalid
-    """
-    try:
-        resolved_dep_path = Path(app_source_path, dep_path).resolve()
-        resolved_dep_path.relative_to(git_dir_path.resolve())
-    except ValueError:
-        raise ValidationError(f"The local dependency path {dep_path} is outside the repository")
 
 
 def _set_full_local_dep_relpaths(pkg_deps: List[dict], main_module_deps: List[dict]):
