@@ -8,7 +8,7 @@ import git
 import pytest
 import requests
 
-from cachito.errors import GitError, NexusError, UnsupportedFeature, ValidationError
+from cachito.errors import GitError, NexusError, ValidationError
 from cachito.workers.errors import NexusScriptError, UploadError
 from cachito.workers.pkg_managers import general, rubygems
 from cachito.workers.pkg_managers.rubygems import GemMetadata, parse_gemlock
@@ -535,7 +535,6 @@ class TestDownload:
             mock_shutil_copy.assert_called_once_with(git_archive_path, download_info["path"])
 
     @pytest.mark.parametrize("have_raw_component", [True, False])
-    @pytest.mark.parametrize("path_dep_is_allowed", [True, False])
     @mock.patch("cachito.workers.pkg_managers.rubygems.RequestBundleDir")
     @mock.patch("cachito.workers.pkg_managers.rubygems.get_worker_config")
     @mock.patch("cachito.workers.pkg_managers.rubygems.nexus.get_nexus_hoster_credentials")
@@ -552,7 +551,6 @@ class TestDownload:
         mock_get_nexus_creds,
         mock_get_config,
         mock_request_bundle_dir,
-        path_dep_is_allowed,
         have_raw_component,
         tmp_path,
         caplog,
@@ -605,26 +603,13 @@ class TestDownload:
         mock_rubygems_download.return_value = rubygems_info
         mock_git_download.return_value = git_info
         mock_get_path_info.return_value = path_info
-
-        if path_dep_is_allowed:
-            allowed_path_deps = {path_info["name"]}
-        else:
-            allowed_path_deps = {}
-
         request_id = 1
         # </setup>
 
         # <exercise>
-        if path_dep_is_allowed:
-            downloads = rubygems.download_dependencies(
-                request_id, dependencies, mock_bundle_dir.source_root_dir, allowed_path_deps
-            )
-        else:
-            with pytest.raises(UnsupportedFeature):
-                rubygems.download_dependencies(
-                    request_id, dependencies, mock_bundle_dir.source_root_dir, allowed_path_deps
-                )
-            return
+        downloads = rubygems.download_dependencies(
+            request_id, dependencies, mock_bundle_dir.source_root_dir
+        )
         # </exercise>
 
         # <verify>
