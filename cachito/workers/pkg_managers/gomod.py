@@ -280,7 +280,12 @@ def match_parent_module(package_name: str, module_names: Iterable[str]) -> Optio
 
 
 @tracer.start_as_current_span("resolve_gomod")
-def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=None):
+def resolve_gomod(
+    app_source_path: Path,
+    request: dict[str, Any],
+    dep_replacements: Optional[list[dict[str, str]]] = None,
+    git_dir_path: Optional[Path] = None,
+) -> dict[str, Any]:
     """
     Resolve and fetch gomod dependencies for given app source archive.
 
@@ -455,10 +460,10 @@ def resolve_gomod(app_source_path, request, dep_replacements=None, git_dir_path=
             main_packages.append({"pkg": main_pkg, "pkg_deps": pkg_deps})
 
         _vet_local_deps(main_module_deps, main_module_name, app_source_path, git_dir_path)
-        for pkg in main_packages:
+        for package in main_packages:
             # Local dependencies are always relative to the main module, even for subpackages
-            _vet_local_deps(pkg["pkg_deps"], main_module_name, app_source_path, git_dir_path)
-            _set_full_local_dep_relpaths(pkg["pkg_deps"], main_module_deps)
+            _vet_local_deps(package["pkg_deps"], main_module_name, app_source_path, git_dir_path)
+            _set_full_local_dep_relpaths(package["pkg_deps"], main_module_deps)
 
         return {
             "module": main_module,
@@ -503,7 +508,7 @@ def _get_name_and_version(module: GoModule) -> tuple[str, str]:
     return name, version
 
 
-def _should_vendor_deps(flags: List[str], app_dir: str, strict: bool) -> Tuple[bool, bool]:
+def _should_vendor_deps(flags: List[str], app_dir: Path, strict: bool) -> Tuple[bool, bool]:
     """
     Determine if Cachito should vendor dependencies and if it is allowed to make changes.
 
@@ -517,7 +522,7 @@ def _should_vendor_deps(flags: List[str], app_dir: str, strict: bool) -> Tuple[b
     :return: (should vendor: bool, allowed to make changes in the vendor directory: bool)
     :raise ValidationError: if the vendor dir is present, the flags are not used and we are strict
     """
-    vendor = Path(app_dir) / "vendor"
+    vendor = app_dir / "vendor"
 
     if "gomod-vendor-check" in flags:
         return True, not vendor.exists()
@@ -534,7 +539,7 @@ def _should_vendor_deps(flags: List[str], app_dir: str, strict: bool) -> Tuple[b
 
 
 @tracer.start_as_current_span("_vendor_deps")
-def _vendor_deps(go: Go, run_params: dict, can_make_changes: bool, git_dir: str) -> list[GoModule]:
+def _vendor_deps(go: Go, run_params: dict, can_make_changes: bool, git_dir: Path) -> list[GoModule]:
     """
     Vendor golang dependencies.
 
@@ -609,7 +614,7 @@ def _parse_vendor(module_dir: Union[str, Path]) -> list[GoModule]:
 
 
 @tracer.start_as_current_span("_vendor_changed")
-def _vendor_changed(git_dir: str, app_dir: str) -> bool:
+def _vendor_changed(git_dir: Path, app_dir: str) -> bool:
     """Check for changes in the vendor directory."""
     vendor = Path(app_dir).relative_to(git_dir).joinpath("vendor")
     modules_txt = vendor / "modules.txt"
@@ -640,7 +645,7 @@ def _vet_local_deps(
     dependencies: List[dict],
     module_name: str,
     app_source_path: Path,
-    git_dir_path: str,
+    git_dir_path: Path,
 ) -> None:
     """Fail if any local file dependency path is either absolute or outside the repository."""
     for dep in dependencies:
@@ -666,19 +671,19 @@ def _vet_local_deps(
 
 
 def _validate_local_dependency_path(
-    app_source_path: Path, git_dir_path: str, dep_path: str
+    app_source_path: Path, git_dir_path: Path, dep_path: str
 ) -> None:
     """
     Validate that the local dependency path is not outside the repository.
 
     :param Path app_source_path: the full path to the application source code
-    :param str git_dir_path: the full path to the git repository
+    :param Path git_dir_path: the full path to the git repository
     :param str dep_path: the relative path for local replacements (the dep version)
     :raise ValidationError: if the local dependency path is invalid
     """
     try:
         resolved_dep_path = Path(app_source_path, dep_path).resolve()
-        resolved_dep_path.relative_to(Path(git_dir_path).resolve())
+        resolved_dep_path.relative_to(git_dir_path.resolve())
     except ValueError:
         raise ValidationError(f"The local dependency path {dep_path} is outside the repository")
 

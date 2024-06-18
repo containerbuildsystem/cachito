@@ -122,7 +122,7 @@ def test_resolve_gomod(
     mock_go_release.return_value = "go0.1.0"
     mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
-    module_dir = str(tmp_path / "path/to/module")
+    module_dir = tmp_path / "path/to/module"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848", "flags": []}
     if cgo_disable:
         request["flags"].append("cgo-disable")
@@ -255,7 +255,7 @@ def test_resolve_gomod_vendor_dependencies(
     if force_gomod_tidy:
         request["flags"].append("force-gomod-tidy")
 
-    gomod_ = gomod.resolve_gomod(str(module_dir), request)
+    gomod_ = gomod.resolve_gomod(module_dir, request)
 
     assert mock_run.call_args_list[0][0][0] == ["go", "mod", "vendor"]
     # when vendoring, go list should be called without -mod readonly
@@ -312,7 +312,7 @@ def test_resolve_gomod_strict_mode_raise_error(
         mock.Mock(returncode=0, stdout=""),  # go list -deps -json ./...
     ]
 
-    module_dir = str(tmp_path)
+    module_dir = tmp_path
     tmp_path.joinpath("vendor").mkdir()
 
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
@@ -380,7 +380,7 @@ def test_resolve_gomod_no_deps(
     mock_go_release.return_value = "go1.21.0"
     mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
-    module_dir = str(tmp_path / "/path/to/module")
+    module_dir = tmp_path / "/path/to/module"
 
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
     if force_gomod_tidy:
@@ -430,7 +430,7 @@ def test_go_list_cmd_failure(
     go_mod_rc: int,
     go_list_rc: int,
 ) -> None:
-    module_dir = "/path/to/module"
+    module_dir = Path("/path/to/module")
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
 
     # Mock the tempfile.TemporaryDirectory context manager
@@ -695,8 +695,8 @@ def test_vet_local_deps(mock_validate_dep_path):
         {"name": "baz", "version": "./local/baz"},
     ]
     module_name = "some-module"
-    app_dir = "/repo/some-module"
-    git_dir = "/repo"
+    app_dir = Path("/repo/some-module")
+    git_dir = Path("/repo")
     mock_validate_dep_path.return_value = None
 
     gomod._vet_local_deps(dependencies, module_name, app_dir, git_dir)
@@ -719,7 +719,7 @@ def test_vet_local_deps(mock_validate_dep_path):
 )
 def test_vet_local_deps_abspath(platform_specific_path):
     dependencies = [{"name": "foo", "version": platform_specific_path}]
-    app_dir = "/some/path"
+    app_dir = Path("/some/path")
 
     expect_error = re.escape(
         f"Absolute paths to gomod dependencies are not supported: {platform_specific_path}"
@@ -902,7 +902,7 @@ def test_should_vendor_deps(flags, vendor_exists, expect_result, tmp_path):
     if vendor_exists:
         tmp_path.joinpath("vendor").mkdir()
 
-    assert gomod._should_vendor_deps(flags, str(tmp_path), False) == expect_result
+    assert gomod._should_vendor_deps(flags, tmp_path, False) == expect_result
 
 
 @pytest.mark.parametrize(
@@ -921,9 +921,9 @@ def test_should_vendor_deps_strict(flags, vendor_exists, expect_error, tmp_path)
     if expect_error:
         msg = 'The "gomod-vendor" or "gomod-vendor-check" flag must be set'
         with pytest.raises(ValidationError, match=msg):
-            gomod._should_vendor_deps(flags, str(tmp_path), True)
+            gomod._should_vendor_deps(flags, tmp_path, True)
     else:
-        gomod._should_vendor_deps(flags, str(tmp_path), True)
+        gomod._should_vendor_deps(flags, tmp_path, True)
 
 
 @pytest.mark.parametrize("can_make_changes", [True, False])
