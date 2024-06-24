@@ -6,6 +6,7 @@ import os.path
 import re
 import shutil
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime
 from itertools import chain
 from pathlib import Path, PureWindowsPath
@@ -75,6 +76,7 @@ class GoModule(_GolangModel):
     """
 
     path: str
+    dir: Optional[Path] = None
     version: Optional[str] = None
     main: bool = False
     replace: Optional["GoModule"] = None
@@ -91,6 +93,43 @@ class GoPackage(_GolangModel):
     standard: bool = False
     module: Optional[GoModule]
     deps: list[str] = []
+
+
+@dataclass
+class LocalModules:
+    """The modules present in the current repository being processed by Cachito.
+
+    It contains a main module, which represents the current input package being processed, and all
+    existing worskpaces nested under the nearest directory containing a go.work file (if it exists).
+
+    Note that this class does not account for any local replacements present in the current go.mod
+    or go.work file.
+    """
+
+    main: GoModule
+    workspaces: list[GoModule]
+
+    @staticmethod
+    def from_json_stream(modules_json_stream: str, app_source_path: Path) -> "LocalModules":
+        main_module = None
+        workspaces = []
+
+        for item in load_json_stream(modules_json_stream):
+            module = GoModule.parse_obj(item)
+
+            if module.dir == app_source_path:
+                main_module = module
+            else:
+                workspaces.append(module)
+
+        # should never happen, since the main module will always be a part of the json stream
+        if not main_module:
+            raise RuntimeError('Failed to find the main module info in the "go list -m" output.')
+
+        return LocalModules(main_module, workspaces)
+
+    def all(self) -> list[GoModule]:
+        return [self.main] + self.workspaces
 
 
 class Go:
@@ -380,23 +419,12 @@ def resolve_gomod(
             # Make Go ignore the vendor dir even if there is one
             go_list.extend(["-mod", "readonly"])
 
-        main_module_name = go([*go_list, "-m"], run_params).rstrip()
-        main_module_version = get_golang_version(
-            main_module_name,
-            git_dir_path,
-            request["ref"],
-            update_tags=True,
-            subpath=(
-                None
-                if app_source_path == git_dir_path
-                else str(app_source_path).replace(f"{git_dir_path}/", "")
-            ),
+        local_modules = LocalModules.from_json_stream(
+            go([*go_list, "-m", "-json"], run_params).rstrip(),
+            app_source_path,
         )
-        main_module = {
-            "type": "gomod",
-            "name": main_module_name,
-            "version": main_module_version,
-        }
+
+        _set_local_modules_versions(local_modules, git_dir_path, request)
 
         def go_list_deps(pattern: Literal["./...", "all"]) -> Iterator[GoPackage]:
             """Run go list -deps -json and return the parsed list of packages.
@@ -413,7 +441,7 @@ def resolve_gomod(
             mod for pkg in go_list_deps("all") if (mod := pkg.module) and not mod.main
         )
         main_module_deps = _deduplicate_to_gomod_dicts(
-            chain(package_modules, downloaded_modules), deps_to_replace
+            chain(package_modules, downloaded_modules, local_modules.workspaces), deps_to_replace
         )
 
         log.info("Retrieving the list of packages")
@@ -446,7 +474,7 @@ def resolve_gomod(
                 elif not dep.module or dep.module.main:
                     # Standard=false, Module.Main=true
                     # Standard=false, Module=null   <- probably a to-be-generated package
-                    dep_version = main_module_version
+                    dep_version = local_modules.main.version
                 else:
                     _, dep_version = _get_name_and_version(dep.module)
 
@@ -455,7 +483,7 @@ def resolve_gomod(
             main_pkg = {
                 "type": "go-package",
                 "name": pkg.import_path,
-                "version": main_module_version,
+                "version": local_modules.main.version,
             }
             main_packages.append({"pkg": main_pkg, "pkg_deps": pkg_deps})
 
@@ -465,11 +493,38 @@ def resolve_gomod(
             _vet_local_file_dep_paths(package["pkg_deps"], app_source_path, git_dir_path)
             _set_full_local_dep_relpaths(package["pkg_deps"], main_module_deps)
 
+        main_module_dict = {
+            "type": "gomod",
+            "name": local_modules.main.path,
+            "version": local_modules.main.version,
+        }
+
         return {
-            "module": main_module,
+            "module": main_module_dict,
             "module_deps": main_module_deps,
             "packages": main_packages,
         }
+
+
+def _set_local_modules_versions(
+    local_modules: LocalModules,
+    git_dir_path: Path,
+    request: dict[str, Any],
+) -> None:
+    """Update the local modules with their corresponding versions."""
+    for module in local_modules.all():
+        if module.dir and module.dir != git_dir_path:
+            subpath = str(module.dir.relative_to(git_dir_path))
+        else:
+            subpath = None
+
+        module.version = get_golang_version(
+            module.path,
+            git_dir_path,
+            request["ref"],
+            update_tags=True,
+            subpath=subpath,
+        )
 
 
 def _deduplicate_to_gomod_dicts(
