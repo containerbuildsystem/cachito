@@ -91,6 +91,8 @@ def test_resolve_gomod(
     force_gomod_tidy: bool,
     tmp_path: Path,
 ):
+    module_dir = tmp_path / "path/to/module"
+
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
 
@@ -105,8 +107,13 @@ def test_resolve_gomod(
     if force_gomod_tidy or dep_replacement:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
-        # go list -m
-        mock.Mock(returncode=0, stdout="github.com/cachito-testing/gomod-pandemonium")
+        # go list -m -json
+        mock.Mock(
+            returncode=0,
+            stdout=get_mocked_data("non-vendored/go_list_modules.json").replace(
+                "{repo_dir}", str(module_dir)
+            ),
+        )
     )
     run_side_effects.append(
         # go list -deps -json all
@@ -122,7 +129,6 @@ def test_resolve_gomod(
     mock_go_release.return_value = "go0.1.0"
     mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
-    module_dir = tmp_path / "path/to/module"
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848", "flags": []}
     if cgo_disable:
         request["flags"].append("cgo-disable")
@@ -215,6 +221,8 @@ def test_resolve_gomod_vendor_dependencies(
     force_gomod_tidy: bool,
     tmp_path: Path,
 ) -> None:
+    module_dir = tmp_path / "path/to/module"
+
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
 
@@ -224,8 +232,13 @@ def test_resolve_gomod_vendor_dependencies(
     if force_gomod_tidy:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
     run_side_effects.append(
-        # go list -m
-        mock.Mock(returncode=0, stdout="github.com/cachito-testing/gomod-pandemonium")
+        # go list -m -json
+        mock.Mock(
+            returncode=0,
+            stdout=get_mocked_data("non-vendored/go_list_modules.json").replace(
+                "{repo_dir}", str(module_dir)
+            ),
+        )
     )
     run_side_effects.append(
         # go list -deps -json all
@@ -241,7 +254,6 @@ def test_resolve_gomod_vendor_dependencies(
     mock_go_release.return_value = "go0.1.0"
     mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
 
-    module_dir = tmp_path / "path/to/module"
     module_dir.joinpath("vendor").mkdir(parents=True)
     module_dir.joinpath("vendor/modules.txt").write_text(get_mocked_data("vendored/modules.txt"))
 
@@ -274,6 +286,130 @@ def test_resolve_gomod_vendor_dependencies(
     )
 
 
+@pytest.mark.parametrize(
+    "project_path, stream, expected_modules",
+    (
+        pytest.param(
+            "/home/user/simple-project",
+            dedent(
+                """
+                {
+                    "Path": "github.com/org/simple-project",
+                    "Main": true,
+                    "Dir": "/home/user/simple-project",
+                    "GoMod": "/home/user/simple-project/go.mod",
+                    "GoVersion": "1.19"
+                }
+                """
+            ),
+            gomod.LocalModules(
+                main=gomod.GoModule(
+                    path="github.com/org/simple-project",
+                    dir=Path("/home/user/simple-project"),
+                    main=True,
+                ),
+                workspaces=[],
+            ),
+            id="no_workspaces",
+        ),
+        pytest.param(
+            "/home/user/complex-project",
+            dedent(
+                """
+                {
+                    "Path": "github.com/org/complex-project",
+                    "Main": true,
+                    "Dir": "/home/user/complex-project",
+                    "GoMod": "/home/user/complex-project/go.mod",
+                    "GoVersion": "1.19"
+                }
+                {
+                    "Path": "github.com/org/complex-project/work",
+                    "Main": true,
+                    "Dir": "/home/user/complex-project/work",
+                    "GoMod": "/home/user/complex-project/work/go.mod"
+                }
+                {
+                    "Path": "github.com/org/complex-project/space",
+                    "Main": true,
+                    "Dir": "/home/user/complex-project/space",
+                    "GoMod": "/home/user/complex-project/space/go.mod"
+                }
+                """
+            ),
+            gomod.LocalModules(
+                main=gomod.GoModule(
+                    path="github.com/org/complex-project",
+                    main=True,
+                    dir=Path("/home/user/complex-project"),
+                ),
+                workspaces=[
+                    gomod.GoModule(
+                        path="github.com/org/complex-project/work",
+                        main=True,
+                        dir=Path("/home/user/complex-project/work"),
+                    ),
+                    gomod.GoModule(
+                        path="github.com/org/complex-project/space",
+                        main=True,
+                        dir=Path("/home/user/complex-project/space"),
+                    ),
+                ],
+            ),
+            id="with_workspaces",
+        ),
+    ),
+)
+def test_parse_modules_from_json_stream(
+    project_path: str,
+    stream: str,
+    expected_modules: tuple[gomod.GoModule, list[gomod.GoModule]],
+) -> None:
+    app_dir = Path(project_path)
+    result = gomod.LocalModules.from_json_stream(stream, app_dir)
+
+    assert result == expected_modules
+
+
+@mock.patch("cachito.workers.pkg_managers.gomod.get_golang_version")
+def test_set_local_modules_versions(mock_get_golang_version: mock.Mock) -> None:
+    git_dir_path = Path("/home/user/mymod")
+    request = {"ref": "abc123"}
+    main_module = gomod.GoModule(
+        path="example.com/myorg/mymod",
+        main=True,
+        dir=Path("/home/user/mymod"),
+    )
+    workspace = gomod.GoModule(
+        path="example.com/myorg/mymod/workspace",
+        main=True,
+        dir=Path("/home/user/mymod/workspace"),
+    )
+    local_modules = gomod.LocalModules(main=main_module, workspaces=[workspace])
+
+    mock_get_golang_version.side_effect = ["v1.0.1", "v0.0.1"]
+
+    gomod._set_local_modules_versions(local_modules, git_dir_path, request)
+
+    assert local_modules.main.version == "v1.0.1"
+    assert local_modules.workspaces[0].version == "v0.0.1"
+
+    mock_get_golang_version.assert_has_calls(
+        [
+            mock.call(
+                main_module.path, git_dir_path, request["ref"], update_tags=True, subpath=None
+            ),
+            mock.call(
+                workspace.path,
+                git_dir_path,
+                request["ref"],
+                update_tags=True,
+                subpath="workspace",
+            ),
+        ]
+    )
+
+
 @mock.patch("cachito.workers.pkg_managers.gomod.Go.release", new_callable=mock.PropertyMock)
 @mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
@@ -301,16 +437,24 @@ def test_resolve_gomod_strict_mode_raise_error(
     mock_golang_version.return_value = "v2.1.1"
     mock_go_release.return_value = "go0.1.0"
     mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
+    mock_main_module_json = json.dumps(
+        {
+            "Path": "github.com/cachito-testing/gomod-pandemonium",
+            "Main": True,
+            "Dir": f"{str(tmp_path)}",
+            "GoMod": f"{str(tmp_path)}/go.mod",
+            "GoVersion": "1.19",
+        }
+    )
 
     # Mock the "subprocess.run" calls
     mock_run.side_effect = [
         mock.Mock(returncode=0, stdout=""),  # go mod download
-        mock.Mock(returncode=0, stdout="pizza"),  # go list -m
+        mock.Mock(returncode=0, stdout=mock_main_module_json),  # go list -m -json
         mock.Mock(returncode=0, stdout=""),  # go list -deps -json all
         mock.Mock(returncode=0, stdout=""),  # go list -deps -json ./...
     ]
 
-    module_dir = tmp_path
     tmp_path.joinpath("vendor").mkdir()
 
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
@@ -319,7 +463,7 @@ def test_resolve_gomod_strict_mode_raise_error(
         "vendored dependencies."
     )
     with strict_vendor and pytest.raises(ValidationError, match=expected_error) or nullcontext():
-        gomod.resolve_gomod(module_dir, request)
+        gomod.resolve_gomod(tmp_path, request)
 
 
 @pytest.mark.parametrize("force_gomod_tidy", [False, True])
@@ -352,6 +496,16 @@ def test_resolve_gomod_no_deps(
         }
         """
     )
+    module_dir = tmp_path / "/path/to/module"
+    mock_main_module = json.dumps(
+        {
+            "Path": "github.com/release-engineering/retrodep/v2",
+            "Main": True,
+            "Dir": str(module_dir),
+            "GoMod": f"{str(module_dir)}/go.mod",
+            "GoVersion": "1.21",
+        }
+    )
 
     # Mock the tempfile.TemporaryDirectory context manager
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
@@ -361,9 +515,7 @@ def test_resolve_gomod_no_deps(
     run_side_effects.append(mock.Mock(returncode=0, stdout=""))  # go mod download -json
     if force_gomod_tidy:
         run_side_effects.append(mock.Mock(returncode=0, stdout=None))  # go mod tidy
-    run_side_effects.append(
-        mock.Mock(returncode=0, stdout="github.com/release-engineering/retrodep/v2")  # go list -m
-    )
+    run_side_effects.append(mock.Mock(returncode=0, stdout=mock_main_module))  # go list -m -json
     run_side_effects.append(
         # go list -deps -json all
         mock.Mock(returncode=0, stdout=mock_pkg_deps_no_deps)
@@ -377,8 +529,6 @@ def test_resolve_gomod_no_deps(
     mock_golang_version.return_value = "v1.21.4"
     mock_go_release.return_value = "go1.21.0"
     mock_get_gomod_version.return_value = ("0.1.1", "0.1.2")
-
-    module_dir = tmp_path / "/path/to/module"
 
     request = {"id": 3, "ref": "c50b93a32df1c9d700e3e80996845bc2e13be848"}
     if force_gomod_tidy:
@@ -445,7 +595,7 @@ def test_go_list_cmd_failure(
 
     expect_error = "Go execution failed: "
     if go_mod_rc == 0:
-        expect_error += "`go list -e -mod readonly -m` failed with rc=1"
+        expect_error += "`go list -e -mod readonly -m -json` failed with rc=1"
     else:
         expect_error += "Cachito re-tried running `go mod download -json` command 1 times."
 

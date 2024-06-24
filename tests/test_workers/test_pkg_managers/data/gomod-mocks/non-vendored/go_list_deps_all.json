@@ -6944,6 +6944,7 @@
 		"internal/cpu",
 		"internal/fmtsort",
 		"internal/goarch",
+		"internal/godebug",
 		"internal/goexperiment",
 		"internal/goos",
 		"internal/itoa",
