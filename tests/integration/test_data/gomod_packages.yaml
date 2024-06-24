@@ -6511,3 +6511,838 @@ gomod_1_20_dirty_repo:
   packages:
     gomod: [{ "path": "twenty" }]
   flags: ["include-git-dir"]
+workspaces:
+  repo: https://github.com/cachito-testing/cachi2-gomod
+  ref: 60b7245b3c5be8e7ac451c2261814648e0af9984
+  pkg_managers: ["gomod"]
+  packages:
+    gomod: [{ "path": "workspace_modules/hello" }]
+  response_expectations:
+    packages:
+      - dependencies:
+        - name: errors
+          replaces: null
+          type: go-package
+          version: null
+        - name: fmt
+          replaces: null
+          type: go-package
+          version: null
+        - name: golang.org/x/example/hello/reverse
+          replaces: null
+          type: go-package
+          version: v0.0.0-20231013143937-1d6d2400d402
+        - name: internal/abi
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/bytealg
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/coverage/rtcov
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/cpu
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/fmtsort
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goarch
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goexperiment
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/goos
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/itoa
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/oserror
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/poll
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/race
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/reflectlite
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/safefilepath
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/execenv
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/syscall/unix
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/testlog
+          replaces: null
+          type: go-package
+          version: null
+        - name: internal/unsafeheader
+          replaces: null
+          type: go-package
+          version: null
+        - name: io
+          replaces: null
+          type: go-package
+          version: null
+        - name: io/fs
+          replaces: null
+          type: go-package
+          version: null
+        - name: math
+          replaces: null
+          type: go-package
+          version: null
+        - name: math/bits
+          replaces: null
+          type: go-package
+          version: null
+        - name: os
+          replaces: null
+          type: go-package
+          version: null
+        - name: path
+          replaces: null
+          type: go-package
+          version: null
+        - name: reflect
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/math
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/sys
+          replaces: null
+          type: go-package
+          version: null
+        - name: runtime/internal/syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: sort
+          replaces: null
+          type: go-package
+          version: null
+        - name: strconv
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync
+          replaces: null
+          type: go-package
+          version: null
+        - name: sync/atomic
+          replaces: null
+          type: go-package
+          version: null
+        - name: syscall
+          replaces: null
+          type: go-package
+          version: null
+        - name: time
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode
+          replaces: null
+          type: go-package
+          version: null
+        - name: unicode/utf8
+          replaces: null
+          type: go-package
+          version: null
+        - name: unsafe
+          replaces: null
+          type: go-package
+          version: null
+        name: example.com/hello
+        path: workspace_modules/hello
+        type: go-package
+        version: v0.0.0-20240411104201-60b7245b3c5b
+      - dependencies:
+        - name: example.com/hiii
+          replaces: null
+          type: gomod
+          version: v0.0.0-20240411104201-60b7245b3c5b
+        - name: github.com/davecgh/go-spew
+          replaces: null
+          type: gomod
+          version: v1.1.1
+        - name: github.com/golang-jwt/jwt
+          replaces: null
+          type: gomod
+          version: v3.2.2+incompatible
+        - name: github.com/labstack/echo/v4
+          replaces: null
+          type: gomod
+          version: v4.0.0-20240411104201-60b7245b3c5b
+        - name: github.com/labstack/gommon
+          replaces: null
+          type: gomod
+          version: v0.4.2
+        - name: github.com/mattn/go-colorable
+          replaces: null
+          type: gomod
+          version: v0.1.13
+        - name: github.com/mattn/go-isatty
+          replaces: null
+          type: gomod
+          version: v0.0.20
+        - name: github.com/pmezard/go-difflib
+          replaces: null
+          type: gomod
+          version: v1.0.0
+        - name: github.com/stretchr/objx
+          replaces: null
+          type: gomod
+          version: v0.5.0
+        - name: github.com/stretchr/testify
+          replaces: null
+          type: gomod
+          version: v1.8.4
+        - name: github.com/valyala/bytebufferpool
+          replaces: null
+          type: gomod
+          version: v1.0.0
+        - name: github.com/valyala/fasttemplate
+          replaces: null
+          type: gomod
+          version: v1.2.2
+        - name: golang.org/x/crypto
+          replaces: null
+          type: gomod
+          version: v0.17.0
+        - name: golang.org/x/example/hello
+          replaces: null
+          type: gomod
+          version: v0.0.0-20231013143937-1d6d2400d402
+        - name: golang.org/x/mod
+          replaces: null
+          type: gomod
+          version: v0.8.0
+        - name: golang.org/x/net
+          replaces: null
+          type: gomod
+          version: v0.19.0
+        - name: golang.org/x/sys
+          replaces: null
+          type: gomod
+          version: v0.15.0
+        - name: golang.org/x/term
+          replaces: null
+          type: gomod
+          version: v0.15.0
+        - name: golang.org/x/text
+          replaces: null
+          type: gomod
+          version: v0.14.0
+        - name: golang.org/x/time
+          replaces: null
+          type: gomod
+          version: v0.5.0
+        - name: golang.org/x/tools
+          replaces: null
+          type: gomod
+          version: v0.6.0
+        - name: gopkg.in/check.v1
+          replaces: null
+          type: gomod
+          version: v0.0.0-20161208181325-20d25e280405
+        - name: gopkg.in/yaml.v3
+          replaces: null
+          type: gomod
+          version: v3.0.1
+        name: example.com/hello
+        path: workspace_modules/hello
+        type: gomod
+        version: v0.0.0-20240411104201-60b7245b3c5b
+    dependencies:
+      - name: errors
+        replaces: null
+        type: go-package
+        version: null
+      - name: fmt
+        replaces: null
+        type: go-package
+        version: null
+      - name: golang.org/x/example/hello/reverse
+        replaces: null
+        type: go-package
+        version: v0.0.0-20231013143937-1d6d2400d402
+      - name: internal/abi
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/bytealg
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/coverage/rtcov
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/cpu
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/fmtsort
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goarch
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goexperiment
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/goos
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/itoa
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/oserror
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/poll
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/race
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/reflectlite
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/safefilepath
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/syscall/execenv
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/syscall/unix
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/testlog
+        replaces: null
+        type: go-package
+        version: null
+      - name: internal/unsafeheader
+        replaces: null
+        type: go-package
+        version: null
+      - name: io
+        replaces: null
+        type: go-package
+        version: null
+      - name: io/fs
+        replaces: null
+        type: go-package
+        version: null
+      - name: math
+        replaces: null
+        type: go-package
+        version: null
+      - name: math/bits
+        replaces: null
+        type: go-package
+        version: null
+      - name: os
+        replaces: null
+        type: go-package
+        version: null
+      - name: path
+        replaces: null
+        type: go-package
+        version: null
+      - name: reflect
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/atomic
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/math
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/sys
+        replaces: null
+        type: go-package
+        version: null
+      - name: runtime/internal/syscall
+        replaces: null
+        type: go-package
+        version: null
+      - name: sort
+        replaces: null
+        type: go-package
+        version: null
+      - name: strconv
+        replaces: null
+        type: go-package
+        version: null
+      - name: sync
+        replaces: null
+        type: go-package
+        version: null
+      - name: sync/atomic
+        replaces: null
+        type: go-package
+        version: null
+      - name: syscall
+        replaces: null
+        type: go-package
+        version: null
+      - name: time
+        replaces: null
+        type: go-package
+        version: null
+      - name: unicode
+        replaces: null
+        type: go-package
+        version: null
+      - name: unicode/utf8
+        replaces: null
+        type: go-package
+        version: null
+      - name: unsafe
+        replaces: null
+        type: go-package
+        version: null
+      - name: example.com/hiii
+        replaces: null
+        type: gomod
+        version: v0.0.0-20240411104201-60b7245b3c5b
+      - name: github.com/davecgh/go-spew
+        replaces: null
+        type: gomod
+        version: v1.1.1
+      - name: github.com/golang-jwt/jwt
+        replaces: null
+        type: gomod
+        version: v3.2.2+incompatible
+      - name: github.com/labstack/echo/v4
+        replaces: null
+        type: gomod
+        version: v4.0.0-20240411104201-60b7245b3c5b
+      - name: github.com/labstack/gommon
+        replaces: null
+        type: gomod
+        version: v0.4.2
+      - name: github.com/mattn/go-colorable
+        replaces: null
+        type: gomod
+        version: v0.1.13
+      - name: github.com/mattn/go-isatty
+        replaces: null
+        type: gomod
+        version: v0.0.20
+      - name: github.com/pmezard/go-difflib
+        replaces: null
+        type: gomod
+        version: v1.0.0
+      - name: github.com/stretchr/objx
+        replaces: null
+        type: gomod
+        version: v0.5.0
+      - name: github.com/stretchr/testify
+        replaces: null
+        type: gomod
+        version: v1.8.4
+      - name: github.com/valyala/bytebufferpool
+        replaces: null
+        type: gomod
+        version: v1.0.0
+      - name: github.com/valyala/fasttemplate
+        replaces: null
+        type: gomod
+        version: v1.2.2
+      - name: golang.org/x/crypto
+        replaces: null
+        type: gomod
+        version: v0.17.0
+      - name: golang.org/x/example/hello
+        replaces: null
+        type: gomod
+        version: v0.0.0-20231013143937-1d6d2400d402
+      - name: golang.org/x/mod
+        replaces: null
+        type: gomod
+        version: v0.8.0
+      - name: golang.org/x/net
+        replaces: null
+        type: gomod
+        version: v0.19.0
+      - name: golang.org/x/sys
+        replaces: null
+        type: gomod
+        version: v0.15.0
+      - name: golang.org/x/term
+        replaces: null
+        type: gomod
+        version: v0.15.0
+      - name: golang.org/x/text
+        replaces: null
+        type: gomod
+        version: v0.14.0
+      - name: golang.org/x/time
+        replaces: null
+        type: gomod
+        version: v0.5.0
+      - name: golang.org/x/tools
+        replaces: null
+        type: gomod
+        version: v0.6.0
+      - name: gopkg.in/check.v1
+        replaces: null
+        type: gomod
+        version: v0.0.0-20161208181325-20d25e280405
+      - name: gopkg.in/yaml.v3
+        replaces: null
+        type: gomod
+        version: v3.0.1
+  expected_files:
+    app: https://github.com/cachito-testing/cachi2-gomod/tarball/60b7245b3c5be8e7ac451c2261814648e0af9984
+    deps/gomod/pkg/mod/cache/download: https://github.com/cachito-testing/test_files/raw/master/test_gomod_workspaces.tar.gz
+  content_manifest:
+  - purl: pkg:golang/example.com%2Fhello@v0.0.0-20240411104201-60b7245b3c5b
+    dep_purls:
+      - pkg:golang/errors
+      - pkg:golang/fmt
+      - pkg:golang/golang.org%2Fx%2Fexample%2Fhello%2Freverse@v0.0.0-20231013143937-1d6d2400d402
+      - pkg:golang/internal%2Fabi
+      - pkg:golang/internal%2Fbytealg
+      - pkg:golang/internal%2Fcoverage%2Frtcov
+      - pkg:golang/internal%2Fcpu
+      - pkg:golang/internal%2Ffmtsort
+      - pkg:golang/internal%2Fgoarch
+      - pkg:golang/internal%2Fgoexperiment
+      - pkg:golang/internal%2Fgoos
+      - pkg:golang/internal%2Fitoa
+      - pkg:golang/internal%2Foserror
+      - pkg:golang/internal%2Fpoll
+      - pkg:golang/internal%2Frace
+      - pkg:golang/internal%2Freflectlite
+      - pkg:golang/internal%2Fsafefilepath
+      - pkg:golang/internal%2Fsyscall%2Fexecenv
+      - pkg:golang/internal%2Fsyscall%2Funix
+      - pkg:golang/internal%2Ftestlog
+      - pkg:golang/internal%2Funsafeheader
+      - pkg:golang/io
+      - pkg:golang/io%2Ffs
+      - pkg:golang/math
+      - pkg:golang/math%2Fbits
+      - pkg:golang/os
+      - pkg:golang/path
+      - pkg:golang/reflect
+      - pkg:golang/runtime
+      - pkg:golang/runtime%2Finternal%2Fatomic
+      - pkg:golang/runtime%2Finternal%2Fmath
+      - pkg:golang/runtime%2Finternal%2Fsys
+      - pkg:golang/runtime%2Finternal%2Fsyscall
+      - pkg:golang/sort
+      - pkg:golang/strconv
+      - pkg:golang/sync
+      - pkg:golang/sync%2Fatomic
+      - pkg:golang/syscall
+      - pkg:golang/time
+      - pkg:golang/unicode
+      - pkg:golang/unicode%2Futf8
+      - pkg:golang/unsafe
+    source_purls:
+      - pkg:golang/example.com%2Fhiii@v0.0.0-20240411104201-60b7245b3c5b
+      - pkg:golang/github.com%2Fdavecgh%2Fgo-spew@v1.1.1
+      - pkg:golang/github.com%2Fgolang-jwt%2Fjwt@v3.2.2+incompatible
+      - pkg:golang/github.com%2Flabstack%2Fecho%2Fv4@v4.0.0-20240411104201-60b7245b3c5b
+      - pkg:golang/github.com%2Flabstack%2Fgommon@v0.4.2
+      - pkg:golang/github.com%2Fmattn%2Fgo-colorable@v0.1.13
+      - pkg:golang/github.com%2Fmattn%2Fgo-isatty@v0.0.20
+      - pkg:golang/github.com%2Fpmezard%2Fgo-difflib@v1.0.0
+      - pkg:golang/github.com%2Fstretchr%2Fobjx@v0.5.0
+      - pkg:golang/github.com%2Fstretchr%2Ftestify@v1.8.4
+      - pkg:golang/github.com%2Fvalyala%2Fbytebufferpool@v1.0.0
+      - pkg:golang/github.com%2Fvalyala%2Ffasttemplate@v1.2.2
+      - pkg:golang/golang.org%2Fx%2Fcrypto@v0.17.0
+      - pkg:golang/golang.org%2Fx%2Fexample%2Fhello@v0.0.0-20231013143937-1d6d2400d402
+      - pkg:golang/golang.org%2Fx%2Fmod@v0.8.0
+      - pkg:golang/golang.org%2Fx%2Fnet@v0.19.0
+      - pkg:golang/golang.org%2Fx%2Fsys@v0.15.0
+      - pkg:golang/golang.org%2Fx%2Fterm@v0.15.0
+      - pkg:golang/golang.org%2Fx%2Ftext@v0.14.0
+      - pkg:golang/golang.org%2Fx%2Ftime@v0.5.0
+      - pkg:golang/golang.org%2Fx%2Ftools@v0.6.0
+      - pkg:golang/gopkg.in%2Fcheck.v1@v0.0.0-20161208181325-20d25e280405
+      - pkg:golang/gopkg.in%2Fyaml.v3@v3.0.1
+  sbom:
+  - name: errors
+    purl: pkg:golang/errors
+    type: library
+  - name: example.com/hello
+    purl: pkg:golang/example.com%2Fhello@v0.0.0-20240411104201-60b7245b3c5b
+    type: library
+    version: v0.0.0-20240411104201-60b7245b3c5b
+  - name: example.com/hiii
+    purl: pkg:golang/example.com%2Fhiii@v0.0.0-20240411104201-60b7245b3c5b
+    type: library
+    version: v0.0.0-20240411104201-60b7245b3c5b
+  - name: fmt
+    purl: pkg:golang/fmt
+    type: library
+  - name: github.com/davecgh/go-spew
+    purl: pkg:golang/github.com%2Fdavecgh%2Fgo-spew@v1.1.1
+    type: library
+    version: v1.1.1
+  - name: github.com/golang-jwt/jwt
+    purl: pkg:golang/github.com%2Fgolang-jwt%2Fjwt@v3.2.2+incompatible
+    type: library
+    version: v3.2.2+incompatible
+  - name: github.com/labstack/echo/v4
+    purl: pkg:golang/github.com%2Flabstack%2Fecho%2Fv4@v4.0.0-20240411104201-60b7245b3c5b
+    type: library
+    version: v4.0.0-20240411104201-60b7245b3c5b
+  - name: github.com/labstack/gommon
+    purl: pkg:golang/github.com%2Flabstack%2Fgommon@v0.4.2
+    type: library
+    version: v0.4.2
+  - name: github.com/mattn/go-colorable
+    purl: pkg:golang/github.com%2Fmattn%2Fgo-colorable@v0.1.13
+    type: library
+    version: v0.1.13
+  - name: github.com/mattn/go-isatty
+    purl: pkg:golang/github.com%2Fmattn%2Fgo-isatty@v0.0.20
+    type: library
+    version: v0.0.20
+  - name: github.com/pmezard/go-difflib
+    purl: pkg:golang/github.com%2Fpmezard%2Fgo-difflib@v1.0.0
+    type: library
+    version: v1.0.0
+  - name: github.com/stretchr/objx
+    purl: pkg:golang/github.com%2Fstretchr%2Fobjx@v0.5.0
+    type: library
+    version: v0.5.0
+  - name: github.com/stretchr/testify
+    purl: pkg:golang/github.com%2Fstretchr%2Ftestify@v1.8.4
+    type: library
+    version: v1.8.4
+  - name: github.com/valyala/bytebufferpool
+    purl: pkg:golang/github.com%2Fvalyala%2Fbytebufferpool@v1.0.0
+    type: library
+    version: v1.0.0
+  - name: github.com/valyala/fasttemplate
+    purl: pkg:golang/github.com%2Fvalyala%2Ffasttemplate@v1.2.2
+    type: library
+    version: v1.2.2
+  - name: golang.org/x/crypto
+    purl: pkg:golang/golang.org%2Fx%2Fcrypto@v0.17.0
+    type: library
+    version: v0.17.0
+  - name: golang.org/x/example/hello/reverse
+    purl: pkg:golang/golang.org%2Fx%2Fexample%2Fhello%2Freverse@v0.0.0-20231013143937-1d6d2400d402
+    type: library
+    version: v0.0.0-20231013143937-1d6d2400d402
+  - name: golang.org/x/example/hello
+    purl: pkg:golang/golang.org%2Fx%2Fexample%2Fhello@v0.0.0-20231013143937-1d6d2400d402
+    type: library
+    version: v0.0.0-20231013143937-1d6d2400d402
+  - name: golang.org/x/mod
+    purl: pkg:golang/golang.org%2Fx%2Fmod@v0.8.0
+    type: library
+    version: v0.8.0
+  - name: golang.org/x/net
+    purl: pkg:golang/golang.org%2Fx%2Fnet@v0.19.0
+    type: library
+    version: v0.19.0
+  - name: golang.org/x/sys
+    purl: pkg:golang/golang.org%2Fx%2Fsys@v0.15.0
+    type: library
+    version: v0.15.0
+  - name: golang.org/x/term
+    purl: pkg:golang/golang.org%2Fx%2Fterm@v0.15.0
+    type: library
+    version: v0.15.0
+  - name: golang.org/x/text
+    purl: pkg:golang/golang.org%2Fx%2Ftext@v0.14.0
+    type: library
+    version: v0.14.0
+  - name: golang.org/x/time
+    purl: pkg:golang/golang.org%2Fx%2Ftime@v0.5.0
+    type: library
+    version: v0.5.0
+  - name: golang.org/x/tools
+    purl: pkg:golang/golang.org%2Fx%2Ftools@v0.6.0
+    type: library
+    version: v0.6.0
+  - name: gopkg.in/check.v1
+    purl: pkg:golang/gopkg.in%2Fcheck.v1@v0.0.0-20161208181325-20d25e280405
+    type: library
+    version: v0.0.0-20161208181325-20d25e280405
+  - name: gopkg.in/yaml.v3
+    purl: pkg:golang/gopkg.in%2Fyaml.v3@v3.0.1
+    type: library
+    version: v3.0.1
+  - name: internal/abi
+    purl: pkg:golang/internal%2Fabi
+    type: library
+  - name: internal/bytealg
+    purl: pkg:golang/internal%2Fbytealg
+    type: library
+  - name: internal/coverage/rtcov
+    purl: pkg:golang/internal%2Fcoverage%2Frtcov
+    type: library
+  - name: internal/cpu
+    purl: pkg:golang/internal%2Fcpu
+    type: library
+  - name: internal/fmtsort
+    purl: pkg:golang/internal%2Ffmtsort
+    type: library
+  - name: internal/goarch
+    purl: pkg:golang/internal%2Fgoarch
+    type: library
+  - name: internal/goexperiment
+    purl: pkg:golang/internal%2Fgoexperiment
+    type: library
+  - name: internal/goos
+    purl: pkg:golang/internal%2Fgoos
+    type: library
+  - name: internal/itoa
+    purl: pkg:golang/internal%2Fitoa
+    type: library
+  - name: internal/oserror
+    purl: pkg:golang/internal%2Foserror
+    type: library
+  - name: internal/poll
+    purl: pkg:golang/internal%2Fpoll
+    type: library
+  - name: internal/race
+    purl: pkg:golang/internal%2Frace
+    type: library
+  - name: internal/reflectlite
+    purl: pkg:golang/internal%2Freflectlite
+    type: library
+  - name: internal/safefilepath
+    purl: pkg:golang/internal%2Fsafefilepath
+    type: library
+  - name: internal/syscall/execenv
+    purl: pkg:golang/internal%2Fsyscall%2Fexecenv
+    type: library
+  - name: internal/syscall/unix
+    purl: pkg:golang/internal%2Fsyscall%2Funix
+    type: library
+  - name: internal/testlog
+    purl: pkg:golang/internal%2Ftestlog
+    type: library
+  - name: internal/unsafeheader
+    purl: pkg:golang/internal%2Funsafeheader
+    type: library
+  - name: io
+    purl: pkg:golang/io
+    type: library
+  - name: io/fs
+    purl: pkg:golang/io%2Ffs
+    type: library
+  - name: math
+    purl: pkg:golang/math
+    type: library
+  - name: math/bits
+    purl: pkg:golang/math%2Fbits
+    type: library
+  - name: os
+    purl: pkg:golang/os
+    type: library
+  - name: path
+    purl: pkg:golang/path
+    type: library
+  - name: reflect
+    purl: pkg:golang/reflect
+    type: library
+  - name: runtime
+    purl: pkg:golang/runtime
+    type: library
+  - name: runtime/internal/atomic
+    purl: pkg:golang/runtime%2Finternal%2Fatomic
+    type: library
+  - name: runtime/internal/math
+    purl: pkg:golang/runtime%2Finternal%2Fmath
+    type: library
+  - name: runtime/internal/sys
+    purl: pkg:golang/runtime%2Finternal%2Fsys
+    type: library
+  - name: runtime/internal/syscall
+    purl: pkg:golang/runtime%2Finternal%2Fsyscall
+    type: library
+  - name: sort
+    purl: pkg:golang/sort
+    type: library
+  - name: strconv
+    purl: pkg:golang/strconv
+    type: library
+  - name: sync
+    purl: pkg:golang/sync
+    type: library
+  - name: sync/atomic
+    purl: pkg:golang/sync%2Fatomic
+    type: library
+  - name: syscall
+    purl: pkg:golang/syscall
+    type: library
+  - name: time
+    purl: pkg:golang/time
+    type: library
+  - name: unicode
+    purl: pkg:golang/unicode
+    type: library
+  - name: unicode/utf8
+    purl: pkg:golang/unicode%2Futf8
+    type: library
+  - name: unsafe
+    purl: pkg:golang/unsafe
+    type: library
