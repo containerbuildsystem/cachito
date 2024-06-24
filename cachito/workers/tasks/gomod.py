@@ -43,28 +43,6 @@ def _find_missing_gomod_files(bundle_dir, subpaths):
     return invalid_gomod_files
 
 
-def _is_workspace(repo_root: Path, subpath: str):
-    current_path = repo_root / subpath
-
-    while current_path != repo_root:
-        if (current_path / "go.work").exists():
-            log.warning("go.work file found at %s", current_path)
-            return True
-        current_path = current_path.parent
-
-    if (repo_root / "go.work").exists():
-        log.warning("go.work file found at %s", repo_root)
-        return True
-
-    return False
-
-
-def _fail_if_bundle_dir_has_workspaces(bundle_dir: RequestBundleDir, subpaths: list[str]):
-    for subpath in subpaths:
-        if _is_workspace(bundle_dir.source_root_dir, subpath):
-            raise UnsupportedFeature("Go workspaces are not supported by Cachito.")
-
-
 def _fail_if_parent_replacement_not_included(packages_json_data: PackagesData) -> None:
     """
     Fail if any dependency replacement refers to a parent dir that isn't included in this request.
@@ -132,8 +110,6 @@ def fetch_gomod_source(request_id, dep_replacements=None, package_configs=None):
     if not subpaths:
         # Default to the root of the application source
         subpaths = [os.curdir]
-
-    _fail_if_bundle_dir_has_workspaces(bundle_dir, subpaths)
 
     invalid_gomod_files = _find_missing_gomod_files(bundle_dir, subpaths)
     if invalid_gomod_files:

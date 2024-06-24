@@ -8,7 +8,6 @@ from unittest import mock
 import pytest
 
 from cachito.common.packages_data import PackagesData
-from cachito.common.paths import RequestBundleDir
 from cachito.errors import FileAccessError, InvalidRequestData, UnsupportedFeature
 from cachito.workers import tasks
 from cachito.workers.tasks import gomod
@@ -68,7 +67,6 @@ from cachito.workers.tasks import gomod
     ),
 )
 @pytest.mark.parametrize("has_pkg_lvl_deps", (True, False))
-@mock.patch("cachito.workers.tasks.gomod._fail_if_bundle_dir_has_workspaces")
 @mock.patch("cachito.workers.tasks.gomod.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.gomod.update_request_env_vars")
 @mock.patch("cachito.workers.tasks.gomod.set_request_state")
@@ -80,7 +78,6 @@ def test_fetch_gomod_source(
     mock_set_request_state,
     mock_update_request_env_vars,
     mock_bundle_dir,
-    mock_fail_workspaces,
     dep_replacements,
     expect_state_update,
     pkg_config,
@@ -268,7 +265,6 @@ def test_fetch_gomod_source(
         ),
     ),
 )
-@mock.patch("cachito.workers.tasks.gomod._fail_if_bundle_dir_has_workspaces")
 @mock.patch("cachito.workers.tasks.gomod.get_worker_config")
 @mock.patch("cachito.workers.tasks.gomod.RequestBundleDir")
 @mock.patch("cachito.workers.tasks.gomod.resolve_gomod")
@@ -276,7 +272,6 @@ def test_fetch_gomod_source_no_go_mod_file(
     mock_resolve_gomod,
     mock_bundle_dir,
     mock_gwc,
-    mock_fail_workspaces,
     ignore_missing_gomod_file,
     exception_expected,
     pkg_config,
@@ -306,65 +301,6 @@ def test_fetch_gomod_source_no_go_mod_file(
         tasks.fetch_gomod_source(1)
 
     mock_resolve_gomod.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "module_name, package_name, module_subpath, expect_subpath",
-    [
-        ("github.com/foo", "github.com/foo", ".", "."),
-        ("github.com/foo", "github.com/foo", "bar", "bar"),
-        ("github.com/foo", "github.com/foo/bar", ".", "bar"),
-        ("github.com/foo", "github.com/foo/bar", "src", "src/bar"),
-    ],
-)
-def test_package_subpath(module_name, package_name, module_subpath, expect_subpath):
-    assert gomod._package_subpath(module_name, package_name, module_subpath) == expect_subpath
-
-
-@pytest.mark.parametrize(
-    "repo, subpath, expected_result",
-    [
-        ("repo", "workspace", True),
-        ("repo", "workspace/mod_a", True),
-        ("repo", "workspace/mod_b", True),
-        ("repo", "nonworspace", False),
-        ("repo", "nonworspace/mod_c", False),
-        ("repo", "randompath", False),
-        ("anotherrepo", ".", True),
-    ],
-)
-def test_is_workspace(repo, subpath, expected_result, tmpdir):
-    tmpdir.mkdir("repo")
-    tmpdir.mkdir("repo/workspace")
-    tmpdir.mkdir("repo/workspace/mod_a")
-    tmpdir.mkdir("repo/workspace/mod_b")
-    tmpdir.mkdir("repo/nonworspace")
-    tmpdir.mkdir("repo/nonworspace/mod_c")
-    tmpdir.mkdir("anotherrepo")
-
-    Path(tmpdir / "repo/workspace" / "go.work").touch()
-    Path(tmpdir / "anotherrepo" / "go.work").touch()
-
-    repo_root = Path(tmpdir / repo)
-    result = gomod._is_workspace(repo_root, subpath)
-
-    assert result == expected_result
-
-
-@pytest.mark.parametrize("add_go_work_file", [True, False])
-def test_fail_if_bundle_dir_has_workspaces(add_go_work_file, tmpdir):
-    tmpdir.mkdir("temp")
-    tmpdir.mkdir("temp/1")
-    tmpdir.mkdir("temp/1/app")
-
-    bundle_dir = RequestBundleDir(1, tmpdir)
-
-    if add_go_work_file:
-        Path(bundle_dir.source_root_dir / "go.work").touch()
-        with pytest.raises(UnsupportedFeature):
-            gomod._fail_if_bundle_dir_has_workspaces(bundle_dir, ["."])
-    else:
-        gomod._fail_if_bundle_dir_has_workspaces(bundle_dir, ["."])
 
 
 @pytest.mark.parametrize(
