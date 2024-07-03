@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from gemlock_parser.gemfile_lock import GemfileLockParser
+from gemlock_parser.gemfile_lock import Gem, GemfileLockParser
 from git import Repo
 from git.exc import CheckoutError
 from opentelemetry import trace
@@ -68,10 +68,10 @@ def prepare_nexus_for_rubygems_request(rubygems_repo_name):
         raise NexusError("Failed to prepare Nexus for Cachito to stage Rubygems content")
 
 
-def parse_gemlock(source_dir, gemlock_path):
+def parse_gemlock(source_root_path: Path, gemlock_path: Path):
     """Parse dependencies from Gemfile.lock.
 
-    :param Path source_dir: the full path to the project directory
+    :param Path source_root_path: the full path to the root of the request repo
     :param Path gemlock_path: the full path to Gemfile.lock
     :return: list[GemMetadata]
     """
@@ -91,7 +91,7 @@ def parse_gemlock(source_dir, gemlock_path):
                 f"This means gem is not used in a platform for which Gemfile.lock was generated."
             )
             continue
-        _validate_gem_metadata(gem, source_dir, gemlock_path.parent)
+        _validate_gem_metadata(gem, source_root_path, gemlock_path.parent)
         source = gem.remote if gem.type != "PATH" else gem.path
         dependencies.append(GemMetadata(gem.name, gem.version, gem.type, source, gem.branch))
 
@@ -108,13 +108,13 @@ def _validate_gemlock_platforms(gemlock_path):
         raise ValidationError(msg)
 
 
-def _validate_gem_metadata(gem, source_dir, gemlock_dir):
+def _validate_gem_metadata(gem: Gem, source_root_path: Path, gemlock_dir: Path):
     """Validate parsed Gem.
 
     While individual gems may contain platform information, this function doesn't check it,
     because it expects the Gemfile.lock to be ruby platform specific.
     :param Gem gem: gem with information parsed from Gemfile.lock
-    :param Path source_dir: the full path to the project root
+    :param Path source_root_path: the full path to the root of the request repo
     :param Path gemlock_dir: the root directory containing Gemfile.lock
     :raise: ValidationError
     """
@@ -133,22 +133,22 @@ def _validate_gem_metadata(gem, source_dir, gemlock_dir):
             )
             raise ValidationError(msg)
     elif gem.type == "PATH":
-        _validate_path_dependency_dir(gem, source_dir, gemlock_dir)
+        _validate_path_dependency_dir(gem, source_root_path, gemlock_dir)
     else:
         raise ValidationError("Gemfile.lock contains unsupported dependency type.")
 
 
-def _validate_path_dependency_dir(gem, project_root, gemlock_dir):
+def _validate_path_dependency_dir(gem: Gem, source_root_path: Path, gemlock_dir: Path):
     """Validate path of PATH dependency.
 
-    :param gem: validated gem
-    :param project_root: project root directory
-    :param gemlock_dir: absolute path to Gemfile.lock parent directory
+    :param Gem gem: validated gem
+    :param Path source_root_path: the full path to the root of the request repo
+    :param Path gemlock_dir: absolute path to Gemfile.lock parent directory
     """
     dependency_dir = gemlock_dir / Path(gem.path)
     try:
         dependency_dir = dependency_dir.resolve(strict=True)
-        dependency_dir.relative_to(project_root.resolve())
+        dependency_dir.relative_to(source_root_path.resolve())
     except FileNotFoundError:
         raise ValidationError(
             f"PATH dependency {str(gem.name)} references a non-existing path: "
@@ -160,7 +160,7 @@ def _validate_path_dependency_dir(gem, project_root, gemlock_dir):
             f"{str(dependency_dir)}."
         )
     except ValueError:
-        raise ValidationError(f"{str(dependency_dir)} is not a subpath of {str(project_root)}")
+        raise ValidationError(f"{str(dependency_dir)} is not a subpath of {str(source_root_path)}")
 
 
 @tracer.start_as_current_span("finalize_nexus_for_rubygems_request")
@@ -354,11 +354,11 @@ def _get_path_package_info(dep, package_root):
     :param package_root: path to the root of the processed package
     :return: dict with name and version containing relative path to the package root directory
     """
-    path = Path(package_root / dep.source).resolve().relative_to(package_root)
+    path = os.path.relpath(Path(package_root / dep.source).resolve(), package_root)
 
     return {
         "name": dep.name,
-        "version": "./" + str(path),
+        "version": path if path.startswith(".") else f"./{path}",
     }
 
 
@@ -380,7 +380,7 @@ def resolve_rubygems(package_root, request):
     main_package_name, main_package_version = _get_metadata(package_root, request)
 
     gemlock_path = package_root / GEMFILE_LOCK
-    dependencies = parse_gemlock(package_root, gemlock_path)
+    dependencies = parse_gemlock(bundle_dir.source_root_dir, gemlock_path)
 
     dependencies = download_dependencies(request["id"], dependencies, package_root)
 

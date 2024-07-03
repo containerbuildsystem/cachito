@@ -168,35 +168,80 @@ class TestGemlockParsing:
         )
         assert expected_msg == str(exc_info.value)
 
-    def test_parsing_of_valid_path_dependency(self, tmpdir):
-        gemlock_contents = dedent(
-            """
-            PATH
-              remote: local/zeitwerk
-              specs:
-                zeitwerk (2.6.0)
+    @pytest.mark.parametrize(
+        "gemlock_rel_path, path_dep_rel_path, gemlock_contents, expected_deps",
+        (
+            pytest.param(
+                Path("Gemfile.lock"),
+                Path("local", "zeitwerk"),
+                dedent(
+                    """
+                    PATH
+                      remote: local/zeitwerk
+                      specs:
+                        zeitwerk (2.6.0)
 
-            GEM
-              remote: https://rubygems.org/
-              specs:
+                    GEM
+                      remote: https://rubygems.org/
+                      specs:
 
-            PLATFORMS
-              ruby
+                    PLATFORMS
+                      ruby
 
-            DEPENDENCIES
-              zeitwerk!
-            """
-        )
-        expected_dependencies = [GemMetadata("zeitwerk", "2.6.0", "PATH", "local/zeitwerk")]
+                    DEPENDENCIES
+                      zeitwerk!
+                    """
+                ),
+                [GemMetadata("zeitwerk", "2.6.0", "PATH", "local/zeitwerk")],
+                id="path_dep_in_project_directory",
+            ),
+            pytest.param(
+                Path("package", "Gemfile.lock"),
+                Path("local", "zeitwerk"),
+                dedent(
+                    """
+                    PATH
+                      remote: ../local/zeitwerk
+                      specs:
+                        zeitwerk (2.6.0)
 
-        gemfile_lock = tmpdir.join("Gemfile.lock")
-        gemfile_lock.write(gemlock_contents)
-        tmpdir.mkdir("local").mkdir("zeitwerk")
+                    GEM
+                      remote: https://rubygems.org/
+                      specs:
 
-        dependencies = parse_gemlock(Path(gemfile_lock).parent, Path(gemfile_lock))
+                    PLATFORMS
+                      ruby
 
-        assert len(dependencies) == len(expected_dependencies)
-        for dep, expected_dep in zip(dependencies, expected_dependencies):
+                    DEPENDENCIES
+                      zeitwerk!
+                    """
+                ),
+                [GemMetadata("zeitwerk", "2.6.0", "PATH", "../local/zeitwerk")],
+                id="path_dep_in_parent_directory",
+            ),
+        ),
+    )
+    def test_parsing_of_valid_path_dependency(
+        self,
+        gemlock_rel_path: Path,
+        path_dep_rel_path: Path,
+        gemlock_contents: str,
+        expected_deps: list[GemMetadata],
+        tmp_path: Path,
+    ):
+        gemlock_path = tmp_path / gemlock_rel_path
+        gemlock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(gemlock_path, "w") as f:
+            f.write(gemlock_contents)
+
+        path_dep_path = tmp_path / path_dep_rel_path
+        path_dep_path.mkdir(parents=True, exist_ok=True)
+
+        dependencies = parse_gemlock(tmp_path, gemlock_path)
+
+        assert len(dependencies) == len(expected_deps)
+        for dep, expected_dep in zip(dependencies, expected_deps):
             assert expected_dep == dep
 
     @pytest.mark.parametrize(
