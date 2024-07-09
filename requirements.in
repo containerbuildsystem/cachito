@@ -25,4 +25,4 @@ opentelemetry-instrumentation-requests
 opentelemetry-instrumentation-sqlalchemy
 opentelemetry-exporter-jaeger
 opentelemetry-exporter-otlp-proto-http
-typer
+typer-slim
