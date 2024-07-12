@@ -211,7 +211,9 @@ def test_resolve_gomod(
 @mock.patch("cachito.workers.pkg_managers.gomod.GoCacheTemporaryDirectory")
 @mock.patch("subprocess.run")
 @mock.patch("cachito.workers.pkg_managers.gomod.RequestBundleDir")
+@mock.patch("cachito.workers.pkg_managers.gomod._vet_workspace_vendoring")
 def test_resolve_gomod_vendor_dependencies(
+    mock_vet_workspace_vendoring: mock.Mock,
     mock_bundle_dir: mock.Mock,
     mock_run: mock.Mock,
     mock_temp_dir: mock.Mock,
@@ -879,6 +881,43 @@ def test_vet_local_file_dep_paths_outside_repo():
     )
     with pytest.raises(ValidationError, match=expect_error):
         gomod._vet_local_file_dep_paths(dependencies, app_dir, git_dir)
+
+
+@pytest.mark.parametrize(
+    "go_work_env",
+    [
+        pytest.param("go.work", id="go_work_set"),
+        pytest.param("off", id="go_work_off"),
+        pytest.param("", id="go_work_empty"),
+    ],
+)
+def test_vet_workspace_vendoring(
+    go_work_env: str,
+    tmp_path: Path,
+):
+    go = mock.Mock()
+
+    # workspaces are enabled, no vendoring exists
+    if go_work_env == "go.work":
+        go.return_value = str(tmp_path / "go.work")
+
+    # workspaces are not enabled, vendoring exists
+    else:
+        go.return_value = go_work_env
+        (tmp_path / "vendor").mkdir()
+
+    gomod._vet_workspace_vendoring(go, {})
+    go.assert_called_once_with(["env", "GOWORK"], {})
+
+
+def test_vet_workspace_vendoring_fails(tmp_path: Path):
+    go = mock.Mock()
+    go.return_value = str(tmp_path / "go.work")
+    (tmp_path / "vendor").mkdir()
+
+    expect_error = "Workspace vendoring introduced in Go 1.22 is not supported"
+    with pytest.raises(UnsupportedFeature, match=expect_error):
+        gomod._vet_workspace_vendoring(go, {})
 
 
 @pytest.mark.parametrize(
