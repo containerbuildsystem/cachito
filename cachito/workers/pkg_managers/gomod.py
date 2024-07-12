@@ -382,6 +382,7 @@ def resolve_gomod(
             flags, app_source_path, worker_config.cachito_gomod_strict_vendor
         )
         if should_vendor:
+            _vet_workspace_vendoring(go, run_params)
             downloaded_modules = _vendor_deps(go, run_params, can_make_changes, git_dir_path)
         else:
             log.info("Downloading the gomod dependencies")
@@ -504,6 +505,18 @@ def resolve_gomod(
             "module_deps": main_module_deps,
             "packages": main_packages,
         }
+
+
+def _vet_workspace_vendoring(go: Go, run_params: dict[str, Any]) -> None:
+    go_work_file = go(["env", "GOWORK"], run_params).rstrip()
+
+    if not go_work_file or go_work_file == "off":
+        return
+
+    vendor_dir = Path(go_work_file).parent / "vendor"
+
+    if vendor_dir.is_dir():
+        raise UnsupportedFeature("Workspace vendoring introduced in Go 1.22 is not supported")
 
 
 def _set_local_modules_versions(
