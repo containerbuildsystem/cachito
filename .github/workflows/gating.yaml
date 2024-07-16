@@ -112,7 +112,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate OpenAPI definition
-        uses: char0n/swagger-editor-validate@v1.3.2
+        uses: char0n/swagger-editor-validate@v1.4.0
         with:
           definition-file: cachito/web/static/api_v1.yaml
 
