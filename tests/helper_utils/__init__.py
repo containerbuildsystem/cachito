@@ -4,12 +4,13 @@ from pathlib import Path
 from typing import Union
 
 
-def assert_directories_equal(dir_a, dir_b, ignore_files=[]):
+def assert_directories_equal(dir_a, dir_b, ignore_files=()):
     """
     Check recursively directories have equal content.
 
     :param dir_a: first directory to check
     :param dir_b: second directory to check
+    :param ignore_files: a sequence of file names to be ignored in the comparisons
     """
     ignore_files = list(set(filecmp.DEFAULT_IGNORES).union(ignore_files))
     dirs_cmp = filecmp.dircmp(dir_a, dir_b, ignore=ignore_files)

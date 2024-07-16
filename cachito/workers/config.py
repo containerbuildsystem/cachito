@@ -29,9 +29,6 @@ class Config(object):
     cachito_archives_minimum_age_days = 365
     cachito_auth_type: Optional[str] = None
     cachito_default_environment_variables = {
-        "gomod": {
-            "GOSUMDB": {"value": "off", "kind": "literal"},
-        },
         "npm": {
             "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
             "CYPRESS_INSTALL_BINARY": {"value": "0", "kind": "literal"},
@@ -147,7 +144,6 @@ class TestingConfig(DevelopmentConfig):
     cachito_default_environment_variables = {
         "gomod": {
             "GO111MODULE": {"value": "on", "kind": "literal"},
-            "GOSUMDB": {"value": "off", "kind": "literal"},
         },
         "npm": {
             "CHROMEDRIVER_SKIP_DOWNLOAD": {"value": "true", "kind": "literal"},
