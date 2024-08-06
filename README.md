@@ -747,7 +747,7 @@ The table below shows the supported package managers and their support level in 
 
 Tool     | Version |
 ---      |---------|
-Go*      | 1.20.7, 1.21.0  |
+Go*      | 1.20.7, 1.22.0 (no workspace vendoring support)  |
 Npm      | 9.5.0   |
 Node     | 18.16.1 |
 Pip      | 22.3.1  |
