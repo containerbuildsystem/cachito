@@ -1348,8 +1348,8 @@ def test_select_go_toolchain(
 @pytest.mark.parametrize(
     "unsupported_version",
     [
-        pytest.param(("1.23.0", None), id="go_version_higher_than_max"),
-        pytest.param((None, "1.23.0"), id="toolchain_version_higher_than_max"),
+        pytest.param(("99.99.0", None), id="go_version_higher_than_max"),
+        pytest.param((None, "99.99.0"), id="toolchain_version_higher_than_max"),
     ],
 )
 @mock.patch("cachito.workers.pkg_managers.gomod._get_gomod_version")
