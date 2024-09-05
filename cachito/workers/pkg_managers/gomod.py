@@ -365,6 +365,9 @@ def resolve_gomod(
         go = _select_go_toolchain(Path(app_source_path, "go.mod"))
         log.info(f"Using Go release: {go.release}")
 
+        # Explicitly disable toolchain telemetry for go >= 1.23
+        _disable_telemetry(go, run_params)
+
         # Collect all the dependency names that are being replaced to later report which
         # dependencies were replaced
         deps_to_replace = set()
@@ -1135,3 +1138,10 @@ def _select_go_toolchain(go_mod_file: Path) -> Go:
         # projects in the ecosystem adopt 1.21, we need a fallback to an older toolchain version.
         go = Go(release="go1.20")
     return go
+
+
+def _disable_telemetry(go: Go, run_params: dict[str, Any]) -> None:
+    telemetry = go(["env", "GOTELEMETRY"], run_params).rstrip()
+    if telemetry and telemetry != "off":
+        log.debug("Disabling Go telemetry")
+        go(["telemetry", "off"], run_params)
