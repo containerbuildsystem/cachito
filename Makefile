@@ -1,4 +1,4 @@
-CACHITO_COMPOSE_ENGINE ?= docker-compose
+CACHITO_COMPOSE_ENGINE ?= docker compose
 PYTHON_VERSION_VENV ?= python3.11
 TOX_ENVLIST ?= python3.11
 TOX_ARGS ?=
