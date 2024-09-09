@@ -87,13 +87,13 @@ To verify that your code meets these standards, you may run `tox -e black,flake8
 
 ## Quick Start
 
-Run the application locally (requires [docker-compose](https://docs.docker.com/compose/)):
+Run the application locally (requires [docker compose](https://docs.docker.com/compose/)):
 
 ```bash
 make run
 ```
 
-Note: while running Cachito locally requires docker-compose, that does not mean you
+Note: while running Cachito locally requires docker compose, that does not mean you
 have to use Docker! Podman 3.0 or greater can serve as a replacement, see
 https://www.redhat.com/sysadmin/podman-docker-compose.
 
@@ -184,7 +184,7 @@ where `python3.11` is the version of python required based on `tox.ini`.
 ### Run a Containerized Development Environment
 
 You may create and run the containerized development environment with
-[docker-compose](https://docs.docker.com/compose/) with the following command:
+[docker compose (v2)](https://docs.docker.com/compose/) with the following command:
 
 ```bash
 make run-start
@@ -224,7 +224,7 @@ API may stop restarting if there is a syntax error.
 
 #### Rebuilding Images
 
-If you suspect that the images used for [`docker-compose`](#run-a-containerized-development-environment) are out of date, you can
+If you suspect that the images used for [`docker compose`](#run-a-containerized-development-environment) are out of date, you can
 run the containerized development environment while forcing a rebuild of the images with the following
 command:
 
