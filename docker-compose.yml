@@ -1,4 +1,3 @@
-version: '3'
 services:
   db:
     image: docker.io/postgres:9.6
