@@ -546,9 +546,9 @@ importlib-metadata==6.11.0 \
     --hash=sha256:1231cf92d825c9e03cfc4da076a16de6422c863558229ea0b22b675657463443 \
     --hash=sha256:f0afba6205ad8f8947c7d338b5342d5db2afbfd82f9cbef7879a9539cc12eb9b
     # via opentelemetry-api
-kombu==5.4.1 \
-    --hash=sha256:1c05178826dab811f8cab5b0a154d42a7a33d8bcdde9fa3d7b4582e43c3c03db \
-    --hash=sha256:621d365f234e4c089596f3a2510f1ade07026efc28caca426161d8f458786cab
+kombu==5.4.2 \
+    --hash=sha256:14212f5ccf022fc0a70453bb025a1dcc32782a588c49ea866884047d66e14763 \
+    --hash=sha256:eef572dd2fd9fc614b37580e3caeafdd5af46c1eff31e7fba89138cdb406f2cf
     # via
     #   -r requirements.in
     #   celery
@@ -926,7 +926,9 @@ typing-extensions==4.9.0 \
 tzdata==2023.3 \
     --hash=sha256:11ef1e08e54acb0d4f95bdb1be05da659673de4acbd21bf9c69e94cc5e907a3a \
     --hash=sha256:7e65763eef3120314099b6939b5546db7adce1e7d6f2e179e3df563c70511eda
-    # via celery
+    # via
+    #   celery
+    #   kombu
 urllib3==2.2.2 \
     --hash=sha256:a448b2f64d686155468037e1ace9f2d2199776e17f0a46610480d311f73e3472 \
     --hash=sha256:dd505485549a7a552833da5e6063639d0d177c04f23bc3864e41e5dc5f612168
