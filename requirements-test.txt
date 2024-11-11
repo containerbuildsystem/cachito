@@ -331,9 +331,9 @@ opentelemetry-util-http==0.42b0 \
     --hash=sha256:665e7d372837811aa08cbb9102d4da862441d1c9b1795d649ef08386c8a3cbbd \
     --hash=sha256:764069ed2f7e9a98ed1a7a87111f838000484e388e81f467405933be4b0306c6
     # via opentelemetry-instrumentation-requests
-packaging==24.1 \
-    --hash=sha256:026ed72c8ed3fcce5bf8950572258698927fd1dbda10a5e981cdf0ac37f4f002 \
-    --hash=sha256:5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124
+packaging==24.2 \
+    --hash=sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759 \
+    --hash=sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f
     # via
     #   opentelemetry-instrumentation-sqlalchemy
     #   pytest
