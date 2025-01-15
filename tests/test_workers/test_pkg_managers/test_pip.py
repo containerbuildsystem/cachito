@@ -2651,7 +2651,7 @@ class TestDownload:
             mock_requirement, tmp_path, "cachito-pip-raw", ("username", "password")
         )
 
-        raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+        raw_component = f"/eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
 
         assert download_info == {
             "package": "eggs",
@@ -2742,7 +2742,7 @@ class TestDownload:
             set(trusted_hosts),
         )
 
-        raw_component = "foo/foo-external-sha256-abcdef.tar.gz"
+        raw_component = "/foo/foo-external-sha256-abcdef.tar.gz"
 
         assert download_info == {
             "package": "foo",
@@ -3071,7 +3071,7 @@ class TestDownload:
             "package": "eggs",
             "path": vcs_download,
             "repo": "eggs",
-            "raw_component_name": f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz",
+            "raw_component_name": f"/eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz",
             "have_raw_component": have_vcs_raw_component,
             # etc., not important for this test
         }
@@ -3080,7 +3080,7 @@ class TestDownload:
             "original_url": plain_url,
             "url_with_hash": plain_url,
             "path": url_download,
-            "raw_component_name": "bar/bar-external-sha256-654321.tar.gz",
+            "raw_component_name": "/bar/bar-external-sha256-654321.tar.gz",
             "have_raw_component": have_url_raw_component,
         }
 
@@ -3160,7 +3160,7 @@ class TestDownload:
             mock_upload_raw_package.assert_any_call(
                 raw_repo,
                 vcs_download,
-                vcs_info["repo"],
+                vcs_info["raw_component_name"].rsplit("/", 1)[0],
                 vcs_download.name,
                 is_request_repository=False,
             )
@@ -3172,7 +3172,7 @@ class TestDownload:
             mock_upload_raw_package.assert_any_call(
                 raw_repo,
                 url_download,
-                url_info["package"],
+                url_info["raw_component_name"].rsplit("/", 1)[0],
                 url_download.name,
                 is_request_repository=False,
             )
@@ -3395,7 +3395,7 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
     path = "some/path"
     if kind == "vcs":
         version = f"git+https://github.com/spam/eggs@{GIT_REF}"
-        raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+        raw_component = f"/eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
         additional_keys = {
             "url": "https://github.com/spam/eggs",
             "host": "github.com",
@@ -3407,7 +3407,7 @@ def test_push_downloaded_requirement_non_pypi(mock_upload, dev, kind):
         url = "https://example.org/eggs.tar.gz"
         url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
         version = url_with_hash
-        raw_component = "eggs/eggs.tar.gz"
+        raw_component = "/eggs/eggs.tar.gz"
         additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
     else:
         raise Exception("Invalid dependency kind.")
@@ -3444,7 +3444,7 @@ def test_push_downloaded_requirement_non_pypi_duplicated(
     path = "some/path"
     if kind == "vcs":
         version = f"git+https://github.com/spam/eggs@{GIT_REF}"
-        raw_component = f"eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
+        raw_component = f"/eggs/eggs-external-gitcommit-{GIT_REF}.tar.gz"
         additional_keys = {
             "url": "https://github.com/spam/eggs",
             "host": "github.com",
@@ -3456,7 +3456,7 @@ def test_push_downloaded_requirement_non_pypi_duplicated(
         url = "https://example.org/eggs.tar.gz"
         url_with_hash = f"{url}#cachito_hash=sha256:abcdef"
         version = url_with_hash
-        raw_component = "eggs/eggs.tar.gz"
+        raw_component = "/eggs/eggs.tar.gz"
         additional_keys = {"original_url": url, "url_with_hash": url_with_hash}
     else:
         raise Exception("Invalid dependency kind.")
@@ -3596,9 +3596,9 @@ def test_get_raw_component_name(component_kind, url):
     )
     raw_component = pip.get_raw_component_name(requirement)
     if component_kind == "url":
-        assert raw_component == "package/package-external-sha256-noRealHash.tar.gz"
+        assert raw_component == "/package/package-external-sha256-noRealHash.tar.gz"
     elif component_kind == "vcs":
-        assert raw_component == f"mypkg/mypkg-external-gitcommit-{'f'*40}.tar.gz"
+        assert raw_component == f"/mypkg/mypkg-external-gitcommit-{'f'*40}.tar.gz"
     else:
         assert not raw_component
 

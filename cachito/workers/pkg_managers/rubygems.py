@@ -319,7 +319,7 @@ def _download_git_package(gem, rubygems_deps_dir, rubygems_raw_repo_name, nexus_
 
     filename = f"{git_info['repo']}-external-gitcommit-{gem.version}.tar.gz"
     download_path = package_dir / filename
-    raw_component_name = f"{git_info['repo']}/{filename}"
+    raw_component_name = f"/{git_info['repo']}/{filename}"
 
     # Download raw component if we already have it
     have_raw_component = download_raw_component(

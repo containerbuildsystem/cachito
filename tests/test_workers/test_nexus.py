@@ -23,7 +23,7 @@ def components_search_results():
                 "id": "Y2FjaGl0by1qcy1ob3N0ZWQ6MTNiMjllNDQ5ZjBlM2I4ZDM5OTY0ZWQzZTExMGUyZTM",
                 "repository": "cachito-js-hosted",
                 "format": "npm",
-                "group": None,
+                "group": "",
                 "name": "rxjs",
                 "version": "7.0.0-beta.0-external-dfa239d41b97504312fa95e13f4d593d95b49c4b",
                 "assets": [
@@ -366,7 +366,7 @@ def test_get_component_info_from_nexus_no_results(mock_search_components, mock_s
 def test_get_component_info_from_nexus_null_group(mock_search_components):
     mock_search_components.return_value = [
         {"name": "foo", "group": "some", "version": "1.0.0"},
-        {"name": "foo", "group": None, "version": "1.0.0"},
+        {"name": "foo", "group": "", "version": "1.0.0"},
     ]
 
     result = nexus.get_component_info_from_nexus(

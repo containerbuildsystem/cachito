@@ -248,7 +248,7 @@ def get_component_info_from_nexus(
         )
         if group is NULL_GROUP:
             # the Nexus API does not allow to directly search for components without groups
-            components = [c for c in components if c["group"] is None]
+            components = [c for c in components if not c["group"]]
 
         if len(components) > 1:
             log.error(
