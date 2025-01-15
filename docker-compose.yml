@@ -28,7 +28,7 @@ services:
       - 3000:3000
 
   nexus:
-    image: docker.io/sonatype/nexus3:3.45.0
+    image: docker.io/sonatype/nexus3:3.74.0
     environment:
       # Enable the script API. This is disabled by default in 3.21.2+.
       INSTALL4J_ADD_VM_PARAMS: >

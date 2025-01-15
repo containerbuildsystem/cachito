@@ -133,11 +133,11 @@ def test_fetch_pip_source(
         ["foo==1\n", None],
         [
             f"mypkg @ git+https://www.github.com/cachito/mypkg.git@{'f'*40}?egg=mypkg\n",
-            f"mypkg/mypkg-external-gitcommit-{'f'*40}.tar.gz",
+            f"/mypkg/mypkg-external-gitcommit-{'f'*40}.tar.gz",
         ],
         [
             "mypkg @ https://example.com/cachito/mypkg.tar.gz#egg=mypkg&cachito_hash=sha256%3Ax\n",
-            "mypkg/mypkg-external-sha256-x.tar.gz",
+            "/mypkg/mypkg-external-sha256-x.tar.gz",
         ],
     ],
 )

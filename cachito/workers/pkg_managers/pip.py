@@ -2123,13 +2123,13 @@ def get_raw_component_name(requirement):
         orig_url = urllib.parse.urlparse(requirement.url)
         file_ext = next(ext for ext in SDIST_FILE_EXTENSIONS if orig_url.path.endswith(ext))
         filename = f"{package}-external-{algorithm}-{digest}{file_ext}"
-        raw_component_name = f"{package}/{filename}"
+        raw_component_name = f"/{package}/{filename}"
     elif requirement.kind == "vcs":
         git_info = extract_git_info(requirement.url)
         repo_name = git_info["repo"]
         ref = git_info["ref"]
         filename = f"{repo_name}-external-gitcommit-{ref}.tar.gz"
-        raw_component_name = f"{repo_name}/{filename}"
+        raw_component_name = f"/{repo_name}/{filename}"
 
     return raw_component_name
 

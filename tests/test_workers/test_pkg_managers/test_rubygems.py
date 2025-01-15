@@ -547,7 +547,7 @@ class TestDownload:
             dependency, tmp_path, "cachito-rubygems-raw", ("username", "password")
         )
 
-        raw_component = f"json/json-external-gitcommit-{GIT_REF}.tar.gz"
+        raw_component = f"/json/json-external-gitcommit-{GIT_REF}.tar.gz"
 
         url = "https://github.com/org/json.git"
         assert download_info == {
@@ -625,10 +625,10 @@ class TestDownload:
             "path": rubygems_download,
         }
         git_info = {
-            "name": "bar",
+            "name": "/bar",
             "path": git_download,
             "version": f"git+{git_url}@{GIT_REF}",
-            "raw_component_name": f"bar/bar-external-gitcommit-{GIT_REF}.tar.gz",
+            "raw_component_name": f"/bar/bar-external-gitcommit-{GIT_REF}.tar.gz",
             "have_raw_component": have_raw_component,
         }
         path_info = {"name": "baz", "version": "./vendor/active-docs"}
@@ -682,7 +682,11 @@ class TestDownload:
                 f"'{git_info['raw_component_name']}'"
             ) in caplog.text
             mock_upload_raw.assert_any_call(
-                raw_repo, git_download, git_dep.name, git_archive_name, is_request_repository=False
+                raw_repo,
+                git_download,
+                git_info["raw_component_name"].rsplit("/", 1)[0],
+                git_archive_name,
+                is_request_repository=False,
             )
         assert mock_upload_raw.call_count == (0 if have_raw_component else 1)
         # </check calls to raw package upload method>
