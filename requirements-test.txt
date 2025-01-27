@@ -331,9 +331,9 @@ opentelemetry-util-http==0.42b0 \
     --hash=sha256:665e7d372837811aa08cbb9102d4da862441d1c9b1795d649ef08386c8a3cbbd \
     --hash=sha256:764069ed2f7e9a98ed1a7a87111f838000484e388e81f467405933be4b0306c6
     # via opentelemetry-instrumentation-requests
-packaging==24.1 \
-    --hash=sha256:026ed72c8ed3fcce5bf8950572258698927fd1dbda10a5e981cdf0ac37f4f002 \
-    --hash=sha256:5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124
+packaging==24.2 \
+    --hash=sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759 \
+    --hash=sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f
     # via
     #   opentelemetry-instrumentation-sqlalchemy
     #   pytest
@@ -358,16 +358,16 @@ protobuf==4.25.1 \
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
-pytest==8.3.3 \
-    --hash=sha256:70b98107bd648308a7952b06e6ca9a50bc660be218d53c257cc1fc94fda10181 \
-    --hash=sha256:a6853c7375b2663155079443d2e45de913a911a11d669df02a50814944db57b2
+pytest==8.3.4 \
+    --hash=sha256:50e16d954148559c9a74109af1eaf0c945ba2d8f30f0a3d3335edde19788b6f6 \
+    --hash=sha256:965370d062bce11e73868e0335abac31b4d3de0e82f4007408d242b4f8610761
     # via
     #   -r requirements-test.in
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==0.24.0 \
-    --hash=sha256:a811296ed596b69bf0b6f3dc40f83bcaf341b155a269052d82efa2b25ac7037b \
-    --hash=sha256:d081d828e576d85f875399194281e92bf8a68d60d72d1a2faf2feddb6c46b276
+pytest-asyncio==0.25.2 \
+    --hash=sha256:0d0bb693f7b99da304a0634afc0a4b19e49d5e0de2d670f38dc4bfa5727c5075 \
+    --hash=sha256:3f8ef9a98f45948ea91a0ed3dc4268b5326c0e7bce73892acc654df4262ad45f
     # via -r requirements-test.in
 pytest-cov==4.1.0 \
     --hash=sha256:3904b13dfbfec47f003b8e77fd5b589cd11904a21ddf1ab38a64f204d6a10ef6 \
