@@ -140,7 +140,9 @@ async def get_dependencies(
 
     trace_config = aiohttp.TraceConfig()
     trace_config.on_request_start.append(on_request_start)
-    retry_options = JitterRetry(attempts=attempts, retry_all_server_errors=True)
+    retry_options = JitterRetry(
+        attempts=attempts, exceptions={aiohttp.ClientConnectionError}, retry_all_server_errors=True
+    )
     retry_client = RetryClient(retry_options=retry_options, trace_configs=[trace_config])
 
     async with retry_client as session:
