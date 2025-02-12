@@ -10,12 +10,15 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
+import aiohttp
+import aiohttp_retry
 import pytest
 
 from cachito.errors import (
     FileAccessError,
     InvalidFileFormat,
     InvalidRepoStructure,
+    NetworkError,
     NexusError,
     RepositoryAccessError,
     UnsupportedFeature,
@@ -259,6 +262,33 @@ def test_parse_dependency(data):
 
     result = general_js.parse_dependency(proxy_repo_url, data["dep"])
     assert result == (data["p_url"], data["tarball_name"])
+
+
+@pytest.mark.asyncio
+async def test_async_download_binary_file_retries_on_connect_error(tmp_path: Path):
+    with mock.patch(
+        "aiohttp.ClientSession._request", side_effect=aiohttp.ClientConnectionError
+    ) as mock_request:
+
+        # Make two attempts and retry on ClientConnectionError
+        retry_options = aiohttp_retry.JitterRetry(
+            attempts=2,
+            exceptions={aiohttp.ClientConnectionError},
+            retry_all_server_errors=True,
+        )
+        async with aiohttp_retry.RetryClient(retry_options=retry_options) as retry_client:
+
+            # Once the attempts are exhausted, async_download_binary_file raises a NetworkError
+            with pytest.raises(NetworkError):
+                _ = await general.async_download_binary_file(
+                    retry_client,
+                    "https://example.com",
+                    tmp_path,
+                    "foo.tgz",
+                )
+
+            # Verify that we made two attempts to download the file
+            assert mock_request.call_count == 2
 
 
 @mock.patch("cachito.workers.pkg_managers.general_js.async_download_binary_file")
