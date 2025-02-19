@@ -411,9 +411,29 @@ def test_get_component_info_from_nexus_version_vs_raw(raw, version):
         )
 
 
-@pytest.mark.parametrize("hoster", [True, False])
+@pytest.mark.parametrize(
+    "hoster, hoster_is_orient_db, proxy_is_orient_db, treated_name",
+    [
+        pytest.param(True, True, False, "foo/bar/foobar-1.0.tar.gz", id="from_hoster_is_orient_db"),
+        pytest.param(False, False, True, "foo/bar/foobar-1.0.tar.gz", id="from_proxy_is_orient_db"),
+        pytest.param(
+            False, False, False, "/foo/bar/foobar-1.0.tar.gz", id="from_proxy_is_not_orient_db"
+        ),
+        pytest.param(
+            True, False, True, "/foo/bar/foobar-1.0.tar.gz", id="from_hoster_is_not_orient_db"
+        ),
+    ],
+)
 @mock.patch("cachito.workers.nexus.get_component_info_from_nexus")
-def test_get_raw_component_asset_url(mock_get_component_info, hoster):
+@mock.patch("cachito.workers.nexus._get_nexus_orient_db_configuration")
+def test_get_raw_component_asset_url(
+    mock_get_nexus_orient_db_configuration,
+    mock_get_component_info,
+    hoster,
+    hoster_is_orient_db,
+    proxy_is_orient_db,
+    treated_name,
+):
     mock_get_component_info.return_value = {
         # "id": "1234",
         # "repository": "cachito-pip-raw",
@@ -437,15 +457,17 @@ def test_get_raw_component_asset_url(mock_get_component_info, hoster):
         ]
     }
 
+    mock_get_nexus_orient_db_configuration.return_value = (hoster_is_orient_db, proxy_is_orient_db)
+
     url = nexus.get_raw_component_asset_url(
-        "cachito-pip-raw", "foo/bar/foobar-1.0.tar.gz", from_nexus_hoster=hoster
+        "cachito-pip-raw", "/foo/bar/foobar-1.0.tar.gz", from_nexus_hoster=hoster
     )
     assert url == "http://nexus/repository/cachito-pip-raw/foo/bar/foobar-1.0.tar.gz"
 
     mock_get_component_info.assert_called_once_with(
         "cachito-pip-raw",
         "raw",
-        "foo/bar/foobar-1.0.tar.gz",
+        treated_name,
         max_attempts=1,
         from_nexus_hoster=hoster,
     )

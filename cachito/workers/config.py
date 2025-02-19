@@ -50,6 +50,7 @@ class Config(object):
     cachito_nexus_hoster_password: Optional[str] = None
     cachito_nexus_hoster_url: Optional[str] = None
     cachito_nexus_hoster_username: Optional[str] = None
+    cachito_nexus_hoster_is_orient_db = False
     cachito_nexus_js_hosted_repo_name = "cachito-js-hosted"
     cachito_nexus_max_search_attempts = 5
     cachito_nexus_npm_proxy_url = "http://localhost:8081/repository/cachito-js/"
@@ -57,6 +58,7 @@ class Config(object):
     cachito_nexus_rubygems_raw_repo_name = "cachito-rubygems-raw"
     cachito_nexus_proxy_password: Optional[str] = None
     cachito_nexus_proxy_username: Optional[str] = None
+    cachito_nexus_proxy_is_orient_db = False
     cachito_nexus_request_repo_prefix = "cachito-"
     cachito_nexus_timeout = 60
     cachito_nexus_username = "cachito"

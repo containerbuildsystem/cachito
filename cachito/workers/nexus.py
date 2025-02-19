@@ -267,6 +267,30 @@ def get_component_info_from_nexus(
     return None
 
 
+def _get_nexus_orient_db_configuration():
+    config = get_worker_config()
+    return config.cachito_nexus_hoster_is_orient_db, config.cachito_nexus_proxy_is_orient_db
+
+
+def _treat_raw_component_name(name, is_nexus_hoster):
+    """
+    Treats the raw component name based on the use of orientDB by Nexus.
+
+    Starting from v3.71.0, Nexus has dropped the use of orientDB in favor of H2, which forces
+    all raw component names to have a leading slash. This function works as a compatibility layer
+    for orientDB, removing the leading slash.
+    """
+    nexus_hoster_is_orient_db, nexus_proxy_is_orient_db = _get_nexus_orient_db_configuration()
+
+    if is_nexus_hoster and nexus_hoster_is_orient_db:
+        return name[1:]
+
+    if not is_nexus_hoster and nexus_proxy_is_orient_db:
+        return name[1:]
+
+    return name
+
+
 def get_raw_component_asset_url(repository, name, max_attempts=1, from_nexus_hoster=True):
     """
     Get download URL for the asset of a raw component.
@@ -281,8 +305,14 @@ def get_raw_component_asset_url(repository, name, max_attempts=1, from_nexus_hos
         available
     :return: download URL for the asset, or None if component was not found
     """
+    treated_name = _treat_raw_component_name(name, from_nexus_hoster)
+
     component = get_component_info_from_nexus(
-        repository, "raw", name, max_attempts=max_attempts, from_nexus_hoster=from_nexus_hoster
+        repository,
+        "raw",
+        treated_name,
+        max_attempts=max_attempts,
+        from_nexus_hoster=from_nexus_hoster,
     )
     if component is None:
         return None
@@ -291,10 +321,10 @@ def get_raw_component_asset_url(repository, name, max_attempts=1, from_nexus_hos
 
     # Sanity checks, in practice this should not happen
     if not assets:
-        raise RuntimeError(f"Component {name} has no assets")
+        raise RuntimeError(f"Component {treated_name} has no assets")
     if len(assets) > 1:
         log.debug("All assets: %r", assets)
-        raise RuntimeError(f"Component {name} has more than 1 asset")
+        raise RuntimeError(f"Component {treated_name} has more than 1 asset")
 
     return assets[0]["downloadUrl"]
 
