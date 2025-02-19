@@ -424,7 +424,7 @@ def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str) -
         pkg_version = dep_data["version"]
 
         component_info = get_yarn_component_info_from_non_hosted_nexus(
-            pkg_name, pkg_version, proxy_repo_name, max_attempts=5
+            pkg_name, pkg_version, proxy_repo_name, max_attempts=6
         )
         if not component_info:
             raise NexusError(
