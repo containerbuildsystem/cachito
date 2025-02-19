@@ -3,20 +3,20 @@ import json
 import logging
 from collections import deque
 from pathlib import Path
+from string import Template
 from typing import Any, Dict, NamedTuple, Optional
 from urllib.parse import urlparse
 
 import pyarn.lockfile
 from opentelemetry import trace
 
-from cachito.errors import InvalidRepoStructure, InvalidRequestData, NexusError
+from cachito.errors import InvalidRepoStructure, InvalidRequestData
 from cachito.workers.config import get_worker_config
 from cachito.workers.paths import RequestBundleDir
 from cachito.workers.pkg_managers.general_js import (
     JSDependency,
     convert_hex_sha_to_npm,
     download_dependencies,
-    get_yarn_component_info_from_non_hosted_nexus,
     is_from_npm_registry,
     process_non_registry_dependency,
     vet_file_dependency,
@@ -397,6 +397,15 @@ def _get_package_and_deps(package_path: Path) -> dict[str, Any]:
     }
 
 
+def _get_proxy_url_for_package(pkg: pyarn.lockfile.Package, repository_name: str, nexus_url: str):
+    return Template("$nexus_url/repository/$repository/$name/-/$name-$version.tgz").substitute(
+        nexus_url=nexus_url,
+        repository=repository_name,
+        name=pkg.name,
+        version=pkg.version,
+    )
+
+
 def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str) -> bool:
     """
     Set the "resolved" urls for all dependencies, make them point to the proxy repo.
@@ -414,25 +423,16 @@ def _set_proxy_resolved_urls(yarn_lock: Dict[str, dict], proxy_repo_name: str) -
     """
     modified = False
 
+    config = get_worker_config()
+    nexus_url = config.cachito_nexus_url
+
     for dep_identifier, dep_data in yarn_lock.items():
         pkg = pyarn.lockfile.Package.from_dict(dep_identifier, dep_data)
         if not pkg.url:
             # Local dependency, does not have a resolved url (and does not need one)
             continue
 
-        pkg_name = pkg.name
-        pkg_version = dep_data["version"]
-
-        component_info = get_yarn_component_info_from_non_hosted_nexus(
-            pkg_name, pkg_version, proxy_repo_name, max_attempts=5
-        )
-        if not component_info:
-            raise NexusError(
-                f"The dependency {pkg_name}@{pkg_version} was uploaded to the Nexus hosted "
-                f"repository but is not available in {proxy_repo_name}"
-            )
-
-        dep_data["resolved"] = component_info["assets"][0]["downloadUrl"]
+        dep_data["resolved"] = _get_proxy_url_for_package(pkg, proxy_repo_name, nexus_url)
         modified = True
 
     return modified
