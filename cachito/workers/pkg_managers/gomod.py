@@ -356,6 +356,7 @@ def resolve_gomod(
             "PATH": os.environ.get("PATH", ""),
             "GOMODCACHE": "{}/pkg/mod".format(temp_dir),
             "GOTOOLCHAIN": "auto",
+            "GOSUMDB": "sum.golang.org",
         }
         if "cgo-disable" in request.get("flags", []):
             env["CGO_ENABLED"] = "0"
