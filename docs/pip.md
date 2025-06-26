@@ -160,6 +160,11 @@ There are two implications which may not be immediately obvious for build requir
    (recursively)
 2. you need to repeat the above for _all_ your recursive runtime dependencies
 
+> :warning: NOTE that the information that follows on finding build dependencies is deprecated and
+> is only listed for historical records as this project is planned to be sunset and archived in the
+> near future. **Please use [pybuild-deps](https://github.com/hermetoproject/pybuild-deps) and follow
+> the instructions there instead.**
+
 You can use the [pip_find_builddeps.py](../bin/pip_find_builddeps.py) script to find all the build
 dependencies you will need. Here is how you would use it:
 
